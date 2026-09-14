@@ -1,0 +1,177 @@
+{
+  "pages": [
+    {
+      "id": "mobile",
+      "name": "Mobile"
+    },
+    {
+      "id": "desktop",
+      "name": "Desktop"
+    },
+    {
+      "id": "device",
+      "name": "Device screens"
+    },
+    {
+      "id": "system",
+      "name": "How it works"
+    }
+  ],
+  "artboards": [
+    {
+      "file": "Welcome.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "mobile",
+      "title": "Welcome"
+    },
+    {
+      "file": "Main.dc.html",
+      "x": 480,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "mobile",
+      "title": "Home"
+    },
+    {
+      "file": "Send.dc.html",
+      "x": 960,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "mobile",
+      "title": "Send \u00b7 under the limit"
+    },
+    {
+      "file": "SendOnDevice.dc.html",
+      "x": 1440,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "mobile",
+      "title": "Send \u00b7 over the limit"
+    },
+    {
+      "file": "PairDevice.dc.html",
+      "x": 1920,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "mobile",
+      "title": "Pair the device"
+    },
+    {
+      "file": "KeysAndLimits.dc.html",
+      "x": 2400,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "mobile",
+      "title": "Keys & limits"
+    },
+    {
+      "file": "Desktop.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "page": "desktop",
+      "title": "Desktop \u00b7 home + send"
+    },
+    {
+      "file": "DesktopConfirmOnDevice.dc.html",
+      "x": 0,
+      "y": 1040,
+      "w": 1440,
+      "h": 900,
+      "page": "desktop",
+      "title": "Desktop \u00b7 confirm on device"
+    },
+    {
+      "file": "DeviceHome.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 480,
+      "h": 480,
+      "page": "device",
+      "title": "Device \u00b7 home (240\u00d7240 at 2\u00d7)"
+    },
+    {
+      "file": "DeviceSign.dc.html",
+      "x": 570,
+      "y": 0,
+      "w": 480,
+      "h": 480,
+      "page": "device",
+      "title": "Device \u00b7 sign"
+    },
+    {
+      "file": "DevicePair.dc.html",
+      "x": 1140,
+      "y": 0,
+      "w": 480,
+      "h": 480,
+      "page": "device",
+      "title": "Device \u00b7 pair"
+    },
+    {
+      "file": "DeviceAddKey.dc.html",
+      "x": 1710,
+      "y": 0,
+      "w": 480,
+      "h": 480,
+      "page": "device",
+      "title": "Device \u00b7 add a phone key"
+    },
+    {
+      "file": "System.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 980,
+      "page": "system",
+      "title": "How it fits together"
+    }
+  ],
+  "annotations": [
+    {
+      "id": "note-mobile",
+      "x": 0,
+      "y": -150,
+      "w": 760,
+      "page": "mobile",
+      "text": "Mobile flow. Face ID signs anything under the daily limit. Over it, the request goes to the device and both screens show the same 3-word match code. Pairing = scan the device's screen, then Face ID."
+    },
+    {
+      "id": "note-desktop",
+      "x": 0,
+      "y": -150,
+      "w": 760,
+      "page": "desktop",
+      "text": "Desktop is the same account through a laptop passkey (Touch ID / Windows Hello). Second board: the over-limit modal mirrors what the device shows so the user compares by eye."
+    },
+    {
+      "id": "note-device",
+      "x": 0,
+      "y": -150,
+      "w": 760,
+      "page": "device",
+      "text": "240\u00d7240 screens shown at 2\u00d7. Button column on the right: green A = SIGN, red Y = REJECT, same as picowallet. Home matches the concept renders: balance, delta, chart."
+    },
+    {
+      "id": "note-system",
+      "x": 1530,
+      "y": 0,
+      "w": 300,
+      "page": "system",
+      "text": "Both signers are P-256, so one contract verifies both: WebAuthn wrapper for passkeys, raw digest for the chip. Roles, not separate wallets."
+    }
+  ],
+  "launch": {
+    "view": "canvas",
+    "page": "mobile"
+  }
+}

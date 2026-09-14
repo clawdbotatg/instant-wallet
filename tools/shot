@@ -1,0 +1,24 @@
+#!/bin/sh
+# Pull the current screen off a USB-connected Pico as a PNG (whatever wallet.py is showing).
+# Usage: tools/shot [out.png]   (port from PICO_PORT, default first /dev/cu.usbmodem*)
+# For the emulator use `tools/emu shot` instead.
+cd "$(dirname "$0")/.." || exit 1
+PORT=${PICO_PORT:-$(ls /dev/cu.usbmodem* 2>/dev/null | head -1)}
+OUT=${1:-firmware/shots/pico.png}; mkdir -p "$(dirname "$OUT")"
+"$HOME/.local/bin/mpremote" connect "$PORT" resume exec 'import wallet; wallet.snap()' cp :shot.bin /tmp/shot.bin >/dev/null || exit 1
+python3 - /tmp/shot.bin "$OUT" <<'PY'
+import sys, struct, zlib
+b = open(sys.argv[1], "rb").read()
+rows = []
+for y in range(240):
+    row = bytearray([0])
+    for x in range(240):
+        i = 2 * (y * 240 + x)
+        c = (b[i] << 8) | b[i + 1]
+        row += bytes(((c >> 8) & 0xF8, (c >> 3) & 0xFC, (c << 3) & 0xF8))
+    rows.append(bytes(row))
+raw = b"".join(rows)
+def chunk(t, d): return struct.pack(">I", len(d)) + t + d + struct.pack(">I", zlib.crc32(t + d) & 0xFFFFFFFF)
+png = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", 240, 240, 8, 2, 0, 0, 0)) + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b"")
+open(sys.argv[2], "wb").write(png); print(sys.argv[2])
+PY

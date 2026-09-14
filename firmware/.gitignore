@@ -1,0 +1,7 @@
+secrets.py
+key.bin
+qr.bin
+shot.bin
+error.log
+shots/
+__pycache__/

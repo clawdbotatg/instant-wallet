@@ -1,0 +1,289 @@
+@import "tailwindcss";
+
+@theme {
+  --color-paper: #f4f4f1;
+  --color-ink: #1a1b1a;
+  --color-ink-2: #131413;
+  --color-mint: #22c452;
+  --color-mint-soft: #e6f7eb;
+  --color-mint-dark: #17a643;
+  --color-coral: #e3312c;
+  --color-coral-soft: #fdecea;
+  --color-muted: #6b6e6b;
+  --color-line: #e7e7e3;
+  --color-card: #ffffff;
+  --color-amber-soft: #fff5d6;
+  --color-amber-line: #f0d98a;
+  --color-amber-ink: #6b5200;
+
+  --font-sans: "Outfit", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --radius-card: 24px;
+  --shadow-card: 0 8px 28px -6px rgb(0 0 0 / 0.08), 0 2px 6px rgb(0 0 0 / 0.04);
+  --shadow-soft: 0 2px 10px rgb(0 0 0 / 0.06);
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    min-height: 100dvh;
+  }
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.01em;
+  }
+  input,
+  button,
+  textarea {
+    font: inherit;
+  }
+  button {
+    cursor: pointer;
+  }
+  ::selection {
+    background: #c9f1d6;
+  }
+}
+
+@layer components {
+  .card {
+    background: var(--color-card);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 9999px;
+    font-weight: 600;
+    height: 56px;
+    padding: 0 1.5rem;
+    transition:
+      transform 0.08s ease,
+      opacity 0.15s ease,
+      background-color 0.15s ease;
+    user-select: none;
+  }
+  .btn:active {
+    transform: scale(0.985);
+  }
+  .btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none;
+  }
+  .btn-primary {
+    background: var(--color-ink);
+    color: #fff;
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: #2b2c2b;
+  }
+  .btn-mint {
+    background: var(--color-mint);
+    color: #fff;
+  }
+  .btn-mint:hover:not(:disabled) {
+    background: var(--color-mint-dark);
+  }
+  .btn-white {
+    background: #fff;
+    color: var(--color-ink);
+    box-shadow: var(--shadow-soft);
+  }
+  .btn-white:hover:not(:disabled) {
+    background: #fafaf8;
+  }
+  .btn-danger-text {
+    background: #fff;
+    color: var(--color-coral);
+    box-shadow: var(--shadow-soft);
+  }
+  .btn-sm {
+    height: 40px;
+    padding: 0 1rem;
+    font-size: 0.9rem;
+  }
+  .btn-xs {
+    height: 32px;
+    padding: 0 0.85rem;
+    font-size: 0.8rem;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    border-radius: 9999px;
+    padding: 0.35rem 0.8rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    background: var(--color-mint-soft);
+    color: var(--color-mint-dark);
+  }
+  .chip-dark {
+    background: var(--color-ink);
+    color: #fff;
+  }
+  .chip-amber {
+    background: var(--color-amber-soft);
+    color: var(--color-amber-ink);
+    border: 1px solid var(--color-amber-line);
+  }
+  .chip-gray {
+    background: #eeeeea;
+    color: var(--color-muted);
+  }
+  .icon-tile {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+  }
+  .tile-mint {
+    background: var(--color-mint-soft);
+    color: var(--color-mint-dark);
+  }
+  .tile-gray {
+    background: #eeeeea;
+    color: var(--color-ink);
+  }
+  .input {
+    width: 100%;
+    border-radius: 16px;
+    border: 1px solid var(--color-line);
+    background: #fff;
+    padding: 0.9rem 1rem;
+    outline: none;
+    transition: border-color 0.15s ease;
+  }
+  .input:focus {
+    border-color: var(--color-ink);
+  }
+  .mono {
+    font-family: var(--font-mono);
+    font-feature-settings: "liga" 0;
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+  }
+  .divider {
+    height: 1px;
+    background: var(--color-line);
+  }
+  .sheet-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgb(20 21 20 / 0.45);
+    backdrop-filter: blur(6px);
+    z-index: 40;
+  }
+  .sheet {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 50;
+    background: #fff;
+    border-radius: 28px 28px 0 0;
+    padding: 1rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom));
+    box-shadow: 0 -10px 40px rgb(0 0 0 / 0.18);
+    animation: sheet-up 0.22s ease-out;
+    max-height: 92dvh;
+    overflow: auto;
+  }
+  @media (min-width: 1024px) {
+    .sheet {
+      left: 50%;
+      right: auto;
+      bottom: auto;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 560px;
+      border-radius: 28px;
+      padding: 1.75rem 2rem;
+      animation: pop-in 0.18s ease-out;
+    }
+  }
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    padding: 0.8rem 1rem;
+    border-radius: 14px;
+    font-weight: 600;
+    color: var(--color-ink);
+    transition: background-color 0.12s ease;
+  }
+  .nav-item:hover {
+    background: #ecece8;
+  }
+  .nav-item.active {
+    background: var(--color-mint-soft);
+    color: var(--color-mint-dark);
+  }
+  .keypad-key {
+    background: #fff;
+    border-radius: 18px;
+    height: 56px;
+    font-size: 1.35rem;
+    font-weight: 600;
+    box-shadow: var(--shadow-soft);
+  }
+  .keypad-key:active {
+    background: #f1f1ee;
+  }
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+@keyframes pop-in {
+  from {
+    transform: translate(-50%, -50%) scale(0.97);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+}
+@keyframes pulse-dot {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(34 196 82 / 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgb(34 196 82 / 0);
+  }
+}
+.pulse-dot {
+  animation: pulse-dot 1.6s infinite;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}

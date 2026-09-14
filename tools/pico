@@ -1,0 +1,9 @@
+#!/bin/sh
+# Talk to the Pico over WiFi in development only. Requires ENABLE_NETWORK_CONSOLE=True.
+# Usage: ./pico ls | ./pico exec 'print(1)' | ./pico cp firmware/main.py :main.py
+# Retries: the board's timer callback can hold the REPL for a moment, which breaks mpremote's handshake.
+for i in 1 2 3 4; do
+  "$HOME/.local/bin/mpremote" connect "socket://${PICO_HOST:-instant.local}:2323" resume "$@" && exit 0
+  sleep 2
+done
+exit 1

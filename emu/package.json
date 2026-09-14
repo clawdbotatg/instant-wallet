@@ -1,0 +1,18 @@
+{
+  "name": "instant-wallet-emu",
+  "version": "1.0.0",
+  "description": "Virtual Instant Wallet device: MicroPython in WebAssembly, the real case in 3D, keyboard buttons.",
+  "scripts": {
+    "start": "node server.mjs --open",
+    "serve": "node server.mjs",
+    "headless": "node headless.mjs"
+  },
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@micropython/micropython-webassembly-pyscript": "^1.26.0",
+    "codemirror": "^5.65.18",
+    "three": "^0.170.0"
+  },
+  "private": true
+}

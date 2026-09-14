@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>instant wallet device emulator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/vendor/codemirror/lib/codemirror.css">
+<link rel="stylesheet" href="/web/app.css">
+<script type="importmap">
+{ "imports": { "three": "/vendor/three/three.module.js", "three/addons/": "/vendor/three/addons/" } }
+</script>
+</head>
+<body>
+<header id="bar">
+  <div class="brand">pico<span>wallet</span> emulator</div>
+  <label>main <select id="main"></select></label>
+  <button id="run" title="save + reboot + import (Cmd/Ctrl+Enter)">▶ run</button>
+  <button id="reset" title="reboot, re-run main">↻ reset</button>
+  <button id="shot" title="save the screen as PNG">📷 shot</button>
+  <div class="seg"><button id="view3d" class="on">3D</button><button id="viewflat">flat</button></div>
+  <div class="spacer"></div>
+  <a id="skill" href="/skill" target="_blank" title="give this file to your AI so it can write code for the wallet">📄 skill file for your AI</a>
+  <div id="stat"><span id="fps">0 fps</span> · <span id="frames">0 frames</span> · <span id="conn">booting</span></div>
+</header>
+
+<main>
+  <section id="left">
+    <div id="files"><div id="tabs"></div><button id="newfile" title="new sketch">+</button></div>
+    <div id="editor"><textarea id="src" spellcheck="false"></textarea></div>
+    <div id="console">
+      <div id="log"></div>
+      <div id="replrow"><span class="prompt">&gt;&gt;&gt;</span><input id="repl" autocomplete="off" spellcheck="false" placeholder="python, runs on the device  ·  ↑ history"></div>
+    </div>
+  </section>
+
+  <section id="right" tabindex="0">
+    <div id="stage"></div>
+    <div id="flat" hidden>
+      <div id="flatdev">
+        <div class="joy">
+          <button data-key="up" title="W">W</button>
+          <button data-key="left" title="A">A</button>
+          <button data-key="press" title="space">␣</button>
+          <button data-key="right" title="D">D</button>
+          <button data-key="down" title="S">S</button>
+        </div>
+        <div class="screenwrap"><canvas id="flatscreen" width="240" height="240"></canvas></div>
+        <div class="abxy">
+          <button data-key="A" class="kA" title="numpad 9">A<small>9</small></button>
+          <button data-key="B" class="kB" title="numpad 6">B<small>6</small></button>
+          <button data-key="X" class="kX" title="numpad 3">X<small>3</small></button>
+          <button data-key="Y" class="kY" title="numpad .">Y<small>.</small></button>
+        </div>
+      </div>
+    </div>
+    <div id="legend">
+      <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> joystick</span>
+      <span><kbd>space</kbd> press</span>
+      <span>numpad <kbd>9</kbd>=A <kbd>6</kbd>=B <kbd>3</kbd>=X <kbd>.</kbd>=Y</span>
+      <span class="hint" id="focushint">click the device to grab the keyboard</span>
+    </div>
+  </section>
+</main>
+<canvas id="screen" width="240" height="240" hidden></canvas>
+<script src="/vendor/codemirror/lib/codemirror.js"></script>
+<script src="/vendor/codemirror/mode/python/python.js"></script>
+<script type="module" src="/web/app.js"></script>
+</body>
+</html>

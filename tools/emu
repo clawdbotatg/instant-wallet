@@ -1,0 +1,6 @@
+#!/bin/sh
+# Virtual Pico wallet. `tools/emu` opens it; `tools/emu run|exec|key|shot|log|reset|headless ...`
+# drives it. Details: emu/README.md and emu/SKILL.md.
+cd "$(dirname "$0")/.." || exit 1
+[ -d emu/node_modules ] || (cd emu && npm install --silent) || exit 1
+exec node emu/cli.mjs "$@"

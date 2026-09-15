@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
 """Generates the Instant Wallet design artboards (.dc.html) from shared snippets."""
 import os, random, json
+import base64 as _b64
+_BRAND = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "packages", "nextjs", "public")
+def brand_img(name):
+    """data: URI for a brand PNG in packages/nextjs/public (Austin's renders, cut by design/brand/make.py)."""
+    with open(os.path.join(_BRAND, name), "rb") as f: return "data:image/png;base64," + _b64.b64encode(f.read()).decode()
+MARK_RATIO = 782/671
+
 OUT = os.path.dirname(os.path.abspath(__file__))
 
 # ---------- palette ----------
@@ -139,12 +146,8 @@ def icon(name, size=20, color=INK, sw=2):
     return ('<svg width="%d" height="%d" viewBox="0 0 24 24" fill="none" stroke="%s" stroke-width="%s" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg" style="display:block;flex-shrink:0">%s</svg>') % (size, size, color, sw, paths[name])
 
 def wordmark(size=22, color=INK):
-    mark = ('<svg width="%d" height="%d" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" style="display:block">'
-      '<rect x="6" y="9" width="28" height="24" rx="7" fill="#ffffff" stroke="#d9d9d5"></rect>'
-      '<path d="M12 9c0-3 2-5 5-5h9l7 6H11z" fill="%s"></path>'
-      '<rect x="23" y="18" width="11" height="8" rx="3" fill="#ffffff" stroke="#d9d9d5"></rect><circle cx="29" cy="22" r="2" fill="#6b6b69"></circle>'
-      '<rect x="0" y="16" width="6" height="3" rx="1.5" fill="%s"></rect><rect x="-2" y="21" width="8" height="3" rx="1.5" fill="%s"></rect><rect x="0" y="26" width="6" height="3" rx="1.5" fill="%s"></rect>'
-      '</svg>') % (int(size*1.6), int(size*1.6), GREEN, GREEN, GREEN, GREEN)
+    h = int(size*1.5)
+    mark = '<img src="%s" width="%d" height="%d" style="display:block">' % (brand_img('mark-160.png'), int(h*MARK_RATIO), h)
     return ('<div style="display:flex;align-items:center;gap:8px"><div>%s</div><div style="font-weight:800;font-size:%dpx;letter-spacing:-0.03em;color:%s;line-height:1">Instant Wallet</div></div>') % (mark, size, color)
 
 def card(inner, style=""):
@@ -310,9 +313,8 @@ def m_keys():
 
 def m_welcome():
     hero = ('<div style="display:flex;flex-direction:column;align-items:center;gap:22px;padding:0 24px;text-align:center">'
-            '<div style="width:200px;height:200px;border-radius:48px;background:#fff;border:1px solid %s;box-shadow:%s;display:flex;align-items:center;justify-content:center">'
-            '<svg width="140" height="140" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect x="6" y="9" width="28" height="24" rx="7" fill="#ffffff" stroke="#d9d9d5"></rect><path d="M12 9c0-3 2-5 5-5h9l7 6H11z" fill="%s"></path><rect x="23" y="18" width="11" height="8" rx="3" fill="#ffffff" stroke="#d9d9d5"></rect><circle cx="29" cy="22" r="2" fill="#6b6b69"></circle><rect x="0" y="16" width="6" height="3" rx="1.5" fill="%s"></rect><rect x="-2" y="21" width="8" height="3" rx="1.5" fill="%s"></rect><rect x="0" y="26" width="6" height="3" rx="1.5" fill="%s"></rect></svg></div>'
-            '<div style="display:flex;flex-direction:column;gap:10px"><div style="font-size:44px;font-weight:800;letter-spacing:-0.04em;line-height:1">Instant<br>Wallet</div><div style="font-size:18px;color:%s">Your money, instantly.</div></div></div>') % (LINE, CLAY, GREEN, GREEN, GREEN, GREEN, MUTED)
+            '<img src="%s" width="220" height="%d" style="display:block">'
+            '<div style="display:flex;flex-direction:column;gap:10px"><div style="font-size:44px;font-weight:800;letter-spacing:-0.04em;line-height:1">Instant<br>Wallet</div><div style="font-size:18px;color:%s">Your money, instantly.</div></div></div>') % (brand_img('mark.png'), int(220/MARK_RATIO), MUTED)
     tiny = '<div style="text-align:center;font-size:13px;color:%s;line-height:1.5">No seed phrase. No gas. Face ID makes the key,<br>a $35 device you build guards the big money.</div>' % MUTED
     inner = ('<div style="flex:1;display:flex;flex-direction:column;justify-content:center;padding-top:40px">%s</div>'
              '<div style="padding:0 20px 36px;display:flex;flex-direction:column;gap:12px">%s%s%s</div>') % (hero, pill_btn("Get started", INK, "#fff", "arrowr"), pill_btn("I already have a key", "#fff", INK, "face", style="border:1px solid %s;" % LINE, shadow=False), tiny)

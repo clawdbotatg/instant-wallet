@@ -1,6 +1,6 @@
 /* Instant Wallet service worker: precache the shell, network-first for pages, never cache /api. */
-const VERSION = "iw-v1";
-const SHELL = ["/", "/manifest.json", "/logo.svg", "/icons/icon-192.png", "/icons/icon-512.png"];
+const VERSION = "iw-v2";
+const SHELL = ["/", "/manifest.json", "/icons/icon-192.png", "/icons/icon-512.png"];
 
 self.addEventListener("install", event => {
   event.waitUntil(

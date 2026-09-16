@@ -11,15 +11,20 @@ import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 
 /**
  * @title InstantWallet
- * @notice One account, many P-256 keys, tiered by trust.
+ * @notice One account, many P-256 keys, tiered by trust. Holds anything: ETH, any ERC-20, NFTs.
  *
  *  Every signer is a P-256 public key. A passkey (Face ID / Touch ID) signs a WebAuthn assertion whose
  *  challenge is the digest; the hardware device (ATECC608) signs the digest raw. Both verify against the
  *  same EIP-712 digest, so the two kinds of key are interchangeable on chain and differ only in role.
  *
- *  Spenders may move the wallet's token up to a rolling 24h limit. Owners may do anything: transfer any
- *  token, execute arbitrary calls, and manage signers. A fixed recovery address can add a new owner key
- *  after an uninterrupted delay; any owner action cancels it. No admin, no upgrade, no unsigned path.
+ *  Owners may do anything: move any asset, execute arbitrary calls (delegated execution), manage keys and
+ *  limits. Spenders may move an asset only up to the rolling 24h limit an owner set for them on that
+ *  asset (`asset = address(0)` is ETH). A recovery address can add a new owner key after an uninterrupted
+ *  delay; any owner action cancels it. No admin, no upgrade, no unsigned path.
+ *
+ *  Admin functions exist twice: `metaX` (one signature per action, what the device rebuilds and signs)
+ *  and a plain `x` callable only by the wallet itself, so an owner can batch several admin actions in one
+ *  `metaExecute` (pairing a device = add it as owner + demote the phone + set its limits, one Face ID).
  *
  *  Digests, signature encodings and the match code are specified in docs/PROTOCOL.md.
  * @author BuidlGuidl
@@ -40,32 +45,40 @@ contract InstantWallet is Initializable, ReentrancyGuard {
         bytes32 qy;
         uint8 kind; // KIND_WEBAUTHN | KIND_RAW
         uint8 role; // ROLE_SPENDER | ROLE_OWNER
-        uint128 dailyLimit; // token base units per WINDOW, spenders only
-        uint128 spentInWindow;
-        uint64 windowStart;
         uint64 addedAt;
+    }
+
+    /// @notice A spender's rolling allowance on one asset.
+    struct Allowance {
+        uint128 limit; // base units per WINDOW
+        uint128 spent;
+        uint64 windowStart;
     }
 
     uint8 public constant KIND_WEBAUTHN = 0;
     uint8 public constant KIND_RAW = 1;
     uint8 public constant ROLE_SPENDER = 0;
     uint8 public constant ROLE_OWNER = 1;
+    /// @notice The asset address that means native ETH.
+    address public constant ETH = address(0);
     uint256 public constant WINDOW = 1 days;
     uint64 public constant MIN_RECOVERY_DELAY = 1 hours;
 
     bytes32 private constant DOMAIN_TYPEHASH =
         keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
     bytes32 private constant NAME_HASH = keccak256("InstantWallet");
-    bytes32 private constant VERSION_HASH = keccak256("1");
+    bytes32 private constant VERSION_HASH = keccak256("2");
 
     bytes32 public constant TRANSFER_TYPEHASH =
-        keccak256("Transfer(address token,address to,uint256 amount,uint256 fee,uint256 nonce,uint256 deadline)");
+        keccak256("Transfer(address asset,address to,uint256 amount,uint256 fee,uint256 nonce,uint256 deadline)");
     bytes32 public constant EXECUTE_TYPEHASH = keccak256("Execute(bytes32 callsHash,uint256 nonce,uint256 deadline)");
     bytes32 public constant ADD_SIGNER_TYPEHASH = keccak256(
-        "AddSigner(bytes32 qx,bytes32 qy,uint8 kind,uint8 role,uint128 dailyLimit,bytes32 credentialIdHash,uint256 nonce,uint256 deadline)"
+        "AddSigner(bytes32 qx,bytes32 qy,uint8 kind,uint8 role,bytes32 credentialIdHash,uint256 nonce,uint256 deadline)"
     );
     bytes32 public constant UPDATE_SIGNER_TYPEHASH =
-        keccak256("UpdateSigner(address signerId,uint8 role,uint128 dailyLimit,uint256 nonce,uint256 deadline)");
+        keccak256("UpdateSigner(address signerId,uint8 role,uint256 nonce,uint256 deadline)");
+    bytes32 public constant SET_LIMIT_TYPEHASH =
+        keccak256("SetLimit(address signerId,address asset,uint128 limit,uint256 nonce,uint256 deadline)");
     bytes32 public constant REMOVE_SIGNER_TYPEHASH =
         keccak256("RemoveSigner(address signerId,uint256 nonce,uint256 deadline)");
     bytes32 public constant SET_RECOVERY_TYPEHASH =
@@ -74,8 +87,6 @@ contract InstantWallet is Initializable, ReentrancyGuard {
 
     // ---------------------------------------------------------------- state
 
-    /// @notice The stablecoin the spender limit applies to (set once at initialize).
-    address public token;
     /// @notice Wallet-wide replay protection. Every successful meta call increments it.
     uint256 public nonce;
 
@@ -84,6 +95,10 @@ contract InstantWallet is Initializable, ReentrancyGuard {
     mapping(address => uint256) private _signerIndex; // index + 1, 0 = absent
     mapping(bytes32 => address) public credentialIdToSigner;
     uint256 public ownerCount;
+
+    mapping(address => mapping(address => Allowance)) private _allowances; // signerId => asset => allowance
+    mapping(address => address[]) private _limitedAssets; // signerId => assets with a limit
+    mapping(address => mapping(address => uint256)) private _limitedIndex; // signerId => asset => index + 1
 
     address public recoveryAddress;
     uint64 public recoveryDelay;
@@ -94,11 +109,12 @@ contract InstantWallet is Initializable, ReentrancyGuard {
 
     // ---------------------------------------------------------------- events
 
-    event SignerAdded(address indexed signerId, bytes32 qx, bytes32 qy, uint8 kind, uint8 role, uint128 dailyLimit);
-    event SignerUpdated(address indexed signerId, uint8 role, uint128 dailyLimit);
+    event SignerAdded(address indexed signerId, bytes32 qx, bytes32 qy, uint8 kind, uint8 role);
+    event SignerUpdated(address indexed signerId, uint8 role);
+    event LimitSet(address indexed signerId, address indexed asset, uint128 limit);
     event SignerRemoved(address indexed signerId);
     event Transferred(
-        address indexed signerId, address indexed token, address indexed to, uint256 amount, uint256 fee, uint256 nonce
+        address indexed signerId, address indexed asset, address indexed to, uint256 amount, uint256 fee, uint256 nonce
     );
     event Executed(address indexed signerId, bytes32 indexed callsHash, uint256 calls, uint256 nonce);
     event RecoverySet(address indexed recoveryAddress, uint64 recoveryDelay);
@@ -113,8 +129,7 @@ contract InstantWallet is Initializable, ReentrancyGuard {
     error UnknownSigner(address signerId);
     error BadSignature();
     error NotOwner(address signerId);
-    error OverLimit(address signerId, uint256 wanted, uint256 remaining);
-    error TokenNotAllowed(address token);
+    error OverLimit(address signerId, address asset, uint256 wanted, uint256 remaining);
     error SignerExists(address signerId);
     error InvalidKey();
     error InvalidKind();
@@ -122,10 +137,17 @@ contract InstantWallet is Initializable, ReentrancyGuard {
     error LastOwner();
     error ZeroAddress();
     error DelayTooShort();
+    error OnlySelf();
     error OnlyRecoveryAddress();
     error RecoveryNotPending();
     error RecoveryNotReady(uint64 executeAfter, uint256 nowTs);
     error CallFailed(uint256 index);
+    error EthTransferFailed();
+
+    modifier onlySelf() {
+        if (msg.sender != address(this)) revert OnlySelf();
+        _;
+    }
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -134,7 +156,6 @@ contract InstantWallet is Initializable, ReentrancyGuard {
 
     /**
      * @notice Initialize a fresh clone with its first key as the owner.
-     * @param _token The stablecoin the spender limit applies to.
      * @param qx First key x. @param qy First key y.
      * @param kind KIND_WEBAUTHN for a passkey, KIND_RAW for a chip.
      * @param credentialIdHash keccak256 of the WebAuthn credential id (zero for a chip); enables login lookup.
@@ -142,7 +163,6 @@ contract InstantWallet is Initializable, ReentrancyGuard {
      * @param _recoveryDelay Seconds a recovery must wait, at least MIN_RECOVERY_DELAY.
      */
     function initialize(
-        address _token,
         bytes32 qx,
         bytes32 qy,
         uint8 kind,
@@ -150,12 +170,11 @@ contract InstantWallet is Initializable, ReentrancyGuard {
         address _recoveryAddress,
         uint64 _recoveryDelay
     ) external initializer {
-        if (_token == address(0) || _recoveryAddress == address(0)) revert ZeroAddress();
+        if (_recoveryAddress == address(0)) revert ZeroAddress();
         if (_recoveryDelay < MIN_RECOVERY_DELAY) revert DelayTooShort();
-        token = _token;
         recoveryAddress = _recoveryAddress;
         recoveryDelay = _recoveryDelay;
-        _addSigner(qx, qy, kind, ROLE_OWNER, 0, credentialIdHash);
+        _addSigner(qx, qy, kind, ROLE_OWNER, credentialIdHash);
         emit RecoverySet(_recoveryAddress, _recoveryDelay);
     }
 
@@ -185,13 +204,26 @@ contract InstantWallet is Initializable, ReentrancyGuard {
         }
     }
 
-    /// @notice How much a signer may still move in the current window (type(uint256).max for owners).
-    function remainingAllowance(address signerId) external view returns (uint256) {
-        Signer storage s = _signers[signerId];
+    /// @notice Every asset a signer has a limit on, with the live allowance. Empty for owners (unlimited).
+    function getLimits(address signerId) external view returns (address[] memory assets, Allowance[] memory list) {
+        assets = _limitedAssets[signerId];
+        list = new Allowance[](assets.length);
+        for (uint256 i; i < assets.length; ++i) {
+            list[i] = _allowances[signerId][assets[i]];
+        }
+    }
+
+    function getAllowance(address signerId, address asset) external view returns (Allowance memory) {
+        return _allowances[signerId][asset];
+    }
+
+    /// @notice How much of `asset` a signer may still move in the current window (max for owners, 0 if no limit).
+    function remainingAllowance(address signerId, address asset) public view returns (uint256) {
         if (_signerIndex[signerId] == 0) return 0;
-        if (s.role == ROLE_OWNER) return type(uint256).max;
-        if (block.timestamp >= uint256(s.windowStart) + WINDOW) return s.dailyLimit;
-        return s.dailyLimit > s.spentInWindow ? s.dailyLimit - s.spentInWindow : 0;
+        if (_signers[signerId].role == ROLE_OWNER) return type(uint256).max;
+        Allowance storage a = _allowances[signerId][asset];
+        if (block.timestamp >= uint256(a.windowStart) + WINDOW) return a.limit;
+        return a.limit > a.spent ? a.limit - a.spent : 0;
     }
 
     function domainSeparator() public view returns (bytes32) {
@@ -202,12 +234,12 @@ contract InstantWallet is Initializable, ReentrancyGuard {
         return keccak256(abi.encodePacked("\x19\x01", domainSeparator(), structHash));
     }
 
-    function hashTransfer(address _token, address to, uint256 amount, uint256 fee, uint256 _nonce, uint256 deadline)
+    function hashTransfer(address asset, address to, uint256 amount, uint256 fee, uint256 _nonce, uint256 deadline)
         public
         view
         returns (bytes32)
     {
-        return _typed(keccak256(abi.encode(TRANSFER_TYPEHASH, _token, to, amount, fee, _nonce, deadline)));
+        return _typed(keccak256(abi.encode(TRANSFER_TYPEHASH, asset, to, amount, fee, _nonce, deadline)));
     }
 
     /// @notice callsHash = keccak256(concat(keccak256(abi.encode(target, value, keccak256(data))) ...)).
@@ -228,24 +260,27 @@ contract InstantWallet is Initializable, ReentrancyGuard {
         bytes32 qy,
         uint8 kind,
         uint8 role,
-        uint128 dailyLimit,
         bytes32 credentialIdHash,
         uint256 _nonce,
         uint256 deadline
     ) public view returns (bytes32) {
-        return _typed(
-            keccak256(
-                abi.encode(ADD_SIGNER_TYPEHASH, qx, qy, kind, role, dailyLimit, credentialIdHash, _nonce, deadline)
-            )
-        );
+        return _typed(keccak256(abi.encode(ADD_SIGNER_TYPEHASH, qx, qy, kind, role, credentialIdHash, _nonce, deadline)));
     }
 
-    function hashUpdateSigner(address signerId, uint8 role, uint128 dailyLimit, uint256 _nonce, uint256 deadline)
+    function hashUpdateSigner(address signerId, uint8 role, uint256 _nonce, uint256 deadline)
         public
         view
         returns (bytes32)
     {
-        return _typed(keccak256(abi.encode(UPDATE_SIGNER_TYPEHASH, signerId, role, dailyLimit, _nonce, deadline)));
+        return _typed(keccak256(abi.encode(UPDATE_SIGNER_TYPEHASH, signerId, role, _nonce, deadline)));
+    }
+
+    function hashSetLimit(address signerId, address asset, uint128 limit, uint256 _nonce, uint256 deadline)
+        public
+        view
+        returns (bytes32)
+    {
+        return _typed(keccak256(abi.encode(SET_LIMIT_TYPEHASH, signerId, asset, limit, _nonce, deadline)));
     }
 
     function hashRemoveSigner(address signerId, uint256 _nonce, uint256 deadline) public view returns (bytes32) {
@@ -273,11 +308,12 @@ contract InstantWallet is Initializable, ReentrancyGuard {
     // ---------------------------------------------------------------- meta: money
 
     /**
-     * @notice Move `amount` of `_token` to `to` and `fee` of `_token` to the relayer (msg.sender).
-     * @dev Spenders may only move the wallet's own token, within their rolling limit (amount + fee).
+     * @notice Move `amount` of `asset` to `to` and `fee` of `asset` to the relayer (msg.sender).
+     *         `asset == ETH (address(0))` moves native ETH. Owners: any asset, no limit.
+     *         Spenders: only assets an owner gave them a limit on, within the rolling limit (amount + fee).
      */
     function metaTransfer(
-        address _token,
+        address asset,
         address to,
         uint256 amount,
         uint256 fee,
@@ -287,18 +323,16 @@ contract InstantWallet is Initializable, ReentrancyGuard {
     ) external nonReentrant {
         if (to == address(0)) revert ZeroAddress();
         uint256 usedNonce = nonce;
-        Signer storage s = _authorize(signerId, hashTransfer(_token, to, amount, fee, usedNonce, deadline), deadline, signature);
-        if (s.role != ROLE_OWNER) {
-            if (_token != token) revert TokenNotAllowed(_token);
-            _spend(s, signerId, amount + fee);
-        }
-        IERC20(_token).safeTransfer(to, amount);
-        if (fee > 0) IERC20(_token).safeTransfer(msg.sender, fee);
-        emit Transferred(signerId, _token, to, amount, fee, usedNonce);
+        Signer storage s = _authorize(signerId, hashTransfer(asset, to, amount, fee, usedNonce, deadline), deadline, signature);
+        if (s.role != ROLE_OWNER) _spend(signerId, asset, amount + fee);
+        _transfer(asset, to, amount);
+        if (fee > 0) _transfer(asset, msg.sender, fee);
+        emit Transferred(signerId, asset, to, amount, fee, usedNonce);
     }
 
     /**
-     * @notice Execute an arbitrary batch of calls. Owners only. Reverts entirely if any call fails.
+     * @notice Execute an arbitrary batch of calls as the wallet (delegated execution). Owners only.
+     *         Reverts entirely if any call fails. Calls may target the wallet itself to batch admin actions.
      */
     function metaExecute(Call[] calldata calls, address signerId, uint256 deadline, bytes calldata signature)
         external
@@ -321,53 +355,48 @@ contract InstantWallet is Initializable, ReentrancyGuard {
         emit Executed(signerId, callsHash, calls.length, usedNonce);
     }
 
-    // ---------------------------------------------------------------- meta: keys
+    // ---------------------------------------------------------------- meta: keys (one signature each)
 
     function metaAddSigner(
         bytes32 qx,
         bytes32 qy,
         uint8 kind,
         uint8 role,
-        uint128 dailyLimit,
         bytes32 credentialIdHash,
         address signerId,
         uint256 deadline,
         bytes calldata signature
     ) external nonReentrant {
         uint256 usedNonce = nonce;
-        Signer storage s = _authorize(
-            signerId, hashAddSigner(qx, qy, kind, role, dailyLimit, credentialIdHash, usedNonce, deadline), deadline, signature
-        );
+        Signer storage s =
+            _authorize(signerId, hashAddSigner(qx, qy, kind, role, credentialIdHash, usedNonce, deadline), deadline, signature);
         if (s.role != ROLE_OWNER) revert NotOwner(signerId);
-        _addSigner(qx, qy, kind, role, dailyLimit, credentialIdHash);
+        _addSigner(qx, qy, kind, role, credentialIdHash);
     }
 
-    function metaUpdateSigner(
+    function metaUpdateSigner(address targetSignerId, uint8 role, address signerId, uint256 deadline, bytes calldata signature)
+        external
+        nonReentrant
+    {
+        uint256 usedNonce = nonce;
+        Signer storage s = _authorize(signerId, hashUpdateSigner(targetSignerId, role, usedNonce, deadline), deadline, signature);
+        if (s.role != ROLE_OWNER) revert NotOwner(signerId);
+        _updateSigner(targetSignerId, role);
+    }
+
+    function metaSetLimit(
         address targetSignerId,
-        uint8 role,
-        uint128 dailyLimit,
+        address asset,
+        uint128 limit,
         address signerId,
         uint256 deadline,
         bytes calldata signature
     ) external nonReentrant {
         uint256 usedNonce = nonce;
         Signer storage s =
-            _authorize(signerId, hashUpdateSigner(targetSignerId, role, dailyLimit, usedNonce, deadline), deadline, signature);
+            _authorize(signerId, hashSetLimit(targetSignerId, asset, limit, usedNonce, deadline), deadline, signature);
         if (s.role != ROLE_OWNER) revert NotOwner(signerId);
-        if (_signerIndex[targetSignerId] == 0) revert UnknownSigner(targetSignerId);
-        if (role > ROLE_OWNER) revert InvalidRole();
-        Signer storage t = _signers[targetSignerId];
-        if (t.role == ROLE_OWNER && role != ROLE_OWNER) {
-            if (ownerCount == 1) revert LastOwner();
-            ownerCount -= 1;
-        } else if (t.role != ROLE_OWNER && role == ROLE_OWNER) {
-            ownerCount += 1;
-        }
-        t.role = role;
-        t.dailyLimit = dailyLimit;
-        t.spentInWindow = 0;
-        t.windowStart = uint64(block.timestamp);
-        emit SignerUpdated(targetSignerId, role, dailyLimit);
+        _setLimit(targetSignerId, asset, limit);
     }
 
     function metaRemoveSigner(address targetSignerId, address signerId, uint256 deadline, bytes calldata signature)
@@ -391,11 +420,7 @@ contract InstantWallet is Initializable, ReentrancyGuard {
         Signer storage s =
             _authorize(signerId, hashSetRecovery(_recoveryAddress, _recoveryDelay, usedNonce, deadline), deadline, signature);
         if (s.role != ROLE_OWNER) revert NotOwner(signerId);
-        if (_recoveryAddress == address(0)) revert ZeroAddress();
-        if (_recoveryDelay < MIN_RECOVERY_DELAY) revert DelayTooShort();
-        recoveryAddress = _recoveryAddress;
-        recoveryDelay = _recoveryDelay;
-        emit RecoverySet(_recoveryAddress, _recoveryDelay);
+        _setRecovery(_recoveryAddress, _recoveryDelay);
     }
 
     /// @notice Explicit cancel (any owner action also cancels). Owners only.
@@ -405,6 +430,28 @@ contract InstantWallet is Initializable, ReentrancyGuard {
         Signer storage s = _authorize(signerId, hashCancelRecovery(usedNonce, deadline), deadline, signature);
         if (s.role != ROLE_OWNER) revert NotOwner(signerId);
         // _authorize already cancelled because s is an owner
+    }
+
+    // ---------------------------------------------------------------- self: keys (batch several in one metaExecute)
+
+    function addSigner(bytes32 qx, bytes32 qy, uint8 kind, uint8 role, bytes32 credentialIdHash) external onlySelf {
+        _addSigner(qx, qy, kind, role, credentialIdHash);
+    }
+
+    function updateSigner(address targetSignerId, uint8 role) external onlySelf {
+        _updateSigner(targetSignerId, role);
+    }
+
+    function setLimit(address targetSignerId, address asset, uint128 limit) external onlySelf {
+        _setLimit(targetSignerId, asset, limit);
+    }
+
+    function removeSigner(address targetSignerId) external onlySelf {
+        _removeSigner(targetSignerId);
+    }
+
+    function setRecovery(address _recoveryAddress, uint64 _recoveryDelay) external onlySelf {
+        _setRecovery(_recoveryAddress, _recoveryDelay);
     }
 
     // ---------------------------------------------------------------- recovery
@@ -432,7 +479,7 @@ contract InstantWallet is Initializable, ReentrancyGuard {
         bytes32 qy = pendingQy;
         uint8 kind = pendingKind;
         _clearRecovery();
-        _addSigner(qx, qy, kind, ROLE_OWNER, 0, bytes32(0));
+        _addSigner(qx, qy, kind, ROLE_OWNER, bytes32(0));
         emit RecoveryFinalized(signerIdOf(qx, qy));
     }
 
@@ -483,40 +530,81 @@ contract InstantWallet is Initializable, ReentrancyGuard {
         return WebAuthn.verify(abi.encodePacked(digest), auth, s.qx, s.qy);
     }
 
-    function _spend(Signer storage s, address signerId, uint256 amount) internal {
-        if (block.timestamp >= uint256(s.windowStart) + WINDOW) {
-            s.windowStart = uint64(block.timestamp);
-            s.spentInWindow = 0;
+    function _transfer(address asset, address to, uint256 amount) internal {
+        if (amount == 0) return;
+        if (asset == ETH) {
+            (bool ok,) = payable(to).call{ value: amount }("");
+            if (!ok) revert EthTransferFailed();
+        } else {
+            IERC20(asset).safeTransfer(to, amount);
         }
-        uint256 remaining = s.dailyLimit > s.spentInWindow ? s.dailyLimit - s.spentInWindow : 0;
-        if (amount > remaining) revert OverLimit(signerId, amount, remaining);
-        // forge-lint: disable-next-line(unsafe-typecast)
-        s.spentInWindow += uint128(amount); // amount <= dailyLimit (uint128) checked above
     }
 
-    function _addSigner(bytes32 qx, bytes32 qy, uint8 kind, uint8 role, uint128 dailyLimit, bytes32 credentialIdHash)
-        internal
-    {
+    function _spend(address signerId, address asset, uint256 amount) internal {
+        Allowance storage a = _allowances[signerId][asset];
+        if (block.timestamp >= uint256(a.windowStart) + WINDOW) {
+            a.windowStart = uint64(block.timestamp);
+            a.spent = 0;
+        }
+        uint256 remaining = a.limit > a.spent ? a.limit - a.spent : 0;
+        if (amount > remaining) revert OverLimit(signerId, asset, amount, remaining);
+        // forge-lint: disable-next-line(unsafe-typecast)
+        a.spent += uint128(amount); // amount <= limit (uint128) checked above
+    }
+
+    function _addSigner(bytes32 qx, bytes32 qy, uint8 kind, uint8 role, bytes32 credentialIdHash) internal {
         if (!P256.isValidPublicKey(qx, qy)) revert InvalidKey();
         if (kind > KIND_RAW) revert InvalidKind();
         if (role > ROLE_OWNER) revert InvalidRole();
         address id = signerIdOf(qx, qy);
         if (_signerIndex[id] != 0) revert SignerExists(id);
-        _signers[id] = Signer({
-            qx: qx,
-            qy: qy,
-            kind: kind,
-            role: role,
-            dailyLimit: dailyLimit,
-            spentInWindow: 0,
-            windowStart: uint64(block.timestamp),
-            addedAt: uint64(block.timestamp)
-        });
+        _signers[id] = Signer({ qx: qx, qy: qy, kind: kind, role: role, addedAt: uint64(block.timestamp) });
         _signerIds.push(id);
         _signerIndex[id] = _signerIds.length;
         if (credentialIdHash != bytes32(0)) credentialIdToSigner[credentialIdHash] = id;
         if (role == ROLE_OWNER) ownerCount += 1;
-        emit SignerAdded(id, qx, qy, kind, role, dailyLimit);
+        emit SignerAdded(id, qx, qy, kind, role);
+    }
+
+    function _updateSigner(address id, uint8 role) internal {
+        if (_signerIndex[id] == 0) revert UnknownSigner(id);
+        if (role > ROLE_OWNER) revert InvalidRole();
+        Signer storage t = _signers[id];
+        if (t.role == ROLE_OWNER && role != ROLE_OWNER) {
+            if (ownerCount == 1) revert LastOwner();
+            ownerCount -= 1;
+        } else if (t.role != ROLE_OWNER && role == ROLE_OWNER) {
+            ownerCount += 1;
+        }
+        t.role = role;
+        emit SignerUpdated(id, role);
+    }
+
+    /// @dev limit 0 removes the asset from the signer's list. Setting a limit restarts its window.
+    function _setLimit(address id, address asset, uint128 limit) internal {
+        if (_signerIndex[id] == 0) revert UnknownSigner(id);
+        uint256 idx = _limitedIndex[id][asset];
+        if (limit == 0) {
+            if (idx != 0) {
+                address[] storage list = _limitedAssets[id];
+                uint256 last = list.length;
+                if (idx != last) {
+                    address moved = list[last - 1];
+                    list[idx - 1] = moved;
+                    _limitedIndex[id][moved] = idx;
+                }
+                list.pop();
+                delete _limitedIndex[id][asset];
+            }
+            delete _allowances[id][asset];
+        } else {
+            if (idx == 0) {
+                _limitedAssets[id].push(asset);
+                _limitedIndex[id][asset] = _limitedAssets[id].length;
+            }
+            _allowances[id][asset] = Allowance({ limit: limit, spent: 0, windowStart: uint64(block.timestamp) });
+        }
+        emit LimitSet(id, asset, limit);
     }
 
     function _removeSigner(address id) internal {
@@ -535,7 +623,21 @@ contract InstantWallet is Initializable, ReentrancyGuard {
         _signerIds.pop();
         delete _signerIndex[id];
         delete _signers[id];
+        address[] storage assets = _limitedAssets[id];
+        for (uint256 i; i < assets.length; ++i) {
+            delete _allowances[id][assets[i]];
+            delete _limitedIndex[id][assets[i]];
+        }
+        delete _limitedAssets[id];
         emit SignerRemoved(id);
+    }
+
+    function _setRecovery(address _recoveryAddress, uint64 _recoveryDelay) internal {
+        if (_recoveryAddress == address(0)) revert ZeroAddress();
+        if (_recoveryDelay < MIN_RECOVERY_DELAY) revert DelayTooShort();
+        recoveryAddress = _recoveryAddress;
+        recoveryDelay = _recoveryDelay;
+        emit RecoverySet(_recoveryAddress, _recoveryDelay);
     }
 
     function _cancelRecovery() internal {

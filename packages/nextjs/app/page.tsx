@@ -17,11 +17,14 @@ import { type Passkey, createPasskey, credentialIdHash, isWebAuthnSupported, log
 type Step =
   | { kind: "welcome" }
   | { kind: "creating"; msg: string }
-  | { kind: "predicted"; passkey: Passkey; wallet: Address; deployed: boolean }
-  | { kind: "deploying"; passkey: Passkey; wallet: Address }
-  | { kind: "lookup"; passkey: Passkey }
+  | { kind: "lookup"; passkey: Passkey; own: Address }
   | { kind: "error"; msg: string };
 
+/**
+ * Welcome. "Get started" = one passkey; the wallet's address exists from that moment
+ * (Factory.getWalletAddress, the same on every chain), so we register the key with the app and go
+ * straight in. Nothing is deployed until the first outbound action — the facilitator does that.
+ */
 export default function Welcome() {
   const router = useRouter();
   const [accounts, setAccounts] = useState<StoredAccount[]>([]);
@@ -36,31 +39,33 @@ export default function Welcome() {
 
   const fail = (e: any) => setStep({ kind: "error", msg: e?.message || String(e) });
 
+  const remember = (pk: Passkey, wallet: Address) =>
+    saveAccount({
+      wallet,
+      signerId: pk.signerId,
+      credentialId: pk.credentialId,
+      qx: pk.qx,
+      qy: pk.qy,
+      label: deviceLabel(),
+    });
+
   const getStarted = async () => {
     try {
       setStep({ kind: "creating", msg: "Creating your key…" });
       const pk = await createPasskey(deviceLabel());
-      setStep({ kind: "creating", msg: "Predicting your address…" });
-      const { wallet, deployed } = await api.predict(pk.qx, pk.qy);
-      setStep({ kind: "predicted", passkey: pk, wallet, deployed });
-    } catch (e) {
-      fail(e);
-    }
-  };
-
-  const deploy = async (pk: Passkey, wallet: Address) => {
-    try {
-      setStep({ kind: "deploying", passkey: pk, wallet });
-      await api.deploy({ qx: pk.qx, qy: pk.qy, kind: 0, credentialIdHash: credentialIdHash(pk.credentialId) });
-      saveAccount({
-        wallet,
-        signerId: pk.signerId,
-        credentialId: pk.credentialId,
+      setStep({ kind: "creating", msg: "Deriving your address…" });
+      const { wallet } = await api.register({
         qx: pk.qx,
         qy: pk.qy,
-        label: deviceLabel(),
+        kind: 0,
+        credentialIdHash: credentialIdHash(pk.credentialId),
       });
-      if (isLocal) await api.fund(wallet, "100").catch(() => {});
+      remember(pk, wallet);
+      if (isLocal) {
+        // play money on the local chain, straight to the counterfactual address
+        await api.fund(wallet, "100").catch(() => {});
+        await api.fund(wallet, "0.5", "ETH").catch(() => {});
+      }
       router.push(`/w/${wallet}`);
     } catch (e) {
       fail(e);
@@ -77,20 +82,25 @@ export default function Welcome() {
         router.push(`/w/${existing.wallet}`);
         return;
       }
-      const { wallet, deployed } = await api.predict(pk.qx, pk.qy);
-      if (deployed) {
-        saveAccount({
-          wallet,
-          signerId: pk.signerId,
-          credentialId: pk.credentialId,
-          qx: pk.qx,
-          qy: pk.qy,
-          label: deviceLabel(),
-        });
+      const { wallet, deployed, registered } = await api.predict(pk.qx, pk.qy);
+      if (deployed || registered) {
+        remember(pk, wallet);
         router.push(`/w/${wallet}`);
         return;
       }
-      setStep({ kind: "lookup", passkey: pk });
+      // Never seen by this app: either a key added to some other wallet later, or a brand-new
+      // counterfactual wallet of its own. Let the user pick.
+      setStep({ kind: "lookup", passkey: pk, own: wallet });
+    } catch (e) {
+      fail(e);
+    }
+  };
+
+  const openOwn = async (pk: Passkey, own: Address) => {
+    try {
+      await api.register({ qx: pk.qx, qy: pk.qy, kind: 0, credentialIdHash: credentialIdHash(pk.credentialId) });
+      remember(pk, own);
+      router.push(`/w/${own}`);
     } catch (e) {
       fail(e);
     }
@@ -107,14 +117,7 @@ export default function Welcome() {
           ),
         );
       }
-      saveAccount({
-        wallet: snap.address,
-        signerId: pk.signerId,
-        credentialId: pk.credentialId,
-        qx: pk.qx,
-        qy: pk.qy,
-        label: deviceLabel(),
-      });
+      remember(pk, snap.address);
       router.push(`/w/${snap.address}`);
     } catch (e) {
       fail(e);
@@ -141,29 +144,12 @@ export default function Welcome() {
         </h1>
         <p className="text-muted mt-2 text-lg">Your money, instantly.</p>
 
-        {step.kind === "predicted" && (
-          <div className="card w-full p-5 mt-8 text-left">
-            <div className="text-sm text-muted">Your address on {chainLabel}</div>
-            <div className="mono text-sm break-all mt-1">{step.wallet}</div>
-            <p className="text-sm text-muted mt-3">
-              {step.deployed
-                ? "This wallet already exists. Open it."
-                : "Known before any deposit. Create it to start receiving."}
-            </p>
-            <button
-              className="btn btn-primary w-full mt-4"
-              onClick={() => (step.deployed ? router.push(`/w/${step.wallet}`) : deploy(step.passkey, step.wallet))}
-            >
-              {step.deployed ? "Open wallet" : "Create wallet"}
-              <ArrowRightIcon size={18} />
-            </button>
-          </div>
-        )}
         {step.kind === "lookup" && (
           <div className="card w-full p-5 mt-8 text-left">
             <div className="font-semibold">Which wallet is this key on?</div>
             <p className="text-sm text-muted mt-1">
-              This passkey was added to a wallet later, so its address is not derivable. Paste the wallet address.
+              If this passkey was added to an existing wallet as an extra key, paste that wallet&apos;s address.
+              Otherwise open the wallet this key owns on its own.
             </p>
             <input
               className="input mono mt-3"
@@ -172,14 +158,17 @@ export default function Welcome() {
               onChange={e => setPasted(e.target.value.trim())}
             />
             <button className="btn btn-primary w-full mt-3" onClick={() => attach(step.passkey)}>
-              Open wallet
+              Open that wallet
+            </button>
+            <button className="btn btn-white w-full mt-2" onClick={() => openOwn(step.passkey, step.own)}>
+              Open my own · {shortAddr(step.own, 6, 4)}
             </button>
           </div>
         )}
-        {(step.kind === "creating" || step.kind === "deploying") && (
+        {step.kind === "creating" && (
           <div className="mt-8 flex items-center gap-3 text-muted">
             <span className="w-5 h-5 rounded-full border-2 border-line border-t-ink animate-spin" />
-            {step.kind === "creating" ? step.msg : "Creating your wallet…"}
+            {step.msg}
           </div>
         )}
         {step.kind === "error" && (
@@ -223,7 +212,7 @@ export default function Welcome() {
           <p className="text-center text-muted text-[13px] leading-snug mt-1">
             {supported ? (
               <>
-                No seed phrase. No gas. Face ID makes the key,
+                No seed phrase. No gas. Face ID makes the key and your address on {chainLabel},
                 <br />a $35 device you build guards the big money.
               </>
             ) : (

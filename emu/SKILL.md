@@ -72,7 +72,8 @@ that should ship for good goes in `firmware/` and through `tools/push`.
   plain bytecode in the emulator, slower). Files: `open("x.bin","rb")`, `os.listdir()`.
 - Other firmware you can import: `wallet` (the real device loop: talks to the app through `/app`,
   software signer here), `mock` (the same `wallet` on top of an in-process fake of the app:
-  `mock.pair()`, `mock.inject("transfer")`, `mock.check(id)`), `eip712`, `qr`, `words`,
+  `mock.pair()`, `mock.inject(kind, eth=, admin=, tamper=, **fields)` for every request kind in
+  docs/PROTOCOL.md section 5, `mock.check(id)`; `emu/shots.sh` renders every screen), `eip712`, `qr`, `words`,
   `keccak`, `p256`, `signer`. Do not import `atecc` (no chip in the emulator).
 
 ## Emulator vs board

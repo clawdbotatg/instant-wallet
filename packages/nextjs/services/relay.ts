@@ -1,17 +1,22 @@
 import { facilitatorClient, instantWalletAbi, publicClient, targetChain } from "./chain";
+import { walletView } from "./factory";
+import { invalidatePortfolio } from "./portfolio";
 import { setLabel, setPairing } from "./store";
 import { type Address, type Hex, getAddress, isAddress, isHex } from "viem";
 import { chainId } from "~~/utils/chain";
 import {
   type Call,
+  decodeAdminCalls,
   hashAddSigner,
   hashCalls,
   hashCancelRecovery,
   hashExecute,
   hashRemoveSigner,
+  hashSetLimit,
   hashSetRecovery,
   hashTransfer,
   hashUpdateSigner,
+  signerIdOf,
 } from "~~/utils/digests";
 import { getParsedError } from "~~/utils/scaffold-eth/getParsedError";
 
@@ -26,6 +31,7 @@ export const META_FUNCTIONS = [
   "metaExecute",
   "metaAddSigner",
   "metaUpdateSigner",
+  "metaSetLimit",
   "metaRemoveSigner",
   "metaSetRecovery",
   "metaCancelRecovery",
@@ -45,6 +51,7 @@ const small = (v: unknown, name: string, max: number): number => {
   if (n > max) throw new Error(`${name} out of range`);
   return n;
 };
+const MAX_U128 = 2n ** 128n - 1n;
 
 export function parseCalls(raw: unknown): Call[] {
   if (!Array.isArray(raw) || raw.length === 0 || raw.length > 32) throw new Error("calls must be a non-empty array");
@@ -65,14 +72,14 @@ export function normalizeMeta(functionName: string, args: unknown) {
   const a = Array.isArray(args) ? args : [];
   switch (functionName as MetaFunction) {
     case "metaTransfer": {
-      const [token, to, amount, fee] = a;
-      if (!isAddr(token) || !isAddr(to)) throw new Error("token and to must be addresses");
-      const typed = [getAddress(token), getAddress(to), big(amount, "amount"), big(fee ?? "0", "fee")] as const;
+      const [asset, to, amount, fee] = a;
+      if (!isAddr(asset) || !isAddr(to)) throw new Error("asset and to must be addresses (asset 0x0 = ETH)");
+      const typed = [getAddress(asset), getAddress(to), big(amount, "amount"), big(fee ?? "0", "fee")] as const;
       return {
         args: typed,
         digest: (wallet: Address, nonce: bigint, deadline: bigint) =>
           hashTransfer(chainId, wallet, {
-            token: typed[0],
+            asset: typed[0],
             to: typed[1],
             amount: typed[2],
             fee: typed[3],
@@ -90,18 +97,11 @@ export function normalizeMeta(functionName: string, args: unknown) {
       };
     }
     case "metaAddSigner": {
-      const [qx, qy, kind, role, dailyLimit, credentialIdHash] = a;
+      const [qx, qy, kind, role, credentialIdHash] = a;
       if (!isBytes32(qx) || !isBytes32(qy)) throw new Error("qx and qy must be bytes32");
       const cih = credentialIdHash ?? `0x${"00".repeat(32)}`;
       if (!isBytes32(cih)) throw new Error("credentialIdHash must be bytes32");
-      const typed = [
-        qx,
-        qy,
-        small(kind, "kind", 1),
-        small(role, "role", 1),
-        big(dailyLimit ?? "0", "dailyLimit"),
-        cih,
-      ] as const;
+      const typed = [qx, qy, small(kind, "kind", 1), small(role, "role", 1), cih] as const;
       return {
         args: typed,
         digest: (wallet: Address, nonce: bigint, deadline: bigint) =>
@@ -110,27 +110,33 @@ export function normalizeMeta(functionName: string, args: unknown) {
             qy: typed[1],
             kind: typed[2],
             role: typed[3],
-            dailyLimit: typed[4],
-            credentialIdHash: typed[5],
+            credentialIdHash: typed[4],
             nonce,
             deadline,
           }),
       };
     }
     case "metaUpdateSigner": {
-      const [target, role, dailyLimit] = a;
+      const [target, role] = a;
       if (!isAddr(target)) throw new Error("targetSignerId must be an address");
-      const typed = [getAddress(target), small(role, "role", 1), big(dailyLimit ?? "0", "dailyLimit")] as const;
+      const typed = [getAddress(target), small(role, "role", 1)] as const;
       return {
         args: typed,
         digest: (wallet: Address, nonce: bigint, deadline: bigint) =>
-          hashUpdateSigner(chainId, wallet, {
-            signerId: typed[0],
-            role: typed[1],
-            dailyLimit: typed[2],
-            nonce,
-            deadline,
-          }),
+          hashUpdateSigner(chainId, wallet, { signerId: typed[0], role: typed[1], nonce, deadline }),
+      };
+    }
+    case "metaSetLimit": {
+      const [target, asset, limit] = a;
+      if (!isAddr(target)) throw new Error("targetSignerId must be an address");
+      if (!isAddr(asset)) throw new Error("asset must be an address (0x0 = ETH)");
+      const lim = big(limit ?? "0", "limit");
+      if (lim > MAX_U128) throw new Error("limit out of range (uint128)");
+      const typed = [getAddress(target), getAddress(asset), lim] as const;
+      return {
+        args: typed,
+        digest: (wallet: Address, nonce: bigint, deadline: bigint) =>
+          hashSetLimit(chainId, wallet, { signerId: typed[0], asset: typed[1], limit: typed[2], nonce, deadline }),
       };
     }
     case "metaRemoveSigner": {
@@ -162,7 +168,10 @@ export function normalizeMeta(functionName: string, args: unknown) {
   }
 }
 
-/** The contract's own view of the same digest — the cross-check before anything is queued. */
+/**
+ * The contract's own view of the same digest — the cross-check before anything is queued. Works for a
+ * counterfactual wallet too (the hash views depend only on chainid + address, read via a code override).
+ */
 export async function contractDigest(
   wallet: Address,
   functionName: MetaFunction,
@@ -170,32 +179,22 @@ export async function contractDigest(
   nonce: bigint,
   deadline: bigint,
 ): Promise<Hex> {
-  const pc = publicClient();
   const view = {
     metaTransfer: "hashTransfer",
     metaExecute: "hashExecute",
     metaAddSigner: "hashAddSigner",
     metaUpdateSigner: "hashUpdateSigner",
+    metaSetLimit: "hashSetLimit",
     metaRemoveSigner: "hashRemoveSigner",
     metaSetRecovery: "hashSetRecovery",
     metaCancelRecovery: "hashCancelRecovery",
   }[functionName];
   let viewArgs: unknown[] = [...args, nonce, deadline];
   if (functionName === "metaExecute") {
-    const callsHash = (await pc.readContract({
-      address: wallet,
-      abi: instantWalletAbi,
-      functionName: "hashCalls",
-      args: [args[0] as Call[]],
-    })) as Hex;
+    const callsHash = await walletView<Hex>(wallet, "hashCalls", [args[0] as Call[]]);
     viewArgs = [callsHash, nonce, deadline];
   }
-  return (await pc.readContract({
-    address: wallet,
-    abi: instantWalletAbi,
-    functionName: view as any,
-    args: viewArgs as any,
-  })) as Hex;
+  return walletView<Hex>(wallet, view, viewArgs);
 }
 
 export async function isValidSignature(
@@ -220,7 +219,7 @@ export type RelayResult = {
   status: "success" | "reverted";
 };
 
-/** Simulate, send, wait. Throws a parsed error on revert. */
+/** Simulate, send, wait. Throws a parsed error on revert. The wallet must be deployed (see factory.ensureDeployed). */
 export async function relayMeta(
   wallet: Address,
   functionName: MetaFunction,
@@ -242,7 +241,7 @@ export async function relayMeta(
     });
     const txHash = await fc.writeContract({ ...request, chain: targetChain, account: fc.account! } as any);
     const receipt = await pc.waitForTransactionReceipt({ hash: txHash });
-    if (receipt.status === "success") afterSuccess(wallet, functionName, args);
+    if (receipt.status === "success") await afterSuccess(wallet, functionName, args).catch(() => {});
     return {
       txHash,
       blockNumber: receipt.blockNumber.toString(),
@@ -255,13 +254,15 @@ export async function relayMeta(
   }
 }
 
-/** Bookkeeping that helps the device find its wallet after pairing. */
-function afterSuccess(wallet: Address, functionName: MetaFunction, args: readonly unknown[]) {
+/** Bookkeeping that helps the device find its wallet after pairing (direct or inside an admin batch). */
+async function afterSuccess(wallet: Address, functionName: MetaFunction, args: readonly unknown[]) {
+  invalidatePortfolio(wallet);
   if (functionName === "metaAddSigner") {
     const [qx, qy, kind] = args as readonly [Hex, Hex, number, ...unknown[]];
-    if (Number(kind) === 1) {
-      // raw key = a device; remember which wallet it belongs to
-      import("~~/utils/digests").then(({ signerIdOf }) => setPairing(signerIdOf(qx, qy), wallet)).catch(() => {});
+    if (Number(kind) === 1) await setPairing(signerIdOf(qx, qy), wallet);
+  } else if (functionName === "metaExecute") {
+    for (const op of decodeAdminCalls(wallet, args[0] as Call[]) ?? []) {
+      if (op.op === "addSigner" && op.kind === 1) await setPairing(signerIdOf(op.qx, op.qy), wallet);
     }
   }
 }

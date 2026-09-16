@@ -13,7 +13,7 @@ with a green SIGN button). Both signers speak P-256, so one contract verifies bo
 ```
  phone / laptop passkey ──WebAuthn sig──┐
                                         ├──▶  InstantWallet.sol  ◀── relay pays gas, takes a USDC fee
- the device (ATECC608)  ──raw P-256 sig─┘     spender: ≤ $500/day · owner: anything
+ the device (ATECC608)  ──raw P-256 sig─┘     spender: per-asset daily limits · owner: anything
 ```
 
 - **Day 1**: Face ID makes a key. The address exists before any deposit. Send with a face scan.

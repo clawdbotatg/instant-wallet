@@ -25,19 +25,26 @@ export const api = {
     fetch(`/api/wallet?address=${address}&nonce=1`, { cache: "no-store" }).then(r => json<{ nonce: string }>(r)),
   predict: (qx: Hex, qy: Hex) =>
     fetch(`/api/deploy-wallet?qx=${qx}&qy=${qy}`).then(r =>
-      json<{ wallet: Address; signerId: Address; deployed: boolean }>(r),
+      json<{ wallet: Address; signerId: Address; deployed: boolean; registered: boolean }>(r),
     ),
+  /** Register the first key of a counterfactual wallet (no transaction). */
+  register: (body: { qx: Hex; qy: Hex; kind: number; credentialIdHash: Hex }) =>
+    fetch("/api/register", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    }).then(r => json<{ wallet: Address; signerId: Address; deployed: boolean }>(r)),
   deploy: (body: { qx: Hex; qy: Hex; kind: number; credentialIdHash: Hex }) =>
     fetch("/api/deploy-wallet", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
     }).then(r => json<{ wallet: Address; signerId: Address; txHash?: Hex; alreadyDeployed?: boolean }>(r)),
-  fund: (wallet: string, amount = "100") =>
+  fund: (wallet: string, amount = "100", asset?: "ETH") =>
     fetch("/api/fund", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ wallet, amount }),
+      body: JSON.stringify({ wallet, amount, asset }),
     }).then(r => json<{ txHash: Hex; balanceFormatted: string }>(r)),
   facilitate: (body: Record<string, unknown>) =>
     fetch("/api/facilitate", {

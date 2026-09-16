@@ -12,6 +12,8 @@ tools/emu run hello       # reboot + import emu/sketches/hello.py
 tools/emu key A           # press a button (A B X Y up down left right press), key right:300 holds
 tools/emu shot            # emu/shots/latest.png
 tools/emu exec 'mock.inject("transfer")'   # queue a fake request; then `tools/emu key A`
+tools/emu exec 'mock.inject("transfer", eth=True)'     # native ETH; also "setLimit", "execute", admin=True (the pairing batch)
+emu/shots.sh              # every screen -> firmware/shots/*.png, headless (run after touching wallet.py / mock.py)
 tools/emu log             # console lines
 tools/emu headless mock --wait 1500 --exec 'mock.pair()' --wait 2500 --shot emu/shots/x.png    # no browser
 ```

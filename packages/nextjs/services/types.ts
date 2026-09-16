@@ -6,6 +6,7 @@ export type RequestKind =
   | "execute"
   | "addSigner"
   | "updateSigner"
+  | "setLimit"
   | "removeSigner"
   | "setRecovery"
   | "cancelRecovery";
@@ -33,11 +34,12 @@ export type RequestBase = {
   note?: string; // display-only: what the user asked for (e.g. chat proposal)
 };
 
+/** asset = 0x000…0 is ETH; symbol/decimals are display hints, the device hashes only the raw fields. */
 export type TransferRequest = RequestBase & {
   kind: "transfer";
-  token: Address;
-  tokenSymbol: string;
-  tokenDecimals: number;
+  asset: Address;
+  assetSymbol: string;
+  assetDecimals: number;
   to: Address;
   toName?: string;
   amount: string;
@@ -54,18 +56,27 @@ export type AddSignerRequest = RequestBase & {
   qy: Hex;
   signerKind: number;
   role: number;
-  dailyLimit: string;
   credentialIdHash: Hex;
   label?: string;
 };
 
+/** `label` = the app's name for targetSignerId when it knows one (display hint for the device). */
 export type UpdateSignerRequest = RequestBase & {
   kind: "updateSigner";
   targetSignerId: Address;
+  label?: string;
   role: number;
-  dailyLimit: string;
 };
-export type RemoveSignerRequest = RequestBase & { kind: "removeSigner"; targetSignerId: Address };
+export type SetLimitRequest = RequestBase & {
+  kind: "setLimit";
+  targetSignerId: Address;
+  label?: string;
+  asset: Address;
+  assetSymbol: string;
+  assetDecimals: number;
+  limit: string;
+};
+export type RemoveSignerRequest = RequestBase & { kind: "removeSigner"; targetSignerId: Address; label?: string };
 export type SetRecoveryRequest = RequestBase & { kind: "setRecovery"; recoveryAddress: Address; recoveryDelay: number };
 export type CancelRecoveryRequest = RequestBase & { kind: "cancelRecovery" };
 
@@ -74,6 +85,7 @@ export type WalletRequest =
   | ExecuteRequest
   | AddSignerRequest
   | UpdateSignerRequest
+  | SetLimitRequest
   | RemoveSignerRequest
   | SetRecoveryRequest
   | CancelRecoveryRequest;
@@ -89,6 +101,9 @@ export type DeviceInfo = {
   lastSeen: number;
 };
 
+/** The first key of a wallet (what Factory.createWallet needs); registered when the passkey is created. */
+export type FirstKey = { qx: Hex; qy: Hex; kind: number; credentialIdHash: Hex; registeredAt: number };
+
 export type Store = {
   requests: WalletRequest[];
   /** last announce per signerId */
@@ -97,6 +112,8 @@ export type Store = {
   pairings: Record<string, Address>;
   /** wallet -> signerId -> human label ("iPhone · Face ID") */
   labels: Record<string, Record<string, string>>;
+  /** wallet (lowercase) -> first key, for counterfactual wallets */
+  keys: Record<string, FirstKey>;
 };
 
 export const IN_FLIGHT: ReadonlySet<RequestStatus> = new Set(["pending", "signed", "relaying"]);

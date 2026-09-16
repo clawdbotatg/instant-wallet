@@ -18,12 +18,21 @@ address, same balance, two windows onto it.
 
 ## Contract
 
-Built: `packages/foundry/contracts/InstantWallet.sol`, spec in `docs/PROTOCOL.md`. In short: a
-`Signer` is `(qx, qy, kind, role, dailyLimit)`; spenders may `metaTransfer` the wallet's token up to
-a rolling 24h limit (amount + fee); owners may transfer anything, `metaExecute` batches, and
-add/update/remove signers; a recovery address adds a new owner after a delay (default 1 day,
-owner-set, min 1 hour) and any owner action cancels it. Both signer kinds verify against the same
-EIP-712 digest: passkeys through OpenZeppelin `WebAuthn.verify`, chips through `P256.verify`.
+Built: `packages/foundry/contracts/InstantWallet.sol` (v2), spec in `docs/PROTOCOL.md`. In short: a
+`Signer` is `(qx, qy, kind, role)`; the wallet holds **any asset** (ETH, any ERC-20, NFTs). Owners
+move anything with no limit and `metaExecute` arbitrary batches (delegated execution, ETH value
+included). Spenders get **per-asset rolling 24h limits** set by an owner (`SetLimit`; ETH is asset
+`0x0`); an asset with no limit can't be moved by a spender. Admin (add/update/remove key, set limit,
+set recovery) exists as one-signature `metaX` calls *and* as self-calls, so pairing a device is a
+single `metaExecute`. A recovery address adds a new owner after a delay (default 1 day, owner-set,
+min 1 hour) and any owner action cancels it. Both signer kinds verify against the same EIP-712
+digest: passkeys through OpenZeppelin `WebAuthn.verify`, chips through `P256.verify`.
+
+**Counterfactual and multi-chain.** The Factory is deployed through the deterministic CREATE2
+deployer at the same address on Base and Ethereum, so a key's wallet address is identical on both;
+it can receive before any code exists and the facilitator deploys it in the same breath as the first
+outbound action. Live: Factory `0x6440dE50962dBcBD4b2777e8B8E21b4c47E45961` on Base (8453) and
+Ethereum (1). No testnets.
 
 ## Off chain
 
@@ -59,10 +68,9 @@ screens: `PAIR` (QR of pubkey), `ADD KEY` (approve a new passkey), `SIGN` gains 
 
 ## Open questions
 
-- Daily-limit accounting on-chain: decode `transfer` amounts from calldata (simple, one token)
-  vs. balance-delta check around the batch (general, but a spender could route through a
-  contract that returns value later). Start with the one-token decode.
+- Spender limits are per asset in base units (no oracle). A USD-denominated limit across assets
+  would need a price feed on chain; not for v1.
 - Desktop without a passkey (Linux, no TPM): the device over USB serial as the *only* signer.
-- Does the facilitator fee count against the daily limit? (No — it's bounded and its own line.)
+- The facilitator fee is paid in the same asset and counts against a spender's limit (amount + fee). Default fee today: 0 (gas is sponsored).
 - Is "owner" a role or a threshold? A 2-of-2 (device + passkey) tier for very large amounts is a
   natural step 5 but adds UI. Skip for v1.

@@ -124,33 +124,82 @@ def eth_amount(wei):
     return units(wei, 18)
 
 
-def token_decimals(addr=None):
-    tok = info.get("token", {}) or {}
-    if addr is None or (tok.get("address") or "").lower() == (addr or "").lower():
+def assets():
+    """The wallet's asset list from /api/state (v2 shape), [] when the app has not said yet."""
+    a = (info.get("wallet", {}) or {}).get("assets")
+    return a if isinstance(a, list) else []
+
+
+def asset_meta(addr, sym_hint=None, dec_hint=None):
+    """(symbol, decimals) for a RAW asset address. Symbols and decimals are display hints only:
+    the request's own hints first, then the app's asset list, then ETH for address 0. An asset
+    nobody can name shows as its short address; unknown decimals come back as None (the raw
+    units are shown, nothing is ever scaled by a guess)."""
+    sym = str(sym_hint)[:8] if sym_hint else None
+    dec = None
+    if dec_hint is not None:
         try:
-            return int(tok.get("decimals", 6))
+            dec = int(dec_hint)
         except (TypeError, ValueError):
-            return 6
-    return None
+            dec = None
+    if sym is None or dec is None:
+        for a in assets():
+            if _same(a.get("asset"), addr):
+                sym = sym or (str(a.get("symbol"))[:8] if a.get("symbol") else None)
+                if dec is None:
+                    try:
+                        dec = int(a.get("decimals"))
+                    except (TypeError, ValueError):
+                        dec = None
+                break
+    if eip712.is_eth(addr):
+        sym = sym or "ETH"
+        dec = 18 if dec is None else dec
+    return sym or short(addr), dec
 
 
-def token_symbol(addr=None):
-    tok = info.get("token", {}) or {}
-    if addr is None or (tok.get("address") or "").lower() == (addr or "").lower():
-        return tok.get("symbol", "")
-    return ""
+def signer_label(sid):
+    """The app's label for a signer id, 'this device' for our own key, else the short id."""
+    if sid and signer_id and _same(sid, signer_id):
+        return "this device"
+    for s in info.get("signers", []) or []:
+        if _same(s.get("signerId") or s.get("id"), sid) and s.get("label"):
+            return str(s["label"])
+    return short(sid)
 
 
 DOLLAR_TOKENS = ("USDC", "USDS", "USDT", "DAI", "USD")
 
 
 def amount_label(raw, decimals, symbol):
-    """Big number for the confirm screen. '$2,000' for dollar tokens, '2,000 XYZ' otherwise."""
+    """Big number for the confirm screen. '$2,000' for dollar tokens, '0.05 ETH' otherwise;
+    unknown decimals -> the raw integer, so nothing is ever scaled by a guess."""
+    if decimals is None:
+        return commas(str(int(raw))) + " units"
     s = units(raw, decimals)
     if symbol.upper() in DOLLAR_TOKENS:
         return money(s, cents=("." in s))
     whole, _, frac = s.partition(".")
-    return commas(whole) + ("." + frac if frac else "")
+    return commas(whole) + ("." + frac[:6] if frac else "") + (" " + symbol if symbol else "")
+
+
+def limit_label(raw, decimals, symbol):
+    """'USDC 500/day', 'ETH 0.1/day'; a zero limit removes the asset from the spender."""
+    if int(raw) == 0:
+        return symbol + " removed"
+    if decimals is None:
+        return symbol + " " + commas(str(int(raw))) + "/day"
+    return symbol + " " + units(raw, decimals) + "/day"
+
+
+def usd_label(v):
+    """balanceUsd as the app sent it (number or string) -> '$2,847.13'; None when unusable."""
+    if v is None:
+        return None
+    try:
+        return money("%.2f" % float(v))
+    except (TypeError, ValueError):
+        return None
 
 
 def checksum(addr):
@@ -317,24 +366,53 @@ def draw_sparkline(x0, y0, w, h):
         d.line(xa, ya + 2, xb, yb + 2, BRIGHT)
 
 
+def asset_summary():
+    """'0.42 ETH  2,000 USDC' from the app's asset list (formatted hints; this is the home screen,
+    nothing here is signed). Assets with a zero balance are skipped; 'no assets' when empty."""
+    parts = []
+    for a in assets():
+        bal = a.get("balanceFormatted")
+        if bal is None:
+            try:
+                bal = units(a.get("balance", 0) or 0, int(a.get("decimals", 18)))
+            except (TypeError, ValueError):
+                continue
+        try:
+            if float(bal) == 0:
+                continue
+        except ValueError:
+            pass
+        whole, _, frac = str(bal).partition(".")
+        parts.append(commas(whole) + ("." + frac[:4].rstrip("0") if frac.rstrip("0") else "") + " " + str(a.get("symbol", "?"))[:6])
+    if not parts:
+        w = info.get("wallet", {}) or {}
+        return "no assets" if assets() or w.get("deployed") else ("not deployed yet" if w and w.get("deployed") is False else "")
+    out = parts[0]
+    for p in parts[1:]:
+        if len(out) + 2 + len(p) > 30:
+            out += " +%d" % (len(parts) - parts.index(p))
+            break
+        out += "  " + p
+    return out[:30]
+
+
 def draw_home():
     d.fill(L.BLACK)
     header()
     w = info.get("wallet", {}) or {}
-    bal = w.get("balanceFormatted")
     ens_name = w.get("ensName")
-    sym = token_symbol() or ""
-    if bal is None:
-        d.center_text("connecting...", 40, L.GREY, 2)
+    s = usd_label(w.get("balanceUsd", w.get("balanceFormatted")))
+    if s is None:
+        d.center_text("connecting..." if not info else "no balance yet", 40, L.GREY, 2)
     else:
-        s = money(bal)
         d.center_text(s, 28, L.WHITE, 3 if len(s) <= 10 else 2)
         if len(hist) >= 2:
             delta = hist[-1] - hist[0]
             ds = ("+" if delta >= 0 else "-") + money("%.2f" % abs(delta))
-            d.center_text(ds + " " + sym, 60, BRIGHT if delta > 0 else (L.RED if delta < 0 else L.GREY))
+            d.center_text(ds, 60, BRIGHT if delta > 0 else (L.RED if delta < 0 else L.GREY))
         else:
-            d.center_text(sym, 60, L.GREY)
+            d.center_text("USD", 60, L.GREY)
+        d.center_text(asset_summary(), 72, L.GREY)
     draw_sparkline(0, 84, 240, 104)
     d.fill_rect(0, 190, 240, 50, PANEL)
     if ens_name:
@@ -386,7 +464,7 @@ def draw_keys():
     d.text("%d" % len(signers), 228, 4, L.GREY)
     d.hline(0, 16, 240, L.DARK)
     y = 22
-    for s in signers[:7]:
+    for s in signers[:6]:
         sid = s.get("signerId") or s.get("id") or ""
         mine = sid.lower() == signer_id.lower() if sid and signer_id else False
         role = "owner" if int(s.get("role", 0) or 0) == 1 else "spender"
@@ -396,9 +474,18 @@ def draw_keys():
         if role == "owner":
             lim = "no limit"
         else:
-            lim = "$" + units(s.get("dailyLimit", 0) or 0, token_decimals() or 6) + "/day"
-        d.text("%s %s %s" % (kind, role, lim), 12, y + 10, L.YELLOW if role == "owner" else L.GREY)
-        y += 26
+            lims = []
+            for lm in s.get("limits", []) or []:
+                sym, dec = asset_meta(lm.get("asset"), lm.get("symbol"), lm.get("decimals"))
+                lims.append(limit_label(lm.get("limit", 0) or 0, dec, sym).replace("/day", "/d"))
+            lim = "  ".join(lims) if lims else "no assets"
+        if role == "owner":
+            d.text("%s %s %s" % (kind, role, lim), 12, y + 10, L.YELLOW)
+            y += 26
+        else:
+            d.text("%s %s" % (kind, role), 12, y + 10, L.GREY)
+            d.text(lim[:28], 12, y + 20, L.GREY)
+            y += 36
     if not signers:
         d.center_text("no signers listed", 100, L.GREY)
     rec = info.get("pendingRecovery")
@@ -426,21 +513,83 @@ def selector_of(data_hex):
     return data_hex[:10].lower() if len(data_hex) >= 10 else "0x00000000"
 
 
+def delay_label(secs):
+    secs = int(secs)
+    if secs % 86400 == 0:
+        return "%dd" % (secs // 86400)
+    if secs % 3600 == 0:
+        return "%dh" % (secs // 3600)
+    return "%ds" % secs
+
+
+def admin_lines(calls, wallet):
+    """When EVERY call of an Execute targets the wallet itself with no ETH and decodes as one of
+    the self-only admin functions, one plain line per call ('add key owner', 'phone -> spender',
+    'limit USDC 500/day', 'remove key phone', 'recovery 1d'). Else None: the generic screen shows
+    it. The lines describe exactly the calldata that went into callsHash (decode_admin_call
+    refuses padding), so what is read is what is signed."""
+    if not calls:
+        return None
+    out = []
+    targets = set()
+    for c in calls:
+        if not _same(c.get("target"), wallet) or int(c.get("value", 0) or 0) != 0:
+            return None
+        data = bytes.fromhex(c["data"][2:]) if len(c.get("data", "0x")) > 2 else b""
+        dec = eip712.decode_admin_call(data)
+        if not dec:
+            return None
+        name, a = dec
+        if name == "addSigner":
+            sid = eip712.signer_id(a[0], a[1])
+            who = "this device" if _same(sid, signer_id) else ("passkey" if a[2] == 0 else "chip") + " " + short(sid)
+            out.append("add key %s: %s" % ("owner" if a[3] == 1 else "spender", who))
+        elif name == "updateSigner":
+            targets.add(a[0])
+            out.append("%s -> %s" % (signer_label(a[0])[:16], "owner" if a[1] == 1 else "spender"))
+        elif name == "setLimit":
+            targets.add(a[0])
+            sym, dec_ = asset_meta(a[1])
+            out.append(("limit " + limit_label(a[2], dec_, sym), a[0]))
+        elif name == "removeSigner":
+            out.append("remove key " + signer_label(a[0])[:18])
+        elif name == "setRecovery":
+            out.append("recovery %s %s" % (delay_label(a[1]), short(a[0])))
+    # name the spender on limit lines only when the batch touches more than one key
+    lines = []
+    for ln in out:
+        if isinstance(ln, tuple):
+            ln = ln[0] + ((" " + signer_label(ln[1])[:10]) if len(targets) > 1 else "")
+        lines.append(ln)
+    return lines
+
+
 def draw_summary():
     kind = req.get("kind")
     code = words.match_code(req["_digest"])
     if kind == "transfer":
         bar(SIGN_BAR[0], SIGN_BAR[1], "SIGN", SIGN_GREEN, 3)
-        dec = token_decimals(req["token"])
-        sym = token_symbol(req["token"]) or req.get("tokenSymbol", "")
-        if dec is None:
-            dec = int(req.get("tokenDecimals", 18))   # a foreign token: decimals are a hint, raw is on the details page
+        # symbol + decimals are hints; the RAW `asset` address went into the digest we rebuilt
+        sym, dec = asset_meta(req["asset"], req.get("assetSymbol"), req.get("assetDecimals"))
         amt = amount_label(req["amount"], dec, sym)
-        d.center_text(amt, 68, L.WHITE, 4 if len(amt) <= 7 else (3 if len(amt) <= 10 else 2))
-        d.center_text((sym + " TO").strip()[:20], 102, L.GREY)
+        d.center_text(amt, 68, L.WHITE, 4 if len(amt) <= 7 else (3 if len(amt) <= 10 else (2 if len(amt) <= 15 else 1)))
+        d.center_text(((sym if not amt.endswith(sym) else "") + " TO").strip()[:20], 102, L.GREY)
         name = req.get("toName") or short(req["to"])
         d.center_text(name.upper()[:14], 116, L.YELLOW, 2)
         d.center_text(short(req["to"]).upper(), 136, L.GREY)
+    elif kind == "execute" and req.get("_admin"):
+        bar(SIGN_BAR[0], SIGN_BAR[1], "SIGN", SIGN_GREEN, 3)
+        calls = req.get("calls", [])
+        lines = req["_admin"]
+        d.center_text("ADMIN: %d CALL%s" % (len(calls), "" if len(calls) == 1 else "S"), 64, L.YELLOW, 2)
+        d.center_text("on this wallet  %s ETH" % eth_amount(req.get("_value", 0)), 82, L.GREY)
+        shown = lines if len(lines) <= 4 else lines[:3]
+        y = 96
+        for line in shown:
+            d.text(line[:30], 4, y, L.WHITE)
+            y += 12
+        if len(lines) > 4:
+            d.text("+%d more (down: details)" % (len(lines) - 3), 4, y, L.GREY)
     elif kind == "execute":
         bar(SIGN_BAR[0], SIGN_BAR[1], "SIGN", SIGN_GREEN, 3)
         calls = req.get("calls", [])
@@ -484,24 +633,37 @@ def draw_summary():
         d.center_text(label[:14], 84, L.YELLOW, 2 if len(label) <= 14 else 1)
         role = int(req.get("role", 0))
         skind = int(req.get("signerKind", 0))
-        if role == 1:
-            d.center_text("OWNER: NO LIMIT", 108, L.WHITE)
-        else:
-            d.center_text(("LIMIT $" + units(req.get("dailyLimit", 0), token_decimals() or 6) + " / DAY")[:28], 108, L.WHITE)
-        d.center_text(("PASSKEY" if skind == 0 else "CHIP KEY") + "  " + ("OWNER" if role == 1 else "SPENDER"), 124, L.GREY)
+        d.center_text("AS " + ("OWNER" if role == 1 else "SPENDER"), 106, L.WHITE, 2)
+        d.center_text(("PASSKEY" if skind == 0 else "CHIP KEY") + ("  no limits" if role == 1 else "  no limits yet"), 128, L.GREY)
     elif kind == "updateSigner":
         bar(SIGN_BAR[0], SIGN_BAR[1], "UPDATE KEY", SIGN_GREEN, 3)
-        d.center_text(short(req["targetSignerId"]).upper(), 68, L.YELLOW, 2)
+        label = signer_label(req["targetSignerId"]).upper()
+        d.center_text(label[:14], 68, L.YELLOW, 2 if len(label) <= 14 else 1)
+        d.center_text(short(req["targetSignerId"]).upper(), 86, L.GREY)
         role = int(req.get("role", 0))
         if role == 1:
-            d.center_text("BECOMES OWNER", 96, L.WHITE, 2)
-            d.center_text("no limit", 120, L.GREY)
+            d.center_text("BECOMES OWNER", 100, L.WHITE, 2)
+            d.center_text("no limits, full control", 124, L.GREY)
         else:
-            d.center_text("SPENDER", 96, L.WHITE, 2)
-            d.center_text(("limit $" + units(req.get("dailyLimit", 0), token_decimals() or 6) + " / day")[:28], 120, L.WHITE)
+            d.center_text("BECOMES SPENDER", 100, L.WHITE, 2 if len("BECOMES SPENDER") <= 15 else 1)
+            d.center_text("keeps its per-asset limits", 124, L.GREY)
+    elif kind == "setLimit":
+        bar(SIGN_BAR[0], SIGN_BAR[1], "LIMIT", SIGN_GREEN, 3)
+        label = (req.get("label") or signer_label(req["targetSignerId"])).upper()
+        d.center_text(label[:14], 68, L.YELLOW, 2 if len(label) <= 14 else 1)
+        d.center_text(short(req["targetSignerId"]).upper(), 86, L.GREY)
+        sym, dec = asset_meta(req["asset"], req.get("assetSymbol"), req.get("assetDecimals"))
+        lim = limit_label(req["limit"], dec, sym).upper()
+        d.center_text(lim, 100, L.WHITE, 2 if len(lim) <= 15 else 1)
+        if int(req["limit"]) == 0:
+            d.center_text("spender can no longer move it", 124, L.GREY)
+        else:
+            d.center_text("rolling 24h, amount + fee", 124, L.GREY)
     elif kind == "removeSigner":
         bar(SIGN_BAR[0], SIGN_BAR[1], "REMOVE KEY", REJECT_RED, 3)
-        d.center_text(short(req["targetSignerId"]).upper(), 72, L.YELLOW, 2)
+        label = signer_label(req["targetSignerId"]).upper()
+        d.center_text(label[:14], 68, L.YELLOW, 2 if len(label) <= 14 else 1)
+        d.center_text(short(req["targetSignerId"]).upper(), 86, L.GREY)
         d.center_text("loses all access", 100, L.WHITE)
         d.center_text("to this wallet", 112, L.WHITE)
     elif kind == "setRecovery":
@@ -526,6 +688,12 @@ def draw_summary():
     bar(REJECT_BAR[0], REJECT_BAR[1], "REJECT", REJECT_RED, 3)
 
 
+def asset_lines(asset):
+    if eip712.is_eth(asset):
+        return ("asset ETH (address 0x0)",)
+    return ("asset " + asset[:22], "      " + asset[22:])
+
+
 def detail_lines():
     r = req
     hx = hexstr(r["_digest"])
@@ -542,18 +710,21 @@ def detail_lines():
             "to " + r["to"][:22], "   " + r["to"][22:],
             "amount " + str(r["amount"]),
             "fee " + str(r.get("fee", 0)),
-            "token " + r["token"][:22], "      " + r["token"][22:],
-        )
+        ) + asset_lines(r["asset"])
     elif kind == "execute":
         lines = []
+        admin = r.get("_admin") or []
         for i, c in enumerate(r.get("calls", [])):
             raw = bytes.fromhex(c["data"][2:]) if len(c["data"]) > 2 else b""
             lines += [
                 "call %d target" % i, "  " + c["target"][:22], "  " + c["target"][22:],
                 "  value %s wei" % c.get("value", "0"),
-                ("  sel " + selector_of(c["data"]) + (" " + SELECTORS[selector_of(c["data"])] if selector_of(c["data"]) in SELECTORS else " UNKNOWN")) if raw else "  no calldata",
-                "  data %d bytes" % len(raw),
             ]
+            if i < len(admin):
+                lines.append("  " + admin[i][:28])
+            else:
+                lines.append(("  sel " + selector_of(c["data"]) + (" " + SELECTORS[selector_of(c["data"])] if selector_of(c["data"]) in SELECTORS else " UNKNOWN")) if raw else "  no calldata")
+            lines.append("  data %d bytes" % len(raw))
         ch = hexstr(r["_calls_hash"])
         lines += ["callsHash (device)", ch[2:24], ch[24:46], ch[46:]]
     elif kind == "addSigner":
@@ -562,15 +733,17 @@ def detail_lines():
             "qy " + r["qy"][2:34], "   " + r["qy"][34:],
             "id " + eip712.signer_id(r["qx"], r["qy"]),
             "kind %s  role %s" % (r.get("signerKind", 0), r.get("role", 0)),
-            "dailyLimit " + str(r.get("dailyLimit", 0)),
             "credIdHash " + str(r.get("credentialIdHash", hex32(0)))[2:22] + "..",
         )
     elif kind == "updateSigner":
         lines = (
             "signer " + r["targetSignerId"][:20], "       " + r["targetSignerId"][20:],
             "role %s" % r.get("role", 0),
-            "dailyLimit " + str(r.get("dailyLimit", 0)),
         )
+    elif kind == "setLimit":
+        lines = (
+            "signer " + r["targetSignerId"][:20], "       " + r["targetSignerId"][20:],
+        ) + asset_lines(r["asset"]) + ("limit " + str(r["limit"]),)
     elif kind == "removeSigner":
         lines = ("signer " + r["targetSignerId"][:20], "       " + r["targetSignerId"][20:])
     elif kind == "setRecovery":
@@ -750,11 +923,12 @@ def fetch_state():
     finally:
         r.close()
     last_fetch = time.ticks_ms()
-    bal = (info.get("wallet", {}) or {}).get("balanceFormatted")
+    w = info.get("wallet", {}) or {}
+    bal = w.get("balanceUsd", w.get("balanceFormatted"))     # v2: USD across assets; v1 fallback: the one token
     if bal is not None:
         try:
             v = float(bal)
-        except ValueError:
+        except (TypeError, ValueError):
             v = None
         if v is not None:
             if hist and v != hist[-1]:
@@ -783,7 +957,9 @@ def check_request(r):
         return "missing envelope fields"
     exp_chain = getattr(secrets, "EXPECTED_CHAIN_ID", None)
     exp_wallet = getattr(secrets, "EXPECTED_WALLET", None)
-    exp_token = getattr(secrets, "EXPECTED_TOKEN", None)
+    exp_assets = getattr(secrets, "EXPECTED_ASSETS", None)
+    if exp_assets is None and getattr(secrets, "EXPECTED_TOKEN", None):
+        exp_assets = (eip712.ETH, secrets.EXPECTED_TOKEN)      # the v1 single-token pin: that token and ETH
     if exp_chain is not None and cid != int(exp_chain):
         return "chain %d is not the pinned chain" % cid
     if chain_id is not None and cid != chain_id:
@@ -797,23 +973,31 @@ def check_request(r):
     kind = r.get("kind")
     try:
         if kind == "transfer":
-            if exp_token and not _same(r["token"], exp_token):
-                return "token is not the pinned token"
-            mine = eip712.transfer_digest(cid, wallet, r["token"], r["to"], int(r["amount"]), int(r.get("fee", 0)), nonce, deadline)
+            if exp_assets and not any(_same(r["asset"], a) for a in exp_assets):
+                return "asset is not a pinned asset"
+            mine = eip712.transfer_digest(cid, wallet, r["asset"], r["to"], int(r["amount"]), int(r.get("fee", 0)), nonce, deadline)
         elif kind == "execute":
             calls = []
+            total = 0
             for c in r.get("calls", []):
                 data = bytes.fromhex(c["data"][2:]) if len(c.get("data", "0x")) > 2 else b""
                 calls.append((c["target"], int(c.get("value", 0) or 0), data))
+                total += int(c.get("value", 0) or 0)
             r["_calls_hash"] = eip712.calls_hash(calls)
+            r["_value"] = total
             if r.get("callsHash") and not _same(r["callsHash"], hexstr(r["_calls_hash"])):
                 return "callsHash does not match the calls"
+            r["_admin"] = admin_lines(r.get("calls", []), wallet)
             mine = eip712.execute_digest(cid, wallet, calls, nonce, deadline)
         elif kind == "addSigner":
             mine = eip712.add_signer_digest(cid, wallet, r["qx"], r["qy"], int(r.get("signerKind", 0)), int(r.get("role", 0)),
-                                            int(r.get("dailyLimit", 0)), r.get("credentialIdHash") or hex32(0), nonce, deadline)
+                                            r.get("credentialIdHash") or hex32(0), nonce, deadline)
         elif kind == "updateSigner":
-            mine = eip712.update_signer_digest(cid, wallet, r["targetSignerId"], int(r.get("role", 0)), int(r.get("dailyLimit", 0)), nonce, deadline)
+            mine = eip712.update_signer_digest(cid, wallet, r["targetSignerId"], int(r.get("role", 0)), nonce, deadline)
+        elif kind == "setLimit":
+            if exp_assets and not any(_same(r["asset"], a) for a in exp_assets):
+                return "asset is not a pinned asset"
+            mine = eip712.set_limit_digest(cid, wallet, r["targetSignerId"], r["asset"], int(r["limit"]), nonce, deadline)
         elif kind == "removeSigner":
             mine = eip712.remove_signer_digest(cid, wallet, r["targetSignerId"], nonce, deadline)
         elif kind == "setRecovery":
@@ -898,10 +1082,13 @@ def approve(yes):
             tx = short(out.get("txHash") or "")
             kind = req.get("kind")
             if kind == "transfer":
-                dec = token_decimals(req["token"])
-                if dec is None:
-                    dec = int(req.get("tokenDecimals", 18))
-                msg = "%s to %s" % (amount_label(req["amount"], dec, token_symbol(req["token"]) or req.get("tokenSymbol", "")), req.get("toName") or short(req["to"]))
+                sym, dec = asset_meta(req["asset"], req.get("assetSymbol"), req.get("assetDecimals"))
+                msg = "%s to %s" % (amount_label(req["amount"], dec, sym), req.get("toName") or short(req["to"]))
+            elif kind == "setLimit":
+                sym, dec = asset_meta(req["asset"], req.get("assetSymbol"), req.get("assetDecimals"))
+                msg = "limit " + limit_label(req["limit"], dec, sym)
+            elif kind == "execute" and req.get("_admin"):
+                msg = "admin batch: %d calls on the wallet" % len(req["_admin"])
             else:
                 msg = kind
             msg += "  " + (status if status != "confirmed" else "confirmed") + (("  tx " + tx) if tx else "")

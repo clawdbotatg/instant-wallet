@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { type Address, formatUnits, getAddress, isAddress, parseUnits } from "viem";
-import { facilitatorFee, tokenMeta } from "~~/services/chain";
+import { assetMeta, facilitatorFee } from "~~/services/chain";
+import { portfolio } from "~~/services/portfolio";
 import { parseCalls } from "~~/services/relay";
 import { walletSnapshot } from "~~/services/wallet";
-import { activity, portfolio, price, zerionEnabled } from "~~/services/zerion";
+import { activity, price, zerionEnabled } from "~~/services/zerion";
 import { chainLabel, isBase } from "~~/utils/chain";
+import { ETH_ASSET } from "~~/utils/digests";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -24,6 +26,7 @@ export const maxDuration = 120;
 type Proposal =
   | {
       kind: "transfer";
+      asset: Address; // 0x000…0 = ETH
       to: Address;
       toName?: string;
       amount: string;
@@ -39,11 +42,11 @@ type Reply = { type: "chat" | "proposal"; message: string; proposal?: Proposal; 
 
 const SYSTEM = (
   ctx: string,
-) => `You are the assistant inside Instant Wallet, a stablecoin wallet on ${chainLabel} secured by passkeys (Face ID / Touch ID) and an optional hardware device.
-Be brief and concrete. Amounts are in the wallet's token (USDC, 6 decimals). Every transfer also pays a small facilitator fee.
-You cannot move money. When the user wants to send, call proposeTransfer once with the exact recipient and amount; the app shows a card the user confirms with Face ID or on their device.
+) => `You are the assistant inside Instant Wallet, a wallet on ${chainLabel} secured by passkeys (Face ID / Touch ID) and an optional hardware device. It holds ETH and any token.
+Be brief and concrete. Amounts are in whole units of the asset ("45" USDC, "0.05" ETH); "$" means USDC unless the user says otherwise. A transfer may pay a small facilitator fee in the same asset.
+You cannot move money. When the user wants to send, call proposeTransfer once with the exact recipient, asset and amount; the app shows a card the user confirms with Face ID or on their device.
 For anything else (approvals, contract calls) an owner key is needed: use proposeExecute with the raw calls only if the user gave you calldata; never invent calldata.
-If the user is over their daily Face ID limit, say the device will need to sign.
+Spender keys have a per-asset 24h limit; if the user is over their limit on that asset (or has none), say the device will need to sign.
 Use the tools to look things up instead of guessing. Don't repeat the whole portfolio back unless asked.
 
 ${ctx}`;
@@ -52,12 +55,12 @@ const TOOLS: { name: string; description: string; schema: Record<string, unknown
   {
     name: "getWallet",
     description:
-      "This wallet: balance, keys (signers with roles and daily limits, remaining allowance), nonce, recovery state, recent activity.",
+      "This wallet: holdings with USD, keys (signers with roles and per-asset 24h limits + remaining), nonce, recovery state, recent activity.",
     schema: { type: "object", properties: {}, additionalProperties: false },
   },
   {
     name: "getPortfolio",
-    description: "Token holdings and USD totals (Zerion on Base; local chain data otherwise).",
+    description: "Holdings: ETH and every token with a balance, with USD values when prices are available.",
     schema: { type: "object", properties: {}, additionalProperties: false },
   },
   {
@@ -78,11 +81,16 @@ const TOOLS: { name: string; description: string; schema: Record<string, unknown
   {
     name: "proposeTransfer",
     description:
-      'Propose sending the wallet\'s token. `amount` is a decimal string in whole tokens (e.g. "45" or "12.50"). `to` is an address or an ENS name.',
+      'Propose sending an asset the wallet holds. `asset` is a symbol ("USDC", "ETH") or a token address; `amount` is a decimal string in whole units (e.g. "45" or "0.05"). `to` is an address or an ENS name.',
     schema: {
       type: "object",
-      properties: { to: { type: "string" }, amount: { type: "string" }, note: { type: "string" } },
-      required: ["to", "amount"],
+      properties: {
+        to: { type: "string" },
+        amount: { type: "string" },
+        asset: { type: "string" },
+        note: { type: "string" },
+      },
+      required: ["to", "amount", "asset"],
       additionalProperties: false,
     },
   },
@@ -134,28 +142,35 @@ function makeExecutor(wallet: Address, proposals: Proposal[]) {
         return {
           address: s.address,
           deployed: s.deployed,
-          token: s.token,
-          balance: s.balanceFormatted,
+          totalUsd: s.portfolio.totalUsd,
+          assets: s.portfolio.assets.map(a => ({
+            asset: a.asset,
+            symbol: a.symbol,
+            balance: a.balanceFormatted,
+            usd: a.usd,
+          })),
           nonce: s.nonce,
           signers: s.signers.map(x => ({
             signerId: x.signerId,
             label: x.label,
             kind: x.kind === 1 ? "device" : "passkey",
             role: x.role === 1 ? "owner" : "spender",
-            dailyLimit: formatUnits(BigInt(x.dailyLimit), s.token.decimals),
-            remainingToday:
-              x.remainingAllowance === "unlimited"
+            limits:
+              x.role === 1
                 ? "unlimited"
-                : formatUnits(BigInt(x.remainingAllowance), s.token.decimals),
+                : x.limits.map(l => ({
+                    asset: l.symbol,
+                    limitPer24h: formatUnits(BigInt(l.limit), l.decimals),
+                    remaining: formatUnits(BigInt(l.remaining), l.decimals),
+                  })),
             online: x.online,
           })),
           recovery: s.recovery,
           activity: s.activity.slice(0, 10).map(a => ({
             ...a,
-            amount: a.amount ? formatUnits(BigInt(a.amount), s.token.decimals) : undefined,
-            fee: a.fee ? formatUnits(BigInt(a.fee), s.token.decimals) : undefined,
+            amount: a.amount && a.decimals !== undefined ? formatUnits(BigInt(a.amount), a.decimals) : undefined,
+            fee: a.fee && a.decimals !== undefined ? formatUnits(BigInt(a.fee), a.decimals) : undefined,
           })),
-          feePerTransfer: formatUnits(facilitatorFee(s.token.decimals), s.token.decimals),
         };
       }
       case "getPortfolio":
@@ -165,7 +180,23 @@ function makeExecutor(wallet: Address, proposals: Proposal[]) {
       case "getPrice":
         return price(String(input?.symbol ?? "ETH"));
       case "proposeTransfer": {
-        const t = await tokenMeta();
+        const want = String(input?.asset ?? "USDC").trim();
+        const pf = await portfolio(wallet);
+        const held =
+          pf.assets.find(a => a.asset.toLowerCase() === want.toLowerCase()) ??
+          pf.assets.find(a => a.symbol.toLowerCase() === want.toLowerCase().replace(/^\$/, ""));
+        const asset: Address = held
+          ? held.asset
+          : isAddress(want)
+            ? getAddress(want)
+            : /^eth$/i.test(want)
+              ? ETH_ASSET
+              : (() => {
+                  throw new Error(
+                    `the wallet holds no ${want}; held: ${pf.assets.map(a => a.symbol).join(", ") || "nothing"}`,
+                  );
+                })();
+        const t = held ?? { ...(await assetMeta(asset)), balance: "0" };
         const amount = String(input?.amount ?? "")
           .trim()
           .replace(/[$,]/g, "");
@@ -173,9 +204,12 @@ function makeExecutor(wallet: Address, proposals: Proposal[]) {
         const units = parseUnits(amount, t.decimals);
         if (units <= 0n) throw new Error("amount must be positive");
         const { address, name } = await resolveTo(String(input?.to ?? ""));
-        const fee = facilitatorFee(t.decimals);
+        const fee = facilitatorFee(asset, units);
+        if (units + fee > BigInt(t.balance))
+          throw new Error(`insufficient ${t.symbol}: balance ${formatUnits(BigInt(t.balance), t.decimals)}`);
         const p: Proposal = {
           kind: "transfer",
+          asset,
           to: address,
           toName: name,
           amount: units.toString(),

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { p256 } from "@noble/curves/nist.js";
 import { type Hex } from "viem";
+import { ensureDeployed } from "~~/services/factory";
 import { isBytes32, isValidSignature, normalizeMeta, relayMeta } from "~~/services/relay";
 import { metaArgsOf } from "~~/services/requests";
 import { findRequest, listRequests, patchRequest } from "~~/services/store";
@@ -26,8 +27,9 @@ function verifyRaw(qx: Hex, qy: Hex, digest: Hex, r: Hex, s: Hex): boolean {
 }
 
 /**
- * The device posts `{r, s}`. We verify off chain (noble) AND on chain (`isValidSignature`), then
- * the facilitator relays the matching meta* call with the 64-byte `r ‖ s` signature.
+ * The device posts `{r, s}`. We verify off chain (noble), deploy the wallet if it is still
+ * counterfactual (Factory.createWallet, idempotent), verify on chain (`isValidSignature`), then the
+ * facilitator relays the matching meta* call with the 64-byte `r ‖ s` signature.
  * Status: pending -> signed -> relaying -> confirmed | failed.
  */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -71,6 +73,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "bad signature", status: "failed" }, { status: 400 });
   }
   const signature = encodeRawSignature(r, s);
+  try {
+    await ensureDeployed(request.wallet);
+  } catch (e: any) {
+    const error = `could not deploy the wallet: ${e?.message || e}`;
+    await patchRequest(id, { status: "failed", error, signature: { r, s } });
+    return NextResponse.json({ error, status: "failed" }, { status: 500 });
+  }
   const onchainOk = await isValidSignature(request.wallet, request.signerId, request.digest, signature).catch(
     () => false,
   );

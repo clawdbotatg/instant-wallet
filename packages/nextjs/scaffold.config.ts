@@ -8,17 +8,20 @@ export type ScaffoldConfig = {
 };
 
 /**
+ * NEXT_PUBLIC_TARGET_NETWORK=base        -> Base mainnet (8453) via Alchemy   [default]
+ * NEXT_PUBLIC_TARGET_NETWORK=mainnet     -> Ethereum (1) via Alchemy (same Factory address as Base)
  * NEXT_PUBLIC_TARGET_NETWORK=localhost   -> anvil (31337) at http://127.0.0.1:8545
- * NEXT_PUBLIC_TARGET_NETWORK=baseSepolia -> Base Sepolia (84532) via Alchemy
- * NEXT_PUBLIC_TARGET_NETWORK=base        -> Base mainnet (8453) via Alchemy
+ * NEXT_PUBLIC_TARGET_NETWORK=baseSepolia -> Base Sepolia (84532), kept as a harmless option
  */
-const target = (process.env.NEXT_PUBLIC_TARGET_NETWORK || "localhost").toLowerCase();
+const target = (process.env.NEXT_PUBLIC_TARGET_NETWORK || "base").toLowerCase();
 const targetChain: chains.Chain =
-  target === "base"
-    ? chains.base
-    : target === "basesepolia" || target === "base-sepolia"
-      ? chains.baseSepolia
-      : chains.foundry;
+  target === "localhost" || target === "anvil" || target === "foundry" || target === "hardhat"
+    ? chains.foundry
+    : target === "mainnet" || target === "ethereum" || target === "eth"
+      ? chains.mainnet
+      : target === "basesepolia" || target === "base-sepolia"
+        ? chains.baseSepolia
+        : chains.base;
 
 const scaffoldConfig = {
   targetNetworks: [targetChain],

@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAddress, isAddress } from "viem";
-import { portfolio } from "~~/services/zerion";
+import { portfolio } from "~~/services/portfolio";
 
 export const dynamic = "force-dynamic";
 
-/** `GET /api/portfolio?address=` — Zerion on Base with a key, else the wallet's token balance. */
+/** `GET /api/portfolio?address=` — ETH + every held ERC-20 with USD when a price source is reachable. */
 export async function GET(req: NextRequest) {
   const address = req.nextUrl.searchParams.get("address");
   if (!address || !isAddress(address))

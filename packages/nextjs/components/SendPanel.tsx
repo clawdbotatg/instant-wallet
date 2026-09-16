@@ -2,44 +2,80 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Avatar } from "./AppShell";
-import { type ConfirmRow, ConfirmSheet, canSign } from "./ConfirmSheet";
+import { type ConfirmRow, ConfirmSheet, canSign, limitFor } from "./ConfirmSheet";
 import { ChipIcon, FaceIdIcon, ScanIcon, TouchIdIcon } from "./Icons";
 import { useWallet } from "./WalletProvider";
 import { type Address, isAddress } from "viem";
 import { useBiometric } from "~~/hooks/useBiometric";
+import type { PortfolioAsset } from "~~/services/portfolio";
 import { api } from "~~/utils/api";
-import { chainLabel } from "~~/utils/chain";
-import { moneyParts, shortAddr, toUnits, usd } from "~~/utils/format";
-import type { MetaAction } from "~~/utils/meta";
+import { DEFAULT_STABLE, ETH_META, chainLabel } from "~~/utils/chain";
+import { ETH_ASSET } from "~~/utils/digests";
+import { fmtAmount, fmtUsd, shortAddr, toUnits, usdValue } from "~~/utils/format";
+import { type MetaAction, feeFor } from "~~/utils/meta";
 
-const QUICK = ["20", "45", "100"];
+const QUICK_STABLE = ["20", "45", "100"];
+const QUICK_ETH = ["0.01", "0.05", "0.1"];
 
-/** 0.02 USDC — the same default as the server's facilitatorFee(). */
-export function defaultFee(decimals: number): bigint {
-  return 2n * 10n ** BigInt(Math.max(0, decimals - 2));
+const isStable = (a: PortfolioAsset) => a.price === 1 || /^(USDC|USDT|DAI|USDBC|USDS)$/i.test(a.symbol);
+
+/** A zero-balance row for an asset the wallet does not hold yet (ETH always shows). */
+function emptyRow(m: { address: Address; symbol: string; decimals: number; name: string }): PortfolioAsset {
+  return {
+    asset: m.address,
+    symbol: m.symbol,
+    name: m.name,
+    decimals: m.decimals,
+    balance: "0",
+    balanceFormatted: "0",
+    price: m.symbol === "USDC" ? 1 : null,
+    usd: null,
+  };
 }
 
 /**
- * The send form. `variant="page"` is the phone layout with the keypad; `variant="panel"` is the
+ * The send form: pick an asset the wallet holds, type an amount in that asset, pick a recipient
+ * (address or ENS). `variant="page"` is the phone layout with the keypad; `variant="panel"` is the
  * desktop right-column card with a plain input. Both end in the same ConfirmSheet.
  */
 export function SendPanel({
   variant = "page",
   initialTo = "",
   initialAmount = "",
+  initialAsset,
   onSent,
 }: {
   variant?: "page" | "panel";
   initialTo?: string;
   initialAmount?: string;
+  initialAsset?: string;
   onSent?: () => void;
 }) {
   const { snapshot, passkey, refresh } = useWallet();
-  const decimals = snapshot?.token.decimals ?? 6;
-  const symbol = snapshot?.token.symbol ?? "USDC";
-  const balance = BigInt(snapshot?.balance ?? 0);
-  const fee = defaultFee(decimals);
   const bio = useBiometric();
+
+  // ETH first, then held tokens; a zero row for the chain's stablecoin so the picker never feels empty.
+  const assets = useMemo<PortfolioAsset[]>(() => {
+    const held = snapshot?.portfolio.assets ?? [];
+    const out = [...held];
+    if (!out.some(a => a.asset === ETH_ASSET)) out.unshift(emptyRow(ETH_META));
+    const stable = DEFAULT_STABLE;
+    if (stable && !out.some(a => a.asset.toLowerCase() === stable.address.toLowerCase())) out.push(emptyRow(stable));
+    return out;
+  }, [snapshot]);
+
+  const [assetAddr, setAssetAddr] = useState<string | null>(initialAsset ?? null);
+  const asset = useMemo(() => {
+    const pick = assetAddr && assets.find(a => a.asset.toLowerCase() === assetAddr.toLowerCase());
+    if (pick) return pick;
+    // default: the stablecoin if held, else the most valuable holding, else ETH
+    return (
+      assets.find(a => isStable(a) && BigInt(a.balance) > 0n) ?? assets.find(a => BigInt(a.balance) > 0n) ?? assets[0]
+    );
+  }, [assets, assetAddr]);
+  const decimals = asset?.decimals ?? 18;
+  const symbol = asset?.symbol ?? "ETH";
+  const balance = BigInt(asset?.balance ?? 0);
 
   const [amount, setAmount] = useState(initialAmount);
   const [to, setTo] = useState(initialTo);
@@ -76,6 +112,7 @@ export function SendPanel({
   }, [to]);
 
   const units = toUnits(amount || "0", decimals) ?? 0n;
+  const fee = asset ? feeFor(snapshot?.fee, asset.asset, units, DEFAULT_STABLE?.address) : 0n;
   const total = units + fee;
   const enough = units > 0n && total <= balance;
   const passkeySigner = snapshot?.signers.find(
@@ -83,42 +120,57 @@ export function SendPanel({
   );
   const action: MetaAction | null = useMemo(
     () =>
-      resolved && snapshot
+      resolved && asset
         ? {
             fn: "metaTransfer",
-            token: snapshot.token.address,
+            asset: asset.asset,
             to: resolved.address,
             amount: units,
             fee,
             toName: resolved.name,
+            assetSymbol: asset.symbol,
+            assetDecimals: asset.decimals,
           }
         : null,
-    [resolved, snapshot, units, fee],
+    [resolved, asset, units, fee],
   );
-  const passkeyOk = !!action && !!passkey && canSign(passkeySigner, action, snapshot?.token.address);
-  const deviceOk =
-    !!action && (snapshot?.signers ?? []).some(s => s.kind === 1 && canSign(s, action, snapshot?.token.address));
-  const limit = passkeySigner && passkeySigner.role !== 1 ? usd(passkeySigner.dailyLimit, decimals) : null;
+  const passkeyOk = !!action && !!passkey && canSign(passkeySigner, action);
+  const deviceOk = !!action && (snapshot?.signers ?? []).some(s => s.kind === 1 && canSign(s, action));
+  const myLimit = action ? limitFor(passkeySigner, action) : undefined;
+  const isSpender = !!passkeySigner && passkeySigner.role !== 1;
+  const amt = (u: bigint) => fmtAmount(u, decimals, symbol);
+  const usdOf = (u: bigint) => usdValue(u, decimals, asset?.price ?? null);
 
   let hint: { tone: "mint" | "amber" | "coral"; text: string } | null = null;
   if (units > 0n && !enough)
     hint = {
       tone: "coral",
-      text: `Not enough ${symbol}. Balance ${usd(balance, decimals)}, fee ${usd(fee, decimals)}.`,
+      text: `Not enough ${symbol}. Balance ${amt(balance)}${fee > 0n ? `, fee ${amt(fee)}` : ""}.`,
     };
   else if (units > 0n && passkeyOk)
-    hint = { tone: "mint", text: limit ? `Under your ${limit} daily limit · ${bio} is enough` : `${bio} is enough` };
+    hint = {
+      tone: "mint",
+      text: myLimit
+        ? `${amt(BigInt(myLimit.remaining))} of ${symbol} left today · ${bio} is enough`
+        : `${bio} is enough`,
+    };
   else if (units > 0n && !passkeyOk && deviceOk)
     hint = {
       tone: "amber",
-      text: limit
-        ? `Over your ${limit} ${bio} limit · the green button on your device signs this`
+      text: isSpender
+        ? myLimit
+          ? `Over what is left of your ${symbol} ${bio} limit (${amt(BigInt(myLimit.remaining))}) · the green button on your device signs this`
+          : `Your ${bio} has no ${symbol} limit · the green button on your device signs this`
         : "Your device signs this",
     };
   else if (units > 0n && !passkeyOk && !deviceOk && snapshot)
     hint = {
       tone: "coral",
-      text: limit ? `Over your ${limit} ${bio} limit and no device is paired` : "No key can sign this",
+      text: isSpender
+        ? myLimit
+          ? `Over your ${symbol} ${bio} limit and no device is paired`
+          : `Your ${bio} has no ${symbol} limit and no device is paired`
+        : "No key can sign this",
     };
 
   const ready = !!action && enough && (passkeyOk || deviceOk);
@@ -127,61 +179,85 @@ export function SendPanel({
   const open = (preferred?: "device") => {
     if (!action || !resolved) return;
     const name = resolved.name ?? shortAddr(resolved.address);
-    setConfirm({
-      action,
-      title: `Send ${usd(units, decimals)} to ${name}`,
-      rows: [
-        { label: "Amount", value: usd(units, decimals), mono: true },
-        { label: "To", value: name },
-        { label: "Fee", value: usd(fee, decimals), mono: true },
-      ],
-      preferred,
-    });
+    const rows: ConfirmRow[] = [
+      { label: "Amount", value: amt(units), mono: true },
+      { label: "To", value: name },
+    ];
+    const u = usdOf(units);
+    if (u !== null) rows.push({ label: "Value", value: `≈ ${fmtUsd(u)}`, mono: true });
+    if (fee > 0n) rows.push({ label: "Fee", value: amt(fee), mono: true });
+    setConfirm({ action, title: `Send ${amt(units)} to ${name}`, rows, preferred });
   };
 
+  const maxFrac = decimals <= 6 ? 2 : 6;
   const press = (k: string) => {
     setAmount(a => {
       if (k === "⌫") return a.slice(0, -1);
       if (k === ".") return a.includes(".") ? a : (a || "0") + ".";
       const next = a === "0" ? k : a + k;
       const [, f] = next.split(".");
-      if (f && f.length > 2) return a;
-      if (next.replace(".", "").length > 10) return a;
+      if (f && f.length > maxFrac) return a;
+      if (next.replace(".", "").length > 12) return a;
       return next;
     });
   };
-  const setMax = () => setAmount(balance > fee ? (Number(balance - fee) / 10 ** decimals).toFixed(2) : "0");
-  const [, frac] = moneyParts(units, decimals);
+  const setMax = () => {
+    const m = balance > fee ? balance - fee : 0n;
+    setAmount(m === 0n ? "0" : fmtAmount(m, decimals, undefined, maxFrac).replace(/,/g, ""));
+  };
+  const quick = asset && isStable(asset) ? QUICK_STABLE : QUICK_ETH;
+  const approx = usdOf(units);
+
+  const assetPicker = (
+    <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-1 px-1 py-1">
+      {assets.map(a => {
+        const on = asset?.asset.toLowerCase() === a.asset.toLowerCase();
+        return (
+          <button
+            key={a.asset}
+            onClick={() => {
+              setAssetAddr(a.asset);
+              setAmount("");
+            }}
+            className={`flex-none rounded-full px-3.5 h-10 text-sm font-semibold flex items-center gap-2 ${on ? "bg-ink text-white" : "bg-white shadow-soft"}`}
+          >
+            <span>{a.symbol}</span>
+            <span className={`mono text-xs ${on ? "text-[#c9ccc9]" : "text-muted"}`}>
+              {fmtAmount(a.balance, a.decimals, undefined, a.decimals <= 6 ? 2 : 4)}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
 
   const amountBlock =
     variant === "page" ? (
       <div className="rounded-[24px] bg-ink-2 text-white p-5">
         <div className="text-[13px] text-[#a3a6a3]">Amount</div>
-        <div className="mono font-bold text-[2.8rem] leading-none mt-1">
-          ${amount ? amount.split(".")[0] || "0" : "0"}
-          <span className="text-[1.5rem] text-[#a3a6a3]">
-            .{amount.includes(".") ? (amount.split(".")[1] + "00").slice(0, 2) : frac}
-          </span>
+        <div className="mono font-bold text-[2.8rem] leading-none mt-1 flex items-baseline gap-2 min-w-0">
+          <span className="truncate">{amount || "0"}</span>
+          <span className="text-[1.3rem] text-[#a3a6a3]">{symbol}</span>
         </div>
         <div className="text-[13px] text-[#a3a6a3] mt-2">
-          {symbol} on {chainLabel} · fee {usd(fee, decimals)}
+          {approx !== null ? `≈ ${fmtUsd(approx)} · ` : ""}
+          {chainLabel}
+          {fee > 0n ? ` · fee ${amt(fee)}` : ""}
         </div>
       </div>
     ) : (
       <label className="block rounded-2xl bg-paper border border-line px-4 py-3 focus-within:border-ink">
-        <div className="flex items-center justify-between">
-          <div className="flex items-baseline gap-1 mono font-bold text-[1.9rem]">
-            <span>$</span>
-            <input
-              value={amount}
-              onChange={e => setAmount(e.target.value.replace(/[^\d.]/g, ""))}
-              placeholder="0"
-              inputMode="decimal"
-              className="bg-transparent outline-none w-full min-w-0"
-            />
-          </div>
-          <div className="text-muted text-sm whitespace-nowrap">
-            {symbol} · fee {usd(fee, decimals)}
+        <div className="flex items-center justify-between gap-2">
+          <input
+            value={amount}
+            onChange={e => setAmount(e.target.value.replace(/[^\d.]/g, ""))}
+            placeholder="0"
+            inputMode="decimal"
+            className="bg-transparent outline-none w-full min-w-0 mono font-bold text-[1.9rem]"
+          />
+          <div className="text-muted text-sm whitespace-nowrap text-right">
+            <div className="font-semibold text-ink">{symbol}</div>
+            {approx !== null && <div>≈ {fmtUsd(approx)}</div>}
           </div>
         </div>
       </label>
@@ -190,8 +266,10 @@ export function SendPanel({
   return (
     <div className={variant === "panel" ? "card p-5" : "px-5"}>
       {variant === "panel" && <h3 className="font-bold text-[1.05rem] mb-4">Send</h3>}
-      {variant === "panel" && <div className="text-muted text-sm mb-1.5">To</div>}
-      {variant === "page" && amountBlock}
+      {variant === "panel" && <div className="text-muted text-sm mb-1.5">Asset</div>}
+      {assetPicker}
+      {variant === "page" && <div className="mt-3">{amountBlock}</div>}
+      {variant === "panel" && <div className="text-muted text-sm mt-3 mb-1.5">To</div>}
       <div
         className={`${variant === "page" ? "mt-3 card" : "rounded-2xl bg-paper border border-line focus-within:border-ink"} flex items-center gap-3 px-4 py-3`}
       >
@@ -227,13 +305,13 @@ export function SendPanel({
       {variant === "panel" && amountBlock}
 
       <div className="mt-3 grid grid-cols-4 gap-2">
-        {QUICK.map(q => (
+        {quick.map(q => (
           <button
             key={q}
             className={`h-11 rounded-full font-semibold text-sm ${amount === q ? "bg-ink text-white" : "bg-white shadow-soft"}`}
             onClick={() => setAmount(q)}
           >
-            ${q}
+            {q}
           </button>
         ))}
         <button className="h-11 rounded-full font-semibold text-sm bg-white shadow-soft" onClick={setMax}>
@@ -255,7 +333,7 @@ export function SendPanel({
           <input
             value={amount}
             onChange={e => setAmount(e.target.value.replace(/[^\d.]/g, ""))}
-            placeholder="Amount"
+            placeholder={`Amount in ${symbol}`}
             inputMode="decimal"
             className="input mono"
           />
@@ -285,11 +363,7 @@ export function SendPanel({
         </div>
       )}
 
-      <button
-        className={`btn w-full mt-3 ${passkeyOk ? "btn-primary" : "btn-primary"}`}
-        disabled={!ready}
-        onClick={() => open()}
-      >
+      <button className="btn btn-primary w-full mt-3" disabled={!ready} onClick={() => open()}>
         {passkeyOk ? bio === "Touch ID" ? <TouchIdIcon size={20} /> : <FaceIdIcon size={20} /> : <ChipIcon size={20} />}
         {label}
       </button>

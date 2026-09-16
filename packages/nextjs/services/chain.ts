@@ -8,9 +8,12 @@ import {
   http,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { base, baseSepolia } from "viem/chains";
 import scaffoldConfig from "~~/scaffold.config";
 import {
+  DEFAULT_STABLE,
+  ETH_META,
+  type KnownAsset,
+  alchemyNetwork,
   chainId,
   factoryAbi,
   factoryAddress,
@@ -18,16 +21,16 @@ import {
   isBase,
   isLocal,
   targetChain,
-  tokenAddress,
 } from "~~/utils/chain";
+import { isEth } from "~~/utils/digests";
 
 /**
  * Server-side chain access. Route handlers only.
  *
  *  - localhost: anvil at http://127.0.0.1:8545, facilitator = FACILITATOR_PRIVATE_KEY (anvil account 0)
- *  - base:      Alchemy (NEXT_PUBLIC_ALCHEMY_API_KEY), facilitator = FACILITATOR_PRIVATE_KEY
+ *  - base / mainnet: Alchemy (NEXT_PUBLIC_ALCHEMY_API_KEY), facilitator = FACILITATOR_PRIVATE_KEY
  */
-export { chainId, isBase, isLocal, targetChain, tokenAddress, factoryAddress, factoryAbi, instantWalletAbi };
+export { chainId, isBase, isLocal, targetChain, factoryAddress, factoryAbi, instantWalletAbi };
 
 export function rpcUrl(): string {
   if (isLocal)
@@ -38,11 +41,10 @@ export function rpcUrl(): string {
     );
   const override = process.env.RPC_URL || (scaffoldConfig.rpcOverrides as Record<number, string>)?.[chainId];
   if (override) return override;
-  const alchemy = chainId === base.id ? "base-mainnet" : chainId === baseSepolia.id ? "base-sepolia" : undefined;
-  if (alchemy) {
+  if (alchemyNetwork) {
     const key = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY;
     if (!key) throw new Error(`Set NEXT_PUBLIC_ALCHEMY_API_KEY (or RPC_URL) for ${targetChain.name}`);
-    return `https://${alchemy}.g.alchemy.com/v2/${key}`;
+    return `https://${alchemyNetwork}.g.alchemy.com/v2/${key}`;
   }
   throw new Error(`No RPC configured for chain ${chainId}`);
 }
@@ -77,31 +79,35 @@ export function requireFactory(): Address {
   return factoryAddress;
 }
 
-export function requireToken(): Address {
-  if (!tokenAddress) throw new Error(`No token configured for chain ${chainId} (set NEXT_PUBLIC_TOKEN_ADDRESS)`);
-  return tokenAddress;
-}
+/** The local play chain's MockUSDC (the only token we can mint); undefined elsewhere. */
+export const localUsdc: KnownAsset | undefined = isLocal ? DEFAULT_STABLE : undefined;
 
-let _tokenMeta: { address: Address; symbol: string; decimals: number } | undefined;
-export async function tokenMeta() {
-  const address = requireToken();
-  if (_tokenMeta && _tokenMeta.address === address) return _tokenMeta;
+export type AssetMeta = { address: Address; symbol: string; decimals: number; name?: string };
+
+const _meta = new Map<string, AssetMeta>([[ETH_META.address, ETH_META]]);
+if (DEFAULT_STABLE) _meta.set(DEFAULT_STABLE.address.toLowerCase(), DEFAULT_STABLE);
+
+/** symbol + decimals of an asset (ETH = address(0)); ERC-20 reads are cached for the process. */
+export async function assetMeta(asset: Address): Promise<AssetMeta> {
+  const k = asset.toLowerCase();
+  if (isEth(k)) return ETH_META;
+  const hit = _meta.get(k);
+  if (hit) return hit;
   const pc = publicClient();
   const [symbol, decimals] = await Promise.all([
-    pc.readContract({ address, abi: erc20Abi, functionName: "symbol" }),
-    pc.readContract({ address, abi: erc20Abi, functionName: "decimals" }),
+    pc.readContract({ address: asset, abi: erc20Abi, functionName: "symbol" }).catch(() => "TOKEN"),
+    pc.readContract({ address: asset, abi: erc20Abi, functionName: "decimals" }).catch(() => 18),
   ]);
-  _tokenMeta = { address, symbol, decimals };
-  return _tokenMeta;
+  const m = { address: asset, symbol, decimals: Number(decimals) };
+  _meta.set(k, m);
+  return m;
 }
 
-export async function tokenBalance(owner: Address, token?: Address): Promise<bigint> {
-  return publicClient().readContract({
-    address: token ?? requireToken(),
-    abi: erc20Abi,
-    functionName: "balanceOf",
-    args: [owner],
-  });
+/** Balance of `asset` (ETH or ERC-20) held by `owner`, in base units. */
+export async function assetBalance(owner: Address, asset: Address): Promise<bigint> {
+  const pc = publicClient();
+  if (isEth(asset)) return pc.getBalance({ address: owner });
+  return pc.readContract({ address: asset, abi: erc20Abi, functionName: "balanceOf", args: [owner] });
 }
 
 export async function isDeployed(address: Address): Promise<boolean> {
@@ -109,10 +115,22 @@ export async function isDeployed(address: Address): Promise<boolean> {
   return !!code && code !== "0x";
 }
 
-/** Small fee (in token base units) charged inside every transfer so the facilitator path is exercised. */
-export function facilitatorFee(decimals: number): bigint {
-  const env = process.env.FACILITATOR_FEE;
-  if (env && /^\d+$/.test(env)) return BigInt(env);
-  // 0.02 USDC at 6 decimals
-  return 2n * 10n ** BigInt(Math.max(0, decimals - 2));
+/**
+ * Fee (in the transferred asset's base units) the facilitator charges inside a transfer. Default 0.
+ * `FACILITATOR_FEE_BPS` charges a share of the amount; `FACILITATOR_FEE` is a flat amount that only
+ * applies to the chain's default stablecoin (it is denominated in that asset's base units).
+ */
+export type FeePolicy = { bps: number; flatStable: string };
+export function feePolicy(): FeePolicy {
+  const bps = process.env.FACILITATOR_FEE_BPS;
+  const flat = process.env.FACILITATOR_FEE;
+  return { bps: bps && /^\d+$/.test(bps) ? Number(bps) : 0, flatStable: flat && /^\d+$/.test(flat) ? flat : "0" };
+}
+export function facilitatorFee(asset: Address, amount: bigint): bigint {
+  const bps = process.env.FACILITATOR_FEE_BPS;
+  if (bps && /^\d+$/.test(bps)) return (amount * BigInt(bps)) / 10_000n;
+  const flat = process.env.FACILITATOR_FEE;
+  if (flat && /^\d+$/.test(flat) && DEFAULT_STABLE && asset.toLowerCase() === DEFAULT_STABLE.address.toLowerCase())
+    return BigInt(flat);
+  return 0n;
 }

@@ -7,9 +7,9 @@ import { useWallet } from "./WalletProvider";
 import type { Hex } from "viem";
 import { useBiometric } from "~~/hooks/useBiometric";
 import type { WalletRequest } from "~~/services/types";
-import type { SignerInfo } from "~~/services/wallet";
+import type { LimitInfo, SignerInfo } from "~~/services/wallet";
 import { api } from "~~/utils/api";
-import { usd } from "~~/utils/format";
+import { fmtAmount } from "~~/utils/format";
 import { type MetaAction, needsOwner, requestBody, signAndFacilitate } from "~~/utils/meta";
 
 export type ConfirmRow = { label: string; value: string; mono?: boolean };
@@ -25,18 +25,22 @@ export type ConfirmProps = {
   onClose: () => void;
 };
 
-/** How much of the wallet's token this action moves (for the spender limit). */
-function spendOf(a: MetaAction): bigint {
-  return a.fn === "metaTransfer" ? a.amount + a.fee : 0n;
+/** A spender's allowance on the asset an action moves (undefined = the action moves nothing). */
+export function limitFor(s: SignerInfo | undefined, action: MetaAction): LimitInfo | undefined {
+  if (!s || action.fn !== "metaTransfer") return undefined;
+  return s.limits.find(l => l.asset.toLowerCase() === action.asset.toLowerCase());
 }
 
-export function canSign(s: SignerInfo | undefined, action: MetaAction, tokenAddr?: string): boolean {
+/**
+ * Can this signer sign this action right now? Owners: anything. Spenders: only a transfer of an
+ * asset an owner gave them a limit on, within what is left of the rolling 24h window (amount + fee).
+ */
+export function canSign(s: SignerInfo | undefined, action: MetaAction): boolean {
   if (!s) return false;
   if (s.role === 1) return true;
-  if (needsOwner(action)) return false;
-  if (action.fn === "metaTransfer" && tokenAddr && action.token.toLowerCase() !== tokenAddr.toLowerCase()) return false;
-  if (s.remainingAllowance === "unlimited") return true;
-  return BigInt(s.remainingAllowance) >= spendOf(action);
+  if (needsOwner(action) || action.fn !== "metaTransfer") return false;
+  const l = limitFor(s, action);
+  return !!l && BigInt(l.remaining) >= action.amount + action.fee;
 }
 
 /**
@@ -48,20 +52,22 @@ export function ConfirmSheet(props: ConfirmProps) {
   const { action, title, subtitle, rows = [], preferred, note, onDone, onClose } = props;
   const { address, snapshot, passkey, devices, refresh } = useWallet();
   const signers = useMemo(() => snapshot?.signers ?? [], [snapshot]);
-  const tokenAddr = snapshot?.token.address;
-  const decimals = snapshot?.token.decimals ?? 6;
   const bio = useBiometric();
 
   const passkeySigner = useMemo(
     () => signers.find(s => passkey && s.signerId.toLowerCase() === passkey.signerId.toLowerCase()),
     [signers, passkey],
   );
-  const passkeyOk = !!passkey && canSign(passkeySigner, action, tokenAddr);
-  const deviceSigners = useMemo(
-    () => signers.filter(s => s.kind === 1 && canSign(s, action, tokenAddr)),
-    [signers, action, tokenAddr],
-  );
+  const passkeyOk = !!passkey && canSign(passkeySigner, action);
+  const deviceSigners = useMemo(() => signers.filter(s => s.kind === 1 && canSign(s, action)), [signers, action]);
   const overLimit = !!passkeySigner && !passkeyOk && passkeySigner.role !== 1 && !needsOwner(action);
+  const myLimit = limitFor(passkeySigner, action);
+  const limitLabel =
+    action.fn === "metaTransfer"
+      ? myLimit
+        ? `${fmtAmount(myLimit.limit, myLimit.decimals, myLimit.symbol)}/day`
+        : `no ${action.assetSymbol ?? "asset"}`
+      : undefined;
 
   const initial: "passkey" | "device" | "none" =
     preferred === "device" && deviceSigners.length
@@ -138,6 +144,11 @@ export function ConfirmSheet(props: ConfirmProps) {
                 ))}
               </div>
             )}
+            {snapshot && !snapshot.deployed && (
+              <div className="w-full mt-3 text-xs text-muted">
+                First action: the facilitator creates the wallet on chain in the same breath.
+              </div>
+            )}
             {error && (
               <div className="w-full mt-4 rounded-2xl bg-coral-soft text-coral px-4 py-3 text-sm text-left">
                 {error}
@@ -164,7 +175,7 @@ export function ConfirmSheet(props: ConfirmProps) {
             signer={deviceSigners[0]}
             rows={rows}
             overLimit={overLimit}
-            limitLabel={passkeySigner ? usd(passkeySigner.dailyLimit, decimals) : undefined}
+            limitLabel={limitLabel}
             online={devices.some(
               d => d.online && d.signerId.toLowerCase() === deviceSigners[0]?.signerId.toLowerCase(),
             )}
@@ -187,7 +198,9 @@ export function ConfirmSheet(props: ConfirmProps) {
             <h2 className="text-xl font-bold mt-5">No key can sign this</h2>
             <p className="text-muted mt-2 max-w-sm">
               {overLimit && passkeySigner
-                ? `This is over your ${usd(passkeySigner.dailyLimit, decimals)}/day ${bio} limit and no device is paired to sign the rest.`
+                ? myLimit
+                  ? `This is over what is left of your ${limitLabel} ${bio} limit and no device is paired to sign the rest.`
+                  : `Your ${bio} has no limit on this asset (an owner sets one on the Keys page) and no device is paired.`
                 : passkey
                   ? needsOwner(action)
                     ? "Only an owner key can do this. Your passkey is a spender; the device owns the account."

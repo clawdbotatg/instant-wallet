@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { formatEther, formatUnits, getAddress, isAddress } from "viem";
-import { facilitatorAddress, isDeployed, isLocal, publicClient, tokenBalance, tokenMeta } from "~~/services/chain";
+import { formatEther, getAddress, isAddress } from "viem";
+import { facilitatorAddress, isDeployed, isLocal, publicClient } from "~~/services/chain";
+import { portfolio } from "~~/services/portfolio";
 import { expireStale } from "~~/services/store";
 import { readRecovery, readSigners } from "~~/services/wallet";
 import { chainId, targetChain } from "~~/utils/chain";
@@ -12,7 +13,10 @@ export const dynamic = "force-dynamic";
 const CACHE_MS = 4000;
 const cache = new Map<string, { at: number; value: any }>();
 
-/** `GET /api/state?wallet=0x…` -> what the device shows on its home screen. */
+/**
+ * `GET /api/state?wallet=0x…` -> what the device shows on its home screen (docs/PROTOCOL.md section 5):
+ * `{chain, wallet:{address, ensName, deployed, balanceUsd, assets:[…]}, relayer, signers:[…, limits:[…]], pendingRecovery}`.
+ */
 export async function GET(req: NextRequest) {
   const w = req.nextUrl.searchParams.get("wallet");
   if (!w || !isAddress(w)) return NextResponse.json({ error: "wallet query param required" }, { status: 400 });
@@ -21,14 +25,13 @@ export async function GET(req: NextRequest) {
     await expireStale();
     const hit = cache.get(wallet);
     if (hit && Date.now() - hit.at < CACHE_MS) return NextResponse.json(hit.value);
-    const token = await tokenMeta();
-    const deployed = await isDeployed(wallet);
     const relayer = facilitatorAddress();
-    const [balance, relayBal, signers, recovery] = await Promise.all([
-      tokenBalance(wallet),
+    const [deployed, pf, relayBal, signers, recovery] = await Promise.all([
+      isDeployed(wallet),
+      portfolio(wallet),
       publicClient().getBalance({ address: relayer }),
-      deployed ? readSigners(wallet) : Promise.resolve([]),
-      deployed ? readRecovery(wallet) : Promise.resolve(null),
+      readSigners(wallet),
+      readRecovery(wallet).catch(() => null),
     ]);
     const value = {
       chain: { id: chainId, name: targetChain.name, isLocal },
@@ -36,12 +39,27 @@ export async function GET(req: NextRequest) {
         address: wallet,
         ensName: null,
         deployed,
-        balance: balance.toString(),
-        balanceFormatted: formatUnits(balance, token.decimals),
+        balanceUsd: pf.totalUsd === null ? null : pf.totalUsd.toFixed(2),
+        assets: pf.assets.map(a => ({
+          asset: a.asset,
+          symbol: a.symbol,
+          decimals: a.decimals,
+          balance: a.balance,
+          balanceFormatted: a.balanceFormatted,
+          usd: a.usd === null ? null : a.usd.toFixed(2),
+        })),
       },
-      token,
       relayer: { address: relayer, balanceFormatted: formatEther(relayBal) },
-      signers,
+      signers: signers.map(s => ({
+        ...s,
+        limits: s.limits.map(l => ({
+          asset: l.asset,
+          symbol: l.symbol,
+          decimals: l.decimals,
+          limit: l.limit,
+          remaining: l.remaining,
+        })),
+      })),
       pendingRecovery: recovery?.pending ?? null,
       recovery: recovery ? { address: recovery.recoveryAddress, delay: recovery.recoveryDelay } : null,
       now: Date.now(),

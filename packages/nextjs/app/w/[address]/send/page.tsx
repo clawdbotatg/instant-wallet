@@ -17,6 +17,7 @@ function SendInner() {
         variant="page"
         initialTo={q.get("to") ?? ""}
         initialAmount={q.get("amount") ?? ""}
+        initialAsset={q.get("asset") ?? undefined}
         onSent={() => router.push(`/w/${address}`)}
       />
     </div>

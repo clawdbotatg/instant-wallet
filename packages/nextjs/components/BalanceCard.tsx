@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import type { ActivityItem } from "~~/services/wallet";
 import { chainLabel } from "~~/utils/chain";
-import { moneyParts, usd } from "~~/utils/format";
+import { fmtUsd, usdParts } from "~~/utils/format";
 
 const RANGES = ["1D", "1W", "1M", "1Y", "All"] as const;
 const RANGE_SECONDS: Record<(typeof RANGES)[number], number> = {
@@ -14,17 +14,18 @@ const RANGE_SECONDS: Record<(typeof RANGES)[number], number> = {
   All: Infinity,
 };
 
-/** Balance history reconstructed from activity: walk back from the current balance. */
-function series(balance: bigint, activity: ActivityItem[], windowS: number): { t: number; v: bigint }[] {
+/** USD balance history reconstructed from priced activity: walk back from the current total. */
+function series(total: number, activity: ActivityItem[], windowS: number): { t: number; v: number }[] {
   const now = Math.floor(Date.now() / 1000);
   const sorted = [...activity].filter(a => a.timestamp > 0).sort((a, b) => b.timestamp - a.timestamp);
-  const pts: { t: number; v: bigint }[] = [{ t: now, v: balance }];
-  let v = balance;
+  const pts: { t: number; v: number }[] = [{ t: now, v: total }];
+  let v = total;
   for (const a of sorted) {
-    if (a.type === "sent") v += BigInt(a.amount ?? 0) + BigInt(a.fee ?? 0);
-    else if (a.type === "received") v -= BigInt(a.amount ?? 0);
+    if (a.usd === null || a.usd === undefined) continue;
+    if (a.type === "sent") v += a.usd;
+    else if (a.type === "received") v -= a.usd;
     else continue;
-    pts.push({ t: a.timestamp, v });
+    pts.push({ t: a.timestamp, v: Math.max(0, v) });
   }
   const cutoff = windowS === Infinity ? 0 : now - windowS;
   const inWindow = pts.filter(p => p.t >= cutoff);
@@ -43,7 +44,7 @@ function Chart({
   height = 120,
   width = 600,
 }: {
-  points: { t: number; v: bigint }[];
+  points: { t: number; v: number }[];
   height?: number;
   width?: number;
 }) {
@@ -56,15 +57,14 @@ function Chart({
   }
   const t0 = points[0].t;
   const t1 = points[points.length - 1].t || t0 + 1;
-  const vs = points.map(p => Number(p.v));
+  const vs = points.map(p => p.v);
   const min = Math.min(...vs);
   const max = Math.max(...vs);
   const span = max - min || Math.max(1, max * 0.1);
   const pad = 10;
   const x = (t: number) => ((t - t0) / Math.max(1, t1 - t0)) * width;
   const y = (v: number) => height - pad - ((v - (min - span * 0.15)) / (span * 1.4)) * (height - pad * 2);
-  // step-ish path: balances change instantly, but a gentle line reads better
-  const d = points.map((p, i) => `${i ? "L" : "M"}${x(p.t).toFixed(1)},${y(Number(p.v)).toFixed(1)}`).join(" ");
+  const d = points.map((p, i) => `${i ? "L" : "M"}${x(p.t).toFixed(1)},${y(p.v).toFixed(1)}`).join(" ");
   const area = `${d} L${width},${height} L0,${height} Z`;
   return (
     <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="w-full h-full">
@@ -88,33 +88,37 @@ function Chart({
   );
 }
 
+/** The dark total card: portfolio value in USD (priced assets only) with a reconstructed history. */
 export function BalanceCard({
-  balance,
-  decimals,
-  symbol,
+  totalUsd,
+  assetCount,
+  unpriced,
   activity,
   compact = false,
 }: {
-  balance: bigint;
-  decimals: number;
-  symbol: string;
+  totalUsd: number | null;
+  assetCount: number;
+  /** symbols with a balance but no USD price (shown so the total is honest) */
+  unpriced?: string[];
   activity: ActivityItem[];
   compact?: boolean;
 }) {
   const [range, setRange] = useState<(typeof RANGES)[number]>("1M");
-  const pts = useMemo(() => series(balance, activity, RANGE_SECONDS[range]), [balance, activity, range]);
+  const total = totalUsd ?? 0;
+  const pts = useMemo(() => series(total, activity, RANGE_SECONDS[range]), [total, activity, range]);
   const todayDelta = useMemo(() => {
     const cutoff = Math.floor(Date.now() / 1000) - 86400;
-    let d = 0n;
+    let d = 0;
     for (const a of activity) {
-      if (a.timestamp < cutoff) continue;
-      if (a.type === "received") d += BigInt(a.amount ?? 0);
-      if (a.type === "sent") d -= BigInt(a.amount ?? 0) + BigInt(a.fee ?? 0);
+      if (a.timestamp < cutoff || a.usd === null || a.usd === undefined) continue;
+      if (a.type === "received") d += a.usd;
+      if (a.type === "sent") d -= a.usd;
     }
     return d;
   }, [activity]);
-  const [int, frac] = moneyParts(balance, decimals);
-  const up = todayDelta >= 0n;
+  const [int, frac] = usdParts(total);
+  const up = todayDelta >= 0;
+  const assetsLabel = `${assetCount} asset${assetCount === 1 ? "" : "s"}`;
 
   return (
     <div
@@ -147,13 +151,16 @@ export function BalanceCard({
                 {up ? <path d="M7 17 17 7M8 7h9v9" /> : <path d="M17 7 7 17M16 17H7V8" />}
               </svg>
               {up ? "+" : "−"}
-              {usd(todayDelta < 0n ? -todayDelta : todayDelta, decimals)} today · {symbol} on {chainLabel}
+              {fmtUsd(Math.abs(todayDelta))} today · {assetsLabel} on {chainLabel}
             </div>
+            {unpriced && unpriced.length > 0 && (
+              <div className="mt-1 text-[12px] text-[#a3a6a3]">no USD price for {unpriced.join(", ")}</div>
+            )}
           </div>
           {compact ? (
             <span className="chip chip-dark bg-[#2a2b2a] text-white">
               <span className="w-2 h-2 rounded-full bg-mint" />
-              {chainLabel} · {symbol}
+              {chainLabel}
             </span>
           ) : (
             <div className="hidden lg:flex gap-1.5">
@@ -171,7 +178,7 @@ export function BalanceCard({
           {!compact && (
             <span className="lg:hidden chip chip-dark bg-[#2a2b2a] text-white">
               <span className="w-2 h-2 rounded-full bg-mint" />
-              {chainLabel} · {symbol}
+              {chainLabel}
             </span>
           )}
         </div>

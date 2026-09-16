@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PageHeader } from "~~/components/AppShell";
 import { currentWallet, forgetAccount, listAccounts } from "~~/utils/accounts";
-import { chainId, chainLabel, factoryAddress, tokenAddress } from "~~/utils/chain";
+import { DEFAULT_STABLE, chainId, chainLabel, factoryAddress } from "~~/utils/chain";
 import {
   type AiProvider,
   type AiSettings,
@@ -126,7 +126,7 @@ export default function SettingsPage() {
               Chain: <span className="text-ink font-semibold">{chainLabel}</span> ({chainId})
             </div>
             <div className="mono text-xs break-all">Factory {factoryAddress ?? "—"}</div>
-            <div className="mono text-xs break-all">Token {tokenAddress ?? "—"}</div>
+            <div className="mono text-xs break-all">USDC {DEFAULT_STABLE?.address ?? "—"}</div>
           </div>
           <div className="mt-4 text-sm text-muted">Wallets on this browser: {listAccounts().length}</div>
           <div className="flex gap-2 mt-3">

@@ -39,10 +39,8 @@ leaving this codebase.
   and do not rely on GitHub-push builds for this project.
 - **State:** the device queue lives in Upstash Redis on Vercel (`UPSTASH_REDIS_REST_URL/TOKEN`,
   keys prefixed `iw:<chainId>:`); locally it is a JSON file.
-- **Chain:** `NEXT_PUBLIC_TARGET_NETWORK=baseSepolia` first (Circle test USDC from
-  faucet.circle.com), then `base`. The facilitator (`INSTANT_WALLET_FACILITATOR_*` in the credential
-  store) pays gas and is the Factory's default recovery address; it needs a little ETH on the
-  target chain before `yarn deploy --network <chain>`.
+- **Chain:** `NEXT_PUBLIC_TARGET_NETWORK=base` (Base mainnet). `mainnet` (Ethereum) is a second deployment of the same
+  app; the contracts sit at the same addresses on both, so a wallet address is the same on both. No testnets.
 - **Contracts per chain:** `packages/foundry/deployments/<chainId>.json` → `yarn generate-abis`
   regenerates `packages/nextjs/contracts/deployedContracts.ts`. Or set `NEXT_PUBLIC_FACTORY_ADDRESS`.
 

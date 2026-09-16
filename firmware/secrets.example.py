@@ -8,11 +8,13 @@ DEVICE_NAME = "instant"                  # shown in the pairing QR and on the ph
 # Passwordless MicroPython REPL on TCP/2323. Full signer control: isolated development only.
 ENABLE_NETWORK_CONSOLE = False
 
-# Security pins. When set, the device refuses any request whose chain / wallet / token differs,
+# Security pins. When set, the device refuses any request whose chain / wallet / asset differs,
 # whatever the app says. Pin all three once the wallet is deployed; None keeps development flexible.
 EXPECTED_CHAIN_ID = None                 # e.g. 8453 (Base)
 EXPECTED_WALLET = None                   # e.g. "0x..." the InstantWallet clone this chip is a signer of
-EXPECTED_TOKEN = None                    # e.g. "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" (USDC on Base)
+EXPECTED_ASSETS = None                   # e.g. ("0x0000000000000000000000000000000000000000",   # ETH
+                                         #       "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913")   # USDC on Base
+                                         # the only assets a transfer / setLimit may name (v1's EXPECTED_TOKEN still works: that token + ETH)
 
 # Provisioning a FRESH chip. Both are permanent; leave False otherwise.
 ALLOW_LOCK = False     # lock the config zone once (required before the chip will make a key)

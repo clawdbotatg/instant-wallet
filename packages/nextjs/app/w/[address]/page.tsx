@@ -16,11 +16,19 @@ import {
 import { LogoLockup } from "~~/components/Logo";
 import { SendPanel } from "~~/components/SendPanel";
 import { useWallet } from "~~/components/WalletProvider";
+import type { SignerInfo } from "~~/services/wallet";
 import { labelFor } from "~~/utils/accounts";
 import { api } from "~~/utils/api";
 import { chainLabel, isLocal } from "~~/utils/chain";
-import { greeting, usd } from "~~/utils/format";
+import { fmtAmount, fmtUsd, greeting } from "~~/utils/format";
 import { readName } from "~~/utils/settings";
+
+/** "500 USDC + 0.1 ETH per day" for a spender, "no limit" for an owner. */
+function limitsLine(s: SignerInfo): string {
+  if (s.role === 1) return "no limit · adds and removes keys";
+  if (!s.limits.length) return "spender · no limits yet";
+  return `${s.limits.map(l => fmtAmount(l.limit, l.decimals, l.symbol)).join(" + ")} / day`;
+}
 
 export default function Home() {
   const { address, snapshot, loading, error, passkey, devices, refresh } = useWallet();
@@ -30,8 +38,8 @@ export default function Home() {
     setName(readName());
     setHello(greeting());
   }, []);
-  const decimals = snapshot?.token.decimals ?? 6;
   const signers = snapshot?.signers ?? [];
+  const assets = snapshot?.portfolio.assets ?? [];
   const device = signers.find(s => s.kind === 1);
   const deviceOnline = devices.some(
     d => d.online && signers.some(s => s.signerId.toLowerCase() === d.signerId.toLowerCase()),
@@ -43,7 +51,7 @@ export default function Home() {
       ? device
         ? "Face ID and your device both own this account"
         : "Face ID owns this account · add a device for anything big"
-      : `Face ID up to ${usd(mine.dailyLimit, decimals)}/day · ${device ? "device for the rest" : "no device paired"}`
+      : `Face ID up to ${mine.limits.length ? mine.limits.map(l => fmtAmount(l.limit, l.decimals, l.symbol)).join(" + ") : "nothing"} per day · ${device ? "device for the rest" : "no device paired"}`
     : passkey
       ? "This passkey is not a signer here"
       : "No passkey on this browser · view only";
@@ -79,18 +87,23 @@ export default function Home() {
         <div className="px-5 lg:px-0 flex flex-col gap-4">
           {error && !snapshot && <div className="rounded-2xl bg-coral-soft text-coral px-4 py-3 text-sm">{error}</div>}
           <BalanceCard
-            balance={BigInt(snapshot?.balance ?? 0)}
-            decimals={decimals}
-            symbol={snapshot?.token.symbol ?? "USDC"}
+            totalUsd={snapshot?.portfolio.totalUsd ?? null}
+            assetCount={assets.filter(a => BigInt(a.balance) > 0n).length}
+            unpriced={assets.filter(a => a.usd === null && BigInt(a.balance) > 0n).map(a => a.symbol)}
             activity={snapshot?.activity ?? []}
           />
 
           {snapshot && !snapshot.deployed && (
-            <div className="card p-5">
-              <div className="font-bold">Wallet not created yet</div>
-              <p className="text-muted text-sm mt-1">
-                The address exists, the contract does not. Go back to the start and create it with your passkey.
-              </p>
+            <div className="card p-4 flex items-center gap-3">
+              <div className="icon-tile tile-mint">
+                <ReceiveIcon size={20} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="font-bold">Ready to receive</div>
+                <p className="text-muted text-sm">
+                  This address is yours on every chain. The contract appears on chain with your first send.
+                </p>
+              </div>
             </div>
           )}
 
@@ -101,6 +114,39 @@ export default function Home() {
             <Link href={`/w/${address}/receive`} className="btn btn-white text-[1.05rem]">
               <ReceiveIcon size={20} /> Receive
             </Link>
+          </div>
+
+          <div className="card p-5">
+            <h3 className="font-bold text-[1.05rem] mb-1">Assets</h3>
+            <div className="divide-y divide-line">
+              {assets.map(a => (
+                <Link
+                  key={a.asset}
+                  href={`/w/${address}/send?asset=${a.asset}`}
+                  className="flex items-center gap-3 py-3"
+                >
+                  <div className="icon-tile tile-gray mono text-xs font-bold overflow-hidden">
+                    {a.logo ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={a.logo} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      a.symbol.slice(0, 3)
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-semibold truncate">{a.symbol}</div>
+                    <div className="text-muted text-sm truncate">{a.name}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="mono font-semibold">{fmtAmount(a.balance, a.decimals)}</div>
+                    <div className="text-muted text-xs">{a.usd === null ? "no price" : fmtUsd(a.usd)}</div>
+                  </div>
+                </Link>
+              ))}
+              {assets.length === 0 && (
+                <div className="text-muted text-sm py-3">{loading ? "Loading…" : "Nothing yet."}</div>
+              )}
+            </div>
           </div>
 
           <Link href={`/w/${address}/keys`} className="card p-4 flex items-center gap-3 lg:hidden">
@@ -119,13 +165,15 @@ export default function Home() {
             <ChevronIcon size={18} className="text-muted" />
           </Link>
 
-          {isLocal && snapshot?.deployed && (
-            <button
-              className="text-left text-xs text-muted px-1"
-              onClick={() => api.fund(address, "100").then(refresh)}
-            >
-              Local chain: tap to mint 100 test USDC into this wallet
-            </button>
+          {isLocal && (
+            <div className="flex gap-4 px-1 text-xs text-muted">
+              <button className="text-left" onClick={() => api.fund(address, "100").then(refresh)}>
+                Local chain: mint 100 test USDC
+              </button>
+              <button className="text-left" onClick={() => api.fund(address, "0.5", "ETH").then(refresh)}>
+                send 0.5 test ETH
+              </button>
+            </div>
           )}
 
           <ActivityList items={snapshot?.activity ?? []} limit={4} showAll />
@@ -152,9 +200,7 @@ export default function Home() {
                     </div>
                     <div className="min-w-0">
                       <div className="font-semibold truncate">{label}</div>
-                      <div className="text-muted text-sm">
-                        {s.role === 1 ? "no limit · adds and removes keys" : `${usd(s.dailyLimit, decimals)} / day`}
-                      </div>
+                      <div className="text-muted text-sm">{limitsLine(s)}</div>
                     </div>
                   </div>
                 );

@@ -8,13 +8,14 @@ import { type ConfirmRow, ConfirmSheet } from "~~/components/ConfirmSheet";
 import { ArrowRightIcon, ChipIcon, FaceIdIcon, SparkIcon } from "~~/components/Icons";
 import { useWallet } from "~~/components/WalletProvider";
 import { useBiometric } from "~~/hooks/useBiometric";
-import { shortAddr, usd } from "~~/utils/format";
+import { fmtAmount, shortAddr } from "~~/utils/format";
 import type { MetaAction } from "~~/utils/meta";
 import { type AiSettings, aiHeaders, readAiSettings } from "~~/utils/settings";
 
 type Proposal =
   | {
       kind: "transfer";
+      asset: Address;
       to: Address;
       toName?: string;
       amount: string;
@@ -37,12 +38,12 @@ type Msg = {
 const STARTERS = [
   "What's my balance?",
   "Who can sign for this wallet?",
-  "Send $5 to vitalik.eth",
+  "Send 5 USDC to vitalik.eth",
   "What did I do this week?",
 ];
 
 export default function ChatPage() {
-  const { address, snapshot, refresh } = useWallet();
+  const { address, refresh } = useWallet();
   const [ai, setAi] = useState<AiSettings | null>(null);
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
@@ -95,21 +96,24 @@ export default function ChatPage() {
   const openProposal = (idx: number, p: Proposal) => {
     if (p.kind === "transfer") {
       const name = p.toName ?? shortAddr(p.to);
+      const amt = fmtAmount(p.amount, p.decimals, p.symbol);
       setConfirm({
         idx,
         action: {
           fn: "metaTransfer",
-          token: snapshot!.token.address,
+          asset: p.asset,
           to: p.to,
           amount: BigInt(p.amount),
           fee: BigInt(p.fee),
           toName: p.toName,
+          assetSymbol: p.symbol,
+          assetDecimals: p.decimals,
         },
-        title: `Send ${usd(p.amount, p.decimals)} to ${name}`,
+        title: `Send ${amt} to ${name}`,
         rows: [
-          { label: "Amount", value: usd(p.amount, p.decimals), mono: true },
+          { label: "Amount", value: amt, mono: true },
           { label: "To", value: name },
-          { label: "Fee", value: usd(p.fee, p.decimals), mono: true },
+          ...(BigInt(p.fee) > 0n ? [{ label: "Fee", value: fmtAmount(p.fee, p.decimals, p.symbol), mono: true }] : []),
         ],
       });
     } else {
@@ -182,7 +186,7 @@ export default function ChatPage() {
                   <div className="text-xs text-muted font-semibold uppercase tracking-wide">Proposal</div>
                   <div className="font-bold mt-1">
                     {m.proposal.kind === "transfer"
-                      ? `Send ${usd(m.proposal.amount, m.proposal.decimals)} to ${m.proposal.toName ?? shortAddr(m.proposal.to)}`
+                      ? `Send ${fmtAmount(m.proposal.amount, m.proposal.decimals, m.proposal.symbol)} to ${m.proposal.toName ?? shortAddr(m.proposal.to)}`
                       : m.proposal.description}
                   </div>
                   {m.proposal.kind === "transfer" && <div className="text-muted text-sm mono">{m.proposal.to}</div>}
@@ -228,7 +232,7 @@ export default function ChatPage() {
         <div className="card flex items-center gap-2 pl-4 pr-2 py-2">
           <input
             className="flex-1 bg-transparent outline-none"
-            placeholder="Send $20 to atg.eth…"
+            placeholder="Send 20 USDC to atg.eth…"
             value={input}
             onChange={e => setInput(e.target.value)}
             disabled={busy}

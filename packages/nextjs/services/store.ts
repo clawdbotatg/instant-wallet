@@ -1,4 +1,4 @@
-import type { DeviceInfo, WalletRequest } from "./types";
+import type { DeviceInfo, FirstKey, WalletRequest } from "./types";
 import { Redis } from "@upstash/redis";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "fs";
 import { dirname, join } from "path";
@@ -12,7 +12,7 @@ import { chainId } from "~~/utils/chain";
  *    serverless host needs. Everything lives under `iw:<chainId>:` (the database is shared with
  *    another project, the prefix is mandatory): hashes `…:requests` (field = id -> JSON),
  *    `…:devices` (signerId -> JSON), `…:pairings` (signerId -> wallet), `…:labels`
- *    (`<wallet>:<signerId>` -> label). One request = one hash field, so patching a request is a
+ *    (`<wallet>:<signerId>` -> label), `…:keys` (wallet -> first key JSON, for counterfactual wallets). One request = one hash field, so patching a request is a
  *    single HSET and never a read-modify-write of the whole queue.
  *  - A JSON file in .instant/ (gitignored) otherwise — fine for one dev process.
  */
@@ -23,6 +23,7 @@ export const KEYS = {
   devices: `${PREFIX}devices`,
   pairings: `${PREFIX}pairings`,
   labels: `${PREFIX}labels`,
+  keys: `${PREFIX}keys`,
 };
 const MAX_REQUESTS = 300;
 
@@ -39,6 +40,8 @@ type Backend = {
   putPairing(signerId: string, wallet: `0x${string}`): Promise<void>;
   allLabels(): Promise<Record<string, string>>;
   putLabel(key: string, label: string): Promise<void>;
+  getKey(wallet: string): Promise<FirstKey | undefined>;
+  putKey(wallet: string, k: FirstKey): Promise<void>;
 };
 
 // ---------------------------------------------------------------- redis backend
@@ -86,6 +89,10 @@ function redisBackend(url: string, token: string): Backend {
     putLabel: async (k, label) => {
       await r.hset(KEYS.labels, { [k]: label });
     },
+    getKey: async w => parse<FirstKey>(await r.hget(KEYS.keys, w)),
+    putKey: async (w, k) => {
+      await r.hset(KEYS.keys, { [w]: JSON.stringify(k) });
+    },
   };
 }
 
@@ -95,12 +102,13 @@ type FileStore = {
   devices: Record<string, DeviceInfo>;
   pairings: Record<string, `0x${string}`>;
   labels: Record<string, string>;
+  keys: Record<string, FirstKey>;
 };
 
 function jsonBackend(): Backend {
   const FILE = process.env.INSTANT_STORE_PATH || join(process.cwd(), ".instant", `store-${chainId}.json`);
   const g = globalThis as unknown as { __instantStore?: FileStore };
-  const empty = (): FileStore => ({ requests: {}, devices: {}, pairings: {}, labels: {} });
+  const empty = (): FileStore => ({ requests: {}, devices: {}, pairings: {}, labels: {}, keys: {} });
   const read = (): FileStore => {
     if (g.__instantStore) return g.__instantStore;
     let s = empty();
@@ -156,6 +164,12 @@ function jsonBackend(): Backend {
     putLabel: async (k, label) => {
       const s = read();
       s.labels[k] = label;
+      write(s);
+    },
+    getKey: async w => read().keys[w],
+    putKey: async (w, k) => {
+      const s = read();
+      s.keys[w] = k;
       write(s);
     },
   };
@@ -249,4 +263,14 @@ export async function listDevices(): Promise<DeviceInfo[]> {
 }
 export async function putDevice(d: DeviceInfo): Promise<void> {
   await backend().putDevice(d.signerId.toLowerCase(), d);
+}
+
+/** Remember the first key of a (possibly counterfactual) wallet so the facilitator can deploy it later. */
+export async function setFirstKey(wallet: string, k: Omit<FirstKey, "registeredAt">): Promise<void> {
+  const prev = await backend().getKey(wallet.toLowerCase());
+  if (prev) return; // the first key never changes
+  await backend().putKey(wallet.toLowerCase(), { ...k, registeredAt: Date.now() });
+}
+export async function getFirstKey(wallet: string): Promise<FirstKey | undefined> {
+  return backend().getKey(wallet.toLowerCase());
 }

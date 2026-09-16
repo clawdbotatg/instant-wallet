@@ -24,17 +24,16 @@ export default function ReceivePage() {
           <div className="rounded-2xl p-3 bg-white border border-line">
             <QRCodeSVG value={address} size={220} level="M" fgColor="#1a1b1a" />
           </div>
-          <div className="mt-5 font-bold">
-            Send {snapshot?.token.symbol ?? "USDC"} on {chainLabel}
-          </div>
+          <div className="mt-5 font-bold">Send ETH or any token on {chainLabel}</div>
           <div className="mono text-[13px] text-muted break-all mt-2 leading-relaxed">{address}</div>
           <button className="btn btn-primary w-full mt-5" onClick={copy}>
             {copied ? <CheckIcon size={20} /> : <CopyIcon size={20} />}
             {copied ? "Copied" : "Copy address"}
           </button>
           <p className="text-muted text-sm mt-4">
-            Same address on every step of the ladder. Only {snapshot?.token.symbol ?? "USDC"} counts toward the Face ID
-            limit.
+            Same address on every chain and every step of the ladder
+            {snapshot && !snapshot.deployed ? " — it can receive before the contract exists" : ""}. Face ID limits are
+            per asset.
           </p>
           {isTestnet && (
             <a
@@ -47,12 +46,10 @@ export default function ReceivePage() {
             </a>
           )}
           {isLocal && (
-            <button
-              className="mt-3 text-sm font-semibold text-mint-dark"
-              onClick={() => api.fund(address, "100").then(refresh)}
-            >
-              Mint 100 test USDC (local chain)
-            </button>
+            <div className="mt-3 flex gap-4 text-sm font-semibold text-mint-dark">
+              <button onClick={() => api.fund(address, "100").then(refresh)}>Mint 100 test USDC</button>
+              <button onClick={() => api.fund(address, "0.5", "ETH").then(refresh)}>Send 0.5 test ETH</button>
+            </div>
           )}
         </div>
       </div>

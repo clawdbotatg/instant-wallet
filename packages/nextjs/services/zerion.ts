@@ -1,105 +1,17 @@
-import { tokenBalance, tokenMeta } from "./chain";
 import { readActivity } from "./wallet";
 import { type Address, formatUnits } from "viem";
 import { isBase } from "~~/utils/chain";
 
 /**
- * Zerion (portfolio / activity / prices) when ZERION_API_KEY is set and the chain is Base;
- * otherwise the same shapes filled from local chain data so nothing upstream has to care.
+ * Zerion (activity / prices) when ZERION_API_KEY is set and the chain is Base; otherwise the same
+ * shapes filled from local chain data so nothing upstream has to care. Holdings live in
+ * services/portfolio.ts (Alchemy first, Zerion only as a price fallback).
  */
 const KEY = process.env.ZERION_API_KEY || "";
 export const zerionEnabled = () => !!KEY && isBase;
 
 function headers() {
   return { Authorization: `Basic ${Buffer.from(`${KEY}:`).toString("base64")}`, accept: "application/json" };
-}
-
-export type Asset = {
-  blockchain: string;
-  tokenName: string;
-  tokenSymbol: string;
-  positionType: string;
-  protocol: string | null;
-  balance: string;
-  balanceUsd: string;
-  tokenDecimals: number;
-  contractAddress: string;
-  thumbnail: string;
-};
-
-function mapPosition(p: any): Asset {
-  const chain = p.relationships?.chain?.data?.id ?? "base";
-  const info = p.attributes?.fungible_info ?? {};
-  const impl = info.implementations?.find((i: any) => i.chain_id === chain);
-  return {
-    blockchain: chain,
-    tokenName: info.name ?? "",
-    tokenSymbol: info.symbol ?? "",
-    positionType: p.attributes?.position_type ?? "wallet",
-    protocol: p.attributes?.protocol ?? null,
-    balance: String(p.attributes?.quantity?.float ?? 0),
-    balanceUsd: (p.attributes?.value ?? 0).toFixed(2),
-    tokenDecimals: impl?.decimals ?? 18,
-    contractAddress: impl?.address ?? "",
-    thumbnail: info.icon?.url ?? "",
-  };
-}
-
-export async function portfolio(address: Address) {
-  if (!zerionEnabled()) {
-    const t = await tokenMeta();
-    const bal = await tokenBalance(address);
-    const asset: Asset = {
-      blockchain: isBase ? "base" : "local",
-      tokenName: t.symbol === "USDC" ? "USD Coin" : t.symbol,
-      tokenSymbol: t.symbol,
-      positionType: "wallet",
-      protocol: null,
-      balance: formatUnits(bal, t.decimals),
-      balanceUsd: Number(formatUnits(bal, t.decimals)).toFixed(2),
-      tokenDecimals: t.decimals,
-      contractAddress: t.address,
-      thumbnail: "",
-    };
-    return {
-      source: "chain",
-      totalBalanceUsd: asset.balanceUsd,
-      assets: [asset],
-      defiPositions: [] as Asset[],
-      change1dUsd: "0",
-      change1dPct: "0",
-    };
-  }
-  const [walletRes, defiRes, portfolioRes] = await Promise.all([
-    fetch(
-      `https://api.zerion.io/v1/wallets/${address}/positions/?filter[positions]=only_simple&currency=usd&sort=-value&page[size]=100`,
-      { headers: headers(), cache: "no-store" },
-    ),
-    fetch(
-      `https://api.zerion.io/v1/wallets/${address}/positions/?filter[positions]=only_complex&currency=usd&sort=-value&page[size]=100`,
-      { headers: headers(), cache: "no-store" },
-    ),
-    fetch(`https://api.zerion.io/v1/wallets/${address}/portfolio?currency=usd`, {
-      headers: headers(),
-      cache: "no-store",
-    }),
-  ]);
-  if (!walletRes.ok) throw new Error(`Zerion ${walletRes.status}: ${await walletRes.text()}`);
-  const assets: Asset[] = ((await walletRes.json()).data ?? [])
-    .filter((p: any) => p.attributes?.flags?.displayable)
-    .map(mapPosition);
-  const defiPositions: Asset[] = defiRes.ok
-    ? ((await defiRes.json()).data ?? []).filter((p: any) => p.attributes?.flags?.displayable).map(mapPosition)
-    : [];
-  let change1dUsd = "0";
-  let change1dPct = "0";
-  if (portfolioRes.ok) {
-    const changes = (await portfolioRes.json())?.data?.attributes?.changes ?? {};
-    change1dUsd = (changes.absolute_1d ?? 0).toFixed(2);
-    change1dPct = (changes.percent_1d ?? 0).toFixed(2);
-  }
-  const totalBalanceUsd = assets.reduce((s, a) => s + parseFloat(a.balanceUsd), 0).toFixed(2);
-  return { source: "zerion", totalBalanceUsd, assets, defiPositions, change1dUsd, change1dPct };
 }
 
 export type ActivityRow = {
@@ -116,8 +28,11 @@ export type ActivityRow = {
 
 export async function activity(address: Address): Promise<{ source: string; items: ActivityRow[] }> {
   if (!zerionEnabled()) {
-    const t = await tokenMeta();
     const local = await readActivity(address, 50);
+    const fmt = (a: (typeof local)[number]) =>
+      a.amount && a.decimals !== undefined
+        ? { symbol: a.symbol ?? "?", amount: formatUnits(BigInt(a.amount), a.decimals) }
+        : null;
     return {
       source: "chain",
       items: local.map(a => ({
@@ -127,15 +42,9 @@ export async function activity(address: Address): Promise<{ source: string; item
         type: a.type,
         status: "confirmed",
         minedAt: a.timestamp ? new Date(a.timestamp * 1000).toISOString() : "",
-        valueUsd: a.amount ? Number(formatUnits(BigInt(a.amount), t.decimals)) : null,
-        out:
-          a.type === "sent" && a.amount
-            ? { symbol: t.symbol, amount: formatUnits(BigInt(a.amount), t.decimals) }
-            : null,
-        in:
-          a.type === "received" && a.amount
-            ? { symbol: t.symbol, amount: formatUnits(BigInt(a.amount), t.decimals) }
-            : null,
+        valueUsd: a.usd ?? null,
+        out: a.type === "sent" ? fmt(a) : null,
+        in: a.type === "received" ? fmt(a) : null,
       })),
     };
   }

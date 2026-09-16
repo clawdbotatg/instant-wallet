@@ -122,7 +122,7 @@ for (const size of sizes) {
           const set = (el, v) => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(el, v); el.dispatchEvent(new Event("input", { bubbles: true })); };
           const to = document.querySelector('input[placeholder="Address or ENS name"]');
           set(to, "0x000000000000000000000000000000000000dEaD");
-          [...document.querySelectorAll("button")].find(b => b.textContent.trim() === "$20")?.click();
+          [...document.querySelectorAll("button")].find(b => b.textContent.trim() === "20")?.click();
           await new Promise(r => setTimeout(r, 400));
           [...document.querySelectorAll("button")].find(b => /Confirm on device|Send with/.test(b.textContent))?.click();
           await new Promise(r => setTimeout(r, 1800));

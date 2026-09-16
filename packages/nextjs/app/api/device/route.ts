@@ -1,28 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
-import { type Address, getAddress, isAddress } from "viem";
-import { instantWalletAbi, isDeployed, publicClient } from "~~/services/chain";
+import { type Address, type Hex, getAddress, isAddress } from "viem";
+import { predictWallet } from "~~/services/factory";
 import { isBytes32 } from "~~/services/relay";
 import { deviceFor, getPairing, listDevices, putDevice, setPairing } from "~~/services/store";
 import { DEVICE_ONLINE_MS, type DeviceInfo } from "~~/services/types";
+import { readSigner } from "~~/services/wallet";
 import { chainId } from "~~/utils/chain";
 import { signerIdOf } from "~~/utils/digests";
 
 export const dynamic = "force-dynamic";
 
+/** On chain, or (counterfactual wallet) the registered first key. */
 async function isSignerOf(wallet: Address, signerId: Address): Promise<boolean> {
-  if (!(await isDeployed(wallet))) return false;
-  return (await publicClient().readContract({
-    address: wallet,
-    abi: instantWalletAbi,
-    functionName: "isSigner",
-    args: [signerId],
-  })) as boolean;
+  return !!(await readSigner(wallet, signerId));
 }
 
-/** Which wallet is this key paired with? Uses the remembered pairing, verified on chain. */
-async function pairedWallet(signerId: Address, hint?: Address): Promise<Address | undefined> {
+/**
+ * Which wallet is this key paired with? The hint from the device, the remembered pairing, then the
+ * wallet this key would be the first key of (a device set up as a wallet's first signer) — each
+ * verified on chain (or against the first-key registry while the wallet is counterfactual).
+ */
+async function pairedWallet(
+  signerId: Address,
+  hint?: Address,
+  key?: { qx: Hex; qy: Hex },
+): Promise<Address | undefined> {
   const remembered = await getPairing(signerId);
-  const candidates = [hint, remembered].filter(Boolean) as Address[];
+  const own = key ? await predictWallet(key.qx, key.qy).catch(() => undefined) : undefined;
+  const candidates = [...new Set([hint, remembered, own].filter(Boolean) as Address[])];
   for (const w of candidates) {
     if (await isSignerOf(w, signerId).catch(() => false)) {
       if (remembered?.toLowerCase() !== w.toLowerCase()) await setPairing(signerId, w);
@@ -55,7 +60,7 @@ export async function POST(req: NextRequest) {
   };
   await putDevice(info);
   const hint = typeof body.wallet === "string" && isAddress(body.wallet) ? getAddress(body.wallet) : undefined;
-  const wallet = await pairedWallet(signerId, hint);
+  const wallet = await pairedWallet(signerId, hint, { qx: body.qx, qy: body.qy });
   return NextResponse.json({ paired: !!wallet, wallet: wallet ?? null, signerId, chainId });
 }
 

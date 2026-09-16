@@ -5,7 +5,7 @@ import { getParsedError } from "~~/utils/scaffold-eth/getParsedError";
 
 export const dynamic = "force-dynamic";
 
-/** `GET /api/wallet?address=0x…` -> balance, token, signers (+remainingAllowance), nonce, recovery, activity. */
+/** `GET /api/wallet?address=0x…` -> portfolio (ETH + tokens, USD), signers (+per-asset limits), nonce, recovery, activity. Works before deployment. */
 export async function GET(req: NextRequest) {
   const address = req.nextUrl.searchParams.get("address");
   if (!address || !isAddress(address))

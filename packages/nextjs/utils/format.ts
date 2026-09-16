@@ -63,3 +63,52 @@ export function durationLabel(seconds: number): string {
   if (seconds % 3600 === 0) return `${seconds / 3600}h`;
   return `${Math.round(seconds / 60)}m`;
 }
+
+/**
+ * Asset amount from base units: "2,847.13 USDC", "0.0500 ETH". Stable-looking assets (6 decimals)
+ * show 2 places, everything else up to `maxFrac` significant places with trailing zeros trimmed.
+ */
+export function fmtAmount(
+  units: bigint | string | number,
+  decimals: number,
+  symbol?: string,
+  maxFrac?: number,
+): string {
+  const v = typeof units === "bigint" ? units : BigInt(units || 0);
+  const s = formatUnits(v, decimals);
+  const [i, f = ""] = s.split(".");
+  const frac = maxFrac ?? (decimals <= 6 ? 2 : 6);
+  let out: string;
+  if (decimals <= 6) {
+    out = `${Number(i).toLocaleString("en-US")}.${(f + "00").slice(0, 2)}`;
+  } else {
+    const n = Number(s);
+    out =
+      n === 0
+        ? "0"
+        : n < 1
+          ? n.toLocaleString("en-US", { maximumSignificantDigits: 4, maximumFractionDigits: Math.max(frac, 8) })
+          : n.toLocaleString("en-US", { maximumFractionDigits: 4 });
+  }
+  return symbol ? `${out} ${symbol}` : out;
+}
+
+/** "$1,234.56" from a float; null/NaN -> "—". */
+export function fmtUsd(v: number | null | undefined, fractionDigits = 2): string {
+  if (v === null || v === undefined || !Number.isFinite(v)) return "—";
+  return `$${v.toLocaleString("en-US", { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits })}`;
+}
+
+/** Split a USD float into ["1,234", "56"]. */
+export function usdParts(v: number | null | undefined): [string, string] {
+  const [i, f] = fmtUsd(v ?? 0)
+    .slice(1)
+    .split(".");
+  return [i, f ?? "00"];
+}
+
+/** USD value of `units` of an asset priced at `price` (null when unpriced). */
+export function usdValue(units: bigint | string, decimals: number, price: number | null | undefined): number | null {
+  if (price === null || price === undefined) return null;
+  return Number(formatUnits(typeof units === "bigint" ? units : BigInt(units || 0), decimals)) * price;
+}

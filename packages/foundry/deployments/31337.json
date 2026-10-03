@@ -1,6 +1,6 @@
 {
-  "0x3155755b79aA083bd953911C92705B7aA82a18F9": "MockUSDC",
-  "0x43b1B14593C171DC9C6b1C1aa1C0de268AdA9FC0": "Factory",
-  "0xb3f548B5fAaf47b1F96136918B0854AA79ce0aC6": "InstantWallet",
+  "0x0Dedc086740f95fc3cd7B5b46cE0EB91b00A318F": "Factory",
+  "0x5FbDB2315678afecb367f032d93F642f64180aa3": "MockUSDC",
+  "0xD61652257197f80eAaC7a87f33fE1a311a39073C": "InstantWallet",
   "networkName": "anvil-hardhat"
 }

@@ -1,5 +1,9 @@
 # Instant Wallet
 
+> **v3 in progress** (2026-10): passkey hot key + [wedgie](https://wedgie.dev) cold key. Plan: `docs/V3.md`.
+> The website is `web/` (Vercel root). Contracts: InstantWallet v3 `0xD61652257197f80eAaC7a87f33fE1a311a39073C`,
+> Factory `0x0Dedc086740f95fc3cd7B5b46cE0EB91b00A318F` on Base. Everything below describes v2.
+
 **Your money, instantly.** A passkey smart-contract wallet (Face ID / Touch ID, no seed phrase,
 no gas) that you can harden with a $35 hardware signer you build yourself from three off-the-shelf
 parts. One account, many P-256 keys, tiered by trust. Optional AI on top, bring your own model.

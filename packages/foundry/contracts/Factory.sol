@@ -6,7 +6,7 @@ import { ERC1967Clones } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Clon
 import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 
 /**
- * @title Factory (v3)
+ * @title Factory (v3.1)
  * @notice Deploys InstantWallet behind ERC-1967 minimal proxies at CREATE2 addresses derived from the first key
  *         (qx, qy, kind, credentialIdHash), so the address is known before any deposit and nobody can deploy a
  *         key's wallet with a different kind or credential. Deployed at the same address on every chain (CREATE2
@@ -17,19 +17,21 @@ import { Address } from "@openzeppelin/contracts/utils/Address.sol";
  */
 contract Factory {
     address public immutable implementation;
+    /// @dev Immutables, not storage: as an ERC-4337 factory (initCode) it may not read its own storage unstaked.
+    address public immutable defaultGuardian;
     uint64 public immutable defaultRecoveryDelay;
-    address[] private _defaultGuardians;
 
     event WalletCreated(address indexed wallet, address indexed signerId, uint8 kind);
 
-    constructor(address _implementation, address[] memory defaultGuardians_, uint64 _defaultRecoveryDelay) {
+    constructor(address _implementation, address _defaultGuardian, uint64 _defaultRecoveryDelay) {
         implementation = _implementation;
-        _defaultGuardians = defaultGuardians_;
+        defaultGuardian = _defaultGuardian;
         defaultRecoveryDelay = _defaultRecoveryDelay;
     }
 
-    function defaultGuardians() external view returns (address[] memory) {
-        return _defaultGuardians;
+    function defaultGuardians() public view returns (address[] memory guardians) {
+        guardians = new address[](defaultGuardian == address(0) ? 0 : 1);
+        if (guardians.length != 0) guardians[0] = defaultGuardian;
     }
 
     /// @notice Deploy the wallet for this key if it does not exist yet; returns the address either way.
@@ -42,7 +44,7 @@ contract Factory {
         if (wallet.code.length != 0) return wallet;
         ERC1967Clones.cloneDeterministic(implementation, salt);
         InstantWallet(payable(wallet))
-            .initialize(qx, qy, kind, credentialIdHash, _defaultGuardians, defaultRecoveryDelay);
+            .initialize(qx, qy, kind, credentialIdHash, defaultGuardians(), defaultRecoveryDelay);
         emit WalletCreated(wallet, InstantWallet(payable(wallet)).signerIdOf(qx, qy), kind);
     }
 

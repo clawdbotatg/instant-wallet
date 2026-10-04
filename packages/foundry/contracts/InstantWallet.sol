@@ -10,6 +10,10 @@ import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgrade
 import { ReentrancyGuardTransient } from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
 import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 
+interface ITokenPaymaster {
+    function token() external view returns (IERC20);
+}
+
 /**
  * @title InstantWallet (v3)
  * @notice One account, many P-256 keys, tiered by trust. Holds anything: ETH, any ERC-20, NFTs.
@@ -47,6 +51,19 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
         address target;
         uint256 value;
         bytes data;
+    }
+
+    /// @notice ERC-4337 (EntryPoint v0.8) user operation.
+    struct PackedUserOperation {
+        address sender;
+        uint256 nonce;
+        bytes initCode;
+        bytes callData;
+        bytes32 accountGasLimits;
+        uint256 preVerificationGas;
+        bytes32 gasFees;
+        bytes paymasterAndData;
+        bytes signature;
     }
 
     struct Signer {
@@ -96,7 +113,21 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
     /// @notice ERC-1271: what a key signs so one key owning two wallets can't have a message replayed across them.
     bytes32 public constant MESSAGE_TYPEHASH = keccak256("InstantWalletMessage(bytes32 hash)");
 
+    /// @notice ERC-4337: what a key signs for a user operation (see `hashUserOp`).
+    bytes32 public constant USEROP_TYPEHASH = keccak256("UserOp(bytes32 opHash,uint48 validUntil)");
+    /// @notice One key signature over two digests (a user op + an ERC-1271 message), so a send that also needs a
+    ///         token permit (the first gas payment in USDC) is still one Face ID.
+    bytes32 public constant PAIR_TYPEHASH = keccak256("Pair(bytes32 a,bytes32 b)");
+
+    /// @notice ERC-4337 EntryPoint v0.8, same address on every chain.
+    address public constant ENTRY_POINT = 0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108;
+    /// @notice Circle Paymaster (EntryPoint v0.8): gas paid in USDC. After each op it pays for, the wallet keeps
+    ///         its allowance at `GAS_ALLOWANCE` so spenders can pay gas too (they can't sign permits).
+    address public constant CIRCLE_PAYMASTER = 0x0578cFB241215b77442a541325d6A4E6dFE700Ec;
+    uint256 public constant GAS_ALLOWANCE = 1e6; // 1 USDC
+
     bytes4 private constant ERC1271_MAGIC = 0x1626ba7e;
+    uint256 private constant SIG_VALIDATION_FAILED = 1;
 
     // ---------------------------------------------------------------- state (append-only)
 
@@ -156,6 +187,12 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
     error RecoveryNotReady(uint64 executeAfter, uint256 nowTs);
     error CallFailed(uint256 index);
     error EthTransferFailed();
+    error OnlyEntryPoint();
+
+    modifier onlyEntryPoint() {
+        if (msg.sender != ENTRY_POINT) revert OnlyEntryPoint();
+        _;
+    }
 
     modifier onlySelf() {
         if (msg.sender != address(this)) revert OnlySelf();
@@ -185,7 +222,7 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
 
     /// @notice Semver of this implementation; the app reads it to offer upgrades.
     function version() external pure virtual returns (string memory) {
-        return "3.0.0";
+        return "3.1.0";
     }
 
     // ---------------------------------------------------------------- views
@@ -278,6 +315,32 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
         return _typed(keccak256(abi.encode(MESSAGE_TYPEHASH, hash)));
     }
 
+    /**
+     * @notice What a key signs for a user op. Covers every field except the signature and, past byte `cut`, the
+     *         paymasterAndData (so a permit signature riding in it can come from the same key signature).
+     *         `cut = paymasterAndData.length` signs all of it. The EntryPoint is fixed (`ENTRY_POINT`), and
+     *         chain + wallet are in the domain.
+     */
+    function hashUserOp(PackedUserOperation calldata op, uint256 cut, uint48 validUntil) public view returns (bytes32) {
+        bytes32 opHash = keccak256(
+            abi.encode(
+                op.nonce,
+                keccak256(op.initCode),
+                keccak256(op.callData),
+                op.accountGasLimits,
+                op.preVerificationGas,
+                op.gasFees,
+                keccak256(op.paymasterAndData[:cut]),
+                cut
+            )
+        );
+        return _typed(keccak256(abi.encode(USEROP_TYPEHASH, opHash, validUntil)));
+    }
+
+    function hashPair(bytes32 a, bytes32 b) public view returns (bytes32) {
+        return _typed(keccak256(abi.encode(PAIR_TYPEHASH, a, b)));
+    }
+
     /// @notice Check one key's signature over a digest (no state change). Any role.
     function verify(address signerId, bytes32 digest, bytes calldata signature) external view returns (bool) {
         if (_signerIndex[signerId] == 0) return false;
@@ -285,7 +348,8 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
     }
 
     /**
-     * @notice ERC-1271. `signature = signerId (20 bytes) ‖ keySignature`, where the key signed `hashMessage(hash)`.
+     * @notice ERC-1271. `signature = signerId (20 bytes) ‖ keySignature`, where the key signed `hashMessage(hash)`,
+     *         or `signerId ‖ PAIR_TYPEHASH ‖ a ‖ keySignature`, where it signed `hashPair(a, hashMessage(hash))`.
      *         Owners only: a spender can't sign permits or orders that move funds.
      */
     function isValidSignature(bytes32 hash, bytes calldata signature) external view returns (bytes4) {
@@ -294,7 +358,60 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
         if (_signerIndex[signerId] == 0) return 0xffffffff;
         Signer storage s = _signers[signerId];
         if (s.role != ROLE_OWNER) return 0xffffffff;
-        return _verify(s, hashMessage(hash), signature[20:]) ? ERC1271_MAGIC : bytes4(0xffffffff);
+        bytes32 digest = hashMessage(hash);
+        bytes calldata keySig = signature[20:];
+        if (signature.length >= 84 && bytes32(signature[20:52]) == PAIR_TYPEHASH) {
+            digest = hashPair(bytes32(signature[52:84]), digest);
+            keySig = signature[84:];
+        }
+        return _verify(s, digest, keySig) ? ERC1271_MAGIC : bytes4(0xffffffff);
+    }
+
+    // ---------------------------------------------------------------- ERC-4337 (EntryPoint v0.8)
+
+    /**
+     * @notice The signer is the nonce key: `nonce = uint192(signerId) << 64 | seq`, so each key keeps its own
+     *         sequence and execution knows who signed. `signature = validUntil (6) ‖ cut (2) ‖ pair (32) ‖ keySig`:
+     *         the key signed `hashUserOp(op, cut, validUntil)`, or, when `pair` is nonzero,
+     *         `hashPair(hashUserOp(…), pair)` (`pair` = the hashMessage of a permit riding in the paymaster data).
+     *         `callData` must be `executeUserOp` (the EntryPoint then hands the whole op to it).
+     */
+    function validateUserOp(PackedUserOperation calldata op, bytes32, uint256 missingAccountFunds)
+        external
+        onlyEntryPoint
+        returns (uint256 validationData)
+    {
+        validationData = _validateUserOp(op);
+        if (missingAccountFunds != 0) {
+            (bool ok,) = payable(msg.sender).call{ value: missingAccountFunds }("");
+            (ok);
+        }
+    }
+
+    /**
+     * @notice Runs `callData[4:] = abi.encode(Call[])`. Owners: any calls (and recovery is cancelled, like any
+     *         owner action). Spenders: only ETH sends and ERC-20 `transfer`s, each charged to their daily limit.
+     */
+    function executeUserOp(PackedUserOperation calldata op, bytes32) external onlyEntryPoint nonReentrant {
+        address signerId = address(uint160(op.nonce >> 64));
+        if (_signerIndex[signerId] == 0) revert UnknownSigner(signerId); // removed by an earlier op in the bundle
+        Call[] memory calls = abi.decode(op.callData[4:], (Call[]));
+        if (_signers[signerId].role == ROLE_OWNER) {
+            _cancelRecovery();
+        } else {
+            for (uint256 i; i < calls.length; ++i) {
+                (address asset, uint256 amount) = _spenderCall(signerId, calls[i]);
+                _spend(signerId, asset, amount);
+            }
+        }
+        _run(calls);
+        if (op.paymasterAndData.length >= 20 && address(bytes20(op.paymasterAndData[0:20])) == CIRCLE_PAYMASTER) {
+            IERC20 token = ITokenPaymaster(CIRCLE_PAYMASTER).token();
+            if (token.allowance(address(this), CIRCLE_PAYMASTER) < GAS_ALLOWANCE / 2) {
+                token.forceApprove(CIRCLE_PAYMASTER, GAS_ALLOWANCE);
+            }
+        }
+        emit Executed(signerId, keccak256(op.callData), calls.length, op.nonce);
     }
 
     // ---------------------------------------------------------------- meta (anyone may submit; the key authorizes)
@@ -333,15 +450,7 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
         bytes32 callsHash = hashCalls(calls);
         Signer storage s = _authorize(signerId, hashExecute(callsHash, usedNonce, deadline), deadline, signature);
         if (s.role != ROLE_OWNER) revert NotOwner(signerId);
-        results = new bytes[](calls.length);
-        for (uint256 i; i < calls.length; ++i) {
-            (bool ok, bytes memory ret) = calls[i].target.call{ value: calls[i].value }(calls[i].data);
-            if (!ok) {
-                if (ret.length > 0) Address.verifyCallResult(false, ret);
-                revert CallFailed(i);
-            }
-            results[i] = ret;
-        }
+        results = _run(calls);
         emit Executed(signerId, callsHash, calls.length, usedNonce);
     }
 
@@ -453,6 +562,45 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
         if (!_verify(s, digest, signature)) revert BadSignature();
         nonces[signerId] += 1;
         if (s.role == ROLE_OWNER) _cancelRecovery();
+    }
+
+    /// @dev No TIMESTAMP and only this wallet's storage (ERC-7562): expiry goes back to the EntryPoint as validUntil.
+    function _validateUserOp(PackedUserOperation calldata op) internal view returns (uint256) {
+        bytes calldata sig = op.signature;
+        if (sig.length < 40) return SIG_VALIDATION_FAILED;
+        address signerId = address(uint160(op.nonce >> 64));
+        if (_signerIndex[signerId] == 0) return SIG_VALIDATION_FAILED;
+        uint48 validUntil = uint48(bytes6(sig[0:6]));
+        uint256 cut = uint16(bytes2(sig[6:8]));
+        if (cut > op.paymasterAndData.length) return SIG_VALIDATION_FAILED;
+        bytes32 digest = hashUserOp(op, cut, validUntil);
+        bytes32 pair = bytes32(sig[8:40]);
+        if (pair != bytes32(0)) digest = hashPair(digest, pair);
+        if (!_verify(_signers[signerId], digest, sig[40:])) return SIG_VALIDATION_FAILED;
+        return uint256(validUntil) << 160;
+    }
+
+    function _run(Call[] memory calls) internal returns (bytes[] memory results) {
+        results = new bytes[](calls.length);
+        for (uint256 i; i < calls.length; ++i) {
+            (bool ok, bytes memory ret) = calls[i].target.call{ value: calls[i].value }(calls[i].data);
+            if (!ok) {
+                if (ret.length > 0) Address.verifyCallResult(false, ret);
+                revert CallFailed(i);
+            }
+            results[i] = ret;
+        }
+    }
+
+    /// @dev A spender call is an ETH send (empty data) or `asset.transfer(to, amount)` with no value; else NotOwner.
+    function _spenderCall(address signerId, Call memory c) internal pure returns (address asset, uint256 amount) {
+        if (c.data.length == 0) return (ETH, c.value);
+        bytes memory d = c.data;
+        if (c.value != 0 || d.length != 68 || bytes4(d) != IERC20.transfer.selector) revert NotOwner(signerId);
+        assembly ("memory-safe") {
+            amount := mload(add(d, 68))
+        }
+        return (c.target, amount);
     }
 
     function _verify(Signer storage s, bytes32 digest, bytes calldata signature) internal view returns (bool) {

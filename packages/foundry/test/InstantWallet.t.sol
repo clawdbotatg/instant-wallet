@@ -53,9 +53,7 @@ contract InstantWalletTest is Test {
 
         usdc = new MockUSDC();
         impl = new InstantWallet();
-        address[] memory guardians = new address[](1);
-        guardians[0] = dao;
-        factory = new Factory(address(impl), guardians, 7 days);
+        factory = new Factory(address(impl), dao, 7 days);
 
         address predicted = factory.getAddress(passQx, passQy, WEBAUTHN, CRED);
         address deployed = factory.createWallet(passQx, passQy, WEBAUTHN, CRED);
@@ -149,7 +147,7 @@ contract InstantWalletTest is Test {
         assertTrue(w.isGuardian(dao));
         assertEq(w.recoveryDelay(), 7 days);
         assertEq(w.remainingAllowance(passId, address(usdc)), type(uint256).max);
-        assertEq(w.version(), "3.0.0");
+        assertEq(w.version(), "3.1.0");
     }
 
     function test_factoryIsIdempotentAndCounterfactual() public {

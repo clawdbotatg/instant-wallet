@@ -14,7 +14,7 @@ import { MockUSDC } from "../contracts/MockUSDC.sol";
  *      7-day delay. On chain id 31337 a MockUSDC is also deployed for the local playground.
  */
 contract DeployYourContract is ScaffoldETHDeploy {
-    bytes32 constant SALT = keccak256("instant-wallet.v3");
+    bytes32 constant SALT = keccak256("instant-wallet.v3.1");
     address constant BUIDLGUIDL_DAO = 0xeF899e80aA814ab8D8e232f9Ed6403A633C727ec; // dao.buidlguidl.eth
     address constant CREATE2_DEPLOYER = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
 
@@ -26,17 +26,15 @@ contract DeployYourContract is ScaffoldETHDeploy {
         }
 
         uint64 delay = 7 days;
-        address[] memory guardians = new address[](1);
-        guardians[0] = BUIDLGUIDL_DAO;
         InstantWallet impl;
         Factory factory;
         if (CREATE2_DEPLOYER.code.length > 0) {
             impl = new InstantWallet{ salt: SALT }();
-            factory = new Factory{ salt: SALT }(address(impl), guardians, delay);
+            factory = new Factory{ salt: SALT }(address(impl), BUIDLGUIDL_DAO, delay);
             console.log("deterministic (CREATE2) deployment");
         } else {
             impl = new InstantWallet();
-            factory = new Factory(address(impl), guardians, delay);
+            factory = new Factory(address(impl), BUIDLGUIDL_DAO, delay);
             console.log("plain deployment (no CREATE2 deployer on this chain)");
         }
         deployments.push(Deployment({ name: "InstantWallet", addr: address(impl) }));

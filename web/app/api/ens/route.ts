@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createPublicClient, http, isAddress } from "viem";
 import { mainnet } from "viem/chains";
-import { normalize } from "viem/ens";
+import { ens_normalize } from "@adraffy/ens-normalize";
 import { upstreamRpc } from "@/lib/rpcServer";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +14,8 @@ export async function GET(req: NextRequest) {
   try {
     if (name) {
       if (!/^[^\s.]+(\.[^\s.]+)+$/.test(name)) return NextResponse.json({ error: "not an ENS name" }, { status: 400 });
-      return NextResponse.json({ name, address: await client.getEnsAddress({ name: normalize(name) }) });
+      // not viem/ens `normalize`: Next's server build constant-folds it to undefined
+      return NextResponse.json({ name, address: await client.getEnsAddress({ name: ens_normalize(name) }) });
     }
     if (address && isAddress(address)) return NextResponse.json({ address, name: await client.getEnsName({ address }) });
     return NextResponse.json({ error: "name or address required" }, { status: 400 });

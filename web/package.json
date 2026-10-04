@@ -13,6 +13,7 @@
     "node": ">=20"
   },
   "dependencies": {
+    "@adraffy/ens-normalize": "^1.11.1",
     "@noble/curves": "^2.4.0",
     "blo": "^2.0.0",
     "html5-qrcode": "^2.3.8",

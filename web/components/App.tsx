@@ -10,7 +10,9 @@ import { Blockie, ChainChip, ScanIcon, Sheet, copy, useToast } from "./bits";
 import { Receive } from "./Receive";
 import { Send } from "./Send";
 import { Settings } from "./Settings";
+import { WalletConnectLayer } from "./WalletConnect";
 import { Welcome } from "./Welcome";
+import { openWalletConnect } from "@/lib/walletconnect";
 
 type View = { kind: "home" } | { kind: "send"; prefill?: Extract<Parsed, { kind: "pay" }> } | { kind: "receive" } | { kind: "settings" };
 
@@ -21,6 +23,7 @@ export function App({ link }: { link?: string }) {
   const [view, setView] = useState<View>({ kind: "home" });
   const [showUsd, setShowUsd] = useState(true);
   const [toast, setToast] = useToast();
+  const [wcUri, setWcUri] = useState<string>();
 
   useEffect(() => setAccount(loadAccount()), []);
 
@@ -29,7 +32,7 @@ export function App({ link }: { link?: string }) {
     if (!link) return;
     const p = parse(link.startsWith("http") ? link : `https://x/${link}`);
     if (p.kind === "pay") setView({ kind: "send", prefill: p });
-    if (p.kind === "wc") setToast("WalletConnect is coming next");
+    if (p.kind === "wc") setWcUri(p.uri);
     window.history.replaceState(null, "", "/");
   }, [link, setToast]);
 
@@ -113,9 +116,14 @@ export function App({ link }: { link?: string }) {
               </button>
             ))}
         </div>
-        <button className="pill" style={{ justifySelf: "center" }} onClick={async () => (await copy(account.address)) && setToast("Address copied")}>
-          Copy my address
-        </button>
+        <div className="row" style={{ justifyContent: "center" }}>
+          <button className="pill" onClick={async () => (await copy(account.address)) && setToast("Address copied")}>
+            Copy my address
+          </button>
+          <button className="pill" onClick={() => openWalletConnect()}>
+            Connect to a site
+          </button>
+        </div>
       </div>
 
       <button className="fab" aria-label="Scan to send" onClick={() => setView({ kind: "send" })}>
@@ -130,7 +138,10 @@ export function App({ link }: { link?: string }) {
               assets={assets}
               prefill={view.prefill?.to || view.prefill?.amount ? view.prefill : view.prefill ? { ...view.prefill } : undefined}
               onDone={close}
-              onWalletConnect={() => setToast("WalletConnect is coming next")}
+              onWalletConnect={uri => {
+                setView({ kind: "home" });
+                openWalletConnect(uri);
+              }}
             />
           )}
           {view.kind === "receive" && <Receive account={account} toast={setToast} />}
@@ -148,6 +159,7 @@ export function App({ link }: { link?: string }) {
           )}
         </Sheet>
       )}
+      <WalletConnectLayer account={account} pairUri={wcUri} />
       {toast && <div className="toast">{toast}</div>}
     </>
   );

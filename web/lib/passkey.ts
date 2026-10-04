@@ -24,7 +24,7 @@ import {
  *
  * Every ceremony also asks for the PRF extension with a fixed salt. Where the platform supports it (iCloud
  * Keychain, Google Password Manager), that gives the same 32 secret bytes on every device the passkey syncs
- * to; lib/gasKey.ts turns them into the gas key.
+ * to (unused since v3.1 dropped the gas key; kept so a later feature can derive per-user secrets).
  */
 
 export const RP_NAME = "Instant Wallet";

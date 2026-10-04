@@ -1,4 +1,4 @@
-import { type Address, type Chain, createPublicClient, getAddress, http } from "viem";
+import { type Address, type Chain, createPublicClient, http } from "viem";
 import { base, foundry, mainnet } from "viem/chains";
 
 /**
@@ -6,9 +6,8 @@ import { base, foundry, mainnet } from "viem/chains";
  * the same address on every chain and a key's wallet address is the same everywhere.
  *
  *   NEXT_PUBLIC_CHAINS           "8453,1" (default) or "31337" for a local anvil
- *   NEXT_PUBLIC_FACTORY_ADDRESS  the v3 Factory
  *
- * Browsers never see an RPC key: every read and every gas-key transaction goes through /api/rpc/<chainId>.
+ * Browsers never see an RPC or bundler key: reads go through /api/rpc/<chainId>, sends through /api/bundler/<chainId>.
  */
 
 export type ChainInfo = {
@@ -57,8 +56,11 @@ export function chainByShort(short: string): ChainInfo | undefined {
     (s === "ethereum" || s === "mainnet" ? chainById(1) : undefined);
 }
 
-const f = process.env.NEXT_PUBLIC_FACTORY_ADDRESS;
-export const FACTORY: Address | undefined = f && /^0x[0-9a-fA-F]{40}$/.test(f) ? getAddress(f) : undefined;
+/** InstantWallet v3.1 + its Factory: CREATE2 through the deterministic deployer, the same on every chain (anvil too). */
+export const FACTORY: Address = "0x896c8D40022A79FC1228dB800FD3aaf7f21d7469";
+export const IMPLEMENTATION: Address = "0xBd1569c8978fB403079b75eBAcc369F0E7244B6F";
+/** Chains with the v3.1 contracts and Circle Paymaster: the only ones a send can go out on today. */
+export const SENDABLE = new Set([8453]);
 
 export const ETH: Address = "0x0000000000000000000000000000000000000000";
 

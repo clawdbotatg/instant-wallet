@@ -126,3 +126,15 @@ export function buildWebAuthnAuth(authenticatorData: Uint8Array, clientDataJSON:
     clientDataJSON,
   };
 }
+
+/**
+ * A well-formed WebAuthn signature over `digest` that fails only at the final P-256 check: same calldata size and
+ * the same verification work as a real one, for gas estimation before the real Face ID.
+ */
+export function dummyWebAuthnSignature(digest: Hex, origin: string): Hex {
+  const clientDataJSON = `{"type":"webauthn.get","challenge":"${bytesToBase64url(hexToBytes(digest))}","origin":"${origin}","crossOrigin":false}`;
+  const authData = new Uint8Array(37);
+  authData[32] = 0x05; // UP | UV
+  const one = bigintToHex32(1n);
+  return encodeWebAuthnSignature(buildWebAuthnAuth(authData, clientDataJSON, one, one));
+}

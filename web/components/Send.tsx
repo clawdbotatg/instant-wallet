@@ -1,22 +1,21 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { type Address, type Hash, formatEther, formatUnits, getAddress, isAddress, parseUnits } from "viem";
-import { chainById, explorerTx, publicClient } from "@/lib/chains";
-import { gasAccount } from "@/lib/gasKey";
+import { type Address, type Hash, formatUnits, getAddress, isAddress, parseUnits } from "viem";
+import { DEFAULT_CHAIN, ETH, SENDABLE, chainById, explorerTx } from "@/lib/chains";
 import { amount as fmtAmount, short, usd } from "@/lib/format";
 import { type Parsed, parse } from "@/lib/parse";
 import type { Account, Asset } from "@/lib/types";
-import { gasCost, isDeployed, sendTransfer } from "@/lib/wallet";
-import { Blockie, ChainChip, Qr, ScanIcon, copy } from "./bits";
+import { feeEstimateUsd, isDeployed, sendCalls, transferCall } from "@/lib/wallet";
+import { Blockie, ChainChip, ScanIcon } from "./bits";
 import { Scanner } from "./Scanner";
 import { friendly } from "./Welcome";
 
 type Prefill = Extract<Parsed, { kind: "pay" }>;
 
 /**
- * Send: who (scan / paste / type 0x or ENS) → what (an asset on a chain) → how much (USD or token) →
- * Face ID → the gas key submits. Burner-wallet simple: nothing else in the way.
+ * Send: who (scan / paste / type 0x or ENS) → what (an asset on a chain, or everything on Base) → how much →
+ * Face ID → a bundler submits; the network fee comes out of the wallet's USDC. Burner-wallet simple.
  */
 export function Send({
   account,
@@ -41,12 +40,20 @@ export function Send({
   const [stage, setStage] = useState<"form" | "confirm" | "signing" | "sending" | "confirming" | "done">("form");
   const [hash, setHash] = useState<Hash>();
   const [error, setError] = useState<string | null>(null);
-  const [gas, setGas] = useState<{ have: bigint; need: bigint } | null>(null);
+  const [fee, setFee] = useState<number | null>(null);
 
   // the asset list: what we hold; a link may name something we don't hold yet
   const held = assets.filter(a => BigInt(a.balance) > 0n);
   const key = (a: { chainId: number; asset: string }) => `${a.chainId}:${a.asset.toLowerCase()}`;
-  const asset = useMemo(() => held.find(a => key(a) === pick) ?? null, [held, pick]);
+  const ALL = "all";
+  const all = pick === ALL;
+  const allChain = DEFAULT_CHAIN.id;
+  const allAssets = held.filter(a => a.chainId === allChain);
+  const asset = useMemo(() => (all ? allAssets.find(isUsdc) ?? allAssets[0] ?? null : held.find(a => key(a) === pick) ?? null), [held, pick]);
+  const chainId = asset?.chainId ?? allChain;
+  const usdc = held.find(a => a.chainId === chainId && isUsdc(a));
+  const usdcBal = usdc ? BigInt(usdc.balance) : 0n;
+  const ethUsd = assets.find(a => a.asset === ETH && a.price)?.price ?? undefined;
 
   // default pick: the link's asset/chain, else the biggest holding
   useEffect(() => {
@@ -77,26 +84,18 @@ export function Send({
     return () => clearTimeout(t);
   }, [toInput]);
 
-  // gas key balance vs what this send will cost on the asset's chain
+  // what the network fee will roughly be (paid in USDC)
   useEffect(() => {
-    if (!asset) return;
+    if (!SENDABLE.has(chainId) || !ethUsd) return;
     let live = true;
-    (async () => {
-      try {
-        const deployed = await isDeployed(asset.chainId, account.address);
-        const [have, need] = await Promise.all([
-          publicClient(asset.chainId).getBalance({ address: gasAccount(account.address).address }),
-          gasCost(asset.chainId, deployed),
-        ]);
-        if (live) setGas({ have, need });
-      } catch {
-        if (live) setGas(null);
-      }
-    })();
+    isDeployed(chainId, account.address)
+      .then(d => feeEstimateUsd(chainId, d, ethUsd))
+      .then(f => live && setFee(f))
+      .catch(() => live && setFee(null));
     return () => {
       live = false;
     };
-  }, [asset, account.address]);
+  }, [chainId, account.address, ethUsd]);
 
   const tokenAmount: string = useMemo(() => {
     if (!asset || !amountIn) return "";
@@ -112,9 +111,12 @@ export function Send({
     base = null;
   }
   const tooMuch = !!asset && base !== null && base > BigInt(asset.balance);
-  const usdValue = asset?.price && tokenAmount ? Number(tokenAmount) * asset.price : null;
-  const gasShort = !!gas && gas.have < gas.need;
-  const ready = !!asset && !!resolved && base !== null && base > 0n && !tooMuch && !gasShort;
+  const usdValue = all ? allAssets.reduce((t, a) => t + (a.usd ?? 0), 0) : asset?.price && tokenAmount ? Number(tokenAmount) * asset.price : null;
+  const sendable = SENDABLE.has(chainId);
+  // the fee needs a few cents of USDC left over (more is reserved up front and refunded)
+  const usdcAfter = usdcBal - (asset && usdc && !all && key(asset) === key(usdc) && base !== null ? base : 0n);
+  const feeShort = sendable && usdcAfter < FEE_FLOOR;
+  const ready = !!resolved && sendable && !feeShort && (all ? allAssets.length > 0 : !!asset && base !== null && base > 0n && !tooMuch);
 
   function onScan(text: string) {
     setScanning(false);
@@ -134,12 +136,19 @@ export function Send({
   }
 
   async function send() {
-    if (!asset || !resolved || base === null) return;
+    if (!resolved || (!all && (!asset || base === null))) return;
     setError(null);
     try {
-      const h = await sendTransfer(asset.chainId, account, { asset: asset.asset, to: resolved, amount: base }, (s, hh) => {
-        setStage(s);
-        if (hh) setHash(hh);
+      const calls = all
+        ? allAssets.filter(a => !isUsdc(a)).map(a => transferCall(a.asset, resolved, BigInt(a.balance)))
+        : [transferCall(asset!.asset, resolved, base!)];
+      const h = await sendCalls(chainId, account, calls, {
+        ethUsd,
+        sweepUsdcTo: all ? resolved : undefined,
+        onStage: (s, hh) => {
+          setStage(s);
+          if (hh) setHash(hh);
+        },
       });
       setHash(h);
       setStage("done");
@@ -149,18 +158,20 @@ export function Send({
     }
   }
 
-  if (stage === "done" && asset && resolved) {
-    const url = hash && explorerTx(asset.chainId, hash);
+  const what = all ? `everything on ${chainById(chainId)?.name}` : asset ? `${fmtAmount(tokenAmount)} ${asset.symbol}` : "";
+
+  if (stage === "done" && resolved) {
+    const url = hash && explorerTx(chainId, hash);
     return (
       <div className="stack center">
         <div style={{ fontSize: 64 }}>✓</div>
         <h2>Sent</h2>
         <p>
-          {fmtAmount(tokenAmount)} {asset.symbol} to {toInput.includes(".") ? toInput : short(resolved)}
+          {what} to {toInput.includes(".") ? toInput : short(resolved)}
         </p>
         {url && (
           <a href={url} target="_blank" rel="noreferrer">
-            View on {chainById(asset.chainId)?.name} explorer
+            View on {chainById(chainId)?.name} explorer
           </a>
         )}
         <button className="btn btn-green wide" onClick={onDone}>
@@ -170,11 +181,11 @@ export function Send({
     );
   }
 
-  if (stage !== "form" && asset && resolved && base !== null) {
+  if (stage !== "form" && resolved && (all || (asset && base !== null))) {
     const busy = stage === "signing" || stage === "sending" || stage === "confirming";
     return (
       <div className="stack confirm">
-        <h2>Send {fmtAmount(tokenAmount)} {asset.symbol}?</h2>
+        <h2>Send {what}?</h2>
         <div className="card">
           <div className="line">
             <span>To</span>
@@ -189,15 +200,28 @@ export function Send({
               <span className="mono" style={{ fontSize: 13 }}>{resolved}</span>
             </div>
           )}
-          <div className="line">
-            <span>Amount</span>
-            <b>
-              {fmtAmount(tokenAmount)} {asset.symbol} {usdValue !== null && <span className="fine">≈ {usd(usdValue)}</span>}
-            </b>
-          </div>
+          {all ? (
+            allAssets.map(a => (
+              <div className="line" key={key(a)}>
+                <span>{a.symbol}</span>
+                <b>{isUsdc(a) ? `${fmtAmount(a.formatted)} minus the fee` : fmtAmount(a.formatted)}</b>
+              </div>
+            ))
+          ) : (
+            <div className="line">
+              <span>Amount</span>
+              <b>
+                {fmtAmount(tokenAmount)} {asset!.symbol} {usdValue !== null && <span className="fine">≈ {usd(usdValue)}</span>}
+              </b>
+            </div>
+          )}
           <div className="line">
             <span>Network</span>
-            <ChainChip chainId={asset.chainId} />
+            <ChainChip chainId={chainId} />
+          </div>
+          <div className="line">
+            <span>Fee</span>
+            <span>{fee !== null ? `≈ ${usd(Math.max(fee, 0.01))}` : "a cent or two"}, in USDC</span>
           </div>
         </div>
         {error && <p className="err">{error}</p>}
@@ -250,6 +274,14 @@ export function Send({
             <label>What</label>
             {held.length ? (
               <div className="picker">
+                {allAssets.length > 1 && (
+                  <button className={`pill ${all ? "on" : ""}`} style={{ justifyContent: "space-between", height: 46 }} onClick={() => setPick(ALL)}>
+                    <span className="row">
+                      <b>Everything</b> <ChainChip chainId={allChain} />
+                    </span>
+                    <span>{usd(allAssets.reduce((t, a) => t + (a.usd ?? 0), 0))}</span>
+                  </button>
+                )}
                 {held.map(a => (
                   <button
                     key={key(a)}
@@ -271,7 +303,7 @@ export function Send({
             )}
           </div>
 
-          {asset && (
+          {asset && !all && (
             <div className="field">
               <label>Amount</label>
               <div className="input">
@@ -304,17 +336,22 @@ export function Send({
                   className="pill"
                   onClick={() => {
                     setInUsd(false);
-                    setAmountIn(asset.formatted);
+                    setAmountIn(maxOf(asset));
                   }}
                 >
-                  Max {fmtAmount(asset.formatted)}
+                  Max {fmtAmount(maxOf(asset))}
                 </button>
               </div>
               {tooMuch && <span className="err">More than you have</span>}
             </div>
           )}
 
-          {asset && gasShort && gas && <GasNeeded account={account} chainId={asset.chainId} have={gas.have} need={gas.need} />}
+          {asset && !sendable && <p className="err">Sending on {chainById(chainId)?.name} isn&apos;t live yet. Base only for now.</p>}
+          {feeShort && (
+            <p className="err">
+              The network fee is paid in USDC: keep at least {usd(Number(FEE_FLOOR) / 1e6)} of USDC on {chainById(chainId)?.name} after this send.
+            </p>
+          )}
           {error && <p className="err">{error}</p>}
           <button className="btn btn-green wide" disabled={!ready} onClick={() => setStage("confirm")}>
             Review
@@ -325,26 +362,13 @@ export function Send({
   );
 }
 
-/** The gas key is empty on this chain: show where to put a little ETH. */
-export function GasNeeded({ account, chainId, have, need }: { account: Account; chainId: number; have: bigint; need: bigint }) {
-  const gasAddr = gasAccount(account.address).address;
-  const [copied, setCopied] = useState(false);
-  return (
-    <div className="card stack">
-      <b>Your gas key needs a little ETH on {chainById(chainId)?.name}</b>
-      <p className="fine">
-        It pays the network fee for your sends and can't touch your money. Has {fmtAmount(formatEther(have))} ETH, needs about{" "}
-        {fmtAmount(formatEther(need))} ETH. Send a little ETH on {chainById(chainId)?.name} to:
-      </p>
-      <Qr value={gasAddr} center={gasAddr} />
-      <button
-        className="pill"
-        style={{ justifyContent: "center" }}
-        onClick={async () => setCopied(await copy(gasAddr))}
-      >
-        <span className="mono">{copied ? "Copied" : gasAddr}</span>
-      </button>
-    </div>
-  );
-}
+const FEE_FLOOR = 50_000n; // 5¢ of USDC: the paymaster's up-front reserve, mostly refunded
 
+const isUsdc = (a: Asset) => a.asset.toLowerCase() === chainById(a.chainId)?.usdc?.toLowerCase();
+
+/** Max for a USDC send leaves the fee reserve behind; any other asset can go in full. */
+function maxOf(a: Asset): string {
+  if (!isUsdc(a)) return a.formatted;
+  const left = BigInt(a.balance) - FEE_FLOOR;
+  return left > 0n ? formatUnits(left, a.decimals) : "0";
+}

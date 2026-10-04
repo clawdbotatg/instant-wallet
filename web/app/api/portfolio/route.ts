@@ -8,7 +8,8 @@ export const dynamic = "force-dynamic";
 
 /**
  * `GET /api/portfolio?address=0x…` — ETH + every ERC-20 with a balance, on every enabled chain, with USD.
- * Base / Ethereum: Alchemy token balances + metadata + Prices API. Local: ETH + NEXT_PUBLIC_LOCAL_TOKENS.
+ * Base / Ethereum: Alchemy token balances + metadata + Prices API. Local: ETH + LOCAL_TOKENS / NEXT_PUBLIC_LOCAL_TOKENS (also on a
+ * fork of a real chain when LOCAL_TOKENS_ONLY is set, since Alchemy only sees the real chain).
  */
 export async function GET(req: NextRequest) {
   const a = req.nextUrl.searchParams.get("address");
@@ -48,8 +49,8 @@ async function chainAssets(chainId: number, wallet: Address): Promise<Asset[]> {
   const client = createPublicClient({ chain: chainById(chainId)!.chain, transport: http(upstreamRpc(chainId)) });
   const eth = await client.getBalance({ address: wallet });
   const out: Asset[] = [row(chainId, ETH, "ETH", "Ether", 18, eth)];
-  if (!alchemyNetwork(chainId)) {
-    const local = (process.env.NEXT_PUBLIC_LOCAL_TOKENS || "").split(",").filter(x => isAddress(x)) as Address[];
+  if (!alchemyNetwork(chainId) || process.env.LOCAL_TOKENS_ONLY) {
+    const local = (process.env.LOCAL_TOKENS || process.env.NEXT_PUBLIC_LOCAL_TOKENS || "").split(",").filter(x => isAddress(x)) as Address[];
     for (const t of local) {
       const [bal, symbol, decimals] = await Promise.all([
         client.readContract({ address: t, abi: erc20Abi, functionName: "balanceOf", args: [wallet] }),

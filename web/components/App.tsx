@@ -2,8 +2,6 @@
 
 /* eslint-disable @next/next/no-img-element */
 import { useCallback, useEffect, useState } from "react";
-import { FACTORY } from "@/lib/chains";
-import { IMPLEMENTATION } from "@/lib/address";
 import { amount, short, usd } from "@/lib/format";
 import { type Parsed, parse } from "@/lib/parse";
 import { loadAccount, saveAccount } from "@/lib/store";
@@ -48,12 +46,6 @@ export function App({ link }: { link?: string }) {
     return () => clearInterval(t);
   }, [account, refresh]);
 
-  if (!FACTORY || !IMPLEMENTATION)
-    return (
-      <div className="app">
-        <p className="err">Not configured: set NEXT_PUBLIC_FACTORY_ADDRESS and NEXT_PUBLIC_IMPLEMENTATION_ADDRESS.</p>
-      </div>
-    );
   if (account === undefined) return null;
   if (!account)
     return (

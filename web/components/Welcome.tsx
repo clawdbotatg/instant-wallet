@@ -4,7 +4,6 @@
 import { useState } from "react";
 import { walletAddress, KIND_WEBAUTHN, signerIdOf } from "@/lib/address";
 import { CHAINS, publicClient } from "@/lib/chains";
-import { ensureGasKey } from "@/lib/gasKey";
 import { type Candidate, confirmKey, createPasskey, credentialIdHash, recoverKeys, webauthnAvailable } from "@/lib/passkey";
 import type { Account } from "@/lib/types";
 import { Band } from "./bits";
@@ -46,7 +45,6 @@ export function Welcome({ onReady }: { onReady: (a: Account) => void }) {
     try {
       const pk = await createPasskey();
       const acct = accountFor(pk.credentialId, pk);
-      ensureGasKey(acct.address, pk.prf);
       onReady(acct);
     } catch (e: any) {
       setError(friendly(e));
@@ -59,7 +57,7 @@ export function Welcome({ onReady }: { onReady: (a: Account) => void }) {
     setBusy("login");
     setError(null);
     try {
-      const { credentialId, candidates, prf } = await recoverKeys();
+      const { credentialId, candidates } = await recoverKeys();
       const accts = candidates.map(c => accountFor(credentialId, c));
       let pick: Account | undefined = accts.length === 1 ? accts[0] : undefined;
       if (!pick) {
@@ -71,7 +69,6 @@ export function Welcome({ onReady }: { onReady: (a: Account) => void }) {
         const c = await confirmKey(credentialId, candidates); // one more Face ID only when it's ambiguous
         pick = accountFor(credentialId, c);
       }
-      ensureGasKey(pick.address, prf);
       onReady(pick);
     } catch (e: any) {
       setError(friendly(e));

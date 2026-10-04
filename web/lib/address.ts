@@ -1,14 +1,11 @@
 import { type Address, type Hex, concat, encodeAbiParameters, getAddress, getContractAddress, keccak256, toHex } from "viem";
-import { FACTORY } from "./chains";
+import { FACTORY, IMPLEMENTATION } from "./chains";
 
 /**
  * A wallet's address, computed locally (no RPC): Factory.getAddress = CREATE2(factory, salt, ERC-1967 clone
- * init code of the v3 implementation), salt = keccak256(abi.encode(qx, qy, kind, credentialIdHash)).
+ * init code of the v3.1 implementation), salt = keccak256(abi.encode(qx, qy, kind, credentialIdHash)).
  * The init code is OpenZeppelin ERC1967Clones' (packages/foundry/lib/openzeppelin-contracts).
  */
-
-const i = process.env.NEXT_PUBLIC_IMPLEMENTATION_ADDRESS;
-export const IMPLEMENTATION: Address | undefined = i && /^0x[0-9a-fA-F]{40}$/.test(i) ? (i as Address) : undefined;
 
 export const KIND_WEBAUTHN = 0;
 export const KIND_RAW = 1;
@@ -38,7 +35,6 @@ export function walletSalt(qx: Hex, qy: Hex, kind: number, credentialIdHash: Hex
 }
 
 export function walletAddress(qx: Hex, qy: Hex, kind: number, credentialIdHash: Hex): Address {
-  if (!FACTORY || !IMPLEMENTATION) throw new Error("NEXT_PUBLIC_FACTORY_ADDRESS / NEXT_PUBLIC_IMPLEMENTATION_ADDRESS not set");
   return getContractAddress({
     opcode: "CREATE2",
     from: FACTORY,

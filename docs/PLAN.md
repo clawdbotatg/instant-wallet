@@ -82,12 +82,16 @@ with an alert) until you remove it at level 5. It's a good fit: recovery is rare
 - **Wedgie + one = after 48 h** (Austin 10-05, decided). This guards against a hacked screen (the Bybit attack: the
   owners signed what their screen showed and the money was gone instantly). The signed move shows up first:
   "In 48 h, all your money goes to 0x… [Cancel]". **Any one key can cancel**, with these rules:
-  - A key can't cancel a move that removes or replaces that key. So a thief holding one key can't block you
-    removing it (they can still cancel your other big moves until it's gone).
+  - Every key can cancel every queued move, including one that removes that key. (Rejected: "a key can't
+    cancel its own removal". Two stolen keys could then queue swapping out your last honest key, which
+    couldn't cancel. After 48 h they'd own the wallet.) So a thief with one key can block a 48 h removal of
+    that key. Removing it goes through recovery (7 d, which they can't cancel), or all three keys if you
+    still have the stolen one too (a synced passkey).
   - The 48 h path can't touch recovery: no cancelling a recovery, no changing guardians, modules, guard,
     or fallback handler. Those need all three keys. So two stolen keys can't cancel your recovery.
     The cost: if your recovery address is stolen *and* you've lost a key, you can't cancel that recovery.
   - Queued moves die when the Safe's owners change (the module records the owner set when a move is queued).
+  - The module has no key list of its own: it reads the Safe's current owners, so a recovery updates it too.
 - Burner + hot = 2 votes: nothing beyond the burner's budget. Wedgie alone: nothing.
 - **Rejected: wedgie alone after a wait.** A thief with your wedgie would get everything in 48 h,
   because cancelling would need the wedgie. Every delayed path needs a second signature.
@@ -105,7 +109,7 @@ with an alert) until you remove it at level 5. It's a good fit: recovery is rare
 | spend up to the daily limit | burner alone, instant |
 | anything | all three, instant; or wedgie + burner / wedgie + hot, after 48 h |
 | change a limit, add/remove a key, change recovery | same as "anything" |
-| cancel a waiting move | any one key, instant (not a move that removes that key) |
+| cancel a waiting move | any one key, instant |
 | cancel a recovery; change guardians, modules, guard | all three keys |
 | stop the burner (revoke its budget) | hot alone or wedgie alone, instant ("protect" role) |
 | turn on the travel lock | any one key, instant |
@@ -116,9 +120,9 @@ The "protect" role: a Zodiac Roles permission that lets one key do exactly one t
 budget. **Protecting is one key and instant; weakening needs two keys and waits, or all three.**
 
 **After a recovery, reset everything.** Candide only swaps the Safe's owners. It does not touch Roles
-(the old burner's budget, protect roles), our module's key list, or the travel lock. So the new owners' first
-transaction (one batch, instant) removes every old key from Roles and our module and sets the new ones.
-Queued moves already died with the owner change. Until that batch runs, the old burner still has its daily budget,
+(the old burner's budget, protect roles) or the travel lock. So the new owners' first transaction (one batch,
+instant) removes every old key from Roles and sets up the new ones. Our module needs nothing: it reads the
+Safe's owners, and queued moves already died with the owner change. Until that batch runs, the old burner still has its daily budget,
 so the app does it right away.
 
 Budgets are per token, and only tokens given a budget can be spent by the burner. Every other token is 0.
@@ -130,8 +134,8 @@ nobody can switch it off early. Kidnappers get $2,000 at most (the 2025 France a
 co-founder lost a finger).
 - Any one key turns it on, with the cap the owners set in advance (one key can't pick the cap). A one-key
   lock lasts at most 7 days and can't be extended by one key. Wedgie + one can set up to 30 days. It
-  ends on its own and can't be lifted early. During a lock you can remove keys but not add them, so a thief
-  who locks you with a stolen key gets removed (they can't cancel their own removal).
+  ends on its own and can't be lifted early. During a lock you can remove keys but not add them. A thief
+  who locks you with a stolen key is removed by recovery (7 d), or by all three keys.
 - **What it must block, or the cap is fake:**
   - turning the guard, modules or fallback handler off or on; delegatecalls; adding owners;
   - **signed messages** (EIP-1271). Owners could sign a permit / Permit2 message and anyone could pull tokens
@@ -143,8 +147,11 @@ co-founder lost a finger).
   - every outflow counted against the cap: transfers, approvals, ETH value, swaps that send to someone else.
     Simplest: while locked, only USDC `transfer` up to the cap and the protecting actions are allowed.
 - Safe owners can normally do anything, and only a **guard** can stop them. It's part of our one custom
-  contract and needs Safe 1.5, which also guards module transactions (Roles, recovery, our module). Recovery
-  still works during a lock: new keys, same cap until it ends.
+  contract and needs Safe 1.5, which also guards module transactions (Roles, recovery, our module).
+- **Recovery during a lock** is the one exception to "no adding owners": the guard allows Candide's
+  finalize (it swaps the owner set; nothing leaves). The cap stays until the lock ends. The reset batch
+  afterwards may remove old keys from Roles, since that's protecting, but can't give a new burner a budget
+  until the lock ends, since that's weakening. Our module needs no reset (it reads the owners).
 - Risk: a buggy guard can freeze a Safe. Ending on its own limits that.
 - **Provable to an attacker:** the contract is verified on Basescan / Etherscan, `lockStatus(safe)` returns the
   cap and end time, and `TravelLocked(safe, until, cap)` is emitted. The app shows a big red "LOCKED until Fri,
@@ -317,8 +324,8 @@ Level 4+ assumes our contract is live (phase 4). Before that, any two keys inclu
 
 | stolen | level 1 | levels 2–3 | level 4+ |
 |---|---|---|---|
-| burner | **everything** (spending money only) | $100/day; hot stops it; recovery replaces it in 7 d | $100/day; hot or wedgie stops it; wedgie + hot remove it (48 h, thief can't cancel) |
-| hot | — | nothing alone; recovery replaces it in 7 d | nothing alone; wedgie + burner remove it (48 h, thief can't cancel) |
+| burner | **everything** (spending money only) | $100/day; hot stops it; recovery replaces it in 7 d | $100/day; hot or wedgie stops it; recovery removes it in 7 d (thief can cancel a 48 h removal) |
+| hot | — | nothing alone; recovery replaces it in 7 d | nothing alone (can cancel your big moves); recovery removes it in 7 d |
 | wedgie | — | — | nothing alone; recovery replaces it in 7 d |
 | burner + hot | — | **everything** | $100/day; wedgie stops it; recovery replaces both |
 | burner + wedgie | — | — | each move waits 48 h; hot cancels each one; recovery replaces both in 7 d (they can't cancel it) |
@@ -329,7 +336,7 @@ Level 4+ assumes our contract is live (phase 4). Before that, any two keys inclu
 | death switch (DAO) | waits 6 mo; owners cancel | same | same (all three at level 4+) |
 
 A thief with two keys keeps queuing moves; you cancel each one (every 48 h) until recovery lands in 7 d. That
-only works if the alerts reach you. They can't cancel the recovery, and they can't block their own key's removal.
+only works if the alerts reach you. They can't cancel the recovery. A one-key thief can cancel your 48 h moves, so their key goes via recovery too.
 After a recovery, the new keys reset Roles and our module right away (see "After a recovery").
 A thief holding hot or the wedgie alone can switch off your burner's budget. That's annoying, not theft.
 
@@ -382,10 +389,11 @@ A thief holding hot or the wedgie alone can switch off your burner's budget. Tha
 11. Safe 1.5 deployed on Base and every target chain; Safe's owners endpoint lists Safes owned by a
     passkey signer and by a Safe (for groups).
 12. Ethereum mainnet: check every piece is deployed there too, not just Base.
-13. Attacks to test: two stolen keys trying to cancel a recovery; a one-key thief cancelling its own
-    removal; the old burner's budget after a recovery (and the reset batch); travel-lock bypasses (standing
+13. Attacks to test: two stolen keys trying to cancel a recovery; two stolen keys swapping out the honest
+    key (honest key must be able to cancel); the old burner's budget after a recovery (and the reset batch); travel-lock bypasses (standing
     approvals, Permit2 / 1271 signatures, delegatecall, guard removal, swaps to outside recipients);
-    deploying on a new chain after the original burner is gone.
+    deploying on a new chain after the original burner is gone; recovery finalizing during a travel lock
+    (allowed) while adding a burner budget stays blocked.
 14. The wedgie making two keys in two slots and signing both with one press.
 15. Group signing by a member Safe at threshold 4 (all three) and via `approveHash` through the 48 h path.
 

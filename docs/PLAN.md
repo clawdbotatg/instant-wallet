@@ -144,6 +144,31 @@ To check:
 - The app needs a "pending group transactions" view (Safe's Transaction Service already stores proposals and
   confirmations from passkey signers; see `WEDGIE-SAFE.md`).
 
+## Many chains, same address (Austin 10-05)
+
+Goal: the wallet on lots of chains, added as you go, at the same address. Some chains will need a different one.
+
+- **Same address:** a Safe's address comes from Safe's factory plus its *first* setup (first owners, modules,
+  a salt). Safe's contracts sit at the same addresses on most EVM chains, so the same first setup gives the
+  same address everywhere. Funds sent before it's deployed on a chain are safe: deploy later, same address.
+- **Different address:** chains that compute addresses differently (zkSync Era and similar). The app keeps a
+  per-chain address list and shows the right one.
+- **Adding a chain** = deploy with the *first* setup, then replay every change since (owners added, limits,
+  recovery) in one batch. The relay does it, paid in USDC.
+- **Danger: an old setup is reborn.** The first setup has the burner as the only owner. If that burner was
+  stolen and later removed on Base, the thief could deploy the Safe on a new chain with the first setup and
+  own it there, along with anything sent there. Fixes (pick in the spike):
+  1. Deploy on every supported chain right at signup, while the burner is fresh (cheap on L2s; skip Ethereum).
+  2. The app only shows your address on chains where it's deployed with your current keys, and warns
+     loudly before anyone sends to a chain where it isn't.
+- **Passkey/wedgie signers must use the same settings everywhere,** or their addresses (and so the Safe's)
+  change. Use the P-256 precompile *plus* a fallback verifier on every chain, because not every chain has
+  the precompile. (The Base test in `WEDGIE-SAFE.md` used the precompile only; that signer won't work on a
+  chain without it.)
+- **Per chain, check:** Safe, passkey signer, Roles, Candide, EAS (different address off the OP Stack),
+  our one custom contract (deploy it with the same deterministic deployer), USDC + Circle paymaster for 4337,
+  and a funded relay.
+
 ## Security model
 
 1. **No custom contracts.** Everything on chain is audited code that already holds real money.
@@ -220,7 +245,8 @@ Lose the wedgie and big moves wait for recovery (7 days). Lose the burner or hot
 7. Safe app as an escape hatch (issue #8808: passkey owners with 2+ signatures may fail there).
 8. EAS heir attestation made by the Safe itself (attester = the Safe), and reading it back.
 9. Group wallet: a Safe owned by members' Safes (each with a wedgie owner), 2 of 3 signing via relay.
-10. Ethereum mainnet: check every piece is deployed there too, not just Base.
+10. Same address on a second chain (e.g. Optimism): first setup + replay, signer with precompile + fallback.
+11. Ethereum mainnet: check every piece is deployed there too, not just Base.
 
 ## Build order
 

@@ -1,5 +1,7 @@
 # Cold storage — the plan
 
+> **2026-10-05: the roles are now in `ROLES.md`** (burner, hot, cold, recovery, death switch). The rules below still hold.
+
 Goal: cold storage that is dead simple to set up and very hard to steal from. One contract, every number
 a per-wallet setting, sensible presets. Nobody has to deploy anything to get their own rules.
 

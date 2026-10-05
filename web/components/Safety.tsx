@@ -187,11 +187,11 @@ export function Safety({ account, signer, who }: { account: Account; signer?: Ke
 
       {implReady && s.deployed && !v32 && amOwner && (
         <button className="btn wide" disabled={!!busy} onClick={() => run("upgrade", upgradeCalls(account.address))}>
-          Upgrade to 3.2.1 (adds cold storage)
+          Upgrade to 3.2.2 (adds cold storage)
         </button>
       )}
 
-      {!implReady && <p className="fine">Cold storage isn't live on this network yet (version 3.2.1 is in review).</p>}
+      {!implReady && <p className="fine">Cold storage isn't live on this network yet (version 3.2.2 is in review).</p>}
       {implReady && amOwner && s.coldDelay === 0 && who === "passkey" && (
         <Setup account={account} needsUpgrade={!v32} busy={busy} onRun={run} />
       )}

@@ -362,6 +362,28 @@ contract ColdStorageTest is Test {
         assertEq(w.remainingAllowance(pass, address(usdc)), 99 * USD, "the new limit applies from the next window");
     }
 
+    /// Adversarial review: limit -> 0 -> back in one batch must not reset the day.
+    function test_review_limitZeroAndBackInOneBatchDoesntReset() public {
+        InstantWallet.Call[] memory c = new InstantWallet.Call[](3);
+        c[0] = InstantWallet.Call(address(usdc), 0, abi.encodeCall(usdc.transfer, (thief, 100 * USD)));
+        c[1] = _self(abi.encodeCall(w.setLimit, (pass, address(usdc), uint128(0))));
+        c[2] = _self(abi.encodeCall(w.setLimit, (pass, address(usdc), uint128(100 * USD))));
+        _exec(PASS_PK, pass, c);
+        for (uint256 i; i < 5; ++i) {
+            uint256 dl = block.timestamp + 1 hours;
+            bytes memory sig = _sig(PASS_PK, w.hashExecute(w.hashCalls(c), w.nonces(pass), dl));
+            vm.expectRevert();
+            w.metaExecute(c, pass, dl, sig);
+        }
+        assertEq(_bal(thief), 100 * USD, "one day's limit, not more");
+        assertEq(w.remainingAllowance(pass, address(usdc)), 0);
+    }
+
+    /// Adversarial review: a zero-amount `transfer` (an old NFT's token id 0) isn't a free spender call.
+    function test_review_zeroTransferRefused() public {
+        _expectExecRevert(PASS_PK, pass, _pay(thief, 0), abi.encodeWithSelector(InstantWallet.NotOwner.selector, pass));
+    }
+
     /// A lone owner can't lock the wallet with a huge delay: lengthening past the cap isn't protecting, and the
     /// setter refuses it anyway.
     function test_review_hugeColdDelayRefused() public {

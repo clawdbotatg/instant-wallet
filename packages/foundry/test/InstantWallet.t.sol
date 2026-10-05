@@ -147,7 +147,7 @@ contract InstantWalletTest is Test {
         assertTrue(w.isGuardian(dao));
         assertEq(w.recoveryDelay(), 7 days);
         assertEq(w.remainingAllowance(passId, address(usdc)), type(uint256).max);
-        assertEq(w.version(), "3.2.1");
+        assertEq(w.version(), "3.2.2");
     }
 
     function test_factoryIsIdempotentAndCounterfactual() public {

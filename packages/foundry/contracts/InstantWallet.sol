@@ -260,7 +260,7 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
 
     /// @notice Semver of this implementation; the app reads it to offer upgrades.
     function version() external pure virtual returns (string memory) {
-        return "3.2.1";
+        return "3.2.2";
     }
 
     // ---------------------------------------------------------------- views
@@ -832,6 +832,7 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
         assembly ("memory-safe") {
             amount := mload(add(d, 68))
         }
+        if (amount == 0) revert NotOwner(signerId); // `transfer(to, 0)` could be an NFT's token id 0
         return (c.target, amount);
     }
 
@@ -897,7 +898,8 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
         emit SignerUpdated(id, role);
     }
 
-    /// @dev limit 0 removes the asset from the signer's list. A new limit starts a window; a changed one keeps it.
+    /// @dev limit 0 removes the asset from the signer's list. Never resets `spent` / `windowStart` (a stale window
+    ///      rolls over on the next spend).
     function _setLimit(address id, address asset, uint128 limit) internal {
         if (_signerIndex[id] == 0) revert UnknownSigner(id);
         uint256 idx = _limitedIndex[id][asset];
@@ -913,17 +915,12 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
                 list.pop();
                 delete _limitedIndex[id][asset];
             }
-            delete _allowances[id][asset];
-        } else {
-            if (idx == 0) {
-                _limitedAssets[id].push(asset);
-                _limitedIndex[id][asset] = _limitedAssets[id].length;
-                _allowances[id][asset] = Allowance({ limit: limit, spent: 0, windowStart: uint64(block.timestamp) });
-            } else {
-                // changing a limit keeps today's spending: lowering it can't open a fresh window
-                _allowances[id][asset].limit = limit;
-            }
+        } else if (idx == 0) {
+            _limitedAssets[id].push(asset);
+            _limitedIndex[id][asset] = _limitedAssets[id].length;
         }
+        // only the limit changes: the day's spend record survives any change (even 0 and back in one batch)
+        _allowances[id][asset].limit = limit;
         emit LimitSet(id, asset, limit);
     }
 

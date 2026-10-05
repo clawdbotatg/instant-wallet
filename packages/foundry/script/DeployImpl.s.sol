@@ -9,7 +9,7 @@ import { InstantWallet } from "../contracts/InstantWallet.sol";
 contract DeployImpl is Script {
     function run() external {
         vm.startBroadcast();
-        InstantWallet impl = new InstantWallet{ salt: keccak256("instant-wallet.v3.2.1") }();
+        InstantWallet impl = new InstantWallet{ salt: keccak256("instant-wallet.v3.2.2") }();
         vm.stopBroadcast();
         console.log("InstantWallet", impl.version(), address(impl));
     }

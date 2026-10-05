@@ -21,6 +21,9 @@ import { dummyWebAuthnSignature } from "./webauthn";
 export type { Call };
 export type Stage = "signing" | "sending" | "confirming";
 
+/** Who signs an op: the passkey by default; a raw P-256 key (the wedgie, or the stand-in at /wedgie) otherwise. */
+export type KeySigner = { signerId: Address; sign: (digest: Hex) => Promise<Hex>; dummy: (digest: Hex) => Hex };
+
 /**
  * Sending from an InstantWallet v3.1: one ERC-4337 user op (any number of calls, one Face ID), gas paid in USDC by
  * Circle Paymaster, submitted by a bundler through /api/bundler/<chainId>. A wallet with no code yet is deployed
@@ -63,8 +66,13 @@ export async function sendCalls(
   chainId: number,
   acct: Account,
   calls: Call[],
-  opts: { onStage?: (s: Stage, hash?: Hash) => void; sweepUsdcTo?: Address; ethUsd?: number } = {},
+  opts: { onStage?: (s: Stage, hash?: Hash) => void; sweepUsdcTo?: Address; ethUsd?: number; signer?: KeySigner } = {},
 ): Promise<Hash> {
+  const signer: KeySigner = opts.signer ?? {
+    signerId: acct.signerId,
+    sign: async d => (await signDigest(acct.credentialId, d)).signature,
+    dummy: d => dummyWebAuthnSignature(d, window.location.origin),
+  };
   const pc = publicClient(chainId);
   const usdc = usdcOf(chainId);
   const deployed = await isDeployed(chainId, acct.address);
@@ -73,7 +81,7 @@ export async function sendCalls(
       address: ENTRY_POINT,
       abi: parseAbi(["function getNonce(address,uint192) view returns (uint256)"]),
       functionName: "getNonce",
-      args: [acct.address, BigInt(acct.signerId)],
+      args: [acct.address, BigInt(signer.signerId)],
     }),
     deployed ? pc.readContract({ address: usdc, abi: erc20Abi, functionName: "allowance", args: [acct.address, CIRCLE_PAYMASTER] }) : 0n,
     pc.readContract({ address: usdc, abi: parseAbi(["function nonces(address) view returns (uint256)"]), functionName: "nonces", args: [acct.address] }),
@@ -85,7 +93,7 @@ export async function sendCalls(
   const base = {
     chainId,
     wallet: acct.address,
-    signerId: acct.signerId,
+    signerId: signer.signerId,
     nonce,
     factory: deployed
       ? undefined
@@ -122,14 +130,15 @@ export async function sendCalls(
       }
     : undefined;
   const est = await bundler<Record<string, Hex>>(chainId, "eth_estimateUserOperationGas", [
-    trial.op(dummyWebAuthnSignature(trial.digest, window.location.origin)),
+    trial.op(signer.dummy(trial.digest)),
     ENTRY_POINT,
     ...(overrides ? [overrides] : []),
   ]);
   g = {
     ...g,
     verificationGasLimit: (BigInt(est.verificationGasLimit) * 13n) / 10n + 30_000n,
-    callGasLimit: (BigInt(est.callGasLimit) * 12n) / 10n + 10_000n,
+    // nested self-calls (admin batches, an upgrade, queued actions) lose 1/64 of the gas at every hop: be generous
+    callGasLimit: max((BigInt(est.callGasLimit) * 15n) / 10n + 50_000n, 120_000n * BigInt(calls.length)),
     preVerificationGas: (BigInt(est.preVerificationGas) * 11n) / 10n,
     paymasterVerificationGasLimit:
       (BigInt(est.paymasterVerificationGasLimit ?? "0x30000") * 12n) / 10n + (permit ? 250_000n : 0n),
@@ -145,10 +154,11 @@ export async function sendCalls(
   const spendUsdc = calls.reduce((s, c) => s + (c.target === usdc && c.data.startsWith("0xa9059cbb") ? BigInt(`0x${c.data.slice(74, 138)}`) : 0n), 0n);
   const left = usdcBal - spendUsdc - prefundUsdc;
   if (left < 0n) throw new Error("Not enough USDC for the network fee (it's paid in USDC)");
+  if (permit && opts.signer) throw new Error("The fee allowance is low: make one send with your passkey first");
   const { digest, op } = prepare({ ...base, permit, callData: executeCallData(sweep(left)) }, g);
 
   opts.onStage?.("signing");
-  const { signature } = await signDigest(acct.credentialId, digest);
+  const signature = await signer.sign(digest);
   opts.onStage?.("sending");
   const userOp: RpcUserOp = op(signature);
   const opHash = await bundler<Hex>(chainId, "eth_sendUserOperation", [userOp, ENTRY_POINT]);
@@ -170,6 +180,8 @@ export function transferCall(asset: Address, to: Address, amount: bigint): Call 
   if (/^0x0{40}$/i.test(asset)) return { target: to, value: amount, data: "0x" };
   return { target: asset, value: 0n, data: encodeFunctionData({ abi: erc20Abi, functionName: "transfer", args: [to, amount] }) };
 }
+
+const max = (a: bigint, b: bigint) => (a > b ? a : b);
 
 function allowanceSlot(owner: Address, spender: Address): Hex {
   const enc = (a: Hex, b: Hex) => keccak256(`0x${a.slice(2).padStart(64, "0")}${b.slice(2).padStart(64, "0")}`);

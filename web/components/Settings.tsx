@@ -7,6 +7,7 @@ import { short } from "@/lib/format";
 import type { Account } from "@/lib/types";
 import { isDeployed } from "@/lib/wallet";
 import { ChainChip, copy } from "./bits";
+import { Safety } from "./Safety";
 
 type Row = { chainId: number; deployed: boolean; guardians: readonly `0x${string}`[]; version?: string };
 
@@ -63,6 +64,8 @@ export function Settings({ account, toast, onSignOut }: { account: Account; toas
         Your passkey is the key. If it syncs (iCloud Keychain, Google Password Manager) your wallet follows it to your other
         devices: tap “I already have one” there.
       </p>
+      <h2 style={{ marginTop: 10 }}>Safety</h2>
+      <Safety account={account} who="passkey" />
       <button className="btn btn-red wide" onClick={onSignOut}>
         Forget this wallet on this device
       </button>

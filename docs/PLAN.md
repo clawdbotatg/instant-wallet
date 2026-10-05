@@ -214,6 +214,15 @@ model) can read to fully understand and drive a wallet:
   (a token name, an ENS record, a web page can carry instructions). The 48 h wait is the backstop.
 - Proposals land in Safe's queue, so every device and every co-owner sees them.
 
+**Before you sign: three layers, from most to least trusted** (Austin 10-05):
+1. **Clear signing** (the EF's push; ERC-7730 descriptors): a fixed, reviewed decode of the call into words
+   ("Send 500 USDC to bob.eth"). This is what the wedgie screen shows.
+2. **Simulation** (Austin's tx simulator, which we run): exactly what changes. Balances in and out, approvals,
+   owner/module changes. Self-hostable, like the relay.
+3. **AI explanation**: plain English for the whole batch ("this swaps half your ETH and gives Uniswap
+   unlimited USDC"). Most helpful and least trusted, so it's labeled as AI and checked against 1 and 2. If
+   they disagree, the app says so in red.
+
 ## Security model
 
 1. **No custom contracts.** Everything on chain is audited code that already holds real money.

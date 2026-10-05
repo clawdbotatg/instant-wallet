@@ -108,6 +108,30 @@ We run a default one; anyone can run their own. The app shows pending actions wi
 - Only install apps from wedgie.dev's reviewed list on a wallet wedgie (any app can *use* the slot).
 - Screen shows: action, amount, recipient, chain, and "waits 48 h" / "instant (both keys)".
 
+## Built (v3.2, 2026-10-05) — what the contract actually does
+
+`InstantWallet` 3.2.0 (UUPS upgrade; addresses unchanged). Tests: `test/ColdStorage.t.sol` (one per scenario,
+10-minute waits) + `test_ownerOpQueuesUnderColdDelay` (the bundler path queues too).
+
+- `coldDelay` (0 = Simple, no wait). An owner acting alone is **queued** (`ActionQueued(id, proposer,
+  executeAfter, calls)`), via metaExecute, metaTransfer or a user op. Anyone runs it after the wait
+  (`executeQueued(id, calls)`); it dies if the key that queued it is removed.
+- Protecting, never waits: `cancelQueued`, `freeze`, `skipWait`, `executeQueued`, lowering a limit, removing
+  yourself; owners also `cancelRecovery`, removing a spender, a longer `coldDelay`, `setNoTwoKeySkip(true)`.
+- Passkey (spender): sends within limits + those protecting calls. Can't unfreeze, raise limits, cancel a recovery.
+- **Both keys:** `skipWait(id)` by a key other than the one that queued it. `noTwoKeySkip = true` (Vault) turns it off.
+- `freeze()` / `guardianFreeze()`: nothing leaves until `frozenUntil` (= recoveryDelay, or 7 d with no guardians);
+  lifting early = owner queues `unfreeze()` (allowed to run while frozen) + a second key skips.
+- Guardians: `guardianCancel(id)`, `guardianFreeze()`, recovery as before. Minimum delays are 5 minutes.
+- **ERC-1271 is off while `coldDelay != 0`**: otherwise the wedgie alone could sign a token permit and move funds
+  without waiting. Cold wallets can't sign "sign in with Ethereum"; the paymaster uses the standing allowance.
+
+Known trade-offs (decide later):
+- Both keys stolen + skipping on = instant loss. Vault preset turns skipping off.
+- A thief holding your wedgie can keep cancelling a guardian's replacement of it (any owner action cancels a
+  recovery). Funds stay put (their sends wait, you cancel); your passkey keeps its daily limit.
+- New wallets still deploy 3.1 (the factory's implementation is fixed): the app upgrades them on first use.
+
 ## Open questions
 
 - Limits in dollars across all tokens needs a price oracle; v1 is per-asset.

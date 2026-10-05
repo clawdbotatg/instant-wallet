@@ -253,6 +253,31 @@ contract AccountAbstractionForkTest is Test {
         assertEq(IERC20(USDC).allowance(address(w), bob), 0);
     }
 
+    /// v3.2: with a cold delay, an owner's user op is queued, not run — the bundler path can't skip the wait.
+    function test_ownerOpQueuesUnderColdDelay() public {
+        InstantWallet.Call[] memory admin = new InstantWallet.Call[](1);
+        admin[0] = InstantWallet.Call(address(w), 0, abi.encodeCall(w.setColdDelay, (uint64(10 minutes))));
+        InstantWallet.PackedUserOperation memory op = newOp(passId, admin, true);
+        signWithPermit(op, 2 * USD, later());
+        (bool ok,) = submit(op);
+        assertTrue(ok, "set the wait (no wait yet, so instant)");
+        assertEq(w.coldDelay(), 10 minutes);
+
+        InstantWallet.Call[] memory pay = send(bob, 5 * USD);
+        op = newOp(passId, pay, false);
+        signPlain(op, PASS_PK, later());
+        uint256 before = w.queueCount();
+        (ok,) = submit(op);
+        assertTrue(ok, "op ran: it queued the send");
+        assertEq(IERC20(USDC).balanceOf(bob), 0, "nothing moved yet");
+        bytes32 id = keccak256(abi.encode(w.hashCalls(pay), passId, before));
+        vm.expectRevert();
+        w.executeQueued(id, pay);
+        vm.warp(block.timestamp + 10 minutes);
+        w.executeQueued(id, pay);
+        assertEq(IERC20(USDC).balanceOf(bob), 5 * USD);
+    }
+
     function test_expiredOpRejected() public {
         InstantWallet.PackedUserOperation memory op = newOp(passId, send(bob, USD), true);
         signWithPermit(op, 2 * USD, uint48(block.timestamp - 1));

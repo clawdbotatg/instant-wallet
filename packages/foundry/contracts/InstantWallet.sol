@@ -87,6 +87,13 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
         uint64 executeAfter; // 0 = none pending
     }
 
+    /// @notice An owner's action waiting out `coldDelay`. `executeAfter == 0`: none.
+    struct Queued {
+        uint64 executeAfter;
+        address proposer;
+        bytes32 callsHash;
+    }
+
     struct Allowance {
         uint128 limit; // base units per WINDOW
         uint128 spent;
@@ -100,7 +107,8 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
     /// @notice The asset address that means native ETH.
     address public constant ETH = address(0);
     uint256 public constant WINDOW = 1 days;
-    uint64 public constant MIN_RECOVERY_DELAY = 1 days;
+    /// @notice Shortest recovery / cold delay (5 minutes so test wallets can run every scenario quickly).
+    uint64 public constant MIN_RECOVERY_DELAY = 5 minutes;
 
     bytes32 private constant DOMAIN_TYPEHASH =
         keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
@@ -148,6 +156,19 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
     uint64 public recoveryDelay;
     Recovery private _recovery;
 
+    // v3.2 — cold storage: an owner acting alone waits `coldDelay`; protecting is instant (docs/COLD-STORAGE.md)
+    /// @notice How long an owner acting alone waits (0 = no wait: a passkey-only "Simple" wallet).
+    uint64 public coldDelay;
+    /// @notice While `block.timestamp < frozenUntil`, nothing leaves: no spends, no queued actions run.
+    uint64 public frozenUntil;
+    /// @notice true = a second key can NOT skip a queued action's wait (the "Vault" preset).
+    bool public noTwoKeySkip;
+    uint256 public queueCount;
+    mapping(bytes32 => Queued) public queued;
+
+    /// @dev Who signed the call being run (execution only), so self-calls know their author.
+    address private transient _actor;
+
     // ---------------------------------------------------------------- events
 
     event SignerAdded(address indexed signerId, bytes32 qx, bytes32 qy, uint8 kind, uint8 role);
@@ -165,6 +186,13 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
     event RecoveryCancelled(address indexed newSignerId);
     event RecoveryFinalized(address indexed replaces, address indexed newSignerId);
     event EtherReceived(address indexed sender, uint256 amount);
+    event ActionQueued(bytes32 indexed id, address indexed proposer, uint64 executeAfter, bytes calls);
+    event ActionCancelled(bytes32 indexed id, address indexed by);
+    event ActionSkipped(bytes32 indexed id, address indexed by);
+    event ActionExecuted(bytes32 indexed id);
+    event Frozen(address indexed by, uint64 until);
+    event Unfrozen();
+    event ColdSettings(uint64 coldDelay, bool noTwoKeySkip);
 
     // ---------------------------------------------------------------- errors
 
@@ -188,6 +216,12 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
     error CallFailed(uint256 index);
     error EthTransferFailed();
     error OnlyEntryPoint();
+    error WalletFrozen(uint64 until);
+    error NotQueued(bytes32 id);
+    error NotReady(uint64 executeAfter, uint256 nowTs);
+    error WrongCalls();
+    error SameKey();
+    error SkipDisabled();
 
     modifier onlyEntryPoint() {
         if (msg.sender != ENTRY_POINT) revert OnlyEntryPoint();
@@ -222,7 +256,7 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
 
     /// @notice Semver of this implementation; the app reads it to offer upgrades.
     function version() external pure virtual returns (string memory) {
-        return "3.1.0";
+        return "3.2.0";
     }
 
     // ---------------------------------------------------------------- views
@@ -350,10 +384,11 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
     /**
      * @notice ERC-1271. `signature = signerId (20 bytes) ‖ keySignature`, where the key signed `hashMessage(hash)`,
      *         or `signerId ‖ PAIR_TYPEHASH ‖ a ‖ keySignature`, where it signed `hashPair(a, hashMessage(hash))`.
-     *         Owners only: a spender can't sign permits or orders that move funds.
+     *         Owners only: a spender can't sign permits or orders that move funds. Off while a `coldDelay` is set:
+     *         an owner's signature could otherwise authorize a permit and move funds without waiting.
      */
     function isValidSignature(bytes32 hash, bytes calldata signature) external view returns (bytes4) {
-        if (signature.length < 20) return 0xffffffff;
+        if (signature.length < 20 || coldDelay != 0) return 0xffffffff;
         address signerId = address(bytes20(signature[0:20]));
         if (_signerIndex[signerId] == 0) return 0xffffffff;
         Signer storage s = _signers[signerId];
@@ -396,15 +431,7 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
         address signerId = address(uint160(op.nonce >> 64));
         if (_signerIndex[signerId] == 0) revert UnknownSigner(signerId); // removed by an earlier op in the bundle
         Call[] memory calls = abi.decode(op.callData[4:], (Call[]));
-        if (_signers[signerId].role == ROLE_OWNER) {
-            _cancelRecovery();
-        } else {
-            for (uint256 i; i < calls.length; ++i) {
-                (address asset, uint256 amount) = _spenderCall(signerId, calls[i]);
-                _spend(signerId, asset, amount);
-            }
-        }
-        _run(calls);
+        _dispatch(signerId, calls);
         if (op.paymasterAndData.length >= 20 && address(bytes20(op.paymasterAndData[0:20])) == CIRCLE_PAYMASTER) {
             IERC20 token = ITokenPaymaster(CIRCLE_PAYMASTER).token();
             if (token.allowance(address(this), CIRCLE_PAYMASTER) < GAS_ALLOWANCE / 2) {
@@ -430,16 +457,18 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
     ) external nonReentrant {
         if (to == address(0)) revert ZeroAddress();
         uint256 usedNonce = nonces[signerId];
-        Signer storage s =
-            _authorize(signerId, hashTransfer(asset, to, amount, usedNonce, deadline), deadline, signature);
-        if (s.role != ROLE_OWNER) _spend(signerId, asset, amount);
-        _transfer(asset, to, amount);
+        _authorize(signerId, hashTransfer(asset, to, amount, usedNonce, deadline), deadline, signature);
+        Call[] memory calls = new Call[](1);
+        calls[0] = asset == ETH
+            ? Call(to, amount, "")
+            : Call(asset, 0, abi.encodeCall(IERC20.transfer, (to, amount)));
+        _dispatch(signerId, calls);
         emit Transferred(signerId, asset, to, amount, usedNonce);
     }
 
     /**
-     * @notice Execute a batch of calls as the wallet, atomically (EIP-5792 `atomic`). Owners only in 3.0.0.
-     *         Calls may target the wallet itself to batch admin actions.
+     * @notice Execute a batch of calls as the wallet, atomically (EIP-5792 `atomic`), under the same rules as a
+     *         user op (`_dispatch`). Calls may target the wallet itself to batch admin actions.
      */
     function metaExecute(Call[] calldata calls, address signerId, uint256 deadline, bytes calldata signature)
         external
@@ -448,9 +477,8 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
     {
         uint256 usedNonce = nonces[signerId];
         bytes32 callsHash = hashCalls(calls);
-        Signer storage s = _authorize(signerId, hashExecute(callsHash, usedNonce, deadline), deadline, signature);
-        if (s.role != ROLE_OWNER) revert NotOwner(signerId);
-        results = _run(calls);
+        _authorize(signerId, hashExecute(callsHash, usedNonce, deadline), deadline, signature);
+        results = _dispatch(signerId, calls);
         emit Executed(signerId, callsHash, calls.length, usedNonce);
     }
 
@@ -481,6 +509,78 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
     /// @notice Explicit cancel. (Any owner-signed call already cancels, so this is a no-op by the time it runs.)
     function cancelRecovery() external onlySelf {
         _cancelRecovery();
+    }
+
+    // ---------------------------------------------------------------- cold storage (v3.2)
+
+    /// @notice `coldDelay = 0` turns the wait off (Simple). Longer is protecting (instant); shorter waits.
+    function setColdDelay(uint64 delay) external onlySelf {
+        if (delay != 0 && delay < MIN_RECOVERY_DELAY) revert DelayTooShort();
+        coldDelay = delay;
+        emit ColdSettings(delay, noTwoKeySkip);
+    }
+
+    /// @notice `true` = a second key can't skip a wait (Vault). Turning skipping off is protecting (instant).
+    function setNoTwoKeySkip(bool off) external onlySelf {
+        noTwoKeySkip = off;
+        emit ColdSettings(coldDelay, off);
+    }
+
+    /// @notice Any key (self-call) cancels a queued action. Guardians: `guardianCancel`.
+    function cancelQueued(bytes32 id) external onlySelf {
+        _cancelQueued(id, _actor);
+    }
+
+    /// @notice A second key, other than the one that queued it, lets a queued action run now ("both keys").
+    function skipWait(bytes32 id) external onlySelf {
+        Queued storage q = queued[id];
+        if (q.executeAfter == 0) revert NotQueued(id);
+        if (noTwoKeySkip) revert SkipDisabled();
+        if (_actor == address(0) || _actor == q.proposer || _signerIndex[_actor] == 0) revert SameKey();
+        q.executeAfter = uint64(block.timestamp);
+        emit ActionSkipped(id, _actor);
+    }
+
+    /// @notice Any key (self-call) freezes the wallet: nothing leaves until it expires or is lifted.
+    function freeze() external onlySelf {
+        _freeze(_actor);
+    }
+
+    /// @notice Lift a freeze. Weakening: an owner alone queues it (it may run while frozen); both keys skip.
+    function unfreeze() external onlySelf {
+        frozenUntil = 0;
+        emit Unfrozen();
+    }
+
+    /// @notice Guardians can cancel and freeze directly (they can never spend).
+    function guardianCancel(bytes32 id) external {
+        if (!isGuardian[msg.sender]) revert OnlyGuardian();
+        _cancelQueued(id, msg.sender);
+    }
+
+    function guardianFreeze() external {
+        if (!isGuardian[msg.sender]) revert OnlyGuardian();
+        _freeze(msg.sender);
+    }
+
+    /**
+     * @notice Run a queued action once its wait is over. Anyone may submit it (it was signed when queued). The
+     *         calls must be exactly the queued ones (the `ActionQueued` event carries them). Blocked while frozen,
+     *         except a lone `unfreeze()`. Dropped if the key that queued it has since been removed.
+     */
+    function executeQueued(bytes32 id, Call[] calldata calls) external returns (bytes[] memory results) {
+        Queued memory q = queued[id];
+        if (q.executeAfter == 0) revert NotQueued(id);
+        if (block.timestamp < q.executeAfter) revert NotReady(q.executeAfter, block.timestamp);
+        if (hashCalls(calls) != q.callsHash) revert WrongCalls();
+        if (_signerIndex[q.proposer] == 0) revert UnknownSigner(q.proposer);
+        if (block.timestamp < frozenUntil && !_isUnfreeze(calls)) revert WalletFrozen(frozenUntil);
+        delete queued[id];
+        address outer = _actor;
+        _actor = q.proposer;
+        results = _run(calls);
+        _actor = outer;
+        emit ActionExecuted(id);
     }
 
     /// @dev UUPS: only through an owner-signed `metaExecute` targeting the wallet.
@@ -551,7 +651,7 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
 
     // ---------------------------------------------------------------- internals
 
-    /// @dev Checks deadline + signature, bumps the signer's nonce, cancels recovery on owner actions.
+    /// @dev Checks deadline + signature, bumps the signer's nonce.
     function _authorize(address signerId, bytes32 digest, uint256 deadline, bytes calldata signature)
         internal
         returns (Signer storage s)
@@ -561,7 +661,6 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
         s = _signers[signerId];
         if (!_verify(s, digest, signature)) revert BadSignature();
         nonces[signerId] += 1;
-        if (s.role == ROLE_OWNER) _cancelRecovery();
     }
 
     /// @dev No TIMESTAMP and only this wallet's storage (ERC-7562): expiry goes back to the EntryPoint as validUntil.
@@ -580,6 +679,121 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
         return uint256(validUntil) << 160;
     }
 
+    /**
+     * @dev The rules (docs/COLD-STORAGE.md). Owner: cancels a pending recovery; with a `coldDelay`, anything that
+     *      isn't protecting is queued instead of run. Spender: ETH / ERC-20 sends within its limits, and protecting
+     *      self-calls. Runs with `_actor = signerId` so self-calls know who signed.
+     */
+    function _dispatch(address signerId, Call[] memory calls) internal returns (bytes[] memory results) {
+        _actor = signerId;
+        if (_signers[signerId].role == ROLE_OWNER) {
+            _cancelRecovery();
+            bool protect = _allProtect(calls, signerId);
+            if (coldDelay != 0 && !protect) {
+                _queue(signerId, calls);
+                _actor = address(0);
+                return results;
+            }
+            if (!protect && block.timestamp < frozenUntil && !_isUnfreezeMem(calls)) revert WalletFrozen(frozenUntil);
+        } else {
+            for (uint256 i; i < calls.length; ++i) {
+                (address asset, uint256 amount) = _spenderCall(signerId, calls[i]);
+                _spend(signerId, asset, amount);
+            }
+        }
+        results = _run(calls);
+        _actor = address(0);
+    }
+
+    function _queue(address proposer, Call[] memory calls) internal {
+        bytes memory encoded = abi.encode(calls);
+        bytes32 callsHash = _hashCallsMem(calls);
+        bytes32 id = keccak256(abi.encode(callsHash, proposer, queueCount++));
+        uint64 executeAfter = uint64(block.timestamp) + coldDelay;
+        queued[id] = Queued(executeAfter, proposer, callsHash);
+        emit ActionQueued(id, proposer, executeAfter, encoded);
+    }
+
+    function _cancelQueued(bytes32 id, address by) internal {
+        if (queued[id].executeAfter == 0) revert NotQueued(id);
+        delete queued[id];
+        emit ActionCancelled(id, by);
+    }
+
+    function _freeze(address by) internal {
+        uint64 until = uint64(block.timestamp) + (recoveryDelay == 0 ? 7 days : recoveryDelay);
+        if (until > frozenUntil) frozenUntil = until;
+        emit Frozen(by, frozenUntil);
+    }
+
+    function _allProtect(Call[] memory calls, address signerId) internal view returns (bool) {
+        for (uint256 i; i < calls.length; ++i) {
+            if (calls[i].target != address(this) || calls[i].value != 0 || !_isProtect(calls[i], signerId, true)) {
+                return false;
+            }
+        }
+        return calls.length != 0;
+    }
+
+    /**
+     * @dev A self-call that only protects the wallet, so it never waits. Any key: cancel a queued action, freeze,
+     *      skip a wait (needs a second key anyway), run a ready queued action, lower its own limit, remove itself.
+     *      Owners also: cancel a recovery, lower anyone's limit, remove a spender, lengthen the cold delay, turn
+     *      two-key skipping off.
+     */
+    function _isProtect(Call memory c, address signerId, bool owner) internal view returns (bool) {
+        bytes memory d = c.data;
+        if (d.length < 4) return false;
+        bytes4 sel = bytes4(d);
+        if (
+            sel == this.cancelQueued.selector || sel == this.freeze.selector || sel == this.skipWait.selector
+                || sel == this.executeQueued.selector
+        ) return true;
+        if (sel == this.setLimit.selector && d.length >= 100) {
+            (address who, address asset, uint128 limit) = abi.decode(_args(d), (address, address, uint128));
+            if (!owner && who != signerId) return false;
+            uint256 cur = _allowances[who][asset].limit;
+            return _signerIndex[who] != 0 && limit <= cur;
+        }
+        if (sel == this.removeSigner.selector && d.length >= 36) {
+            address who = abi.decode(_args(d), (address));
+            return who == signerId || (owner && _signerIndex[who] != 0 && _signers[who].role != ROLE_OWNER);
+        }
+        if (!owner) return false;
+        if (sel == this.cancelRecovery.selector) return true;
+        if (sel == this.setColdDelay.selector && d.length >= 36) {
+            uint64 delay = abi.decode(_args(d), (uint64));
+            return coldDelay != 0 && delay >= coldDelay;
+        }
+        if (sel == this.setNoTwoKeySkip.selector && d.length >= 36) return abi.decode(_args(d), (bool));
+        return false;
+    }
+
+    function _isUnfreeze(Call[] calldata calls) internal view returns (bool) {
+        return calls.length == 1 && calls[0].target == address(this) && calls[0].data.length == 4
+            && bytes4(calls[0].data) == this.unfreeze.selector;
+    }
+
+    function _isUnfreezeMem(Call[] memory calls) internal view returns (bool) {
+        return calls.length == 1 && calls[0].target == address(this) && calls[0].data.length == 4
+            && bytes4(calls[0].data) == this.unfreeze.selector;
+    }
+
+    function _args(bytes memory d) internal pure returns (bytes memory a) {
+        a = new bytes(d.length - 4);
+        for (uint256 i; i < a.length; ++i) {
+            a[i] = d[i + 4];
+        }
+    }
+
+    function _hashCallsMem(Call[] memory calls) internal pure returns (bytes32) {
+        bytes memory acc;
+        for (uint256 i; i < calls.length; ++i) {
+            acc = bytes.concat(acc, keccak256(abi.encode(calls[i].target, calls[i].value, keccak256(calls[i].data))));
+        }
+        return keccak256(acc);
+    }
+
     function _run(Call[] memory calls) internal returns (bytes[] memory results) {
         results = new bytes[](calls.length);
         for (uint256 i; i < calls.length; ++i) {
@@ -592,8 +806,10 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
         }
     }
 
-    /// @dev A spender call is an ETH send (empty data) or `asset.transfer(to, amount)` with no value; else NotOwner.
-    function _spenderCall(address signerId, Call memory c) internal pure returns (address asset, uint256 amount) {
+    /// @dev A spender call is an ETH send (empty data), `asset.transfer(to, amount)` with no value, or a protecting
+    ///      self-call (`_isProtect`, spender form); else NotOwner.
+    function _spenderCall(address signerId, Call memory c) internal view returns (address asset, uint256 amount) {
+        if (c.target == address(this) && c.value == 0 && _isProtect(c, signerId, false)) return (ETH, 0);
         if (c.data.length == 0) return (ETH, c.value);
         bytes memory d = c.data;
         if (c.value != 0 || d.length != 68 || bytes4(d) != IERC20.transfer.selector) revert NotOwner(signerId);
@@ -624,6 +840,8 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
     }
 
     function _spend(address signerId, address asset, uint256 amount) internal {
+        if (amount == 0) return;
+        if (block.timestamp < frozenUntil) revert WalletFrozen(frozenUntil);
         Allowance storage a = _allowances[signerId][asset];
         if (block.timestamp >= uint256(a.windowStart) + WINDOW) {
             a.windowStart = uint64(block.timestamp);

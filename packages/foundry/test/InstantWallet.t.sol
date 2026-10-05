@@ -147,7 +147,7 @@ contract InstantWalletTest is Test {
         assertTrue(w.isGuardian(dao));
         assertEq(w.recoveryDelay(), 7 days);
         assertEq(w.remainingAllowance(passId, address(usdc)), type(uint256).max);
-        assertEq(w.version(), "3.1.0");
+        assertEq(w.version(), "3.2.0");
     }
 
     function test_factoryIsIdempotentAndCounterfactual() public {
@@ -322,7 +322,7 @@ contract InstantWalletTest is Test {
         calls[0] = InstantWallet.Call(address(other), 0, abi.encodeCall(other.transfer, (alice, 1 * USD)));
         d = w.hashExecute(w.hashCalls(calls), w.nonces(passId), dl);
         sig = webauthnSig(PASS_PK, d);
-        vm.expectRevert(abi.encodeWithSelector(InstantWallet.NotOwner.selector, passId));
+        vm.expectRevert(abi.encodeWithSelector(InstantWallet.OverLimit.selector, passId, address(other), 1 * USD, 0));
         w.metaExecute(calls, passId, dl, sig);
 
         bytes32 h = keccak256("permit");
@@ -482,7 +482,7 @@ contract InstantWalletTest is Test {
         executeAs(PASS_PK, passId, selfCall(abi.encodeCall(w.setGuardians, (none, 0))));
         assertEq(w.getGuardians().length, 0);
 
-        InstantWallet.Call[] memory tooShort = selfCall(abi.encodeCall(w.setGuardians, (g, 1 hours)));
+        InstantWallet.Call[] memory tooShort = selfCall(abi.encodeCall(w.setGuardians, (g, 1 minutes)));
         bytes32 d = w.hashExecute(w.hashCalls(tooShort), w.nonces(passId), deadline());
         bytes memory sig = webauthnSig(PASS_PK, d);
         uint256 dl = deadline();

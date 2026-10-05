@@ -169,6 +169,18 @@ Goal: the wallet on lots of chains, added as you go, at the same address. Some c
   our one custom contract (deploy it with the same deterministic deployer), USDC + Circle paymaster for 4337,
   and a funded relay.
 
+## Finding your Safes (Austin 10-05)
+
+Open instantwallet.io and see your wallet plus every Safe you're part of (group wallets). No indexer of our own:
+1. **Safe's Transaction Service already indexes this.** `GET /api/v1/owners/{address}/safes/` per chain
+   lists the Safes an address owns. Browser-callable, no key (worked 10-05, see `WEDGIE-SAFE.md`). Ask it
+   for each of your addresses: your own Safe (for group Safes), burner signer, hot, wedgie signers.
+2. **localStorage** caches what was found, plus anything added by hand ("add a Safe by address") for
+   chains Safe doesn't index.
+3. Only if that isn't enough: our own small indexer on Safe's `AddedOwner` / `SafeSetup` events.
+
+Risk: Safe could add keys or rate limits. Cache hard; route through our relay if needed.
+
 ## Security model
 
 1. **No custom contracts.** Everything on chain is audited code that already holds real money.

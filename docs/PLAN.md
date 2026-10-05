@@ -9,8 +9,10 @@
 You open instantwallet.io, Face ID, and you have a wallet: a **Gnosis Safe** controlled by a passkey on your
 phone. Later you add MetaMask, then a wedgie. Each key you add makes it harder to steal. Big moves need two
 keys; the phone keeps a daily spending limit. If you lose keys, your recovery address gives you new ones
-after 7 days. If you die, a death switch hands it to your heir after 6 months. Every contract is audited
-code that already exists. We write no contracts.
+after 7 days. If you die, a death switch hands it to your heir after 6 months. Almost every contract is audited
+code that already exists. At most one small contract is ours (any-key cancel + travel lock), audited before
+real money. The same wallet works on many chains at one address, can co-own group Safes with
+friends, and you can talk to it through any AI. Built in phases (bottom of this doc); planned in full here.
 
 ## The pieces (all audited, all already deployed on Base)
 
@@ -21,6 +23,7 @@ code that already exists. We write no contracts.
 | Zodiac Roles v2.1 | gives a key limited powers without making it an owner (daily budgets) | G0, Omniscia |
 | Candide Social Recovery (×2) | recovery (7 days) and death switch (6 months) | Ackee, Nethermind, Certora |
 | Safe4337Module | optional: send through public 4337 bundlers | Ackee, Certora, Nethermind |
+| ours (phase 4, if decided) | any-key cancel for the 48 h wait + travel lock (a Safe 1.5 guard) | needs its own audit |
 
 The death switch needs our own deployment of Candide's audited code with a 6-month delay (theirs ship
 3/7/14 days). Same code, different number.
@@ -223,9 +226,28 @@ model) can read to fully understand and drive a wallet:
    unlimited USDC"). Most helpful and least trusted, so it's labeled as AI and checked against 1 and 2. If
    they disagree, the app says so in red.
 
+## Decentralization dials
+
+Everything we run is optional. Each dial goes from "easy, uses our stuff" to "you depend on nobody".
+
+| dial | default (ours) | more decentralized |
+|---|---|---|
+| keys | burner only | + hot + wedgie (levels 1–3) |
+| recovery | DAO | your own address, or none (levels 4–5) |
+| sending | our relay | 4337 bundlers → self-send from MetaMask |
+| finding your Safes | our indexer / Safe's service | localStorage + direct chain reads |
+| simulator | ours | run your own |
+| alerts | our watcher | run your own (open source) |
+| AI | ours | bring your own via skill.md |
+| app | instantwallet.io | IPFS / ENS → run it locally |
+| chain access | our RPC | your RPC → your node |
+
+The app shows where you are on each dial and nudges you along (by balance, by level).
+
 ## Security model
 
-1. **No custom contracts.** Everything on chain is audited code that already holds real money.
+1. **Audited code first.** Everything on chain is audited code that already holds real money, except at most
+   one small contract of ours (any-key cancel + travel lock), which gets its own audit.
 2. **One key is never enough for a big move** (level 2+). A thief needs two keys, and from level 3 one of
    them must be the wedgie.
 3. **Protecting is one key; weakening is two.**
@@ -300,14 +322,40 @@ Lose the wedgie and big moves wait for recovery (7 days). Lose the burner or hot
 8. EAS heir attestation made by the Safe itself (attester = the Safe), and reading it back.
 9. Group wallet: a Safe owned by members' Safes (each with a wedgie owner), 2 of 3 signing via relay.
 10. Same address on a second chain (e.g. Optimism): first setup + replay, signer with precompile + fallback.
-11. Ethereum mainnet: check every piece is deployed there too, not just Base.
+11. Safe 1.5 deployed on Base and every target chain; Safe's owners endpoint lists Safes owned by a
+    passkey signer and by a Safe (for groups).
+12. Ethereum mainnet: check every piece is deployed there too, not just Base.
 
-## Build order
+## Decide before the first user
 
-1. **Spike** on a Base fork: prove the list above. Fix the plan where it breaks.
-2. **Level 1 app:** Face ID → Safe (created on first deposit), scan, send, our relay with USDC fee.
-3. **Levels 2–3:** add MetaMask (ENS), pair the wedgie (`wedgie-safe` app, code in `WEDGIE-SAFE.md`).
-4. **Recovery, death switch, alerts** (watcher + push/email/Telegram).
-5. **Levels 4–5** and sending modes B and C.
-6. **Ethereum mainnet.**
-7. Review of our code: app, relay, watcher, wedgie firmware.
+A Safe's address is fixed by its first setup, forever, on every chain. So before anyone gets a wallet:
+- **Keep the first setup minimal:** the burner's signer as the only owner, plus a fallback handler. Add
+  everything else (Roles, recovery, more owners) afterwards with normal transactions, so changing those plans
+  never moves anyone's address.
+- **Safe version: 1.5** (the travel lock / canceller guard needs it; the wedgie was tested on 1.4.1). Check
+  that it's deployed on every chain we want.
+- **Signer settings:** P-256 precompile + fallback verifier, the same on every chain.
+- **Salt scheme:** how the address is derived from the passkey, so the app can find it again on any device.
+- The app domain (instantwallet.io): passkeys are bound to it forever.
+
+## Build order (phases)
+
+Plan everything now (this doc); build in phases. Each phase updates `skill.md`.
+
+0. **Decide + spike.** The list above, then prove "Not proven yet" on a Base fork. Fix the plan where it breaks.
+1. **Level 1 on Base.** Face ID → Safe (created on first deposit), scan, send. Our relay with a USDC fee.
+   DAO recovery (7 d). First alerts. Find your Safes (Safe's service + localStorage). Before-you-sign:
+   clear signing + simulator + AI explanation. Safe SDK, loaded lazily. `skill.md` v1.
+2. **Levels 2–3.** Add MetaMask (ENS). Pair the wedgie (counts twice). Burner budget (Roles, $100/day,
+   user-set). Protect role. The level meter and nudges.
+3. **Safety.** Death switch (6 mo, our Candide deployment) + heir on EAS. Own recovery (levels 4–5). Full
+   alerts (push, email, Telegram; open-source watcher).
+4. **Our one custom contract** (if decided): any-key cancel for the 48 h wait + travel lock, on Safe 1.5's
+   guard. Get it audited before real money.
+5. **More chains.** Same address, deploy + replay, Ethereum mainnet. Different-address chains last.
+6. **Group wallets.** Safes owned by members' Safes, pending-transactions view.
+7. **AI.** Talk to your wallet (proposals), AI Roles budget, bring-your-own-AI on the full `skill.md`.
+8. **Decentralize the rest.** Sending modes B and C, app on IPFS/ENS, own RPC, self-hosted relay /
+   simulator / watcher / indexer.
+
+Every phase: review our code (app, relay, watcher, simulator, wedgie firmware). Simulator repo: TBD (Austin's).

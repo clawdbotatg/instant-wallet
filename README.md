@@ -2,7 +2,7 @@
 
 > **v3 in progress** (2026-10): passkey hot key + [wedgie](https://wedgie.dev) cold key. Plan: `docs/V3.md`.
 > The website is `web/` (Vercel root). Contracts (v3.1, ERC-4337 + gas in USDC via Circle Paymaster): InstantWallet `0xBd1569c8978fB403079b75eBAcc369F0E7244B6F`,
-> Factory `0x896c8D40022A79FC1228dB800FD3aaf7f21d7469` on Base. Everything below describes v2.
+> Factory `0x896c8D40022A79FC1228dB800FD3aaf7f21d7469` on Base. Sending + fees in USDC: `docs/GAS.md`. Everything below describes v2.
 
 **Your money, instantly.** A passkey smart-contract wallet (Face ID / Touch ID, no seed phrase,
 no gas) that you can harden with a $35 hardware signer you build yourself from three off-the-shelf

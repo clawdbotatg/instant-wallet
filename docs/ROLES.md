@@ -1,6 +1,7 @@
 # Roles — who can do what
 
-Austin, 2026-10-05. This replaces the key list in `COLD-STORAGE.md` (its delay/freeze rules still hold).
+Austin, 2026-10-05. This replaces the key list and the "what a thief gets" table in `COLD-STORAGE.md`. Its delay, cancel
+and freeze mechanics still hold, with the changes below.
 Not built yet: contract 3.2 has burner + cold + guardians; hot, signature tiers and the death switch are new.
 Safe vs our own contract is still open — the roles are the same either way.
 
@@ -32,9 +33,11 @@ Burner + hot is capped because both live on everyday devices and both can be phi
 cold wallet is not. Every number is a per-wallet setting. Raising one is "weakening", so it follows the same table.
 
 Changing settings (add/remove a key, raise a limit, shorten a delay, change recovery) works like a big send:
-one key waits 48 h, two keys (one of them cold, or burner + hot) are instant.
+it needs cold. Cold alone waits 48 h; cold + any other key is instant. Burner + hot can't change settings
+without waiting 48 h (cancelable), or they could raise their own cap or add a cold key they own.
 
-Protecting (cancel a pending action, freeze, lower a limit) is instant for any one key.
+Protecting (cancel a pending action, freeze, lower a limit) is instant for any one key, and for the
+recovery address (it can cancel and freeze, never spend).
 Exception: the burner can't cancel a recovery — otherwise a thief with your phone blocks it.
 
 ## Recovery and the death switch
@@ -50,7 +53,8 @@ Exception: the burner can't cancel a recovery — otherwise a thief with your ph
 **Trust:** while the DAO is your recovery, the DAO could in theory reset your key to its own address,
 and it lands if you don't cancel in 7 days. Fine for a new wallet with spending money; the app pushes you
 to set your own recovery once the balance grows. The death switch has the same power with a 1-year wait,
-so any key used once a year keeps it dead. Open: should the user name the death-switch destination in
+so it only lands if no key cancels it during that year. Using the wallet does not reset it; the alert
+when it starts is what tells you to cancel. Open: should the user name the death-switch destination in
 advance (safer — the DAO only pulls the trigger) instead of the DAO choosing it?
 
 Every pending recovery / death switch / big send sends a loud alert (push, email, Telegram). A delay
@@ -95,5 +99,6 @@ you don't hear about is useless.
 
 - A thief holding your cold (or hot) wallet can keep canceling the recovery. Money stays put but stuck.
   Possible fix: a recovery can only be canceled by a key it is *not* replacing.
-- Two stolen keys that include cold = no wait. If that's too weak, a "vault" setting makes everything wait
+- Two stolen keys that include cold = no wait, so recovery can't catch it (COLD-STORAGE.md said guardians
+  could; that only holds in vault mode). If that's too weak, a "vault" setting makes everything wait
   except all three together.

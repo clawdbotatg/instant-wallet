@@ -6,7 +6,8 @@ import { amount, short, usd } from "@/lib/format";
 import { type Parsed, parse } from "@/lib/parse";
 import { loadAccount, saveAccount } from "@/lib/store";
 import type { Account, Asset, Portfolio } from "@/lib/types";
-import { Blockie, ChainChip, ScanIcon, Sheet, copy, useToast } from "./bits";
+import { Blockie, ScanIcon, Sheet, TokenIcon, copy, useToast } from "./bits";
+import { chainById } from "@/lib/chains";
 import { Receive } from "./Receive";
 import { Send } from "./Send";
 import { Settings } from "./Settings";
@@ -104,10 +105,13 @@ export function App({ link }: { link?: string }) {
             .filter(a => BigInt(a.balance) > 0n)
             .map(a => (
               <button key={`${a.chainId}:${a.asset}`} className="asset" onClick={() => setView({ kind: "send", prefill: { kind: "pay", to: "", chainId: a.chainId, asset: a.asset } })}>
-                <div className="logo">{a.logo ? <img src={a.logo} alt="" /> : a.symbol.slice(0, 3)}</div>
+                <TokenIcon symbol={a.symbol} asset={a.asset} chainId={a.chainId} logo={a.logo} />
                 <div className="grow">
                   <div className="sym">{a.symbol}</div>
-                  <ChainChip chainId={a.chainId} />
+                  <div className="fine">
+                    {a.name === a.symbol ? "" : `${a.name} · `}
+                    {chainById(a.chainId)?.name}
+                  </div>
                 </div>
                 <div className="right">
                   <div className="sym">{showUsd ? usd(a.usd) : amount(a.formatted)}</div>

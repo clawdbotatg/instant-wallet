@@ -7,7 +7,7 @@ import { amount as fmtAmount, short, usd } from "@/lib/format";
 import { type Parsed, parse } from "@/lib/parse";
 import type { Account, Asset } from "@/lib/types";
 import { feeEstimateUsd, isDeployed, sendCalls, transferCall } from "@/lib/wallet";
-import { Blockie, ChainChip, ScanIcon } from "./bits";
+import { Blockie, ChainChip, ScanIcon, TokenIcon } from "./bits";
 import { Scanner } from "./Scanner";
 import { friendly } from "./Welcome";
 
@@ -290,7 +290,7 @@ export function Send({
                     onClick={() => setPick(key(a))}
                   >
                     <span className="row">
-                      <b>{a.symbol}</b> <ChainChip chainId={a.chainId} />
+                      <TokenIcon symbol={a.symbol} asset={a.asset} chainId={a.chainId} logo={a.logo} size={28} /> <b>{a.symbol}</b>
                     </span>
                     <span>
                       {fmtAmount(a.formatted)} {a.usd !== null && <span style={{ opacity: 0.75 }}>· {usd(a.usd)}</span>}

@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import { blo } from "blo";
 import QRCode from "qrcode";
-import type { Address } from "viem";
+import { type Address, getAddress } from "viem";
 import { chainById } from "@/lib/chains";
 
 export function Band() {
@@ -94,4 +94,51 @@ export async function copy(text: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+const CHAIN_ICON: Record<number, string> = { 8453: "/tokens/base.webp", 1: "/tokens/ethereum.webp" };
+const TW_CHAIN: Record<number, string> = { 8453: "base", 1: "ethereum" };
+const LOCAL_TOKEN: Record<string, string> = { ETH: "/tokens/eth.png", WETH: "/tokens/eth.png", USDC: "/tokens/usdc.png" };
+
+/**
+ * A token's logo with its network as a small badge in the corner (talk-to-your-wallet's look). Sources, in
+ * order: our own copy (ETH, USDC), the logo Alchemy returned, Trust Wallet's assets repo by chain + address,
+ * then the first letter.
+ */
+export function TokenIcon({
+  symbol,
+  asset,
+  chainId,
+  logo,
+  size = 40,
+}: {
+  symbol: string;
+  asset: string;
+  chainId: number;
+  logo?: string;
+  size?: number;
+}) {
+  const sources = [
+    LOCAL_TOKEN[symbol.toUpperCase()],
+    logo,
+    TW_CHAIN[chainId] && !/^0x0+$/.test(asset)
+      ? `https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/${TW_CHAIN[chainId]}/assets/${getAddress(asset)}/logo.png`
+      : undefined,
+  ].filter((s): s is string => !!s);
+  const [i, setI] = useState(0);
+  const badge = Math.round(size * 0.42);
+  return (
+    <span className="token" style={{ width: size, height: size }}>
+      {i < sources.length ? (
+        <img src={sources[i]} alt="" width={size} height={size} onError={() => setI(i + 1)} />
+      ) : (
+        <span className="letter" style={{ fontSize: size * 0.42 }}>
+          {symbol.slice(0, 1)}
+        </span>
+      )}
+      {CHAIN_ICON[chainId] && (
+        <img className="badge" src={CHAIN_ICON[chainId]} alt={chainById(chainId)?.name} width={badge} height={badge} />
+      )}
+    </span>
+  );
 }

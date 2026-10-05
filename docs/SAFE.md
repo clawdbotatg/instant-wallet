@@ -61,7 +61,8 @@ The trade-off: with one key lost, a big send waits for recovery (7 d).
    replay protection on the signed calls (zodiac-core v3) and which Roles version is deployed on Base/Ethereum.
 2. Burner gas. Roles calls aren't 4337, so the relayer pays; the burner tips the relayer in USDC inside its
    allowance (see the RelayTip spike).
-3. A wedgie signing the faked passkey envelope against the deployed passkey signer.
+3. ~~A wedgie signing the faked passkey envelope against the deployed passkey signer.~~ **Done, on Base:
+   see `WEDGIE-SAFE.md`** (threshold 1 only).
 4. DAO Safe as a Candide guardian (EIP-1271 confirm). Candide's 1-year deployment for the death switch.
 5. Safe app as an escape hatch: one open issue (#8808) says a passkey owner with threshold ≥ 2 fails there.
 6. A death switch Austin can live with: Candide's is "start, then wait 1 year, owners cancel". Using the

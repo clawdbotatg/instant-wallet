@@ -128,10 +128,12 @@ With one key lost, a big move waits for recovery (7 days). That's the price of "
 ## Open decisions
 
 1. ~~Death switch length~~ **Decided: 6 months** (Austin, 10-05).
-2. ~~Death switch destination~~ **Decided (Austin, 10-05):** the user names an heir; the DAO can overwrite it
-   (e.g. the user never set one, or tells the DAO). No custom code: Candide lets the guardian (DAO) propose any
-   new owner, so the named heir is a signed note the DAO follows (stored off-chain or as an ENS text record).
-   The guard is the 6-month wait plus the alert, which shows who the money goes to; owners can cancel.
+2. ~~Death switch destination~~ **Decided (Austin, 10-05):** the user sets an heir **on chain**, public; the
+   DAO can overrule it at the time, but anyone can see it did. How, with no custom contract: the Safe posts an
+   **EAS attestation** "heir = 0x…" (Ethereum Attestation Service, audited, built into Base, also on Ethereum).
+   Changing the heir = a new attestation (owners sign). When the DAO starts the death switch, Candide records
+   the proposed new owner on chain; the app and the alert compare it with the attested heir and say loudly
+   if they differ. 6-month wait; owners can cancel.
 3. **Level 2 burner limit:** burner + hot are both owners, so together they can do anything. OK for level 2?
 4. **Default daily limit:** $100 per token.
 
@@ -145,7 +147,8 @@ With one key lost, a big move waits for recovery (7 days). That's the price of "
 5. Each level change as one batched transaction.
 6. 4337 + Circle paymaster with passkey owners.
 7. Safe app as an escape hatch (issue #8808: passkey owners with 2+ signatures may fail there).
-8. Ethereum mainnet: check every piece is deployed there too, not just Base.
+8. EAS heir attestation made by the Safe itself (attester = the Safe), and reading it back.
+9. Ethereum mainnet: check every piece is deployed there too, not just Base.
 
 ## Build order
 

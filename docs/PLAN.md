@@ -177,9 +177,22 @@ Open instantwallet.io and see your wallet plus every Safe you're part of (group 
    for each of your addresses: your own Safe (for group Safes), burner signer, hot, wedgie signers.
 2. **localStorage** caches what was found, plus anything added by hand ("add a Safe by address") for
    chains Safe doesn't index.
-3. Only if that isn't enough: our own small indexer on Safe's `AddedOwner` / `SafeSetup` events.
+3. Optional: our own small indexer on Safe's `AddedOwner` / `SafeSetup` events. The app never depends on it
+   (or on Safe's service): with neither, it still works from localStorage + direct chain reads (a dial in
+   `LEVELS.md`).
 
 Risk: Safe could add keys or rate limits. Cache hard; route through our relay if needed.
+
+## Libraries (Safe SDK and friends)
+
+Yes, still in play. All open source, run in the browser, no server trust (except calls to Safe's service).
+- **@safe-global/protocol-kit**: predict the address, build/sign/execute Safe txs, passkey owners.
+- **@safe-global/api-kit**: Safe's Transaction Service (find Safes, propose, collect signatures).
+- **@safe-global/relay-kit** (Safe4337Pack): sending mode B (4337 + paymaster).
+- **zodiac-roles-sdk**: write the burner's Roles permissions. **Candide abstractionkit**: recovery helpers.
+- The wedgie's signature stays hand-rolled (`src/safe/eth.ts` from wedgie-dev, no dependencies): the SDK
+  won't build our faked passkey envelope.
+- Watch bundle size: the app must open instantly. Load the SDKs lazily.
 
 ## Security model
 

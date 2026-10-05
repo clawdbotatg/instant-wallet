@@ -194,6 +194,26 @@ Yes, still in play. All open source, run in the browser, no server trust (except
   won't build our faked passkey envelope.
 - Watch bundle size: the app must open instantly. Load the SDKs lazily.
 
+## AI (Austin 10-05)
+
+**Talk to your wallet.** "Send Bob 50 USDC", "swap half my ETH to USDC", "what's pending?". The AI answers
+with a **proposed transaction**, never a sent one. You sign it like any other (Face ID, wedgie press). Start from
+`clawd-talk-to-your-wallet` (denar.ai: 19 wallet tools, returns calldata).
+
+**Bring your own AI: `instantwallet.io/skill.md`.** One comprehensive file any AI (Claude, ChatGPT, a local
+model) can read to fully understand and drive a wallet:
+- how it works: keys, levels, limits, waits, travel lock, recovery, death switch, groups;
+- contract addresses per chain, and how to read state (owners, budgets, pending moves, locks, heir);
+- how to build and propose a tx (Safe tx service), decode one, and explain it in plain words;
+- what it must never do (see below). Same idea as wedgie.dev/skill.md.
+
+**Rules:**
+- The AI proposes and explains. **It never holds an owner key.** Optional: its own Roles budget (e.g. $20/day,
+  or "only pay these bills") for things it does alone.
+- **What you sign is decoded by the app and the wedgie screen, not by the AI's words.** An AI can be fooled
+  (a token name, an ENS record, a web page can carry instructions). The 48 h wait is the backstop.
+- Proposals land in Safe's queue, so every device and every co-owner sees them.
+
 ## Security model
 
 1. **No custom contracts.** Everything on chain is audited code that already holds real money.

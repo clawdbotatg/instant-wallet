@@ -112,7 +112,7 @@ and anyone can submit them, not only us. If our relay dies, nothing is stuck.
 | burner | **everything** (spending money only) | $100/day; hot stops it; recovery replaces it in 7 d | $100/day; hot or wedgie stops it; wedgie + hot replace it |
 | hot | — | nothing alone; recovery replaces it in 7 d | nothing alone; wedgie + burner replace it, now |
 | wedgie | — | — | nothing alone; burner + hot can't remove it, so recovery replaces it in 7 d |
-| burner + hot | — | **everything** | $100/day; wedgie stops it, then recovery or wedgie replaces them |
+| burner + hot | — | **everything** | $100/day; wedgie stops it; recovery replaces both in 7 d |
 | burner + wedgie | — | — | **everything**. Keep your wedgie and phone apart |
 | hot + wedgie | — | — | **everything**. Keep your wedgie and seed phrase apart |
 | recovery (DAO or yours) | takeover waits 7 d; burner cancels | burner + hot cancel | wedgie + one other cancel |

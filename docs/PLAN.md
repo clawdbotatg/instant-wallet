@@ -107,6 +107,13 @@ Even all three keys can't go over it, and nobody can switch it off early, so a $
   new keys, same cap until it ends.
 - Risk: a buggy guard can freeze a Safe. Ending on its own limits that.
 - It fits in the same small custom contract as the canceller: **one contract, two jobs** (any key cancels; travel lock).
+- **Provable to an attacker** (Austin, 10-05). The lock must be checkable by anyone:
+  - The contract is verified on Basescan / Etherscan. `lockStatus(safe)` returns the cap and the end time,
+    and a `TravelLocked(safe, until, cap)` event is emitted.
+  - The app has a big red "LOCKED until Fri, max $2,000" screen, with a link to the chain explorer.
+    Show it to anyone; they can check it themselves.
+  - Keep the cap simple so it's easy to prove: e.g. "USDC ≤ $2,000, everything else 0". A dollar cap across
+    all tokens would need a price oracle, which is one more thing to trust and one more thing to explain.
 
 ## Sending (who pays gas)
 

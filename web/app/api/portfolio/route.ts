@@ -8,7 +8,8 @@ export const dynamic = "force-dynamic";
 
 /**
  * `GET /api/portfolio?address=0x…` — ETH + every ERC-20 with a balance, on every enabled chain, with USD.
- * Base / Ethereum: Alchemy token balances + metadata + Prices API. Local: ETH + LOCAL_TOKENS / NEXT_PUBLIC_LOCAL_TOKENS (also on a
+ * Base / Ethereum: Alchemy token balances + metadata + Prices API; DexScreener fills the long tail Alchemy has no logo
+ * or price for (most small Base tokens). Local: ETH + LOCAL_TOKENS / NEXT_PUBLIC_LOCAL_TOKENS (also on a
  * fork of a real chain when LOCAL_TOKENS_ONLY is set, since Alchemy only sees the real chain).
  */
 export async function GET(req: NextRequest) {
@@ -86,10 +87,11 @@ async function chainAssets(chainId: number, wallet: Address): Promise<Asset[]> {
       return metaCache.get(k)!;
     }),
   );
+  const dex = await dexscreener(chainId, held.filter((_, i) => !metas[i].logo).map(t => t.address));
   held.forEach((t, i) => {
     const m = metas[i];
     if (!m.symbol || m.decimals === null) return; // unreadable, usually spam
-    out.push(row(chainId, t.address, m.symbol, m.name ?? m.symbol, m.decimals, t.balance, m.logo ?? undefined));
+    out.push(row(chainId, t.address, m.symbol, m.name ?? m.symbol, m.decimals, t.balance, m.logo ?? dex.get(t.address.toLowerCase())?.image));
   });
   return out;
 }
@@ -141,5 +143,51 @@ async function price(assets: Asset[]) {
       // no prices this round
     }
   }
+  // long tail: DexScreener's most liquid pair
+  const missing = assets.filter(a => a.price === null && a.asset !== ETH && alchemyNetwork(a.chainId));
+  for (const chainId of new Set(missing.map(a => a.chainId))) {
+    const dex = await dexscreener(chainId, missing.filter(a => a.chainId === chainId).map(a => a.asset));
+    for (const a of missing.filter(x => x.chainId === chainId)) {
+      const v = dex.get(a.asset.toLowerCase())?.priceUsd ?? null;
+      a.price = v;
+      priceCache.set(`${a.chainId}:${a.asset}`, { at: Date.now(), v });
+    }
+  }
   for (const a of assets) a.usd = a.price === null ? null : Number(a.formatted) * a.price;
+}
+
+const DEX_CHAIN: Record<number, string> = { 8453: "base", 1: "ethereum" };
+const DEX_MS = 5 * 60_000;
+const dexCache = new Map<string, { at: number; v: { image?: string; priceUsd: number | null } | null }>();
+
+/** DexScreener token info (logo + USD price of the most liquid pair), 30 tokens per request, cached 5 min. */
+async function dexscreener(chainId: number, tokens: Address[]): Promise<Map<string, { image?: string; priceUsd: number | null }>> {
+  const out = new Map<string, { image?: string; priceUsd: number | null }>();
+  const slug = DEX_CHAIN[chainId];
+  if (!slug) return out;
+  const todo: string[] = [];
+  for (const t of tokens.map(x => x.toLowerCase())) {
+    const hit = dexCache.get(`${chainId}:${t}`);
+    if (hit && Date.now() - hit.at < DEX_MS) {
+      if (hit.v) out.set(t, hit.v);
+    } else todo.push(t);
+  }
+  for (let i = 0; i < todo.length; i += 30) {
+    const batch = todo.slice(i, i + 30);
+    const pairs: any[] = await fetch(`https://api.dexscreener.com/tokens/v1/${slug}/${batch.join(",")}`, { cache: "no-store" })
+      .then(r => (r.ok ? r.json() : []))
+      .catch(() => []);
+    for (const t of batch) {
+      const mine = (Array.isArray(pairs) ? pairs : [])
+        .filter(p => String(p?.baseToken?.address).toLowerCase() === t)
+        .sort((a, b) => (b?.liquidity?.usd ?? 0) - (a?.liquidity?.usd ?? 0));
+      const price = Number(mine[0]?.priceUsd);
+      const v = mine.length
+        ? { image: mine.find(p => p?.info?.imageUrl)?.info.imageUrl as string | undefined, priceUsd: Number.isFinite(price) ? price : null }
+        : null;
+      dexCache.set(`${chainId}:${t}`, { at: Date.now(), v });
+      if (v) out.set(t, v);
+    }
+  }
+  return out;
 }

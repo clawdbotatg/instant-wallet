@@ -72,9 +72,12 @@ The "protect" role: a Zodiac Roles permission that lets one key do exactly one t
 budget. Protecting is instant and needs one key; weakening needs two.
 
 **Optional delay (idea, not decided).** Two kinds:
-- *Wedgie alone, after a wait* (e.g. 48 h): for when burner and hot are both gone. Zodiac Delay can queue
-  it; cancelling needs the owners (wedgie + one other), so a thief holding only the wedgie can't cancel your
-  cancel, but you can't cancel theirs with one key either. Zodiac Delay's current version has no fresh audit.
+- *Wedgie alone, after a wait* (e.g. 48 h): for when burner and hot are both gone. Zodiac Delay can queue it.
+  **Catch:** cancelling a queued move needs the owners (wedgie + one other). If a thief has your wedgie, they
+  use this same path and you can't cancel without the wedgie. Only safe if the wait is longer than recovery
+  (e.g. 14 d wait, 7 d recovery: recovery gives you a new wedgie, then you cancel). And whenever you have a
+  recovery address, recovery already covers "burner and hot both gone". Austin likes it; not decided.
+  Zodiac Delay's current version has no fresh audit.
 - *A wait even with two keys* (anti-"$5 wrench"): Safe can't force this without a guard, which is custom code.
 
 The daily limit is per token, resets daily, and the user can set it to anything (the owners sign).

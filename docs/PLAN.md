@@ -99,6 +99,15 @@ audited does that:
 - A small custom "canceller" (~40 lines): the one thing it does is let any key cancel a queued move.
   Everything else stays with the owners. This would be our only custom contract.
 
+**Idea (Austin, 10-05): travel lock.** "For the next week, at most $2,000 can leave, no matter who signs."
+Even all three keys can't go over it, and nobody can switch it off early, so a $5 wrench gets $2,000.
+- Turning it on is protecting, so any one key can do it. It ends on its own; it can't be lifted early.
+- Safe owners can normally do anything, and only a **guard** can stop them. That's custom code, and it needs
+  Safe 1.5, which can guard module transactions too (Roles, recovery). Recovery still works during a lock:
+  new keys, same cap until it ends.
+- Risk: a buggy guard can freeze a Safe. Ending on its own limits that.
+- It fits in the same small custom contract as the canceller: **one contract, two jobs** (any key cancels; travel lock).
+
 ## Sending (who pays gas)
 
 | mode | how | cost | trusts |
@@ -171,6 +180,7 @@ Lose the wedgie and big moves wait for recovery (7 days). Lose the burner or hot
 4. **Default daily limit:** $100 per token.
 5. **48 h wait on two-key moves, instant with all three** (see "Under discussion"). If yes: custom canceller,
    OP TimelockGuard, or accept Zodiac Delay's limits.
+6. **Travel lock** (see above): with the canceller, our one small custom contract (needs Safe 1.5).
 
 ## Not proven yet (Base-fork spike first)
 

@@ -7,7 +7,7 @@ import { type Parsed, parse } from "@/lib/parse";
 import { loadAccount, saveAccount } from "@/lib/store";
 import type { Account, Asset, Portfolio } from "@/lib/types";
 import { Blockie, ScanIcon, Sheet, TokenIcon, copy, useToast } from "./bits";
-import { chainById } from "@/lib/chains";
+import { CHAINS, chainById } from "@/lib/chains";
 import { Receive } from "./Receive";
 import { Send } from "./Send";
 import { Settings } from "./Settings";
@@ -98,7 +98,7 @@ export function App({ link }: { link?: string }) {
         <div className="card assets">
           {assets.filter(a => BigInt(a.balance) > 0n).length === 0 && (
             <p className="fine center" style={{ padding: 18 }}>
-              Empty. Tap Receive and send anything to your address on Base or Ethereum.
+              Empty. Tap Receive and send anything to your address on {CHAINS.map(c => c.name).join(" or ")}.
             </p>
           )}
           {assets

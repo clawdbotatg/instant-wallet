@@ -99,7 +99,7 @@ export function Welcome({ onReady }: { onReady: (a: Account) => void }) {
           <p className="err">This browser can't use passkeys. Open this page in Safari or Chrome.</p>
         )}
         {error && <p className="err">{error}</p>}
-        <p className="fine">Same address on Base and Ethereum. A wedgie can guard the big money later.</p>
+        <p className="fine">Lives on {CHAINS.map(c => c.name).join(" and ")}. A wedgie can guard the big money later.</p>
       </div>
     </div>
   );

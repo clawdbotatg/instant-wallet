@@ -127,7 +127,7 @@ With one key lost, a big move waits for recovery (7 days). That's the price of "
 
 ## Open decisions
 
-1. **Death switch length:** 6 months (or 3).
+1. ~~Death switch length~~ **Decided: 6 months** (Austin, 10-05).
 2. **Death switch destination:** the user names an heir in advance (recommended), so the DAO only pulls the
    trigger, or the DAO decides at the time.
 3. **Level 2 burner limit:** burner + hot are both owners, so together they can do anything. OK for level 2?

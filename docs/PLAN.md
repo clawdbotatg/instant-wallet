@@ -152,6 +152,7 @@ Lose the wedgie and big moves wait for recovery (7 days). Lose the burner or hot
 3. ~~Level 2~~ **Decided (Austin, 10-05):** with only burner + hot, the two together can do anything. Once a
    wedgie is added, anything big needs the wedgie + burner or hot. The app nudges "add a wedgie" above ~$1,000.
 4. **Default daily limit:** $100 per token.
+5. **Wedgie-alone delay:** add it (14 d, longer than recovery) or skip it. See "Optional delay" above.
 
 ## Not proven yet (Base-fork spike first)
 

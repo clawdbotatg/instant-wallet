@@ -12,7 +12,7 @@ You open instantwallet.io, Face ID, and you have a wallet: a **Gnosis Safe** con
 phone. Later you add MetaMask, a 24-word seed sharded on paper (your recovery), then a wedgie. Each step makes it
 harder to steal. Big moves need two keys and wait 48 h (all three: instant); the phone keeps a daily limit. If you lose keys, your recovery address gives you new ones
 after 7 days. If you die, a death switch hands it to your heir after 6 months. Almost every contract is audited
-code that already exists; one small contract is ours (48 h wait with any-key cancel, travel lock), audited before
+code that already exists; one contract is ours (48 h wait with cancel, travel lock), audited before
 real money. The same wallet works on many chains at one address, can co-own group Safes with
 friends, and you can talk to it through any AI. Built in phases (bottom of this doc); planned in full here.
 
@@ -20,12 +20,12 @@ friends, and you can talk to it through any AI. Built in phases (bottom of this 
 
 | piece | job | audited by |
 |---|---|---|
-| Safe 1.4.1 | the wallet: holds the money, list of owners, how many must sign | Safe (many) |
+| Safe 1.5 | the wallet: holds the money, list of owners, how many must sign | Safe (many). The wedgie was tested on 1.4.1; Roles, Candide and the passkey signer still need testing on 1.5 |
 | Safe passkey signer v0.2.1 | lets a passkey or a wedgie be a Safe owner | Certora, Nethermind, Hats |
 | Zodiac Roles v2.1 | gives a key limited powers without making it an owner (daily budgets) | G0, Omniscia |
 | Candide Social Recovery (×2) | recovery (7 days) and death switch (6 months) | Ackee, Nethermind, Certora |
 | Safe4337Module | optional: send through public 4337 bundlers | Ackee, Certora, Nethermind |
-| ours (phase 4) | wedgie + one waits 48 h, any key cancels, travel lock (Safe 1.5 module + guard) | needs its own audit |
+| ours (phase 4) | wedgie + one waits 48 h, cancels, travel lock (Safe 1.5 module + guard + fallback handler) | needs a full audit: it checks signatures and executes as the Safe, so it has full power over every wallet |
 
 The death switch needs our own deployment of Candide's audited code with a 6-month delay (theirs ship
 3/7/14 days). Same code, different number.
@@ -62,28 +62,40 @@ Level 1 is only for spending money. The default daily limit is $100 per token, a
 ### Level 3: the paper seed (Austin 10-05)
 
 You make a new 24-word seed phrase and learn to keep it safe. It becomes **your recovery address**, replacing
-the DAO, so the DAO can no longer reset your keys. It's a good fit: recovery is rarely used and should be offline.
-- Made offline: on the wedgie's screen, or in the app with the network off. Shown once, never stored.
+the DAO's 7-day recovery. The DAO keeps its death switch (it can still replace your keys after a 6-month wait,
+with an alert) until you remove it at level 5. It's a good fit: recovery is rarely used and should be offline.
+- Made on the wedgie (hardware random numbers) or with dice, never by the web app: a hacked site could hand
+  out a seed it already knows. Shown once, never stored.
 - **Sharded:** split into 3 shares on special paper, any 2 rebuild it. Keep them in 3 places; one share
-  alone reveals nothing useful. Scheme to pick: SLIP-39 (proper Shamir; needs software to rebuild) or
-  overlapping word cards (each card has 16 of the 24 words, any two cover all; no software needed, weaker).
+  alone reveals nothing **with SLIP-39** (proper Shamir; needs software to rebuild; recommended).
+  Alternative: overlapping word cards (each has 16 of the 24 words, any two cover all; no software). But one
+  card leaks 16 words, leaving ~88 bits: a stolen card is a real, if small, risk.
 - The app walks you through a practice restore before it switches recovery over.
 
 ### Level 4: how "wedgie + one" and "all three" work
 
-- **The wedgie counts twice.** It's added as two owners: two of Safe's passkey-signer contracts for the
-  same chip key (different verifier settings give different addresses). One press fills both slots.
+- **The wedgie counts twice.** It's added as two owners. Preferred: the chip makes **two keys** (two slots)
+  and one press signs with both. Alternative: two of Safe's passkey-signer contracts for one key, using
+  different verifier settings; both settings need the precompile plus a fallback (multichain), which means
+  two different audited fallback verifiers.
 - **All three = instant.** The Safe needs 4 votes: wedgie (2) + burner (1) + hot (1).
 - **Wedgie + one = after 48 h** (Austin 10-05, decided). This guards against a hacked screen (the Bybit attack: the
   owners signed what their screen showed and the money was gone instantly). The signed move shows up first:
-  "In 48 h, all your money goes to 0x… [Cancel]". **Any one key can cancel.**
+  "In 48 h, all your money goes to 0x… [Cancel]". **Any one key can cancel**, with these rules:
+  - A key can't cancel a move that removes or replaces that key. So a thief holding one key can't block you
+    removing it (they can still cancel your other big moves until it's gone).
+  - The 48 h path can't touch recovery: no cancelling a recovery, no changing guardians, modules, guard,
+    or fallback handler. Those need all three keys. So two stolen keys can't cancel your recovery.
+    The cost: if your recovery address is stolen *and* you've lost a key, you can't cancel that recovery.
+  - Queued moves die when the Safe's owners change (the module records the owner set when a move is queued).
 - Burner + hot = 2 votes: nothing beyond the burner's budget. Wedgie alone: nothing.
 - **Rejected: wedgie alone after a wait.** A thief with your wedgie would get everything in 48 h,
   because cancelling would need the wedgie. Every delayed path needs a second signature.
 - **This needs our one custom contract (phase 4).** Nothing audited lets *any one key* cancel:
   Zodiac Delay's cancel needs the Safe owners (and they could change the delay). Optimism's TimelockGuard
   makes every move wait, with no instant path, misses 4337/module transactions, and we couldn't find its audit.
-  Ours: a module that queues moves signed by wedgie + one, runs them after 48 h, and lets any key cancel.
+  Ours: a module that queues moves signed by wedgie + one, runs them after 48 h, and lets a key cancel (rules
+  above). It checks signatures and executes as the Safe, so it has full power: it needs a full audit.
   **Until phase 4 ships, the Safe needs 3 votes and wedgie + one is instant.**
 
 ## Who can do what (level 4+)
@@ -93,24 +105,46 @@ the DAO, so the DAO can no longer reset your keys. It's a good fit: recovery is 
 | spend up to the daily limit | burner alone, instant |
 | anything | all three, instant; or wedgie + burner / wedgie + hot, after 48 h |
 | change a limit, add/remove a key, change recovery | same as "anything" |
-| cancel a waiting move | any one key, instant |
+| cancel a waiting move | any one key, instant (not a move that removes that key) |
+| cancel a recovery; change guardians, modules, guard | all three keys |
 | stop the burner (revoke its budget) | hot alone or wedgie alone, instant ("protect" role) |
 | turn on the travel lock | any one key, instant |
-| replace keys | recovery, after 7 days; owners can cancel |
+| replace keys | recovery, after 7 days; all three keys can cancel |
 | hand everything to your heir | death switch, after 6 months; owners can cancel |
 
 The "protect" role: a Zodiac Roles permission that lets one key do exactly one thing, switch off the burner's
 budget. **Protecting is one key and instant; weakening needs two keys and waits, or all three.**
+
+**After a recovery, reset everything.** Candide only swaps the Safe's owners. It does not touch Roles
+(the old burner's budget, protect roles), our module's key list, or the travel lock. So the new owners' first
+transaction (one batch, instant) removes every old key from Roles and our module and sets the new ones.
+Queued moves already died with the owner change. Until that batch runs, the old burner still has its daily budget,
+so the app does it right away.
+
+Budgets are per token, and only tokens given a budget can be spent by the burner. Every other token is 0.
 
 ## Travel lock ("French mode", Austin 10-05, decided)
 
 "For the next week, at most $2,000 can leave, no matter who signs." Even all three keys can't go over it, and
 nobody can switch it off early. Kidnappers get $2,000 at most (the 2025 France attacks: the Ledger
 co-founder lost a finger).
-- Any one key turns it on. It ends on its own and can't be lifted early.
+- Any one key turns it on, with the cap the owners set in advance (one key can't pick the cap). A one-key
+  lock lasts at most 7 days and can't be extended by one key. Wedgie + one can set up to 30 days. It
+  ends on its own and can't be lifted early. During a lock you can remove keys but not add them, so a thief
+  who locks you with a stolen key gets removed (they can't cancel their own removal).
+- **What it must block, or the cap is fake:**
+  - turning the guard, modules or fallback handler off or on; delegatecalls; adding owners;
+  - **signed messages** (EIP-1271). Owners could sign a permit / Permit2 message and anyone could pull tokens
+    with no Safe transaction. Our fallback handler refuses to sign while locked;
+  - **standing approvals.** A spender with an allowance can `transferFrom` with no Safe transaction, which the
+    guard never sees. The app keeps no standing approvals (approve, use, reset in one batch). The lock only
+    turns on if the allowance to every known spender (Permit2, routers) is 0, and that is checked on chain
+    at the time. Unknown spenders are the leftover risk;
+  - every outflow counted against the cap: transfers, approvals, ETH value, swaps that send to someone else.
+    Simplest: while locked, only USDC `transfer` up to the cap and the protecting actions are allowed.
 - Safe owners can normally do anything, and only a **guard** can stop them. It's part of our one custom
-  contract and needs Safe 1.5, which also guards module transactions (Roles, recovery). Recovery still works
-  during a lock: new keys, same cap until it ends.
+  contract and needs Safe 1.5, which also guards module transactions (Roles, recovery, our module). Recovery
+  still works during a lock: new keys, same cap until it ends.
 - Risk: a buggy guard can freeze a Safe. Ending on its own limits that.
 - **Provable to an attacker:** the contract is verified on Basescan / Etherscan, `lockStatus(safe)` returns the
   cap and end time, and `TravelLocked(safe, until, cap)` is emitted. The app shows a big red "LOCKED until Fri,
@@ -135,7 +169,11 @@ and anyone can submit them, not only us. If our relay dies, nothing is stuck.
 Three buddies, one Safe, e.g. 2 of 3 must sign. **The owners of the group Safe are each member's own Instant
 Wallet Safe**, not their keys. Safe supports a Safe owning a Safe (contract signatures, EIP-1271).
 
-- A member signs for the group with their own wallet's rule: wedgie + phone (or + hot).
+- A member signs for the group with their wallet's **full** threshold, not the 48 h rule. Safe checks a
+  member Safe's signature against its threshold, and our module doesn't sign. At level 4 that means:
+  - all three keys, instant (one signature per key); or
+  - wedgie + one: the member Safe approves the group tx on chain (`approveHash`) through the 48 h path.
+  (Before phase 4: wedgie + one, instant.)
 - Lose your wedgie? You fix it inside your own wallet (wedgie + other key, or your recovery). The group Safe
   never changes and the others do nothing.
 - The group can have its own recovery, death switch, daily limits (Roles) and travel lock, the same pieces.
@@ -161,10 +199,14 @@ Goal: the wallet on lots of chains, added as you go, at the same address. Some c
   recovery) in one batch. The relay does it, paid in USDC.
 - **Danger: an old setup is reborn.** The first setup has the burner as the only owner. If that burner was
   stolen and later removed on Base, the thief could deploy the Safe on a new chain with the first setup and
-  own it there, along with anything sent there. Fixes (pick in the spike):
-  1. Deploy on every supported chain right at signup, while the burner is fresh (cheap on L2s; skip Ethereum).
-  2. The app only shows your address on chains where it's deployed with your current keys, and warns
-     loudly before anyone sends to a chain where it isn't.
+  own it there, along with anything sent there. Nothing lets you take that chain back. So **the promise is
+  limited**:
+  1. At signup, deploy on every cheap supported chain while the burner is fresh.
+  2. Same address on a later chain **only while the original burner is still trusted** (still yours, never
+     stolen). Once it's removed or lost, a new chain gets a **new** address whose first setup is your current
+     keys.
+  3. The app only shows an address on chains where it's deployed with your current keys, and warns loudly
+     before anyone sends to a chain where it isn't.
 - **Passkey/wedgie signers must use the same settings everywhere,** or their addresses (and so the Safe's)
   change. Use the P-256 precompile *plus* a fallback verifier on every chain, because not every chain has
   the precompile. (The Base test in `WEDGIE-SAFE.md` used the precompile only; that signer won't work on a
@@ -253,18 +295,21 @@ over to it and checks it works. The same skill.md helps your own AI walk you thr
 ## Security model
 
 1. **Audited code first.** Everything on chain is audited code that already holds real money, except at most
-   one small contract of ours (any-key cancel + travel lock), which gets its own audit.
+   one contract of ours (48 h wait + cancel rules + travel lock), which gets a full audit.
 2. **One key is never enough for a big move** (level 2+). From level 4: two keys (one the wedgie) wait 48 h and
    any key cancels; only all three are instant.
 3. **Protecting is one key and instant; weakening is two keys and a wait, or all three.**
 4. **Recovery is slow and loud.** 7 days, an alert the moment it starts, and your owners can cancel.
 5. **The DAO is trusted until you replace it.** At levels 1–2 the DAO could reset your keys if you ignore
-   the alert for 7 days. That's the deal for a free backup on spending money. Level 3 (paper) removes it.
+   the alert for 7 days. That's the deal for a free backup on spending money. Level 3 (paper) removes the
+   7-day recovery. The DAO's death switch can still reset your keys after a 6-month wait until level 5.
 6. **Alerts are required.** A wait you don't hear about protects nothing. Push, email, Telegram, and the
    watcher is open source so you can run your own.
 7. **The wedgie key never leaves the chip.** You confirm by pressing A after reading the screen (no PIN). Any
    wedgie app can use the key, so a wallet wedgie only runs reviewed apps.
-8. **There's a way out.** Safe's own tools can open your Safe if instantwallet.io disappears.
+8. **There's a way out.** Our app is open source and pinned on IPFS, so it still runs if instantwallet.io
+   disappears. Safe's own app may also work, but that's unproven: passkey owners may fail there (#8808), and
+   the wedgie needs our firmware anyway.
 
 ## What happens if it leaks (stolen)
 
@@ -272,18 +317,20 @@ Level 4+ assumes our contract is live (phase 4). Before that, any two keys inclu
 
 | stolen | level 1 | levels 2–3 | level 4+ |
 |---|---|---|---|
-| burner | **everything** (spending money only) | $100/day; hot stops it; recovery replaces it in 7 d | $100/day; hot or wedgie stops it; the others replace it |
-| hot | — | nothing alone; recovery replaces it in 7 d | nothing alone; wedgie + burner replace it (48 h) |
+| burner | **everything** (spending money only) | $100/day; hot stops it; recovery replaces it in 7 d | $100/day; hot or wedgie stops it; wedgie + hot remove it (48 h, thief can't cancel) |
+| hot | — | nothing alone; recovery replaces it in 7 d | nothing alone; wedgie + burner remove it (48 h, thief can't cancel) |
 | wedgie | — | — | nothing alone; recovery replaces it in 7 d |
 | burner + hot | — | **everything** | $100/day; wedgie stops it; recovery replaces both |
-| burner + wedgie | — | — | their move waits 48 h; hot cancels; recovery replaces both |
-| hot + wedgie | — | — | their move waits 48 h; burner cancels; recovery replaces both |
+| burner + wedgie | — | — | each move waits 48 h; hot cancels each one; recovery replaces both in 7 d (they can't cancel it) |
+| hot + wedgie | — | — | each move waits 48 h; burner cancels each one; recovery replaces both in 7 d (they can't cancel it) |
 | all three | — | — | **everything**, instantly |
-| one paper share (level 3+) | — | nothing | nothing |
-| two paper shares / the recovery key | takeover waits 7 d; burner cancels | burner + hot cancel | owners cancel |
-| death switch (DAO) | waits 6 mo; owners cancel | same | same |
+| one paper share (level 3+) | — | nothing with SLIP-39 (word cards: 16 of 24 words leak) | same |
+| two paper shares / the recovery key | takeover waits 7 d; burner cancels | burner + hot cancel | all three cancel. Lost a key too? It goes through |
+| death switch (DAO) | waits 6 mo; owners cancel | same | same (all three at level 4+) |
 
-A thief can't block a recovery or win a cancel war: any one key you still hold cancels their waiting moves.
+A thief with two keys keeps queuing moves; you cancel each one (every 48 h) until recovery lands in 7 d. That
+only works if the alerts reach you. They can't cancel the recovery, and they can't block their own key's removal.
+After a recovery, the new keys reset Roles and our module right away (see "After a recovery").
 A thief holding hot or the wedgie alone can switch off your burner's budget. That's annoying, not theft.
 
 ## What happens if you lose it
@@ -291,14 +338,14 @@ A thief holding hot or the wedgie alone can switch off your burner's budget. Tha
 | lost | level 1 | levels 2–3 | level 4+ |
 |---|---|---|---|
 | burner (passkey synced to iCloud/Google) | open the app on the new phone | same | same |
-| burner (not synced) | recovery gives you a new one in 7 d | recovery, 7 d | wedgie + hot add one (48 h) |
+| burner (not synced) | recovery gives you a new one in 7 d | recovery, 7 d | wedgie + hot swap it (48 h) |
 | hot | — | recovery replaces it in 7 d; burner keeps $100/day | wedgie + burner replace it (48 h) |
 | wedgie | — | — | recovery replaces it in 7 d; burner keeps $100/day |
 | any two keys | — | recovery, 7 d | recovery, 7 d |
 | one paper share | — | make new shares (level 3+) | same |
 | every key | recovery, 7 d | recovery, 7 d | recovery, 7 d |
 | every key + recovery | death switch, 6 mo → heir | same | same |
-| recovery (DAO or paper) | burner sets a new one | burner + hot | owners |
+| recovery (DAO or paper) | burner sets a new one | burner + hot | all three |
 | you (death) | death switch → heir after 6 mo | same | same |
 
 ## Open decisions
@@ -315,7 +362,7 @@ A thief holding hot or the wedgie alone can switch off your burner's budget. Tha
 4. ~~Default daily limit~~ **Decided: $100 per token**, user can change it.
 5. ~~48 h wait~~ **Decided:** wedgie + one waits 48 h, all three instant, any key cancels (our contract, phase 4).
 6. ~~Travel lock~~ **Decided:** yes, in the same contract.
-7. **Paper share scheme:** SLIP-39 vs overlapping word cards. And what the "special paper" is (printed card
+7. **Paper share scheme:** SLIP-39 (recommended) vs overlapping word cards. And what the "special paper" is (printed card
    kit, steel plates).
 
 ## Not proven yet (Base-fork spike first)
@@ -335,6 +382,12 @@ A thief holding hot or the wedgie alone can switch off your burner's budget. Tha
 11. Safe 1.5 deployed on Base and every target chain; Safe's owners endpoint lists Safes owned by a
     passkey signer and by a Safe (for groups).
 12. Ethereum mainnet: check every piece is deployed there too, not just Base.
+13. Attacks to test: two stolen keys trying to cancel a recovery; a one-key thief cancelling its own
+    removal; the old burner's budget after a recovery (and the reset batch); travel-lock bypasses (standing
+    approvals, Permit2 / 1271 signatures, delegatecall, guard removal, swaps to outside recipients);
+    deploying on a new chain after the original burner is gone.
+14. The wedgie making two keys in two slots and signing both with one press.
+15. Group signing by a member Safe at threshold 4 (all three) and via `approveHash` through the 48 h path.
 
 ## Decide before the first user
 
@@ -361,7 +414,8 @@ Plan everything now (this doc); build in phases. Each phase updates `skill.md`.
    Protect role. The level meter and nudges.
 3. **Safety.** Death switch (6 mo, our Candide deployment) + heir on EAS. Level 5 (DAO removed). Full
    alerts (push, email, Telegram; open-source watcher).
-4. **Our one custom contract:** wedgie + one waits 48 h, any key cancels, travel lock (Safe 1.5 module + guard).
+4. **Our one custom contract:** wedgie + one waits 48 h, cancel rules, travel lock (Safe 1.5 module + guard +
+   fallback handler).
    Safe goes to 4 votes. Audited before real money.
 5. **More chains.** Same address, deploy + replay, Ethereum mainnet. Different-address chains last.
 6. **Group wallets.** Safes owned by members' Safes, pending-transactions view.

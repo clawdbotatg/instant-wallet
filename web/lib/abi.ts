@@ -103,6 +103,32 @@ export const instantWalletAbi = [
   },
   {
     "type": "function",
+    "name": "MAX_COLD_DELAY",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "MAX_RECOVERY_DELAY",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "MESSAGE_TYPEHASH",
     "inputs": [],
     "outputs": [
@@ -2150,6 +2176,11 @@ export const instantWalletAbi = [
         "internalType": "uint256"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "DelayTooLong",
+    "inputs": []
   },
   {
     "type": "error",

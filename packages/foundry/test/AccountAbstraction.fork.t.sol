@@ -278,6 +278,52 @@ contract AccountAbstractionForkTest is Test {
         assertEq(IERC20(USDC).balanceOf(bob), 5 * USD);
     }
 
+    /// Review fix: a limited key can't pay gas in ETH (it could burn the wallet's ETH at any gas price).
+    function test_review_spenderCantPayGasInEth() public {
+        (uint256 x, uint256 y) = vm.publicKeyP256(CHIP_PK);
+        InstantWallet.Call[] memory admin = new InstantWallet.Call[](2);
+        admin[0] = InstantWallet.Call(address(w), 0, abi.encodeCall(w.addSigner, (bytes32(x), bytes32(y), 1, 0, 0)));
+        admin[1] = InstantWallet.Call(address(w), 0, abi.encodeCall(w.setLimit, (chipId, USDC, uint128(1e6))));
+        InstantWallet.PackedUserOperation memory op = newOp(passId, admin, true);
+        signWithPermit(op, 2e6, later());
+        submit(op);
+        vm.deal(address(w), 1 ether);
+
+        op = newOp(chipId, new InstantWallet.Call[](0), false);
+        op.paymasterAndData = "";
+        op.gasFees = bytes32(uint256(800 gwei) << 128 | 800 gwei);
+        signPlain(op, CHIP_PK, later());
+        InstantWallet.PackedUserOperation[] memory ops = new InstantWallet.PackedUserOperation[](1);
+        ops[0] = op;
+        vm.prank(bundler, bundler);
+        vm.expectRevert(); // FailedOp(0, "AA24 signature error")
+        IEntryPoint(EP).handleOps(ops, bundler);
+        assertEq(address(w).balance, 1 ether, "no ETH left the wallet");
+    }
+
+    /// Review fix: a spender's gas refills count against its USDC limit, so fees can't drain past it.
+    function test_review_spenderGasRefillsCountAgainstItsLimit() public {
+        (uint256 x, uint256 y) = vm.publicKeyP256(CHIP_PK);
+        InstantWallet.Call[] memory admin = new InstantWallet.Call[](2);
+        admin[0] = InstantWallet.Call(address(w), 0, abi.encodeCall(w.addSigner, (bytes32(x), bytes32(y), 1, 0, 0)));
+        admin[1] = InstantWallet.Call(address(w), 0, abi.encodeCall(w.setLimit, (chipId, USDC, uint128(2 * USD))));
+        InstantWallet.PackedUserOperation memory op = newOp(passId, admin, true);
+        signWithPermit(op, 2 * USD, later());
+        submit(op);
+        // drain the allowance below half with empty spender ops, then check the refill was charged
+        uint256 spentBefore = w.getAllowance(chipId, USDC).spent;
+        for (uint256 i; i < 40 && IERC20(USDC).allowance(address(w), PM) >= w.GAS_ALLOWANCE() / 2; ++i) {
+            op = newOp(chipId, new InstantWallet.Call[](0), false);
+            signPlain(op, CHIP_PK, later());
+            submit(op);
+        }
+        op = newOp(chipId, new InstantWallet.Call[](0), false);
+        signPlain(op, CHIP_PK, later());
+        submit(op);
+        assertGt(w.getAllowance(chipId, USDC).spent, spentBefore, "the refill was charged to the spender's limit");
+        assertLe(w.getAllowance(chipId, USDC).spent, 2 * USD);
+    }
+
     function test_expiredOpRejected() public {
         InstantWallet.PackedUserOperation memory op = newOp(passId, send(bob, USD), true);
         signWithPermit(op, 2 * USD, uint48(block.timestamp - 1));

@@ -109,6 +109,9 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
     uint256 public constant WINDOW = 1 days;
     /// @notice Shortest recovery / cold delay (5 minutes so test wallets can run every scenario quickly).
     uint64 public constant MIN_RECOVERY_DELAY = 5 minutes;
+    /// @notice Longest cold delay / recovery delay: a lone owner (or a thief with the wedgie) can't lock the wallet.
+    uint64 public constant MAX_COLD_DELAY = 30 days;
+    uint64 public constant MAX_RECOVERY_DELAY = 90 days;
 
     bytes32 private constant DOMAIN_TYPEHASH =
         keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
@@ -222,6 +225,7 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
     error WrongCalls();
     error SameKey();
     error SkipDisabled();
+    error DelayTooLong();
 
     modifier onlyEntryPoint() {
         if (msg.sender != ENTRY_POINT) revert OnlyEntryPoint();
@@ -256,7 +260,7 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
 
     /// @notice Semver of this implementation; the app reads it to offer upgrades.
     function version() external pure virtual returns (string memory) {
-        return "3.2.0";
+        return "3.2.1";
     }
 
     // ---------------------------------------------------------------- views
@@ -433,10 +437,7 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
         Call[] memory calls = abi.decode(op.callData[4:], (Call[]));
         _dispatch(signerId, calls);
         if (op.paymasterAndData.length >= 20 && address(bytes20(op.paymasterAndData[0:20])) == CIRCLE_PAYMASTER) {
-            IERC20 token = ITokenPaymaster(CIRCLE_PAYMASTER).token();
-            if (token.allowance(address(this), CIRCLE_PAYMASTER) < GAS_ALLOWANCE / 2) {
-                token.forceApprove(CIRCLE_PAYMASTER, GAS_ALLOWANCE);
-            }
+            _refillGas(signerId);
         }
         emit Executed(signerId, keccak256(op.callData), calls.length, op.nonce);
     }
@@ -516,6 +517,7 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
     /// @notice `coldDelay = 0` turns the wait off (Simple). Longer is protecting (instant); shorter waits.
     function setColdDelay(uint64 delay) external onlySelf {
         if (delay != 0 && delay < MIN_RECOVERY_DELAY) revert DelayTooShort();
+        if (delay > MAX_COLD_DELAY) revert DelayTooLong();
         coldDelay = delay;
         emit ColdSettings(delay, noTwoKeySkip);
     }
@@ -669,6 +671,12 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
         if (sig.length < 40) return SIG_VALIDATION_FAILED;
         address signerId = address(uint160(op.nonce >> 64));
         if (_signerIndex[signerId] == 0) return SIG_VALIDATION_FAILED;
+        // a limited key, or an owner that has to wait, never pays gas in ETH (it could burn the wallet's ETH at any
+        // gas price): only through the USDC paymaster, whose refills count against the limit (executeUserOp)
+        if (
+            (_signers[signerId].role != ROLE_OWNER || coldDelay != 0)
+                && (op.paymasterAndData.length < 20 || address(bytes20(op.paymasterAndData[0:20])) != CIRCLE_PAYMASTER)
+        ) return SIG_VALIDATION_FAILED;
         uint48 validUntil = uint48(bytes6(sig[0:6]));
         uint256 cut = uint16(bytes2(sig[6:8]));
         if (cut > op.paymasterAndData.length) return SIG_VALIDATION_FAILED;
@@ -703,6 +711,25 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
         }
         results = _run(calls);
         _actor = address(0);
+    }
+
+    /**
+     * @dev Top the paymaster's USDC allowance back up after an op it paid for. A spender's refill counts against
+     *      its USDC limit (skipped if that would go over, or while frozen: the op still runs, the allowance just
+     *      drains); an owner that has to wait never refills. So fees can't drain more than the limits allow.
+     */
+    function _refillGas(address signerId) internal {
+        IERC20 token = ITokenPaymaster(CIRCLE_PAYMASTER).token();
+        uint256 cur = token.allowance(address(this), CIRCLE_PAYMASTER);
+        if (cur >= GAS_ALLOWANCE / 2) return;
+        if (_signers[signerId].role == ROLE_OWNER) {
+            if (coldDelay != 0) return;
+        } else {
+            uint256 refill = GAS_ALLOWANCE - cur;
+            if (block.timestamp < frozenUntil || refill > remainingAllowance(signerId, address(token))) return;
+            _spend(signerId, address(token), refill);
+        }
+        token.forceApprove(CIRCLE_PAYMASTER, GAS_ALLOWANCE);
     }
 
     function _queue(address proposer, Call[] memory calls) internal {
@@ -764,7 +791,8 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
         if (!owner) return false;
         if (sel == this.cancelRecovery.selector) return true;
         if (sel == this.setColdDelay.selector && d.length >= 36) {
-            return coldDelay != 0 && _word(d, 0) >= coldDelay;
+            uint256 delay = _word(d, 0);
+            return coldDelay != 0 && delay >= coldDelay && delay <= MAX_COLD_DELAY;
         }
         if (sel == this.setNoTwoKeySkip.selector && d.length >= 36) return _word(d, 0) == 1;
         return false;
@@ -869,7 +897,7 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
         emit SignerUpdated(id, role);
     }
 
-    /// @dev limit 0 removes the asset from the signer's list. Setting a limit restarts its window.
+    /// @dev limit 0 removes the asset from the signer's list. A new limit starts a window; a changed one keeps it.
     function _setLimit(address id, address asset, uint128 limit) internal {
         if (_signerIndex[id] == 0) revert UnknownSigner(id);
         uint256 idx = _limitedIndex[id][asset];
@@ -890,8 +918,11 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
             if (idx == 0) {
                 _limitedAssets[id].push(asset);
                 _limitedIndex[id][asset] = _limitedAssets[id].length;
+                _allowances[id][asset] = Allowance({ limit: limit, spent: 0, windowStart: uint64(block.timestamp) });
+            } else {
+                // changing a limit keeps today's spending: lowering it can't open a fresh window
+                _allowances[id][asset].limit = limit;
             }
-            _allowances[id][asset] = Allowance({ limit: limit, spent: 0, windowStart: uint64(block.timestamp) });
         }
         emit LimitSet(id, asset, limit);
     }
@@ -924,6 +955,7 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
     function _setGuardians(address[] calldata guardians, uint64 _recoveryDelay) internal {
         if (guardians.length > 16) revert TooManyGuardians();
         if (guardians.length != 0 && _recoveryDelay < MIN_RECOVERY_DELAY) revert DelayTooShort();
+        if (_recoveryDelay > MAX_RECOVERY_DELAY) revert DelayTooLong();
         for (uint256 i; i < _guardians.length; ++i) {
             isGuardian[_guardians[i]] = false;
         }

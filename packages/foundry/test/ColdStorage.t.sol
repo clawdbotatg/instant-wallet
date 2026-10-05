@@ -347,6 +347,46 @@ contract ColdStorageTest is Test {
         assertEq(w.getSigner(w.signerIdOf(bytes32(x), bytes32(y))).role, OWNER);
     }
 
+    // ------------------------------------------------------------ review fixes (instant-wallet-18's probes)
+
+    /// Lowering your own limit is protecting, but it must not reset today's spending.
+    function test_review_loweringALimitDoesntResetTheDay() public {
+        _exec(PASS_PK, pass, _pay(thief, 100 * USD));
+        _exec(PASS_PK, pass, _one(_self(abi.encodeCall(w.setLimit, (pass, address(usdc), uint128(99 * USD))))));
+        assertEq(w.remainingAllowance(pass, address(usdc)), 0, "still spent today");
+        _expectExecRevert(
+            PASS_PK, pass, _pay(thief, 1 * USD), abi.encodeWithSelector(InstantWallet.OverLimit.selector, pass, address(usdc), 1 * USD, 0)
+        );
+        assertEq(_bal(thief), 100 * USD);
+        vm.warp(block.timestamp + 1 days);
+        assertEq(w.remainingAllowance(pass, address(usdc)), 99 * USD, "the new limit applies from the next window");
+    }
+
+    /// A lone owner can't lock the wallet with a huge delay: lengthening past the cap isn't protecting, and the
+    /// setter refuses it anyway.
+    function test_review_hugeColdDelayRefused() public {
+        bytes32 id = _exec(CHIP_PK, chip, _one(_self(abi.encodeCall(w.setColdDelay, (type(uint64).max)))));
+        assertTrue(id != bytes32(0), "not instant: it queues");
+        assertEq(w.coldDelay(), WAIT);
+        vm.warp(block.timestamp + WAIT);
+        vm.expectRevert(InstantWallet.DelayTooLong.selector);
+        w.executeQueued(id, _one(_self(abi.encodeCall(w.setColdDelay, (type(uint64).max)))));
+        // up to the cap is fine (and instant: lengthening)
+        _exec(CHIP_PK, chip, _one(_self(abi.encodeCall(w.setColdDelay, (w.MAX_COLD_DELAY())))));
+        assertEq(w.coldDelay(), 30 days);
+        _exec(CHIP_PK, chip, _pay(alice, 1)); // owner actions still queue fine
+    }
+
+    function test_review_recoveryDelayCapped() public {
+        address[] memory g = new address[](1);
+        g[0] = guardian;
+        InstantWallet.Call[] memory c = _one(_self(abi.encodeCall(w.setGuardians, (g, type(uint64).max))));
+        bytes32 id = _exec(CHIP_PK, chip, c);
+        vm.warp(block.timestamp + WAIT);
+        vm.expectRevert(InstantWallet.DelayTooLong.selector);
+        w.executeQueued(id, c);
+    }
+
     // ------------------------------------------------------------ upgrade from 3.1
 
     function test_simpleWalletUnchanged_noWait() public {

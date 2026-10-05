@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { type Address, type Hex, getAddress, isAddress, parseUnits } from "viem";
-import { DEFAULT_CHAIN, chainById } from "@/lib/chains";
+import { DEFAULT_CHAIN, chainById, publicClient } from "@/lib/chains";
 import {
   type QueuedAction,
   type Safety as SafetyState,
@@ -63,6 +63,13 @@ export function Safety({ account, signer, who }: { account: Account; signer?: Ke
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const me = signer?.signerId ?? account.signerId;
+  const [implReady, setImplReady] = useState(true);
+  useEffect(() => {
+    publicClient(chainId)
+      .getCode({ address: IMPL_32 })
+      .then(c => setImplReady(!!c && c !== "0x"))
+      .catch(() => {});
+  }, [chainId]);
 
   const refresh = useCallback(() => {
     readSafety(chainId, account.address).then(setS).catch(e => setError(friendly(e)));
@@ -178,13 +185,14 @@ export function Safety({ account, signer, who }: { account: Account; signer?: Ke
         </div>
       )}
 
-      {s.deployed && !v32 && amOwner && (
+      {implReady && s.deployed && !v32 && amOwner && (
         <button className="btn wide" disabled={!!busy} onClick={() => run("upgrade", upgradeCalls(account.address))}>
-          Upgrade to 3.2 (adds cold storage)
+          Upgrade to 3.2.1 (adds cold storage)
         </button>
       )}
 
-      {amOwner && s.coldDelay === 0 && who === "passkey" && (
+      {!implReady && <p className="fine">Cold storage isn't live on this network yet (version 3.2.1 is in review).</p>}
+      {implReady && amOwner && s.coldDelay === 0 && who === "passkey" && (
         <Setup account={account} needsUpgrade={!v32} busy={busy} onRun={run} />
       )}
       {!s.deployed && <p className="fine">Your wallet deploys on its first send. Make one send, then set up cold storage.</p>}

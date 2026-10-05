@@ -80,7 +80,7 @@ await page.getByText("Set up with Face ID").tap();
 await page.getByText("Cold storage", { exact: true }).waitFor({ timeout: 90000 }).catch(async e => (console.log("on screen:", await errs()), Promise.reject(e)));
 await shot("2-cold");
 const call = (sig, ...a) => cast(`call ${W} "${sig}" ${a.join(" ")}`);
-ok(call("version()(string)") === '"3.2.0"', "upgraded to 3.2 in the setup Face ID");
+ok(call("version()(string)") === '"3.2.1"', "upgraded to 3.2 in the setup Face ID");
 ok(call("coldDelay()(uint64)").startsWith("600"), "10-minute wait set");
 ok(call("isGuardian(address)(bool)", guardian) === "true", "test guardian set");
 

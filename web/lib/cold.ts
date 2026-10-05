@@ -12,8 +12,8 @@ import { signerIdOf } from "./address";
  * wallet itself and goes through sendCalls like any other batch.
  */
 
-/** InstantWallet 3.2.0 on Base (CREATE2: same address on every chain). Wallets move to it with upgradeToAndCall. */
-export const IMPL_32: Address = "0xe4770da4Ac9D0d23aD01957A1C8185c5B0Ae402D";
+/** InstantWallet 3.2.1 (CREATE2, salt "instant-wallet.v3.2.1": same address on every chain). Wallets move to it with upgradeToAndCall. */
+export const IMPL_32: Address = "0x9F1faF8e43dd7612373A1Fa3C4922d171EE0E109";
 export const KIND_RAW = 1;
 export const ROLE_SPENDER = 0;
 export const ROLE_OWNER = 1;

@@ -126,6 +126,24 @@ Even all three keys can't go over it, and nobody can switch it off early, so a $
 4337 only accepts owner signatures. From level 2 up, the burner's daily spends go through a relay or self-send,
 and anyone can submit them, not only us. If our relay dies, nothing is stuck.
 
+## Group wallets (idea, Austin 10-05)
+
+Three buddies, one Safe, e.g. 2 of 3 must sign. **The owners of the group Safe are each member's own Instant
+Wallet Safe**, not their keys. Safe supports a Safe owning a Safe (contract signatures, EIP-1271).
+
+- A member signs for the group with their own wallet's rule: wedgie + phone (or + hot).
+- Lose your wedgie? You fix it inside your own wallet (wedgie + other key, or your recovery). The group Safe
+  never changes and the others do nothing.
+- The group can have its own recovery, death switch, daily limits (Roles) and travel lock, the same pieces.
+
+To check:
+- Signing a group tx = each member's Safe validating a signature. That skips the member's own 48 h wait
+  and travel lock (those cover the member's moves, not their signatures). So put any wait or lock on the
+  group Safe itself.
+- 4337 bundlers may reject nested-Safe signatures (storage rules), so group txs go via relay or self-send.
+- The app needs a "pending group transactions" view (Safe's Transaction Service already stores proposals and
+  confirmations from passkey signers; see `WEDGIE-SAFE.md`).
+
 ## Security model
 
 1. **No custom contracts.** Everything on chain is audited code that already holds real money.
@@ -201,7 +219,8 @@ Lose the wedgie and big moves wait for recovery (7 days). Lose the burner or hot
 6. 4337 + Circle paymaster with passkey owners.
 7. Safe app as an escape hatch (issue #8808: passkey owners with 2+ signatures may fail there).
 8. EAS heir attestation made by the Safe itself (attester = the Safe), and reading it back.
-9. Ethereum mainnet: check every piece is deployed there too, not just Base.
+9. Group wallet: a Safe owned by members' Safes (each with a wedgie owner), 2 of 3 signing via relay.
+10. Ethereum mainnet: check every piece is deployed there too, not just Base.
 
 ## Build order
 

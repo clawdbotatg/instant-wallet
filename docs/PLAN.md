@@ -42,13 +42,18 @@ What is ours (not contracts, still must be reviewed): the app, the relay, the al
 
 Your address never changes. Each step is one transaction signed by the current owners.
 
-| level | owners (must all sign) | burner | recovery | death switch |
+| level | who can do anything together | burner alone | recovery | death switch |
 |---|---|---|---|---|
-| 1 Burner | burner | owner, no limit | DAO, 7 d | DAO, 6 mo |
-| 2 Hot | burner + hot | also $100/day alone | DAO, 7 d | DAO, 6 mo |
-| 3 Cold | hot + cold | $100/day alone, not an owner | DAO, 7 d | DAO, 6 mo |
-| 4 Own recovery | hot + cold | $100/day | yours (friend, second wedgie, your Safe) | DAO, 6 mo |
-| 5 Full self-custody | hot + cold | $100/day | yours | none, or your own heir address |
+| 1 Burner | burner | everything (it's the only key) | DAO, 7 d | DAO, 6 mo |
+| 2 Hot | burner + hot | $100/day | DAO, 7 d | DAO, 6 mo |
+| 3 Cold | wedgie + (burner or hot). **Not** burner + hot | $100/day | DAO, 7 d | DAO, 6 mo |
+| 4 Own recovery | same as 3 | $100/day | yours (friend, second wedgie, your Safe) | DAO, 6 mo |
+| 5 Full self-custody | same as 3 | $100/day | yours | none, or your own heir address |
+
+**How level 3 works with plain Safe (no custom code): the wedgie counts twice.** The wedgie is added as two
+owners: two of Safe's passkey-signer contracts for the same chip key (different verifier settings give
+different addresses). The Safe needs 3 signatures. Wedgie (2) + burner or hot (1) = 3. Burner + hot = 2, not
+enough. Wedgie alone = 2, not enough. One press on the wedgie: the same signature fills both slots.
 
 The app nudges you up by balance ("$500 in here, add MetaMask"). Level 1 is only for spending money.
 
@@ -57,14 +62,20 @@ The app nudges you up by balance ("$500 in here, add MetaMask"). Level 1 is only
 | action | who |
 |---|---|
 | spend up to the daily limit | burner alone, instant |
-| spend anything, any action | hot + cold together, instant |
-| change a limit, add/remove a key, change recovery | hot + cold together |
-| stop the burner (revoke its budget) | hot alone or cold alone, instant ("protect" role) |
-| replace keys | recovery, after 7 days; hot + cold can cancel |
+| spend anything, any action | wedgie + burner, or wedgie + hot, instant |
+| change a limit, add/remove a key, change recovery | wedgie + burner, or wedgie + hot |
+| stop the burner (revoke its budget) | hot alone or wedgie alone, instant ("protect" role) |
+| replace keys | recovery, after 7 days; wedgie + one other can cancel |
 | hand everything to your heir | death switch, after 6 months; owners can cancel |
 
 The "protect" role: a Zodiac Roles permission that lets one key do exactly one thing, switch off the burner's
 budget. Protecting is instant and needs one key; weakening needs two.
+
+**Optional delay (idea, not decided).** Two kinds:
+- *Wedgie alone, after a wait* (e.g. 48 h): for when burner and hot are both gone. Zodiac Delay can queue
+  it; cancelling needs the owners (wedgie + one other), so a thief holding only the wedgie can't cancel your
+  cancel, but you can't cancel theirs with one key either. Zodiac Delay's current version has no fresh audit.
+- *A wait even with two keys* (anti-"$5 wrench"): Safe can't force this without a guard, which is custom code.
 
 The daily limit is per token, resets daily, and the user can set it to anything (the owners sign).
 
@@ -82,7 +93,8 @@ and anyone can submit them, not only us. If our relay dies, nothing is stuck.
 ## Security model
 
 1. **No custom contracts.** Everything on chain is audited code that already holds real money.
-2. **One key is never enough for a big move** (level 2+). A thief needs two keys.
+2. **One key is never enough for a big move** (level 2+). A thief needs two keys, and from level 3 one of
+   them must be the wedgie.
 3. **Protecting is one key; weakening is two.**
 4. **Recovery is slow and loud.** 7 days, an alert the moment it starts, and your owners can cancel.
 5. **The DAO is trusted until you replace it.** At levels 1–3 the DAO could reset your keys if you ignore
@@ -97,33 +109,33 @@ and anyone can submit them, not only us. If our relay dies, nothing is stuck.
 
 | stolen | level 1 | level 2 | level 3+ |
 |---|---|---|---|
-| burner | **everything** (spending money only) | $100/day; hot stops it; recovery replaces it in 7 d | $100/day; hot or cold stops it; hot + cold replace it |
-| hot | — | nothing alone; recovery replaces it in 7 d | nothing alone; recovery replaces it in 7 d |
-| cold | — | — | nothing alone; recovery replaces it in 7 d |
-| burner + hot | — | **everything** | $100/day; cold stops it |
-| burner + cold | — | — | $100/day; hot stops it |
-| hot + cold | — | — | **everything**. Keep them apart |
-| recovery (DAO or yours) | takeover waits 7 d; burner cancels | burner + hot cancel | hot + cold cancel |
+| burner | **everything** (spending money only) | $100/day; hot stops it; recovery replaces it in 7 d | $100/day; hot or wedgie stops it; wedgie + hot replace it |
+| hot | — | nothing alone; recovery replaces it in 7 d | nothing alone; wedgie + burner replace it, now |
+| wedgie | — | — | nothing alone; burner + hot can't remove it, so recovery replaces it in 7 d |
+| burner + hot | — | **everything** | $100/day; wedgie stops it, then recovery or wedgie replaces them |
+| burner + wedgie | — | — | **everything**. Keep your wedgie and phone apart |
+| hot + wedgie | — | — | **everything**. Keep your wedgie and seed phrase apart |
+| recovery (DAO or yours) | takeover waits 7 d; burner cancels | burner + hot cancel | wedgie + one other cancel |
 | death switch | waits 6 mo; owners cancel | same | same |
 
-A thief holding one key can't block recovery: cancelling needs all owners.
-A thief holding hot or cold alone can switch off your burner's budget. That's annoying, not theft.
+A thief holding one key can't block recovery: cancelling needs the owners' full signatures.
+A thief holding hot or the wedgie alone can switch off your burner's budget. That's annoying, not theft.
 
 ## What happens if you lose it
 
 | lost | level 1 | level 2 | level 3+ |
 |---|---|---|---|
 | burner (passkey synced to iCloud/Google) | open the app on the new phone | same | same |
-| burner (not synced) | recovery gives you a new one in 7 d | recovery, 7 d | hot + cold add a new one, now |
-| hot | — | recovery replaces it in 7 d; burner keeps $100/day | same |
-| cold | — | — | recovery replaces it in 7 d; burner keeps $100/day |
-| hot + cold | — | — | recovery replaces both in 7 d |
+| burner (not synced) | recovery gives you a new one in 7 d | recovery, 7 d | wedgie + hot add a new one, now |
+| hot | — | recovery replaces it in 7 d; burner keeps $100/day | wedgie + burner replace it, now |
+| wedgie | — | — | recovery replaces it in 7 d; burner keeps $100/day |
+| hot + wedgie, or burner + wedgie | — | — | recovery, 7 d |
 | every key | recovery, 7 d | recovery, 7 d | recovery, 7 d |
 | every key + recovery | death switch, 6 mo → heir | same | same |
-| recovery | burner sets a new one | burner + hot | hot + cold |
+| recovery | burner sets a new one | burner + hot | wedgie + one other |
 | you (death) | death switch → heir after 6 mo | same | same |
 
-With one key lost, a big move waits for recovery (7 days). That's the price of "one key is never enough".
+Lose the wedgie and big moves wait for recovery (7 days). Lose the burner or hot and nothing waits.
 
 ## Open decisions
 
@@ -134,7 +146,8 @@ With one key lost, a big move waits for recovery (7 days). That's the price of "
    Changing the heir = a new attestation (owners sign). When the DAO starts the death switch, Candide records
    the proposed new owner on chain; the app and the alert compare it with the attested heir and say loudly
    if they differ. 6-month wait; owners can cancel.
-3. **Level 2 burner limit:** burner + hot are both owners, so together they can do anything. OK for level 2?
+3. ~~Level 2~~ **Decided (Austin, 10-05):** with only burner + hot, the two together can do anything. Once a
+   wedgie is added, anything big needs the wedgie + burner or hot. The app nudges "add a wedgie" above ~$1,000.
 4. **Default daily limit:** $100 per token.
 
 ## Not proven yet (Base-fork spike first)
@@ -142,7 +155,8 @@ With one key lost, a big move waits for recovery (7 days). That's the price of "
 1. Burner budget: Roles with a passkey-signer member, signed by the phone, submitted by a relay. Includes
    replay protection, and which Roles version is deployed on Base and Ethereum.
 2. The "protect" role: Roles letting one key switch off the burner (a call from the Safe back into Roles).
-3. Two-signature Safe with the wedgie as one owner (only one signature was tested).
+3. The wedgie counting twice: two passkey-signer owners for one chip key, threshold 3, one press fills both
+   (only threshold 1 was tested).
 4. Candide with the DAO Safe as guardian; our 6-month deployment.
 5. Each level change as one batched transaction.
 6. 4337 + Circle paymaster with passkey owners.

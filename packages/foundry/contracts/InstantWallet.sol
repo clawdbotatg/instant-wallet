@@ -332,7 +332,7 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
     }
 
     /// @notice callsHash = keccak256(concat(keccak256(abi.encode(target, value, keccak256(data))) ...)).
-    function hashCalls(Call[] calldata calls) public pure returns (bytes32) {
+    function hashCalls(Call[] memory calls) public pure returns (bytes32) {
         bytes memory acc;
         for (uint256 i; i < calls.length; ++i) {
             acc = bytes.concat(acc, keccak256(abi.encode(calls[i].target, calls[i].value, keccak256(calls[i].data))));
@@ -574,7 +574,7 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
         if (block.timestamp < q.executeAfter) revert NotReady(q.executeAfter, block.timestamp);
         if (hashCalls(calls) != q.callsHash) revert WrongCalls();
         if (_signerIndex[q.proposer] == 0) revert UnknownSigner(q.proposer);
-        if (block.timestamp < frozenUntil && !_isUnfreeze(calls)) revert WalletFrozen(frozenUntil);
+        if (block.timestamp < frozenUntil && !_isUnfreezeMem(calls)) revert WalletFrozen(frozenUntil);
         delete queued[id];
         address outer = _actor;
         _actor = q.proposer;
@@ -707,7 +707,7 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
 
     function _queue(address proposer, Call[] memory calls) internal {
         bytes memory encoded = abi.encode(calls);
-        bytes32 callsHash = _hashCallsMem(calls);
+        bytes32 callsHash = hashCalls(calls);
         bytes32 id = keccak256(abi.encode(callsHash, proposer, queueCount++));
         uint64 executeAfter = uint64(block.timestamp) + coldDelay;
         queued[id] = Queued(executeAfter, proposer, callsHash);
@@ -750,28 +750,24 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
                 || sel == this.executeQueued.selector
         ) return true;
         if (sel == this.setLimit.selector && d.length >= 100) {
-            (address who, address asset, uint128 limit) = abi.decode(_args(d), (address, address, uint128));
+            address who = address(uint160(_word(d, 0)));
+            address asset = address(uint160(_word(d, 1)));
+            uint256 limit = _word(d, 2);
             if (!owner && who != signerId) return false;
             uint256 cur = _allowances[who][asset].limit;
             return _signerIndex[who] != 0 && limit <= cur;
         }
         if (sel == this.removeSigner.selector && d.length >= 36) {
-            address who = abi.decode(_args(d), (address));
+            address who = address(uint160(_word(d, 0)));
             return who == signerId || (owner && _signerIndex[who] != 0 && _signers[who].role != ROLE_OWNER);
         }
         if (!owner) return false;
         if (sel == this.cancelRecovery.selector) return true;
         if (sel == this.setColdDelay.selector && d.length >= 36) {
-            uint64 delay = abi.decode(_args(d), (uint64));
-            return coldDelay != 0 && delay >= coldDelay;
+            return coldDelay != 0 && _word(d, 0) >= coldDelay;
         }
-        if (sel == this.setNoTwoKeySkip.selector && d.length >= 36) return abi.decode(_args(d), (bool));
+        if (sel == this.setNoTwoKeySkip.selector && d.length >= 36) return _word(d, 0) == 1;
         return false;
-    }
-
-    function _isUnfreeze(Call[] calldata calls) internal view returns (bool) {
-        return calls.length == 1 && calls[0].target == address(this) && calls[0].data.length == 4
-            && bytes4(calls[0].data) == this.unfreeze.selector;
     }
 
     function _isUnfreezeMem(Call[] memory calls) internal view returns (bool) {
@@ -779,19 +775,11 @@ contract InstantWallet is Initializable, UUPSUpgradeable, ReentrancyGuardTransie
             && bytes4(calls[0].data) == this.unfreeze.selector;
     }
 
-    function _args(bytes memory d) internal pure returns (bytes memory a) {
-        a = new bytes(d.length - 4);
-        for (uint256 i; i < a.length; ++i) {
-            a[i] = d[i + 4];
+    /// @dev Argument word `i` of an ABI-encoded call (after the 4-byte selector). Callers check the length.
+    function _word(bytes memory d, uint256 i) internal pure returns (uint256 v) {
+        assembly ("memory-safe") {
+            v := mload(add(d, add(36, mul(i, 32))))
         }
-    }
-
-    function _hashCallsMem(Call[] memory calls) internal pure returns (bytes32) {
-        bytes memory acc;
-        for (uint256 i; i < calls.length; ++i) {
-            acc = bytes.concat(acc, keccak256(abi.encode(calls[i].target, calls[i].value, keccak256(calls[i].data))));
-        }
-        return keccak256(acc);
     }
 
     function _run(Call[] memory calls) internal returns (bytes[] memory results) {

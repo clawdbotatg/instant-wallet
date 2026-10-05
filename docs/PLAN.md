@@ -128,8 +128,10 @@ With one key lost, a big move waits for recovery (7 days). That's the price of "
 ## Open decisions
 
 1. ~~Death switch length~~ **Decided: 6 months** (Austin, 10-05).
-2. **Death switch destination:** the user names an heir in advance (recommended), so the DAO only pulls the
-   trigger, or the DAO decides at the time.
+2. ~~Death switch destination~~ **Decided (Austin, 10-05):** the user names an heir; the DAO can overwrite it
+   (e.g. the user never set one, or tells the DAO). No custom code: Candide lets the guardian (DAO) propose any
+   new owner, so the named heir is a signed note the DAO follows (stored off-chain or as an ENS text record).
+   The guard is the 6-month wait plus the alert, which shows who the money goes to; owners can cancel.
 3. **Level 2 burner limit:** burner + hot are both owners, so together they can do anything. OK for level 2?
 4. **Default daily limit:** $100 per token.
 

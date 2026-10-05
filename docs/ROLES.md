@@ -1,5 +1,7 @@
 # Roles — who can do what
 
+> **Superseded / summarized by `PLAN.md` (2026-10-05)** — read that first.
+
 Austin, 2026-10-05. This replaces the key list and the "what a thief gets" table in `COLD-STORAGE.md`. Its delay, cancel
 and freeze mechanics still hold, with the changes below.
 Not built yet: contract 3.2 has burner + cold + guardians; hot, signature tiers and the death switch are new.

@@ -1,0 +1,156 @@
+# Instant Wallet — the plan
+
+2026-10-05. **This is the master doc.** It replaces the rules in `ROLES.md` and `COLD-STORAGE.md` (no more
+"one key waits 48 h"). Details: `SAFE.md` (research), `WEDGIE-SAFE.md` (wedgie as owner, tested),
+`LEVELS.md` (dials), `GAS.md` (fees). Our own `InstantWallet` 3.2 contract is shelved, never deployed.
+
+## In one paragraph
+
+You open instantwallet.io, Face ID, and you have a wallet: a **Gnosis Safe** controlled by a passkey on your
+phone. Later you add MetaMask, then a wedgie. Each key you add makes it harder to steal. Big moves need two
+keys; the phone keeps a daily spending limit. If you lose keys, your recovery address gives you new ones
+after 7 days. If you die, a death switch hands it to your heir after 6 months. Every contract is audited
+code that already exists. We write no contracts.
+
+## The pieces (all audited, all already deployed on Base)
+
+| piece | job | audited by |
+|---|---|---|
+| Safe 1.4.1 | the wallet: holds the money, list of owners, how many must sign | Safe (many) |
+| Safe passkey signer v0.2.1 | lets a passkey or a wedgie be a Safe owner | Certora, Nethermind, Hats |
+| Zodiac Roles v2.1 | gives a key limited powers without making it an owner (daily budgets) | G0, Omniscia |
+| Candide Social Recovery (×2) | recovery (7 days) and death switch (6 months) | Ackee, Nethermind, Certora |
+| Safe4337Module | optional: send through public 4337 bundlers | Ackee, Certora, Nethermind |
+
+The death switch needs our own deployment of Candide's audited code with a 6-month delay (theirs ship
+3/7/14 days). Same code, different number.
+
+What is ours (not contracts, still must be reviewed): the app, the relay, the alert watcher, and the wedgie
+`safe` app (firmware).
+
+## The keys
+
+| key | what it is | how it signs |
+|---|---|---|
+| **Burner** | passkey made on your phone by Face ID | WebAuthn, through Safe's passkey signer |
+| **Hot** | MetaMask / Rainbow / any wallet you already have, usually by ENS | normal Ethereum signature |
+| **Cold** | wedgie. Trust M chip makes the key; it never leaves the chip | press A; firmware wraps it as a passkey signature (tested on Base) |
+| **Recovery** | an address that can replace your keys after 7 days | starts as dao.buidlguidl.eth (4 of 8), you swap in your own |
+| **Death switch** | an address that can hand the wallet to your heir after 6 months | dao.buidlguidl.eth; optional |
+
+## Levels (how the Safe is set up at each one)
+
+Your address never changes. Each step is one transaction signed by the current owners.
+
+| level | owners (must all sign) | burner | recovery | death switch |
+|---|---|---|---|---|
+| 1 Burner | burner | owner, no limit | DAO, 7 d | DAO, 6 mo |
+| 2 Hot | burner + hot | also $100/day alone | DAO, 7 d | DAO, 6 mo |
+| 3 Cold | hot + cold | $100/day alone, not an owner | DAO, 7 d | DAO, 6 mo |
+| 4 Own recovery | hot + cold | $100/day | yours (friend, second wedgie, your Safe) | DAO, 6 mo |
+| 5 Full self-custody | hot + cold | $100/day | yours | none, or your own heir address |
+
+The app nudges you up by balance ("$500 in here, add MetaMask"). Level 1 is only for spending money.
+
+## Who can do what (level 3+)
+
+| action | who |
+|---|---|
+| spend up to the daily limit | burner alone, instant |
+| spend anything, any action | hot + cold together, instant |
+| change a limit, add/remove a key, change recovery | hot + cold together |
+| stop the burner (revoke its budget) | hot alone or cold alone, instant ("protect" role) |
+| replace keys | recovery, after 7 days; hot + cold can cancel |
+| hand everything to your heir | death switch, after 6 months; owners can cancel |
+
+The "protect" role: a Zodiac Roles permission that lets one key do exactly one thing, switch off the burner's
+budget. Protecting is instant and needs one key; weakening needs two.
+
+The daily limit is per token, resets daily, and the user can set it to anything (the owners sign).
+
+## Sending (who pays gas)
+
+| mode | how | cost | trusts |
+|---|---|---|---|
+| A Our relay (default) | we submit; the last action in the batch pays us in USDC | cheapest | us |
+| B 4337 | public bundlers + Circle paymaster (USDC gas) | more | no single party |
+| C Self-send | your MetaMask pays ETH gas | gas only | nobody |
+
+4337 only accepts owner signatures. From level 2 up, the burner's daily spends go through a relay or self-send,
+and anyone can submit them, not only us. If our relay dies, nothing is stuck.
+
+## Security model
+
+1. **No custom contracts.** Everything on chain is audited code that already holds real money.
+2. **One key is never enough for a big move** (level 2+). A thief needs two keys.
+3. **Protecting is one key; weakening is two.**
+4. **Recovery is slow and loud.** 7 days, an alert the moment it starts, and your owners can cancel.
+5. **The DAO is trusted until you replace it.** At levels 1–3 the DAO could reset your keys if you ignore
+   the alert for 7 days. That's the deal for a free backup on spending money. Level 4 removes it.
+6. **Alerts are required.** A wait you don't hear about protects nothing. Push, email, Telegram, and the
+   watcher is open source so you can run your own.
+7. **The wedgie key never leaves the chip.** You confirm by pressing A after reading the screen (no PIN). Any
+   wedgie app can use the key, so a wallet wedgie only runs reviewed apps.
+8. **There's a way out.** Safe's own tools can open your Safe if instantwallet.io disappears.
+
+## What happens if it leaks (stolen)
+
+| stolen | level 1 | level 2 | level 3+ |
+|---|---|---|---|
+| burner | **everything** (spending money only) | $100/day; hot stops it; recovery replaces it in 7 d | $100/day; hot or cold stops it; hot + cold replace it |
+| hot | — | nothing alone; recovery replaces it in 7 d | nothing alone; recovery replaces it in 7 d |
+| cold | — | — | nothing alone; recovery replaces it in 7 d |
+| burner + hot | — | **everything** | $100/day; cold stops it |
+| burner + cold | — | — | $100/day; hot stops it |
+| hot + cold | — | — | **everything**. Keep them apart |
+| recovery (DAO or yours) | takeover waits 7 d; burner cancels | burner + hot cancel | hot + cold cancel |
+| death switch | waits 6 mo; owners cancel | same | same |
+
+A thief holding one key can't block recovery: cancelling needs all owners.
+A thief holding hot or cold alone can switch off your burner's budget. That's annoying, not theft.
+
+## What happens if you lose it
+
+| lost | level 1 | level 2 | level 3+ |
+|---|---|---|---|
+| burner (passkey synced to iCloud/Google) | open the app on the new phone | same | same |
+| burner (not synced) | recovery gives you a new one in 7 d | recovery, 7 d | hot + cold add a new one, now |
+| hot | — | recovery replaces it in 7 d; burner keeps $100/day | same |
+| cold | — | — | recovery replaces it in 7 d; burner keeps $100/day |
+| hot + cold | — | — | recovery replaces both in 7 d |
+| every key | recovery, 7 d | recovery, 7 d | recovery, 7 d |
+| every key + recovery | death switch, 6 mo → heir | same | same |
+| recovery | burner sets a new one | burner + hot | hot + cold |
+| you (death) | death switch → heir after 6 mo | same | same |
+
+With one key lost, a big move waits for recovery (7 days). That's the price of "one key is never enough".
+
+## Open decisions
+
+1. **Death switch length:** 6 months (or 3).
+2. **Death switch destination:** the user names an heir in advance (recommended), so the DAO only pulls the
+   trigger, or the DAO decides at the time.
+3. **Level 2 burner limit:** burner + hot are both owners, so together they can do anything. OK for level 2?
+4. **Default daily limit:** $100 per token.
+
+## Not proven yet (Base-fork spike first)
+
+1. Burner budget: Roles with a passkey-signer member, signed by the phone, submitted by a relay. Includes
+   replay protection, and which Roles version is deployed on Base and Ethereum.
+2. The "protect" role: Roles letting one key switch off the burner (a call from the Safe back into Roles).
+3. Two-signature Safe with the wedgie as one owner (only one signature was tested).
+4. Candide with the DAO Safe as guardian; our 6-month deployment.
+5. Each level change as one batched transaction.
+6. 4337 + Circle paymaster with passkey owners.
+7. Safe app as an escape hatch (issue #8808: passkey owners with 2+ signatures may fail there).
+8. Ethereum mainnet: check every piece is deployed there too, not just Base.
+
+## Build order
+
+1. **Spike** on a Base fork: prove the list above. Fix the plan where it breaks.
+2. **Level 1 app:** Face ID → Safe (created on first deposit), scan, send, our relay with USDC fee.
+3. **Levels 2–3:** add MetaMask (ENS), pair the wedgie (`wedgie-safe` app, code in `WEDGIE-SAFE.md`).
+4. **Recovery, death switch, alerts** (watcher + push/email/Telegram).
+5. **Levels 4–5** and sending modes B and C.
+6. **Ethereum mainnet.**
+7. Review of our code: app, relay, watcher, wedgie firmware.

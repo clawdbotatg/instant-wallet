@@ -1,5 +1,7 @@
 # Levels — from burner to full self-custody
 
+> **Superseded / summarized by `PLAN.md` (2026-10-05)** — read that first.
+
 Austin, 2026-10-05. One Safe, one address for life. Each dial moves from "easy, trusts us" to
 "harder, trusts nobody". The app shows where you are and nudges you up (e.g. by balance). Add dials as we
 think of them. See `ROLES.md` (who can do what) and `SAFE.md` (how it's built).

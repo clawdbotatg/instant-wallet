@@ -1,5 +1,7 @@
 # Cold storage — the plan
 
+> **Superseded / summarized by `PLAN.md` (2026-10-05)** — read that first.
+
 > **2026-10-05: the roles are now in `ROLES.md`** (burner, hot, cold, recovery, death switch). The rules below still hold.
 
 Goal: cold storage that is dead simple to set up and very hard to steal from. One contract, every number

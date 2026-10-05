@@ -71,16 +71,33 @@ The app nudges you up by balance ("$500 in here, add MetaMask"). Level 1 is only
 The "protect" role: a Zodiac Roles permission that lets one key do exactly one thing, switch off the burner's
 budget. Protecting is instant and needs one key; weakening needs two.
 
-**Optional delay (idea, not decided).** Two kinds:
-- *Wedgie alone, after a wait* (e.g. 48 h): for when burner and hot are both gone. Zodiac Delay can queue it.
-  **Catch:** cancelling a queued move needs the owners (wedgie + one other). If a thief has your wedgie, they
-  use this same path and you can't cancel without the wedgie. Only safe if the wait is longer than recovery
-  (e.g. 14 d wait, 7 d recovery: recovery gives you a new wedgie, then you cancel). And whenever you have a
-  recovery address, recovery already covers "burner and hot both gone". Austin likes it; not decided.
-  Zodiac Delay's current version has no fresh audit.
-- *A wait even with two keys* (anti-"$5 wrench"): Safe can't force this without a guard, which is custom code.
+**Under discussion (Austin, 10-05): a 48 h wait on two-key moves, instant with all three.**
 
-The daily limit is per token, resets daily, and the user can set it to anything (the owners sign).
+Why: the Bybit attack. The owners signed what their screen showed, the screen was hacked, and the money was
+gone instantly. With a wait, a signed move shows up in the app first: "In 48 h, all your money goes to
+0x… [Cancel]".
+
+| who signs | what happens |
+|---|---|
+| burner alone | up to the daily limit, instant |
+| wedgie + burner, or wedgie + hot | anything, after 48 h, cancelable |
+| all three | anything, instant |
+| wedgie alone | nothing (needs a second signature) |
+
+What it buys: two stolen keys are no longer an instant loss. Only all three are.
+Lose one key and you can still move everything with the other two; it just waits 48 h.
+
+**Rejected: wedgie alone after a wait.** A thief who steals your wedgie could take everything in 48 h,
+because cancelling would need the wedgie. Any delayed path needs a second signature.
+
+**The hard part: who can cancel.** It has to be any one key (the one the thief doesn't have). Nothing
+audited does that:
+- Zodiac Delay: cancelling needs the Safe owners (here, all three), and whoever can cancel can also change
+  the delay.
+- Optimism's TimelockGuard: any one owner can cancel, but every move waits (no instant path). It only sees
+  normal Safe transactions (4337 and module transactions skip it), and we couldn't find its audit report.
+- A small custom "canceller" (~40 lines): the one thing it does is let any key cancel a queued move.
+  Everything else stays with the owners. This would be our only custom contract.
 
 ## Sending (who pays gas)
 
@@ -152,7 +169,8 @@ Lose the wedgie and big moves wait for recovery (7 days). Lose the burner or hot
 3. ~~Level 2~~ **Decided (Austin, 10-05):** with only burner + hot, the two together can do anything. Once a
    wedgie is added, anything big needs the wedgie + burner or hot. The app nudges "add a wedgie" above ~$1,000.
 4. **Default daily limit:** $100 per token.
-5. **Wedgie-alone delay:** add it (14 d, longer than recovery) or skip it. See "Optional delay" above.
+5. **48 h wait on two-key moves, instant with all three** (see "Under discussion"). If yes: custom canceller,
+   OP TimelockGuard, or accept Zodiac Delay's limits.
 
 ## Not proven yet (Base-fork spike first)
 

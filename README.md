@@ -1,5 +1,9 @@
 # Instant Wallet
 
+> **The plan (2026-10-05): `docs/PLAN.md`** — Instant Wallet becomes a Gnosis Safe front end: burner passkey →
+> MetaMask → sharded paper seed → wedgie, progressive decentralization. The older v3 plan (`docs/V3.md`, our own
+> contract) is shelved.
+>
 > **v3 in progress** (2026-10): passkey hot key + [wedgie](https://wedgie.dev) cold key. Plan: `docs/V3.md`.
 > The website is `web/` (Vercel root). Contracts (v3.1, ERC-4337 + gas in USDC via Circle Paymaster): InstantWallet `0xBd1569c8978fB403079b75eBAcc369F0E7244B6F`,
 > Factory `0x896c8D40022A79FC1228dB800FD3aaf7f21d7469` on Base. Sending + fees in USDC: `docs/GAS.md`. Everything below describes v2.

@@ -16,7 +16,7 @@ code that already exists; one small contract is ours (48 h wait with any-key can
 real money. The same wallet works on many chains at one address, can co-own group Safes with
 friends, and you can talk to it through any AI. Built in phases (bottom of this doc); planned in full here.
 
-## The pieces (all audited, all already deployed on Base)
+## The pieces (audited and already deployed on Base, except ours)
 
 | piece | job | audited by |
 |---|---|---|

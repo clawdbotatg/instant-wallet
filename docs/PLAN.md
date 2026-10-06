@@ -86,7 +86,10 @@ with an alert) until you remove it at level 5. It's a good fit: recovery is rare
   stolen or lost at a time. Two stolen keys = you're out of luck; the 48 h wait just slows them down.
   - **Cancel a waiting move: any two keys**, instant (burner + hot counts). One key can't cancel, so a thief
     with one key can't block anything.
-  - **Remove or replace a key:** the other two, after 48 h. The removed key can't stop it.
+  - **Remove or replace burner or hot:** wedgie + the other one, after 48 h. The removed key can **object**
+    (within the 48 h). An objection only delays it: the removal then runs after 7 d unless two keys cancel;
+    the paper seed can approve it at once (no more wait) or reject it (it dies). A stolen key can't block
+    its removal; the paper is optional, a shortcut. Remove the wedgie: see "If the wedgie is stolen".
   - **Cancel a recovery:** any two keys. So a stolen recovery address only wins if you've lost two keys.
   - Queued moves die when the Safe's owners change (the module records the owner set when a move is queued).
   - The module has no key list of its own: it reads the Safe's current owners, so a recovery updates it too.
@@ -94,12 +97,17 @@ with an alert) until you remove it at level 5. It's a good fit: recovery is rare
 - **The wedgie is the big decider (Austin 10-05):** every pair must include it. Burner + hot can't spend
   beyond the budget or remove the wedgie.
 - **Panic button (Austin 10-05).** Any one key, instant: everything (a token list + ETH) goes to your
-  **vault**: a second, slow Safe of yours. **Not the paper seed** (rejected: paper + one stolen key could press
-  panic and send everything to themselves). Vault rules: every move needs wedgie + paper seed and waits 7 d;
-  burner or hot alone can cancel (only theft of all of wedgie, paper and both other keys gets past it).
-  No budget, no panic. Changing which vault is used waits 7 d, alerts, any two keys cancel. A thief pressing it only moves your
-  money to your own vault. Against two stolen keys: their moves wait 48 h; your last key presses panic first.
-- **Paper seed breaks ties.** A key being removed can object; the paper seed then approves or rejects at once.
+  **vault**, a second, slow Safe of yours. A thief pressing it only moves your money to your own vault.
+  Against two stolen keys: their moves wait 48 h; your last key presses panic first.
+  - **Not the paper seed** (rejected: paper + one stolen key could press panic and send everything to themselves).
+  - **Vault moves:** wedgie + paper seed, then a 7 d wait. **Cancel: any two of burner, hot, wedgie, paper.**
+    (Rejected: one key cancels. A single stolen key could then block the vault forever.)
+  - **Vault keys follow the main wallet:** the vault reads the main Safe's current owners, so recovering or
+    replacing a key there fixes the vault too. Losing the paper: wedgie + one (main wallet) set a new paper
+    for the vault, 7 d, any two cancel. Losing the wedgie: replace it on the main wallet (below).
+  - No budget, no panic inside the vault. Changing which vault is used waits 7 d, alerts, any two keys cancel,
+    and is blocked during a travel lock.
+- **Paper seed as tie-break** is the objection rule above: approve or reject an objected removal at once.
 - **If the wedgie is stolen:** the thief alone can do nothing (needs a second key; cancelling also needs two).
   You: (1) press panic if worried; (2) **burner + hot + paper seed together replace the wedgie, instantly**
   (everyone but the wedgie); or (3) recovery, 7 d, the thief can't cancel. To make a stolen wedgie useless:
@@ -127,7 +135,8 @@ with an alert) until you remove it at level 5. It's a good fit: recovery is rare
 | turn on the travel lock | any one key, instant |
 | panic: everything to your vault | any one key, instant |
 | replace a stolen wedgie | burner + hot + paper seed, instant; or recovery, 7 d |
-| replace keys | the other two, after 48 h; or recovery, after 7 days (any two keys can cancel) |
+| replace burner or hot | wedgie + the other, 48 h; if it objects, 7 d or the paper approves now |
+| replace keys (any) | recovery, after 7 days (any two keys can cancel) |
 | hand everything to your heir | death switch, after 6 months; owners can cancel |
 
 The "protect" role: a Zodiac Roles permission that lets one key do exactly one thing, switch off the burner's
@@ -160,6 +169,8 @@ co-founder lost a finger).
     at the time. Unknown spenders are the leftover risk;
   - every outflow counted against the cap: transfers, approvals, ETH value, swaps that send to someone else.
     Simplest: while locked, only USDC `transfer` up to the cap and the protecting actions are allowed.
+  - **Panic is exempt:** it can only send to your vault, which is still yours, and the vault obeys the same lock
+    (its 7 d moves are capped too). Changing the vault address is blocked while locked.
 - Safe owners can normally do anything, and only a **guard** can stop them. It's part of our one custom
   contract and needs Safe 1.5, which also guards module transactions (Roles, recovery, our module).
 - **Recovery during a lock** is the one exception to "no adding owners": the guard allows Candide's
@@ -349,7 +360,7 @@ Every pair, checked:
 | hot + wedgie | drain (48 h) | burner presses panic → vault; vault needs paper |
 | paper + burner | recovery to their keys (7 d) | hot + wedgie cancel it |
 | paper + hot | recovery (7 d) | burner + wedgie cancel it |
-| paper + wedgie | recovery (7 d); press panic, then move vault money (7 d) | burner + hot cancel the recovery; burner or hot cancels the vault move |
+| paper + wedgie | recovery (7 d); press panic, then move vault money (7 d) | burner + hot cancel the recovery; burner + hot cancel the vault move |
 | DAO + any one key | death switch (6 mo) | two keys cancel |
 
 What every row depends on: **the alert reaching you** within 48 h. Alerts aren't optional.
@@ -362,8 +373,8 @@ Level 4+ assumes our contract is live (phase 4). Before that, any two keys inclu
 
 | stolen | level 1 | levels 2–3 | level 4+ |
 |---|---|---|---|
-| burner | **everything** (spending money only) | $100/day; hot stops it; recovery replaces it in 7 d | $100/day; hot or wedgie stops it; wedgie + hot remove it (48 h) |
-| hot | — | nothing alone; recovery replaces it in 7 d | nothing alone; wedgie + burner remove it (48 h) |
+| burner | **everything** (spending money only) | $100/day; hot stops it; recovery replaces it in 7 d | $100/day; hot or wedgie stops it; wedgie + hot remove it (48 h; 7 d if it objects, or paper now) |
+| hot | — | nothing alone; recovery replaces it in 7 d | nothing alone; wedgie + burner remove it (48 h; 7 d if it objects, or paper now) |
 | wedgie | — | — | nothing alone; burner + hot + paper replace it now, or recovery in 7 d. PIN makes it useless |
 | burner + hot | — | **everything** | $100/day; wedgie stops it; recovery replaces both |
 | burner + wedgie | — | — | their moves wait 48 h; hot presses panic → money to your vault |
@@ -428,7 +439,9 @@ A thief holding hot or the wedgie alone can switch off your burner's budget. Tha
 11. Safe 1.5 deployed on Base and every target chain; Safe's owners endpoint lists Safes owned by a
     passkey signer and by a Safe (for groups).
 12. Ethereum mainnet: check every piece is deployed there too, not just Base.
-13. Attacks to test: one stolen key trying to cancel or block anything (must fail); panic racing a two-key
+13. Attacks to test: one stolen key trying to cancel or block anything, vault moves included (must fail);
+    a stolen key objecting to its removal (only delays to 7 d); panic during a travel lock; vault after a
+    main-wallet recovery; panic racing a two-key
     drain; changing the vault address (7 d); burner + hot + paper replacing the wedgie; a wedgie PIN; the old burner's budget after a recovery (and the reset batch); travel-lock bypasses (standing
     approvals, Permit2 / 1271 signatures, delegatecall, guard removal, swaps to outside recipients);
     deploying on a new chain after the original burner is gone; recovery finalizing during a travel lock

@@ -194,7 +194,7 @@ export function Keys({
         <Addr a={account.burnerSigner} chainId={chainId} />
       </Step>
 
-      <Step n={2} title="Hot wallet (extension)" done={!!hot && (st?.owners.length ?? 0) >= 2} current={level === 1}>
+      <Step n={2} title="Hot wallet" done={!!hot && (st?.owners.length ?? 0) >= 2} current={level === 1}>
         {hot && (st?.owners.length ?? 0) >= 2 ? (
           <>
             <p className="fine">Big moves need your Instant wallet + this hot wallet. The Instant wallet alone: 100 USDC + 0.04 ETH a day.</p>
@@ -208,8 +208,8 @@ export function Keys({
         ) : (
           <>
             <p className="fine">
-              Add a browser wallet extension (Rainbow, Rabby, MetaMask, any) as a second key. After this, anything over the Instant wallet&apos;s daily budget (100 USDC + 0.04 ETH) needs both.
-              Do this on a computer with the extension, or in your wallet app&apos;s browser.
+              Add your hot wallet as a second key: any wallet extension on your computer, or a wallet app on your phone. After this, anything over the Instant wallet&apos;s daily budget (100 USDC + 0.04 ETH) needs both.
+              For now, open this page in that wallet: on a computer with the extension, or in the wallet app&apos;s own browser.
             </p>
             <button className="btn btn-green wide" onClick={addHot} disabled={!!busy || !!pending || !canPay || !hotAvailable()}>
               {busy === "hot" ? "Connecting…" : hotAvailable() ? "Connect and add" : "No browser wallet here"}

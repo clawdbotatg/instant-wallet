@@ -267,8 +267,10 @@ Goal: the wallet on lots of chains, added as you go, at the same address. Some c
 - **Same address:** a Safe's address comes from Safe's factory plus its *first* setup (first owners, modules,
   a salt). Safe's contracts sit at the same addresses on most EVM chains, so the same first setup gives the
   same address everywhere. Funds sent before it's deployed on a chain are safe: deploy later, same address.
-- **Different address:** chains that compute addresses differently (zkSync Era and similar). The app keeps a
-  per-chain address list and shows the right one.
+- **Different address: skipped for now (Austin 10-05).** zkSync Era and chains built on it (Abstract, Lens, …)
+  compute addresses differently, so the same wallet gets a different address there. Not supported at first:
+  one address everywhere. Later, if added, the app shows that address only when you pick that chain.
+- **Same address:** Ethereum, Base, Optimism, Arbitrum, Polygon, Scroll, Linea.
 - **Adding a chain** = deploy with the *first* setup, then replay every change since (owners added, limits,
   recovery) in one batch. The relay does it, paid in USDC.
 - **Danger: an old setup is reborn.** The first setup has the burner as the only owner. If that burner was
@@ -288,6 +290,16 @@ Goal: the wallet on lots of chains, added as you go, at the same address. Some c
 - **Per chain, check:** Safe, passkey signer, Roles, Candide, EAS (different address off the OP Stack),
   our one custom contract (deploy it with the same deterministic deployer), USDC + Circle paymaster for 4337,
   and a funded relay.
+- **Receiving before deployment (Austin 10-05).** The wallet is counterfactual everywhere: the address works
+  for receiving on every supported chain, and it's deployed only when it first needs to do something there.
+  A sender who sees no contract may assume it's a normal wallet. Mostly fine (tokens, ETH and NFTs arrive and
+  are usable after deployment). Three risks, covered by the app's supported-chain list and warnings:
+  1. **Wrong chain:** money sent on a chain where this address can't be deployed (zkSync family, or a chain
+     missing Safe's contracts) is lost for good.
+  2. **"Sign to prove it's you":** airdrops, exchanges and old apps that only accept a normal-key signature
+     can't be satisfied. Before deployment, use ERC-6492 signatures where supported.
+  3. **ETH sent with a 2,300-gas limit** (old contracts using `transfer`): works before deployment, fails
+     after (a Safe proxy needs more gas). The money stays in their contract.
 
 ## Finding your Safes (Austin 10-05)
 
@@ -525,6 +537,10 @@ A thief holding hot or the wedgie alone can switch off your burner's budget. Tha
 ## Decide before the first user
 
 A Safe's address is fixed by its first setup, forever, on every chain. So before anyone gets a wallet:
+- **Recovery in the first setup (recommended, not yet confirmed).** An undeployed wallet has no recovery, so
+  losing an unsynced phone before the first send loses the money. Putting the DAO recovery module in the
+  first setup fixes that, but fixes the recovery module's design into the address forever (the recovery
+  address itself can still change later).
 - **Keep the first setup minimal:** the burner's signer as the only owner, plus a fallback handler. Add
   everything else (Roles, recovery, more owners) afterwards with normal transactions, so changing those plans
   never moves anyone's address.

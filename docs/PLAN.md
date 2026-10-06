@@ -332,6 +332,30 @@ over to it and checks it works. The same skill.md helps your own AI walk you thr
    disappears. Safe's own app may also work, but that's unproven: passkey owners may fail there (#8808), and
    the wedgie needs our firmware anyway.
 
+## The goal: stronger than any single way of holding crypto (Austin 10-05)
+
+If one seed phrase were enough, we'd just use a seed phrase. So at level 4+, with five things that matter
+(burner, hot, wedgie, paper seed, the DAO death switch):
+- **Any one stolen → no loss** beyond the burner's daily budget.
+- **Any two stolen → slowed (48 h–7 d) and stoppable** if you see the alert in time.
+- **Three or more stolen → lost.**
+
+Every pair, checked:
+
+| thief has | what they try | what stops it |
+|---|---|---|
+| burner + hot | spend, remove the wedgie | wedgie required: they get the budget only. Wedgie presses panic |
+| burner + wedgie | drain (48 h) | hot presses panic → vault; vault needs paper |
+| hot + wedgie | drain (48 h) | burner presses panic → vault; vault needs paper |
+| paper + burner | recovery to their keys (7 d) | hot + wedgie cancel it |
+| paper + hot | recovery (7 d) | burner + wedgie cancel it |
+| paper + wedgie | recovery (7 d); press panic, then move vault money (7 d) | burner + hot cancel the recovery; burner or hot cancels the vault move |
+| DAO + any one key | death switch (6 mo) | two keys cancel |
+
+What every row depends on: **the alert reaching you** within 48 h. Alerts aren't optional.
+Things to keep checking as the plan changes: any new power (tie-break, panic, vault, budget) must keep
+"no single item, no pair wins without a 48 h+ window."
+
 ## What happens if it leaks (stolen)
 
 Level 4+ assumes our contract is live (phase 4). Before that, any two keys including the wedgie = everything, instantly.

@@ -83,6 +83,7 @@ input { font: inherit; color: inherit; }
 .app { max-width: 480px; margin: 0 auto; padding: max(14px, env(safe-area-inset-top)) 16px calc(110px + env(safe-area-inset-bottom)); display: grid; gap: 16px; }
 .top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .brand { display: flex; align-items: center; gap: 8px; font-weight: 900; font-size: 19px; letter-spacing: -.02em; }
+.brand .lvl { font-size: 13px; font-weight: 700; letter-spacing: .04em; color: var(--muted); }
 .me { display: flex; align-items: center; gap: 8px; padding: 4px 12px 4px 4px; }
 .blockie { border-radius: 50%; display: block; image-rendering: pixelated; box-shadow: 0 0 0 2px #fff, 0 3px 8px -3px rgba(0,0,0,.4); }
 
@@ -152,10 +153,6 @@ input { font: inherit; color: inherit; }
 .token .badge { position: absolute; right: -3px; bottom: -3px; border-radius: 50%; box-shadow: 0 0 0 2px #fff; }
 
 /* Safe build (/): level meter, the key ladder, alerts, paper cards */
-.level { display: grid; gap: 10px; text-align: left; border: 0; cursor: pointer; font: inherit; color: inherit; width: 100%; }
-.meter { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
-.meter i { height: 10px; border-radius: 6px; background: var(--recess); box-shadow: var(--recess-shadow); }
-.meter i.on { background: var(--green-fill); box-shadow: inset 0 2px 0 rgba(255,255,255,.35), inset 0 -2px 0 rgba(0,0,0,.15); }
 .step { display: grid; gap: 10px; padding: 16px; }
 .step.current { box-shadow: var(--shell-shadow), 0 0 0 3px var(--mint); }
 .step.done { opacity: .92; }

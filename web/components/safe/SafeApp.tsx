@@ -4,12 +4,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { CHAINS, chainById } from "@/lib/chains";
 import { amount, short, usd } from "@/lib/format";
-import { type ChainState, LEVEL_NAME, type SafeAccount, loadAccount, readAll, saveAccount } from "@/lib/safe/state";
+import { type ChainState, type SafeAccount, loadAccount, readAll, saveAccount } from "@/lib/safe/state";
 import type { Asset, Portfolio } from "@/lib/types";
 import { dropOtherBudgetsCalls } from "@/lib/safe/core";
 import { type Prepared, finishOwners, ownerSigners, prepareOwners } from "@/lib/safe/send";
 import { friendly } from "../Welcome";
-import { Blockie, ChainChip, ScanIcon, Sheet, TokenIcon, copy, useToast } from "../bits";
+import { Blockie, ScanIcon, Sheet, TokenIcon, copy, useToast } from "../bits";
 import { Receive } from "../Receive";
 import { Keys } from "./Keys";
 import { RecoveryAlert } from "./RecoveryAlert";
@@ -18,7 +18,7 @@ import { SafeWelcome } from "./SafeWelcome";
 
 type View = { kind: "home" } | { kind: "send"; asset?: Asset } | { kind: "receive" } | { kind: "keys" };
 
-/** Instant Wallet on a Safe: a big balance, Send / Receive, your keys and level, and a scan button. */
+/** Instant Wallet on a Safe: a big balance, Send / Receive, the level next to the name, and a scan button. */
 export function SafeApp() {
   const [account, setAccountState] = useState<SafeAccount | null | undefined>(undefined);
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
@@ -92,7 +92,8 @@ export function SafeApp() {
         <div className="top">
           <div className="brand">
             <img src="/mark-160.png" alt="" height={30} />
-            Instant
+            Instant Wallet
+            <span className="lvl">LVL {top}</span>
           </div>
           <button className="pill me" onClick={() => setView({ kind: "keys" })}>
             <Blockie address={account.address} size={28} />
@@ -147,30 +148,6 @@ export function SafeApp() {
             </button>
           </div>
         </div>
-
-        <button className="card level" onClick={() => setView({ kind: "keys" })}>
-          <div className="meter" aria-hidden>
-            {[1, 2, 3, 4, 5].map(n => (
-              <i key={n} className={n <= top ? "on" : ""} />
-            ))}
-          </div>
-          <div className="row" style={{ justifyContent: "space-between" }}>
-            <b>
-              Level {top}: {LEVEL_NAME[top]}
-            </b>
-            <span className="fine">Keys &amp; safety ›</span>
-          </div>
-          <div className="row" style={{ flexWrap: "wrap", gap: 6 }}>
-            {CHAINS.map(c => {
-              const s = states.find(x => x.chainId === c.id);
-              return (
-                <span key={c.id} className="fine row" style={{ gap: 4 }}>
-                  <ChainChip chainId={c.id} /> {s ? (s.deployed ? `level ${s.level}` : "not deployed yet") : "…"}
-                </span>
-              );
-            })}
-          </div>
-        </button>
 
         <div className="card assets">
           {assets.length === 0 && (

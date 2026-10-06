@@ -62,7 +62,9 @@ export type ChainState = {
   rolesMembers: Address[] | null; // the keys with a burner budget (null = couldn't read)
   rolesDeployed: boolean;
   budget: { usdc: bigint; eth: bigint; usdcMax: bigint; ethMax: bigint } | null;
-  level: 1 | 2 | 3 | 4 | 5;
+  hasHot: boolean;
+  hasWedgie: boolean;
+  level: 1 | 2 | 3; // how many signing keys: the Instant wallet, + a hot wallet, + the wedgie (any order; paper isn't a signer)
 };
 
 export async function readChain(chainId: number, a: SafeAccount): Promise<ChainState> {
@@ -84,6 +86,8 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
       rolesMembers: null,
       rolesDeployed: false,
       budget: null,
+      hasHot: false,
+      hasWedgie: false,
       level: 1,
     };
   const read = (functionName: any, args: any[] = [], address: Address = safe, ab: any = abi.safe) =>
@@ -124,10 +128,12 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
       : null;
   const o = (owners as string[]).map(x => getAddress(x));
   const g = guardians ? (guardians as string[]).map(x => getAddress(x)) : null;
-  // another device may have added the keys: the shape says it too (level 4 = 4 owners, threshold 3)
-  const hasWedgie = (!!a.wedgie && wedgieSigners(a.wedgie).every(w => o.includes(w))) || (o.length >= 4 && Number(threshold) >= 3);
-  const daoGuardian = !g || g.some(x => x.toLowerCase() === DAO.toLowerCase());
-  const level: ChainState["level"] = hasWedgie ? (daoGuardian ? 4 : 5) : o.length >= 2 ? (daoGuardian ? 2 : 3) : 1;
+  // another device may have added the keys: the shape says it too (only the wedgie takes the threshold to 3)
+  const known = !!a.wedgie && wedgieSigners(a.wedgie).every(w => o.includes(w));
+  const hasWedgie = known || Number(threshold) >= 3;
+  const mine = [a.burnerSigner, ...(a.wedgie ? wedgieSigners(a.wedgie) : [])].map(x => x.toLowerCase());
+  const hasHot = o.filter(x => !mine.includes(x.toLowerCase())).length - (hasWedgie && !known ? 2 : 0) >= 1;
+  const level = (1 + Number(hasHot) + Number(hasWedgie)) as ChainState["level"];
   return {
     chainId,
     deployed,
@@ -141,6 +147,8 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
     rolesMembers: members,
     rolesDeployed: !!rolesCode && rolesCode !== "0x",
     budget,
+    hasHot,
+    hasWedgie,
     level,
   };
 }
@@ -165,14 +173,6 @@ export function hotOf(a: SafeAccount, st: ChainState): Address | undefined {
   const rest = st.owners.filter(o => !known.includes(o.toLowerCase()));
   return a.hot ?? (rest.length === 1 ? rest[0] : undefined);
 }
-
-export const LEVEL_NAME: Record<number, string> = {
-  1: "Instant wallet",
-  2: "Hot wallet added",
-  3: "Paper backup",
-  4: "Wedgie",
-  5: "Full self-custody",
-};
 
 export const salt = (): Hex => keccak256(toBytes(`${Date.now()}-${Math.random()}`));
 export { zeroAddress };

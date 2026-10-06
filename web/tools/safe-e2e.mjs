@@ -34,23 +34,28 @@ const b64url = b => Buffer.from(b).toString("base64url");
 
 // ---- the fake keys
 const hot = privateKeyToAccount("0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"); // anvil #1
-const wedgiePk = p256.utils.randomSecretKey();
-const wPub = p256.getPublicKey(wedgiePk, false);
-const wKey = { x: hex(wPub.slice(1, 33)), y: hex(wPub.slice(33)) };
+let wedgiePk, wKey;
+const newWedgie = () => {
+  wedgiePk = p256.utils.randomSecretKey();
+  const wPub = p256.getPublicKey(wedgiePk, false);
+  wKey = { x: hex(wPub.slice(1, 33)), y: hex(wPub.slice(33)) };
+};
+newWedgie();
 let wedgieSigns = 0;
 
 const browser = await chromium.launch({ executablePath: process.env.CHROME });
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
-const page = await ctx.newPage();
+let page = await ctx.newPage();
 page.on("pageerror", e => console.log("pageerror", e.message));
 page.on("console", m => m.type() === "error" && console.log("console", m.text().slice(0, 300)));
 
-await page.exposeFunction("__hotSign", async json => {
+const hotSign = async json => {
   const t = JSON.parse(json);
   delete t.types.EIP712Domain;
   return hot.signTypedData(t);
-});
-await page.exposeFunction("__fakeWedgie", async msg => {
+};
+await page.exposeFunction("__hotSign", hotSign);
+const fakeWedgie = async msg => {
   if (msg.type === "hello") return { id: msg.id, type: "hello", safe: wKey };
   if (msg.type === "safe_sign") {
     wedgieSigns++;
@@ -77,7 +82,8 @@ await page.exposeFunction("__fakeWedgie", async msg => {
     return { id: msg.id, type: "safe_sig", safeTxHash: h, ...wKey, r, s, authenticatorData: hex(authData), clientDataFields: fields };
   }
   return { id: msg.id, type: "error" };
-});
+};
+await page.exposeFunction("__fakeWedgie", fakeWedgie);
 await ctx.addInitScript(hotAddr => {
   // fake MetaMask
   window.ethereum = {
@@ -312,6 +318,67 @@ ok(cast(`call ${acct.address} "getThreshold()(uint256)"`) === "2", "the recovere
 const members2 = cast(`call ${rolesOf} "getModulesPaginated(address,uint256)(address[],address)" 0x0000000000000000000000000000000000000001 10`);
 ok(members2.toLowerCase().includes(acct2.burnerSigner.toLowerCase().slice(2)), "the new phone has the budget now");
 await page2.screenshot({ path: `${OUT}/s13-recovered-sent.png` });
+
+// ---------------------------------------------------------------- any order: a new wallet adds the wedgie first
+await page.close();
+newWedgie();
+page = await ctx.newPage();
+page.on("pageerror", e => console.log("pageerror3", e.message));
+await page.exposeFunction("__hotSign", hotSign);
+await page.exposeFunction("__fakeWedgie", fakeWedgie);
+const cdp3 = await ctx.newCDPSession(page);
+await cdp3.send("WebAuthn.enable");
+await cdp3.send("WebAuthn.addVirtualAuthenticator", {
+  options: { protocol: "ctap2", ctap2Version: "ctap2_1", transport: "internal", hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
+});
+await page.goto(`${APP}/`);
+await page.evaluate(() => localStorage.clear());
+await page.goto(`${APP}/`);
+await page.getByText("Create wallet").tap();
+await page.getByText("Receive", { exact: true }).waitFor({ timeout: 20000 });
+const acct3 = await page.evaluate(() => JSON.parse(localStorage.getItem("iws.account")));
+setUsdc(acct3.address, 2000_000_000n);
+cast(`rpc anvil_setBalance ${acct3.address} 0x2386f26fc10000`);
+await page.waitForTimeout(13000);
+const lvl = async () => (await page.locator(".top .me .lvl").textContent()).replace(/\s/g, "");
+ok((await lvl()) === "LVL1", "a new wallet: LVL1");
+await page.locator(".top .me").tap();
+await page.getByText("Connect and add the wedgie", { exact: true }).tap();
+await page.getByRole("button", { name: "Yes", exact: true }).tap();
+await page.waitForTimeout(25000);
+const errs3 = await page.locator(".err").allTextContents();
+if (errs3.length) console.log("on screen:", errs3);
+await page.screenshot({ path: `${OUT}/s15-wedgie-first.png`, fullPage: true });
+ok(cast(`call ${acct3.address} "getThreshold()(uint256)"`) === "3", "wedgie first (deploys the wallet too): threshold 3");
+ok(cast(`call ${acct3.address} "getOwners()(address[])"`).split(",").length === 3, "3 owners: Instant + the wedgie's two slots");
+await page.keyboard.press("Escape");
+await page.waitForTimeout(1000);
+ok((await lvl()) === "LVL2", "Instant + wedgie: LVL2");
+let w0 = wedgieSigns;
+const GUS = rand();
+const by4 = await send(GUS, "USDC", "30", "s16");
+ok(usdcOf(GUS) === 30_000_000n && !/wedgie/.test(by4) && wedgieSigns === w0, "Instant + wedgie, within the budget: Face ID alone");
+const HAL = rand();
+const by5 = await send(HAL, "USDC", "300", "s17");
+ok(usdcOf(HAL) === 300_000_000n && /wedgie/.test(by5) && /Instant/.test(by5) && wedgieSigns === w0 + 1, "Instant + wedgie, over the budget: Face ID + wedgie");
+// then the hot wallet: the wedgie signs it, 3 of 4 after
+w0 = wedgieSigns;
+await page.locator(".top .me").tap();
+await page.getByText("Connect and add", { exact: true }).tap();
+await page.getByRole("button", { name: "Yes", exact: true }).tap();
+await page.waitForTimeout(25000);
+ok(cast(`call ${acct3.address} "getOwners()(address[])"`).toLowerCase().includes(hot.address.toLowerCase().slice(2)), "hot wallet added after the wedgie");
+ok(cast(`call ${acct3.address} "getThreshold()(uint256)"`) === "3" && wedgieSigns === w0 + 1, "still threshold 3 (now 3 of 4); the wedgie signed it");
+// and paper last
+await page.getByPlaceholder("0x… the paper seed's address").fill(paper);
+await page.getByText("Make it my recovery").tap();
+await page.getByRole("button", { name: "Yes", exact: true }).tap();
+await page.waitForTimeout(25000);
+ok(cast(`call ${RECOVERY} "isGuardian(address,address)(bool)" ${acct3.address} ${paper}`) === "true", "paper after the wedgie: it's the recovery address");
+await page.keyboard.press("Escape");
+await page.waitForTimeout(1000);
+ok((await lvl()) === "LVL3", "Instant + hot + wedgie: LVL3");
+await page.screenshot({ path: `${OUT}/s18-any-order-done.png` });
 
 await browser.close();
 console.log(fails ? `${fails} FAILED` : "ALL PASS");

@@ -321,14 +321,13 @@ export type Budget = { usdc: bigint; eth: bigint };
 export const DEFAULT_BUDGET: Budget = { usdc: 100_000_000n, eth: 40_000_000_000_000_000n }; // 100 USDC + 0.04 ETH a day
 
 /**
- * Level 2's batch (signed by the burner while it's still the only owner): deploy Roles, give the burner its daily
- * budget (USDC transfers + ETH through Multicall3), add the hot wallet, threshold 2.
+ * The burner's daily budget, set up with the first second key (hot wallet or wedgie, either order), while the burner is
+ * still the only owner: deploy Roles, give the burner its budget (USDC transfers + ETH through Multicall3).
  */
-export function levelUpToHotCalls(
+export function budgetCalls(
   safe: Address,
   usdc: Address,
   burnerSigner: Address,
-  hot: Address,
   budget: Budget,
   now: bigint,
   have: { rolesDeployed?: boolean; rolesEnabled?: boolean } = {},
@@ -371,7 +370,6 @@ export function levelUpToHotCalls(
     r("scopeTarget", [ROLE_BURNER, MULTICALL3]),
     r("scopeFunction", [ROLE_BURNER, MULTICALL3, "0x174dea71", ethConditions, 1]),
     r("setAllowance", [KEY_ETH, budget.eth, budget.eth, budget.eth, day, now]),
-    selfCall(safe, encodeFunctionData({ abi: abi.safe, functionName: "addOwnerWithThreshold", args: [hot, 2n] })),
   ];
 }
 

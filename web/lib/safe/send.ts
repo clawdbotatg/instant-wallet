@@ -181,10 +181,13 @@ export async function budgetSend(opts: {
   return hash;
 }
 
-/** The owners needed for a change on this chain, at its current shape (pre-phase-4 thresholds). */
+/**
+ * The owners needed for a change on this chain, at its current shape (pre-phase-4 thresholds). Keys come in any order:
+ * Instant + hot = 2 of 2; Instant + wedgie = 3 of 3 (the wedgie counts twice); all three = 3 of 4.
+ */
 export function ownerSigners(st: ChainState): Signer[] {
   if (st.threshold <= 1) return ["burner"];
-  if (st.owners.length >= 4) return ["wedgie", hotAvailable() ? "hot" : "burner"]; // the wedgie + whichever other key is here
+  if (st.hasWedgie) return ["wedgie", st.hasHot && hotAvailable() ? "hot" : "burner"]; // the wedgie + whichever other key is here
   return ["burner", "hot"];
 }
 
@@ -198,6 +201,6 @@ export function plan(st: ChainState, a: SafeAccount, token: Address, amount: big
     const left = isEth ? st.budget.eth : st.budget.usdc;
     if (amount + (feeIsSameToken ? fee : 0n) <= left) return { path: "budget" as const, signers: ["burner"] as Signer[] };
   }
-  // a big move: the owners. Level 2–3: burner + hot. Level 4+: the wedgie + one more.
+  // a big move: the owners. Burner + hot, or the wedgie + one more.
   return { path: "owners" as const, signers: ownerSigners(st) };
 }

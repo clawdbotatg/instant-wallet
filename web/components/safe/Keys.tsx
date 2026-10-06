@@ -5,10 +5,10 @@ import { type Address, encodeFunctionData, getAddress, isAddress, zeroAddress } 
 import { CHAINS, chainById, explorerAddress } from "@/lib/chains";
 import { short } from "@/lib/format";
 import { DAO, VERIFIERS, VERIFIERS_SLOT2 } from "@/lib/safe/config";
-import { DEFAULT_BUDGET, abi, deploySignerCall, levelUpToHotCalls, selfCall, setGuardianCalls } from "@/lib/safe/core";
+import { type Call, DEFAULT_BUDGET, abi, budgetCalls, deploySignerCall, selfCall, setGuardianCalls } from "@/lib/safe/core";
 import { connectHot, hotAvailable } from "@/lib/safe/hot";
-import { type FeeToken, type Prepared, finishOwners, ownerSigners, prepareOwners } from "@/lib/safe/send";
-import { type ChainState, LEVEL_NAME, type SafeAccount, hotOf, wedgieSigners } from "@/lib/safe/state";
+import { type FeeToken, type Prepared, type Signer, finishOwners, ownerSigners, prepareOwners } from "@/lib/safe/send";
+import { type ChainState, type SafeAccount, hotOf, wedgieSigners } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
 import { Blockie, ChainChip, copy } from "../bits";
@@ -17,12 +17,12 @@ import { friendly } from "../Welcome";
 const NAME = (a: string) => (a.toLowerCase() === DAO.toLowerCase() ? "dao.buidlguidl.eth" : short(a));
 
 /**
- * Keys & safety: the ladder from a burner to full self-custody, per chain (each chain's Safe is its own).
- *   1 Burner      Face ID, the only key. DAO can recover it (7 days, you can cancel).
- *   2 Hot wallet  MetaMask becomes an owner; big moves need both; the burner keeps a daily budget (Zodiac Roles).
- *   3 Paper       your own 24-word seed replaces the DAO as the recovery address.
- *   4 Wedgie      counts twice; big moves need the wedgie + one more.
- *   5 Full        wedgie + your own recovery, no DAO anywhere.
+ * Keys & safety, per chain (each chain's Safe is its own). The burner (Face ID) starts alone, the DAO can recover it
+ * (7 days, you can cancel). Then, in any order:
+ *   Hot wallet  an owner; big moves need it + the burner (2 of 2), or with the wedgie, the wedgie + one more (3 of 4).
+ *   Wedgie      counts twice; big moves need the wedgie + one more (Instant + wedgie = 3 of 3).
+ *   Paper       your own 24-word seed replaces the DAO as the recovery address (not a signer).
+ * The first second key also gives the burner its daily budget (Zodiac Roles). LVL = how many signing keys (1–3).
  */
 export function Keys({
   account,
@@ -54,6 +54,18 @@ export function Keys({
   const canPay = haveUsdc || haveEth || assets.some(a => a.chainId === chainId && a.asset.toLowerCase() === usdc && BigInt(a.balance) > 0n);
   const hot = st ? hotOf(account, st) : account.hot;
   const level = st?.level ?? 1;
+  const keysWord = (n: number) => `${n} key${n === 1 ? "" : "s"}`;
+
+  // the budget comes with the first second key, whichever it is (the burner is still the only owner then)
+  const budgetFirst = (s: ChainState): Call[] =>
+    s.threshold <= 1
+      ? budgetCalls(account.address, chainById(chainId)!.usdc!, account.burnerSigner, DEFAULT_BUDGET, BigInt(Math.floor(Date.now() / 1000)), {
+          rolesDeployed: s.rolesDeployed,
+          rolesEnabled: !!s.roles,
+        })
+      : [];
+  // a change the wedgie has to sign: connect it now, while this is still the tap (a port prompt needs one)
+  const wedgieFor = async (signers: Signer[]) => (signers.includes("wedgie") ? await Wedgie.connect() : null);
 
   // two taps: the first gets everything ready (MetaMask / the wedgie connect, the fee, the nonce); the second signs.
   // Face ID has to start straight from a tap: after a MetaMask popup or a network call, Safari and Chrome refuse it.
@@ -98,12 +110,17 @@ export function Keys({
       if (!st) throw new Error("Still loading");
       const h = await connectHot();
       if (h.toLowerCase() === account.address.toLowerCase()) throw new Error("That's this wallet itself.");
-      const calls = levelUpToHotCalls(account.address, chainById(chainId)!.usdc!, account.burnerSigner, h, DEFAULT_BUDGET, BigInt(Math.floor(Date.now() / 1000)), {
-        rolesDeployed: st.rolesDeployed,
-        rolesEnabled: !!st.roles,
-      });
-      const p = await prepareOwners({ account, state: st, calls, signers: ["burner"], feeToken, setup: true });
-      return { label: <>Add <Addr a={h} chainId={chainId} inline /> as your hot wallet</>, p, after: () => onAccount({ ...account, hot: h }) };
+      // Instant alone: 2 of 2. With the wedgie (3 of 3): 3 of 4, so the wedgie + any one.
+      const calls = [...budgetFirst(st), selfCall(account.address, encodeFunctionData({ abi: abi.safe, functionName: "addOwnerWithThreshold", args: [h, st.hasWedgie ? 3n : 2n] }))];
+      const signers = ownerSigners(st);
+      const w = await wedgieFor(signers);
+      try {
+        const p = await prepareOwners({ account, state: st, calls, signers, feeToken, setup: true, wedgie: w });
+        return { label: <>Add <Addr a={h} chainId={chainId} inline /> as your hot wallet</>, p, after: () => onAccount({ ...account, hot: h }), close: async () => w?.close() };
+      } catch (e) {
+        await w?.close();
+        throw e;
+      }
     });
 
   const setPaper = () =>
@@ -113,15 +130,23 @@ export function Keys({
       const paper = getAddress(paperIn.trim());
       if (st.owners.some(o => o.toLowerCase() === paper.toLowerCase())) throw new Error("That address is already one of your keys. The paper must be separate.");
       if (!st.guardians) throw new Error("Couldn't read the current recovery address. Try again in a moment.");
-      const p = await prepareOwners({ account, state: st, calls: setGuardianCalls(st.guardians, paper), signers: ownerSigners(st), feeToken });
-      return {
-        label: <>Make <Addr a={paper} chainId={chainId} inline /> your recovery address</>,
-        p,
-        after: () => {
-          onAccount({ ...account, paper });
-          setPaperIn("");
-        },
-      };
+      const signers = ownerSigners(st);
+      const w = await wedgieFor(signers);
+      try {
+        const p = await prepareOwners({ account, state: st, calls: setGuardianCalls(st.guardians, paper), signers, feeToken, wedgie: w });
+        return {
+          label: <>Make <Addr a={paper} chainId={chainId} inline /> your recovery address</>,
+          p,
+          after: () => {
+            onAccount({ ...account, paper });
+            setPaperIn("");
+          },
+          close: async () => w?.close(),
+        };
+      } catch (e) {
+        await w?.close();
+        throw e;
+      }
     });
 
   const addWedgie = () =>
@@ -131,7 +156,9 @@ export function Keys({
       try {
         const key = await w.key();
         const [w1, w2] = wedgieSigners(key);
+        // Instant alone (1 of 1) → 3 of 3; Instant + hot (2 of 2) → 3 of 4. Either way the wedgie + one more.
         const calls = [
+          ...budgetFirst(st),
           deploySignerCall(key.x, key.y, VERIFIERS),
           deploySignerCall(key.x, key.y, VERIFIERS_SLOT2),
           selfCall(account.address, encodeFunctionData({ abi: abi.safe, functionName: "addOwnerWithThreshold", args: [w1, 2n] })),
@@ -176,6 +203,8 @@ export function Keys({
     </>
   );
 
+  const ownRecovery = !!st?.guardians && st.guardians.length > 0 && !st.guardians.some(g => g.toLowerCase() === DAO.toLowerCase());
+
   const card = `Instant Wallet ${account.address}\nInstant wallet key ${account.burnerSigner}\n(Recovery needs this if the wallet was never deployed on a chain.)`;
 
   return (
@@ -189,21 +218,24 @@ export function Keys({
         ))}
       </div>
       <p className="fine">
-        Each chain&apos;s wallet is set up on its own. On {chainById(chainId)?.name}: level {level}, {LEVEL_NAME[level]}.
+        Each chain&apos;s wallet is set up on its own. On {chainById(chainId)?.name}: {keysWord(level)}. Add the others in any order.
         {st && !st.deployed && " Not deployed here yet: the first change deploys it."}
       </p>
       {!canPay && <p className="err">Changes cost a few cents of gas, paid from this wallet. Add a little USDC or ETH on {chainById(chainId)?.name} first.</p>}
 
-      <Step n={1} title="Instant wallet" done>
-        <p className="fine">This phone&apos;s passkey. Level 1 it can do everything; later it keeps a daily budget.</p>
+      <Step title="Instant wallet" done>
+        <p className="fine">This phone&apos;s passkey. Alone it can do everything; once you add another key, it keeps a daily budget.</p>
         <Addr a={account.burnerSigner} chainId={chainId} />
       </Step>
 
-      <Step n={2} title="Hot wallet" done={!!hot && (st?.owners.length ?? 0) >= 2} current={level === 1}>
-        {hot && (st?.owners.length ?? 0) >= 2 ? (
+      <Step title="Hot wallet" done={!!st?.hasHot}>
+        {st?.hasHot ? (
           <>
-            <p className="fine">Big moves need your Instant wallet + this hot wallet. The Instant wallet alone: 100 USDC + 0.04 ETH a day.</p>
-            <Addr a={hot} chainId={chainId} />
+            <p className="fine">
+              {st.hasWedgie ? "Big moves need the wedgie + this hot wallet or your Instant wallet." : "Big moves need your Instant wallet + this hot wallet."} The
+              Instant wallet alone: 100 USDC + 0.04 ETH a day.
+            </p>
+            {hot && <Addr a={hot} chainId={chainId} />}
             {st?.budget && (
               <p className="fine">
                 Today&apos;s Instant wallet budget: {(Number(st.budget.usdc) / 1e6).toFixed(2)} USDC · {(Number(st.budget.eth) / 1e18).toFixed(4)} ETH
@@ -213,7 +245,7 @@ export function Keys({
         ) : (
           <>
             <p className="fine">
-              Add your hot wallet as a second key: any wallet extension on your computer, or a wallet app on your phone. After this, anything over the Instant wallet&apos;s daily budget (100 USDC + 0.04 ETH) needs both.
+              Add your hot wallet as a second key: any wallet extension on your computer, or a wallet app on your phone. After this, anything over the Instant wallet&apos;s daily budget (100 USDC + 0.04 ETH) needs a second key.
               For now, open this page in that wallet: on a computer with the extension, or in the wallet app&apos;s own browser.
             </p>
             {action(
@@ -226,7 +258,7 @@ export function Keys({
         )}
       </Step>
 
-      <Step n={3} title="Paper backup (your recovery)" done={!!st?.guardians && st.guardians.length > 0 && !st.guardians.some(g => g.toLowerCase() === DAO.toLowerCase())} current={level === 2}>
+      <Step title="Paper backup (your recovery)" done={ownRecovery}>
         <p className="fine">
           Recovery: {st?.guardians ? (st.guardians.length ? st.guardians.map(NAME).join(", ") : "none") : "…"} can replace your keys after a 7-day wait (you get time to cancel).
         </p>
@@ -239,15 +271,19 @@ export function Keys({
         </div>
         {action(
           "paper",
-          <button className="btn wide" onClick={setPaper} disabled={!!busy || !!pending || !canPay || level < 2 || !paperIn}>
-            {busy === "paper" ? "Working…" : level < 2 ? "Add a hot wallet first" : "Make it my recovery"}
+          <button className="btn wide" onClick={setPaper} disabled={!!busy || !!pending || !canPay || !paperIn}>
+            {busy === "paper" ? "Working…" : "Make it my recovery"}
           </button>,
         )}
       </Step>
 
-      <Step n={4} title="Wedgie (cold)" done={(st?.owners.length ?? 0) >= 4} current={level === 2 || level === 3}>
-        {(st?.owners.length ?? 0) >= 4 ? (
-          <p className="fine">The wedgie counts twice. Big moves need the wedgie + your Instant wallet or hot wallet. The Instant wallet + hot wallet alone can&apos;t.</p>
+      <Step title="Wedgie (cold)" done={!!st?.hasWedgie}>
+        {st?.hasWedgie ? (
+          <p className="fine">
+            {st.hasHot
+              ? "The wedgie counts twice. Big moves need the wedgie + your Instant wallet or hot wallet. The Instant wallet + hot wallet alone can't."
+              : "The wedgie counts twice. Big moves need the wedgie + your Instant wallet; neither alone can."}
+          </p>
         ) : (
           <>
             <p className="fine">
@@ -255,15 +291,15 @@ export function Keys({
             </p>
             {action(
               "wedgie",
-              <button className="btn btn-green wide" onClick={addWedgie} disabled={!!busy || !!pending || !canPay || level < 2 || !wedgieSupported()}>
-                {busy === "wedgie" ? "Check the wedgie…" : !wedgieSupported() ? "Needs Chrome on a computer" : level < 2 ? "Add a hot wallet first" : "Connect and add the wedgie"}
+              <button className="btn btn-green wide" onClick={addWedgie} disabled={!!busy || !!pending || !canPay || !wedgieSupported()}>
+                {busy === "wedgie" ? "Check the wedgie…" : !wedgieSupported() ? "Needs Chrome on a computer" : "Connect and add the wedgie"}
               </button>,
             )}
           </>
         )}
       </Step>
 
-      <Step n={5} title="Full self-custody" done={level === 5} current={level === 4}>
+      <Step title="Full self-custody" done={!!st?.hasWedgie && ownRecovery}>
         <p className="fine">Wedgie + your own recovery, no DAO. You depend on nobody (this app is open source; any Safe tool works too).</p>
       </Step>
 
@@ -283,13 +319,11 @@ export function Keys({
   );
 }
 
-function Step({ n, title, done, current, children }: { n: number; title: string; done?: boolean; current?: boolean; children: React.ReactNode }) {
+function Step({ title, done, children }: { title: string; done?: boolean; children: React.ReactNode }) {
   return (
-    <div className={`card step ${done ? "done" : ""} ${current ? "current" : ""}`}>
+    <div className={`card step ${done ? "done" : ""}`}>
       <div className="row" style={{ justifyContent: "space-between" }}>
-        <b>
-          {n}. {title}
-        </b>
+        <b>{title}</b>
         <span className={`led ${done ? "on" : ""}`} />
       </div>
       {children}

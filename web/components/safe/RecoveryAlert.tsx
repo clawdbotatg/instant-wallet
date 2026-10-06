@@ -54,7 +54,7 @@ export function RecoveryAlert({
         {r.newOwners.length > 1 ? ` (any ${r.newThreshold} of them)` : ""} on {when.toLocaleString()}.{" "}
         {mine ? "That's this phone." : "If that isn't you, cancel it now."}
       </p>
-      {!mine && (
+      {!mine && state.owners.some(o => o.toLowerCase() === account.burnerSigner.toLowerCase()) && (
         <button className="btn btn-red wide" onClick={cancel} disabled={busy}>
           {busy ? "Cancelling…" : "Cancel it"}
         </button>

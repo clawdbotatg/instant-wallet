@@ -6,7 +6,7 @@ import { type Address, getAddress, isAddress } from "viem";
 import { CHAINS, publicClient } from "@/lib/chains";
 import { type Candidate, confirmKey, createPasskey, recoverKeys, webauthnAvailable } from "@/lib/passkey";
 import { RECOVERY_7D } from "@/lib/safe/config";
-import { abi } from "@/lib/safe/core";
+import { abi, rolesAddress } from "@/lib/safe/core";
 import { type SafeAccount, accountFor } from "@/lib/safe/state";
 import { Band } from "../bits";
 import { friendly } from "../Welcome";
@@ -29,19 +29,38 @@ async function used(a: SafeAccount): Promise<boolean> {
  * A wallet this signer took over by recovery, from Safe's Transaction Service, checked on chain: the signer is an
  * owner and Candide's recovery is on. Anyone can make a Safe listing someone's signer, so the user confirms it too.
  */
-async function ownedBy(signer: Address): Promise<Address | undefined> {
+async function ownedBy(signer: Address): Promise<{ wallet: Address; guardians: Address[] } | undefined> {
+  let rejected: string[] = [];
+  try {
+    rejected = JSON.parse(localStorage.getItem("iws.rejected") || "[]");
+  } catch {}
   for (const [net, chainId] of [["base", 8453], ["eth", 1]] as const) {
     if (!CHAINS.some(c => c.id === chainId)) continue;
     const j = await fetch(`https://api.safe.global/tx-service/${net}/api/v1/owners/${getAddress(signer)}/safes/`)
       .then(r => (r.ok ? r.json() : null))
       .catch(() => null);
-    for (const w of (j?.safes ?? []) as string[]) {
+    for (const raw of (j?.safes ?? []) as string[]) {
+      const w = getAddress(raw);
+      if (rejected.includes(w)) continue;
       const pc = publicClient(chainId);
-      const [owners, rec] = await Promise.all([
-        pc.readContract({ address: getAddress(w), abi: abi.safe, functionName: "getOwners" }).catch(() => [] as readonly Address[]),
-        pc.readContract({ address: getAddress(w), abi: abi.safe, functionName: "isModuleEnabled", args: [RECOVERY_7D] }).catch(() => false),
+      const r = (fn: any, args: any[] = [], address: Address = w, ab: any = abi.safe) => pc.readContract({ address, abi: ab, functionName: fn, args } as any).catch(() => null) as Promise<any>;
+      const [owners, threshold, mods, guardians] = await Promise.all([
+        r("getOwners"),
+        r("getThreshold"),
+        r("getModulesPaginated", ["0x0000000000000000000000000000000000000001", 10n]),
+        r("getGuardians", [w], RECOVERY_7D, abi.recovery),
       ]);
-      if (rec && owners.some(o => o.toLowerCase() === signer.toLowerCase())) return getAddress(w);
+      // exactly what a just-recovered Instant Wallet looks like: this key alone, Candide (+ its own Roles), nothing else
+      const allowed = [RECOVERY_7D, rolesAddress(w)].map(x => x.toLowerCase());
+      if (
+        owners?.length === 1 &&
+        owners[0].toLowerCase() === signer.toLowerCase() &&
+        Number(threshold) === 1 &&
+        mods &&
+        (mods[0] as string[]).some(m => m.toLowerCase() === RECOVERY_7D.toLowerCase()) &&
+        (mods[0] as string[]).every(m => allowed.includes(m.toLowerCase()))
+      )
+        return { wallet: w, guardians: (guardians ?? []).map((g: string) => getAddress(g)) };
     }
   }
   return undefined;
@@ -51,7 +70,7 @@ export function SafeWelcome({ onReady }: { onReady: (a: SafeAccount) => void }) 
   const [busy, setBusy] = useState<"create" | "login" | "recover" | null>(null);
   const [recovering, setRecovering] = useState(false);
   const [wallet, setWallet] = useState("");
-  const [confirm, setConfirm] = useState<SafeAccount | null>(null);
+  const [confirm, setConfirm] = useState<{ account: SafeAccount; guardians: Address[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const supported = typeof window === "undefined" || webauthnAvailable();
 
@@ -84,7 +103,7 @@ export function SafeWelcome({ onReady }: { onReady: (a: SafeAccount) => void }) 
       for (const c of pick ? [pick] : accts) {
         if (await used(c)) break;
         const w = await ownedBy(c.burnerSigner);
-        if (w) return setConfirm(accountFor(credentialId, c.qx, c.qy, w)); // the user says yes or no
+        if (w) return setConfirm({ account: accountFor(credentialId, c.qx, c.qy, w.wallet), guardians: w.guardians }); // the user says yes or no
       }
       if (!pick) {
         const c = await confirmKey(credentialId, candidates); // one more Face ID only when it's ambiguous
@@ -119,13 +138,25 @@ export function SafeWelcome({ onReady }: { onReady: (a: SafeAccount) => void }) 
           <div className="stack">
             <h1>Is this your wallet?</h1>
             <p>This passkey is an owner of a wallet it took over by recovery:</p>
-            <p className="mono">{confirm.address}</p>
-            <p className="fine">Only say yes if you recognise this address. Anyone can make a wallet that lists your key.</p>
+            <p className="mono">{confirm.account.address}</p>
+            <p className="fine">
+              Recovery address: {confirm.guardians.length ? confirm.guardians.map(g => (g.toLowerCase() === "0xef899e80aa814ab8d8e232f9ed6403a633c727ec" ? "dao.buidlguidl.eth" : g)).join(", ") : "none"}.
+              Only say yes if you recognise this wallet. Anyone can make a wallet that lists your key.
+            </p>
           </div>
-          <button className="btn btn-green wide" onClick={() => onReady(confirm)}>
+          <button className="btn btn-green wide" onClick={() => onReady(confirm.account)}>
             Yes, that&apos;s mine
           </button>
-          <button className="btn wide" onClick={() => setConfirm(null)}>
+          <button
+            className="btn wide"
+            onClick={() => {
+              try {
+                const r = JSON.parse(localStorage.getItem("iws.rejected") || "[]");
+                localStorage.setItem("iws.rejected", JSON.stringify([...r, confirm.account.address]));
+              } catch {}
+              setConfirm(null);
+            }}
+          >
             No
           </button>
         </div>

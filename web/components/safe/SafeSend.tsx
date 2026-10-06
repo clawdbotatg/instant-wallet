@@ -103,8 +103,15 @@ export function SafeSend({
     try {
       if (!st || !asset || base === null) throw new Error("Still loading");
       // a first guess at the path (the budget check needs a fee), then the quote for that exact kind of send
-      const guess = plan(st, account, asset.asset as Address, base, 0n, sendingUsdc || sendingEth);
-      setQuote(await getQuote(chainId, await sendKind(account, st, guess.path, guess.signers)));
+      const same = sendingUsdc || sendingEth;
+      const guess = plan(st, account, asset.asset as Address, base, 0n, same);
+      const k1 = await sendKind(account, st, guess.path, guess.signers);
+      let q = await getQuote(chainId, k1);
+      // with the real fee, the path can change (near the budget's edge): then quote that kind instead
+      const real = plan(st, account, asset.asset as Address, base, BigInt(feeToken === "usdc" ? q.feeUsdc : q.feeEth), same);
+      const k2 = await sendKind(account, st, real.path, real.signers);
+      if (k2 !== k1) q = await getQuote(chainId, k2);
+      setQuote(q);
     } catch (e: any) {
       setError(friendly(e));
     }

@@ -47,10 +47,10 @@ export function Keys({
   const [paperIn, setPaperIn] = useState("");
   const st = states.find(s => s.chainId === chainId);
   const usdc = chainById(chainId)?.usdc?.toLowerCase();
-  const haveUsdc = assets.some(a => a.chainId === chainId && a.asset.toLowerCase() === usdc && BigInt(a.balance) >= 100_000n);
+  const haveUsdc = assets.some(a => a.chainId === chainId && a.asset.toLowerCase() === usdc && BigInt(a.balance) >= (chainId === 1 ? 10_000_000n : 1_000_000n));
   const haveEth = assets.some(a => a.chainId === chainId && a.asset === zeroAddress && BigInt(a.balance) > 0n);
   const feeToken: FeeToken = haveUsdc ? "usdc" : "eth";
-  const canPay = haveUsdc || haveEth;
+  const canPay = haveUsdc || haveEth || assets.some(a => a.chainId === chainId && a.asset.toLowerCase() === usdc && BigInt(a.balance) > 0n);
   const hot = st ? hotOf(account, st) : account.hot;
   const level = st?.level ?? 1;
 
@@ -73,7 +73,10 @@ export function Keys({
       if (!st) throw new Error("Still loading");
       const h = await connectHot();
       if (h.toLowerCase() === account.address.toLowerCase()) throw new Error("That's this wallet itself.");
-      const calls = levelUpToHotCalls(account.address, chainById(chainId)!.usdc!, account.burnerSigner, h, DEFAULT_BUDGET, BigInt(Math.floor(Date.now() / 1000)));
+      const calls = levelUpToHotCalls(account.address, chainById(chainId)!.usdc!, account.burnerSigner, h, DEFAULT_BUDGET, BigInt(Math.floor(Date.now() / 1000)), {
+        rolesDeployed: st.rolesDeployed,
+        rolesEnabled: !!st.roles,
+      });
       await ownersSend({ account, state: st, calls, signers: ["burner"], feeToken, setup: true });
       onAccount({ ...account, hot: h });
     });

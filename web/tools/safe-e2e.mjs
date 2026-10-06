@@ -234,7 +234,21 @@ await page.screenshot({ path: `${OUT}/s11-relogin.png` });
 
 // ---------------------------------------------------------------- the phone is lost: a new device recovers the wallet
 const ctx2 = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
+await ctx2.addInitScript(hotAddr => {
+  window.ethereum = {
+    request: async ({ method, params }) => {
+      if (method === "eth_requestAccounts" || method === "eth_accounts") return [hotAddr];
+      if (method === "eth_signTypedData_v4") return window.__hotSign(params[1]);
+      throw new Error("fake wallet: " + method);
+    },
+  };
+}, hot.address);
 const page2 = await ctx2.newPage();
+await page2.exposeFunction("__hotSign", async json => {
+  const t = JSON.parse(json);
+  delete t.types.EIP712Domain;
+  return hot.signTypedData(t);
+});
 page2.on("pageerror", e => console.log("pageerror2", e.message));
 const cdp2 = await ctx2.newCDPSession(page2);
 await cdp2.send("WebAuthn.enable");
@@ -279,7 +293,20 @@ const rolesAddr = cast(`call ${acct.address} "getModulesPaginated(address,uint25
 await page2.getByRole("button", { name: "Turn it off" }).tap();
 await page2.waitForTimeout(20000);
 const modsAfter = cast(`call ${acct.address} "getModulesPaginated(address,uint256)(address[],address)" 0x0000000000000000000000000000000000000001 10`);
-ok(modsAfter.split(",").length < rolesAddr.split(",").length, `the lost phone's budget is off (modules ${rolesAddr.slice(0, 60)} → ${modsAfter.slice(0, 60)})`);
+const rolesOf = rolesAddr.match(/0x[0-9a-fA-F]{40}/g).find(m => m.toLowerCase() !== RECOVERY.toLowerCase());
+const members = cast(`call ${rolesOf} "getModulesPaginated(address,uint256)(address[],address)" 0x0000000000000000000000000000000000000001 10`);
+ok(!members.toLowerCase().includes(acct.burnerSigner.toLowerCase().slice(2)), `the lost phone is out of the budget (${members.slice(0, 50)})`);
+ok(modsAfter === rolesAddr, "Roles stays on, ready for this phone");
+// and the recovered phone can level up again (Roles exists: no second deploy)
+await page2.locator(".level").tap();
+await page2.getByText("Connect and add").first().tap();
+await page2.waitForTimeout(25000);
+const errs2 = await page2.locator(".err").allTextContents();
+if (errs2.length) console.log("on screen:", errs2);
+await page2.screenshot({ path: `${OUT}/s14-recovered-levelup.png`, fullPage: true });
+ok(cast(`call ${acct.address} "getThreshold()(uint256)"`) === "2", "the recovered wallet adds its hot wallet again");
+const members2 = cast(`call ${rolesOf} "getModulesPaginated(address,uint256)(address[],address)" 0x0000000000000000000000000000000000000001 10`);
+ok(members2.toLowerCase().includes(acct2.burnerSigner.toLowerCase().slice(2)), "the new phone has the budget now");
 await page2.screenshot({ path: `${OUT}/s13-recovered-sent.png` });
 
 await browser.close();

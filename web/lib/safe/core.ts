@@ -101,6 +101,7 @@ export const abi = {
     "function moduleTxHash(bytes data, bytes32 salt) view returns (bytes32)",
     "function allowances(bytes32 key) view returns (uint128 refill, uint128 maxRefill, uint64 period, uint128 balance, uint64 timestamp)",
     "function isModuleEnabled(address module) view returns (bool)",
+    "function getModulesPaginated(address start, uint256 pageSize) view returns (address[] array, address next)",
   ]),
 } as const;
 
@@ -323,7 +324,15 @@ export const DEFAULT_BUDGET: Budget = { usdc: 100_000_000n, eth: 40_000_000_000_
  * Level 2's batch (signed by the burner while it's still the only owner): deploy Roles, give the burner its daily
  * budget (USDC transfers + ETH through Multicall3), add the hot wallet, threshold 2.
  */
-export function levelUpToHotCalls(safe: Address, usdc: Address, burnerSigner: Address, hot: Address, budget: Budget, now: bigint): Call[] {
+export function levelUpToHotCalls(
+  safe: Address,
+  usdc: Address,
+  burnerSigner: Address,
+  hot: Address,
+  budget: Budget,
+  now: bigint,
+  have: { rolesDeployed?: boolean; rolesEnabled?: boolean } = {},
+): Call[] {
   const roles = rolesAddress(safe);
   const r = (functionName: any, args: any): Call => ({ to: roles, value: 0n, data: encodeFunctionData({ abi: abi.roles, functionName, args } as any) });
   const init = encodeFunctionData({
@@ -348,8 +357,11 @@ export function levelUpToHotCalls(safe: Address, usdc: Address, burnerSigner: Ad
   ];
   const day = 86_400n;
   return [
-    { to: MODULE_FACTORY, value: 0n, data: encodeFunctionData({ abi: abi.moduleFactory, functionName: "deployModule", args: [ROLES_MASTERCOPY, init, 0n] }) },
-    selfCall(safe, encodeFunctionData({ abi: abi.safe, functionName: "enableModule", args: [roles] })),
+    // a recovered wallet already has Roles (its old burner was removed from it): don't deploy or enable it twice
+    ...(have.rolesDeployed
+      ? []
+      : [{ to: MODULE_FACTORY, value: 0n, data: encodeFunctionData({ abi: abi.moduleFactory, functionName: "deployModule", args: [ROLES_MASTERCOPY, init, 0n] }) }]),
+    ...(have.rolesEnabled ? [] : [selfCall(safe, encodeFunctionData({ abi: abi.safe, functionName: "enableModule", args: [roles] }))]),
     r("enableModule", [burnerSigner]),
     r("assignRoles", [burnerSigner, [ROLE_BURNER], [true]]),
     r("setTransactionUnwrapper", [MULTISEND_CALL_ONLY, "0x8d80ff0a", MULTISEND_UNWRAPPER]),
@@ -415,6 +427,21 @@ export function setGuardianCalls(current: Address[], next: Address): Call[] {
     if (list[i].toLowerCase() === next.toLowerCase()) continue;
     const prev = i === 0 ? SENTINEL : list[i - 1];
     calls.push({ to: RECOVERY_7D, value: 0n, data: encodeFunctionData({ abi: abi.recovery, functionName: "revokeGuardianWithThreshold", args: [prev, list[i], 1n] }) });
+    list.splice(i, 1);
+  }
+  return calls;
+}
+
+/** After a recovery: take every other key out of the burner's budget (Roles stays, ready for this phone). */
+export function dropOtherBudgetsCalls(safe: Address, members: Address[], keep: Address): Call[] {
+  const roles = rolesAddress(safe);
+  const calls: Call[] = [];
+  const list = [...members];
+  for (let i = list.length - 1; i >= 0; i--) {
+    if (list[i].toLowerCase() === keep.toLowerCase()) continue;
+    const prev = i === 0 ? SENTINEL : list[i - 1];
+    calls.push({ to: roles, value: 0n, data: encodeFunctionData({ abi: abi.roles, functionName: "assignRoles", args: [list[i], [ROLE_BURNER], [false]] }) });
+    calls.push({ to: roles, value: 0n, data: encodeFunctionData({ abi: abi.roles, functionName: "disableModule", args: [prev, list[i]] }) });
     list.splice(i, 1);
   }
   return calls;

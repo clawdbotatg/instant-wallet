@@ -27,7 +27,7 @@ import {
   signerAddress,
 } from "@/lib/safe/core";
 import { GAS_BUDGET, type Quote, type SendKind, feePaid, rolesCalls, unpackMultiSend } from "@/lib/safe/fee";
-import { RelayRefused, admit, checkCalls, once, reverted, withChainLock } from "@/lib/safe/relayGuard";
+import { RelayRefused, admit, checkCalls, once, plainRecipientCheck, reverted, withChainLock } from "@/lib/safe/relayGuard";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60; // waits for the receipt (Ethereum ~12 s) so a revert is caught and the wallet refused
@@ -113,6 +113,10 @@ export async function POST(req: NextRequest) {
     const chainId = Number(body.chainId);
     const { info, pc, wc } = clients(chainId);
     const me = wc.account.address;
+    const plain = plainRecipientCheck(
+      a => (a.toLowerCase() === me.toLowerCase() ? Promise.resolve(undefined) : pc.getCode({ address: a }).catch(() => "0xfe" as Hex)),
+      a => pc.getStorageAt({ address: a, slot: "0x0" }).catch(() => undefined),
+    );
     if (!isAddress(body.safe)) throw new Error("safe?");
     const safe = getAddress(body.safe);
     let to: Address;
@@ -126,8 +130,10 @@ export async function POST(req: NextRequest) {
       const tx: SafeTx = { to: getAddress(t.to), value: BigInt(t.value), data: t.data, operation: Number(t.operation) as 0 | 1, nonce: BigInt(t.nonce) };
       if (tx.to !== MULTISEND_CALL_ONLY || tx.operation !== 1 || tx.value !== 0n) throw new Error("only Instant Wallet batches");
       const inner = unpackMultiSend(tx.data);
-      checkCalls(safe, inner);
+      await checkCalls(safe, inner, plain);
       paid = feePaid(inner, me, info.usdc);
+      // a level change (deploys Roles or the wedgie's signers) gets the bigger gas budget
+      const setup = inner.some(c => c.data !== "0x" && !c.data.toLowerCase().startsWith("0xa9059cbb")); // any wallet change
       const exec = execData(tx, body.signatures);
       // the burner's signer contract must exist before Safe checks its signature: deploy it in the same transaction
       // (a new phone after a recovery, or the very first send)
@@ -153,16 +159,16 @@ export async function POST(req: NextRequest) {
           functionName: "aggregate3",
           args: [calls.map(c => ({ target: c.to, allowFailure: false, callData: c.data }))],
         });
-        kind = "first";
+        kind = setup ? "first-setup" : "first";
       } else {
         to = safe;
         data = exec;
-        kind = body.wedgie ? "exec-wedgie" : "exec";
+        kind = setup ? "setup" : body.wedgie ? "exec-wedgie" : "exec";
       }
     } else if (body.kind === "roles") {
       if (!hex(body.call) || !hex(body.signature) || !hex(body.salt) || !isAddress(body.signer)) throw new Error("role call?");
       const inner = rolesCalls(body.call, ROLE_BURNER);
-      checkCalls(safe, inner);
+      await checkCalls(safe, inner, plain);
       paid = feePaid(inner, me, info.usdc);
       to = rolesAddress(safe);
       data = signedRolesCalldata(body.call, getAddress(body.signer), body.signature, body.salt);
@@ -175,12 +181,14 @@ export async function POST(req: NextRequest) {
     // the fee must cover this send at today's gas price, with the same margins as the quote (+ L1 data on L2s)
     const q = await quote(chainId, kind);
     // a load-balanced RPC can be a block behind the client's last read (a deposit, the previous send): retry once
-    const estimate = () => pc.estimateGas({ account: me, to, data });
+    // estimate at the real fee (a contract can behave differently when tx.gasprice is 0), and never above the budget
+    const estimate = () => pc.estimateGas({ account: me, to, data, maxFeePerGas: BigInt(q.gasPrice), maxPriorityFeePerGas: 1n });
     const gas = await estimate()
       .catch(() => new Promise(r => setTimeout(r, 3000)).then(estimate))
       .catch((e: any) => {
         throw new Error(`it would fail on chain: ${e?.shortMessage || e?.message || e}`);
       });
+    if (gas > GAS_BUDGET[kind]) throw new RelayRefused("That's bigger than a normal Instant Wallet send.", 400);
     const l1 = chainId === 1 ? 0n : 2_000_000_000_000n;
     const costEth = (gas * BigInt(q.gasPrice) * 11n) / 10n + l1;
     const costUsdc = BigInt(Math.ceil((Number(costEth) / 1e18) * q.ethUsd * 1e6));
@@ -192,7 +200,7 @@ export async function POST(req: NextRequest) {
     const hash = await withChainLock(chainId, () => wc.sendTransaction({ to, data, gas: (gas * 13n) / 10n, chain: info.chain }));
     const rc = await pc.waitForTransactionReceipt({ hash, timeout: 45_000 }).catch(() => null);
     if (rc && rc.status !== "success") {
-      await reverted(safe);
+      await reverted(safe, ip);
       return NextResponse.json({ error: "it failed on chain", hash }, { status: 400 });
     }
     return NextResponse.json({ hash });

@@ -2,12 +2,11 @@
 
 /* eslint-disable @next/next/no-img-element */
 import { useCallback, useEffect, useState } from "react";
-import { CHAINS, chainById, publicClient } from "@/lib/chains";
+import { CHAINS, chainById } from "@/lib/chains";
 import { amount, short, usd } from "@/lib/format";
 import { type ChainState, LEVEL_NAME, type SafeAccount, loadAccount, readAll, saveAccount } from "@/lib/safe/state";
 import type { Asset, Portfolio } from "@/lib/types";
-import { encodeFunctionData } from "viem";
-import { SENTINEL, abi, selfCall } from "@/lib/safe/core";
+import { dropOtherBudgetsCalls } from "@/lib/safe/core";
 import { ownerSigners, ownersSend } from "@/lib/safe/send";
 import { friendly } from "../Welcome";
 import { Blockie, ChainChip, ScanIcon, Sheet, TokenIcon, copy, useToast } from "../bits";
@@ -62,17 +61,18 @@ export function SafeApp() {
   const top = Math.max(1, ...states.map(s => s.level));
   const feeTokenOn = (chainId: number): "usdc" | "eth" => {
     const usdcAddr = chainById(chainId)?.usdc?.toLowerCase();
-    return assets.some(a => a.chainId === chainId && a.asset.toLowerCase() === usdcAddr && BigInt(a.balance) >= 100_000n) ? "usdc" : "eth";
+    // USDC only when there's plenty for a fee there (Ethereum fees are dollars); else ETH
+    const need = chainId === 1 ? 10_000_000n : 1_000_000n;
+    const usdcOk = assets.some(a => a.chainId === chainId && a.asset.toLowerCase() === usdcAddr && BigInt(a.balance) >= need);
+    const ethOk = assets.some(a => a.chainId === chainId && a.asset === "0x0000000000000000000000000000000000000000" && BigInt(a.balance) > 0n);
+    return usdcOk || !ethOk ? "usdc" : "eth";
   };
-  // after a recovery, the lost phone is still the burner-budget member: turn the budget off (the owners sign)
+  // after a recovery, the lost phone still has the burner budget: take it out of Roles (the owners sign)
   async function dropOldBudget(s: ChainState) {
     try {
-      const pc = publicClient(s.chainId);
-      const [mods] = (await pc.readContract({ address: account!.address, abi: abi.safe, functionName: "getModulesPaginated", args: [SENTINEL, 20n] })) as any;
-      const i = (mods as string[]).findIndex(m => m.toLowerCase() === s.roles!.toLowerCase());
-      const prev = i <= 0 ? SENTINEL : (mods[i - 1] as `0x${string}`);
-      const data = encodeFunctionData({ abi: abi.safe, functionName: "disableModule", args: [prev, s.roles!] });
-      await ownersSend({ account: account!, state: s, calls: [selfCall(account!.address, data)], signers: ownerSigners(s), feeToken: feeTokenOn(s.chainId) });
+      if (!s.rolesMembers) throw new Error("Couldn't read the budget's keys. Try again.");
+      const calls = dropOtherBudgetsCalls(account!.address, s.rolesMembers, account!.burnerSigner);
+      await ownersSend({ account: account!, state: s, calls, signers: ownerSigners(s), feeToken: feeTokenOn(s.chainId) });
       setToast("The old phone's budget is off");
       refresh();
     } catch (e: any) {

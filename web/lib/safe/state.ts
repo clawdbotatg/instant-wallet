@@ -58,7 +58,9 @@ export type ChainState = {
   guardians: Address[] | null; // null = couldn't read them
   recovery: Recovery;
   roles: Address | null; // enabled Roles modifier (the burner's budget)
-  staleBudget: boolean; // Roles is on but this burner isn't its member (a lost phone's budget, after a recovery)
+  staleBudget: boolean; // Roles is on and some other key is its member (a lost phone's budget, after a recovery)
+  rolesMembers: Address[] | null; // the keys with a burner budget (null = couldn't read)
+  rolesDeployed: boolean;
   budget: { usdc: bigint; eth: bigint; usdcMax: bigint; ethMax: bigint } | null;
   level: 1 | 2 | 3 | 4 | 5;
 };
@@ -79,6 +81,8 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
       recovery: null,
       roles: null,
       staleBudget: false,
+      rolesMembers: null,
+      rolesDeployed: false,
       budget: null,
       level: 1,
     };
@@ -94,7 +98,14 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
     read("getRecoveryRequest", [safe], RECOVERY_7D, abi.recovery).catch(() => null),
   ]);
   let budget: ChainState["budget"] = null;
-  const member = rolesOn ? await read("isModuleEnabled", [a.burnerSigner], roles, abi.roles).catch(() => false) : false;
+  const rolesCode = await pc.getCode({ address: roles }).catch(() => undefined);
+  const members: Address[] | null =
+    rolesCode && rolesCode !== "0x"
+      ? await read("getModulesPaginated", ["0x0000000000000000000000000000000000000001", 20n], roles, abi.roles)
+          .then((r: any) => (r[0] as string[]).map(x => getAddress(x)))
+          .catch(() => null)
+      : [];
+  const member = !!members?.some(m => m.toLowerCase() === a.burnerSigner.toLowerCase());
   if (rolesOn && member) {
     const [u, e] = await Promise.all([
       read("allowances", [KEY_USDC], roles, abi.roles).catch(() => null),
@@ -126,7 +137,9 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
     guardians: g,
     recovery,
     roles: rolesOn ? roles : null,
-    staleBudget: !!rolesOn && !member,
+    staleBudget: !!rolesOn && !!members && members.some(m => m.toLowerCase() !== a.burnerSigner.toLowerCase()),
+    rolesMembers: members,
+    rolesDeployed: !!rolesCode && rolesCode !== "0x",
     budget,
     level,
   };

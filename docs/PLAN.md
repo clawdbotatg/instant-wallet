@@ -73,7 +73,10 @@ with an alert) until you remove it at level 5. It's a good fit: recovery is rare
   out a seed it already knows. Shown once, never stored.
 - **Sharded (decided, Austin 10-05):** the 24 words go on 3 cards, any 2 rebuild it: card 1 words 1–16, card 2
   words 9–24, card 3 words 1–8 + 17–24 (OPSEK's seed-phrase sheet). One card per sealed, tamper-evident
-  bag, kept in 3 places. One card leaks 16 words; the missing 8 take years-to-forever to brute force.
+  bag, kept in 3 places. The bags are **tamper-evident security bags** (like bank deposit or evidence bags):
+  opening one leaves a "VOID" mark or a torn seal, and each has a printed serial number. Write down and
+  photograph each serial; when you check a bag, the seal must be intact and the serial must match (a thief
+  could reseal the card in a fresh bag). A broken seal = treat that card as leaked and make new cards. One card leaks 16 words; the missing 8 take years-to-forever to brute force.
   Two cards = the whole seed. Chosen over SLIP-39 because it's simpler and types straight into MetaMask.
 - The app walks you through a practice restore before it switches recovery over.
 
@@ -464,7 +467,7 @@ A thief holding hot or the wedgie alone can switch off your burner's budget. Tha
    (our contract, phase 4). The wait catches tricks, not thieves.
 6. ~~Travel lock~~ **Decided:** yes, in the same contract.
 7. ~~Paper share scheme~~ see #10. Still open: the physical kit (OPSEK sheet printed, or the cards and
-   sealed bags from Austin's buddy; steel for fire?).
+   tamper-evident serial-numbered bags from Austin's buddy; steel for fire?).
 
 8. ~~If instantwallet.io dies~~ **Decided (Austin 10-05):** the passkey stops working; you replace it. Level 2+:
    your other keys swap it out (any Safe tool). Level 1: the DAO's recovery (7 d). Leaving us entirely works

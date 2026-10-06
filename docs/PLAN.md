@@ -71,10 +71,10 @@ the DAO's 7-day recovery. The DAO keeps its death switch (it can still replace y
 with an alert) until you remove it at level 5. It's a good fit: recovery is rarely used and should be offline.
 - Made on the wedgie (hardware random numbers) or with dice, never by the web app: a hacked site could hand
   out a seed it already knows. Shown once, never stored.
-- **Sharded:** split into 3 shares on special paper, any 2 rebuild it. Keep them in 3 places; one share
-  alone reveals nothing **with SLIP-39** (proper Shamir; needs software to rebuild; recommended).
-  Alternative: overlapping word cards (each has 16 of the 24 words, any two cover all; no software). But one
-  card leaks 16 words, leaving ~88 bits: a stolen card is a real, if small, risk.
+- **Sharded (decided, Austin 10-05):** the 24 words go on 3 cards, any 2 rebuild it: card 1 words 1–16, card 2
+  words 9–24, card 3 words 1–8 + 17–24 (OPSEK's seed-phrase sheet). One card per sealed, tamper-evident
+  bag, kept in 3 places. One card leaks 16 words; the missing 8 take years-to-forever to brute force.
+  Two cards = the whole seed. Chosen over SLIP-39 because it's simpler and types straight into MetaMask.
 - The app walks you through a practice restore before it switches recovery over.
 
 ### Level 4: how "wedgie + one" and "all three" work
@@ -423,7 +423,7 @@ Level 4+ assumes our contract is live (phase 4). Before that, any two keys inclu
 | burner + wedgie | — | — | **everything**, after the wait |
 | hot + wedgie | — | — | **everything**, after the wait |
 | all three | — | — | **everything**, instantly |
-| one paper share (level 3+) | — | nothing with SLIP-39 (word cards: 16 of 24 words leak) | same |
+| one paper card (level 3+) | — | nothing usable (16 of 24 words; the other 8 can't be brute-forced) | same |
 | two paper shares / the recovery key | takeover waits 7 d; burner cancels | burner + hot cancel | any two keys cancel |
 | death switch (DAO) | waits 6 mo; owners cancel | same | same (any two keys at level 4+) |
 
@@ -463,16 +463,21 @@ A thief holding hot or the wedgie alone can switch off your burner's budget. Tha
 5. ~~Wait~~ **Decided:** wedgie + one waits (default 24 h, 1–48 h), all three instant, any two keys cancel
    (our contract, phase 4). The wait catches tricks, not thieves.
 6. ~~Travel lock~~ **Decided:** yes, in the same contract.
-7. **Paper share scheme:** SLIP-39 (recommended) vs overlapping word cards. And what the "special paper" is (printed card
-   kit, steel plates).
+7. ~~Paper share scheme~~ see #10. Still open: the physical kit (OPSEK sheet printed, or the cards and
+   sealed bags from Austin's buddy; steel for fire?).
 
 8. ~~If instantwallet.io dies~~ **Decided (Austin 10-05):** the passkey stops working; you replace it. Level 2+:
    your other keys swap it out (any Safe tool). Level 1: the DAO's recovery (7 d). Leaving us entirely works
    the same way: it's a plain Safe, so swap in any signers you like.
 9. **When the Safe is deployed (review F8).** Phase 1 says "on Base at first deposit"; the multichain plan says
    "every cheap chain at signup". Pick one, and who pays the gas.
-10. **Paper format (review C2).** Native SLIP-39 (shares of ~20 words, no 24-word phrase; recommended) or a
-   24-word BIP-39 phrase split by a documented method. Must restore to the same address with independent software.
+10. ~~Paper format~~ **Decided (Austin 10-05): a plain 24-word BIP-39 phrase on 3 cards, any 2 rebuild it.**
+   Card 1 = words 1–16, card 2 = words 9–24, card 3 = words 1–8 + 17–24 (OPSEK's free sheet,
+   github.com/Opsek/seed-phrase-sheet, from Pablo Sabbatella on slop.computer). One card per tamper-evident
+   sealed bag. Simple, and it types straight into MetaMask. Trade-off accepted: one card leaks 16 words; the
+   other 8 are ~2^88 guesses, each slow to check, so years-to-forever to brute force. Recovery address =
+   MetaMask's standard first address (m/44'/60'/0'/0/0), no passphrase; the practice restore checks it in
+   MetaMask itself, not only in our app.
 
 ## Not proven yet (Base-fork spike first)
 

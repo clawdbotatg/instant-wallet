@@ -4,6 +4,7 @@ import {
   type Call,
   type SafeTx,
   type Sig,
+  abi,
   batch,
   encodeSignatures,
   moduleTxHash,
@@ -72,7 +73,7 @@ export async function ownersSend(opts: {
   stage("quote");
   const kind: SendKind = !st.deployed ? (opts.setup ? "first-setup" : "first") : opts.setup ? "setup" : signers.includes("wedgie") ? "exec-wedgie" : "exec";
   const q = await getQuote(chainId, kind);
-  const t: SafeTx = batch([...opts.calls, feeCall(q, opts.feeToken)], st.nonce);
+  const t: SafeTx = batch([...opts.calls, feeCall(q, opts.feeToken)], await freshNonce(chainId, a.address, st));
   const h = safeTxHash(chainId, a.address, t);
   const sigs: Sig[] = [];
   let ownWedgie: Wedgie | null = null;
@@ -108,7 +109,17 @@ export async function ownersSend(opts: {
   });
   stage("confirming", hash);
   await waitFor(chainId, hash);
+  used.set(`${chainId}:${a.address}`, t.nonce);
   return hash;
+}
+
+/** RPC nodes lag a block now and then: never reuse a nonce this page just used. */
+const used = new Map<string, bigint>();
+async function freshNonce(chainId: number, safe: Address, st: ChainState): Promise<bigint> {
+  let n = st.nonce;
+  if (st.deployed) n = await publicClient(chainId).readContract({ address: safe, abi: abi.safe, functionName: "nonce" }).catch(() => st.nonce);
+  const last = used.get(`${chainId}:${safe}`);
+  return last !== undefined && last >= n ? last + 1n : n;
 }
 
 /** The burner alone, within its daily budget (levels 2+): a signed Roles call, relayed. One Face ID. */

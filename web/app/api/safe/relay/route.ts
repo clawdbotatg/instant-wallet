@@ -154,9 +154,13 @@ export async function POST(req: NextRequest) {
 
     // the fee must cover this send at today's gas price
     const q = await quote(chainId, kind);
-    const gas = await pc.estimateGas({ account: me, to, data }).catch((e: any) => {
-      throw new Error(`it would fail on chain: ${e?.shortMessage || e?.message || e}`);
-    });
+    // a load-balanced RPC can be a block behind the client's last read (a deposit, the previous send): retry once
+    const estimate = () => pc.estimateGas({ account: me, to, data });
+    const gas = await estimate()
+      .catch(() => new Promise(r => setTimeout(r, 3000)).then(estimate))
+      .catch((e: any) => {
+        throw new Error(`it would fail on chain: ${e?.shortMessage || e?.message || e}`);
+      });
     const costEth = gas * BigInt(q.gasPrice);
     const costUsdc = BigInt(Math.ceil((Number(costEth) / 1e18) * q.ethUsd * 1e6));
     if (paid.eth < costEth && paid.usdc < costUsdc)

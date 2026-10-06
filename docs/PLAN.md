@@ -94,8 +94,10 @@ with an alert) until you remove it at level 5. It's a good fit: recovery is rare
 - **The wedgie is the big decider (Austin 10-05):** every pair must include it. Burner + hot can't spend
   beyond the budget or remove the wedgie.
 - **Panic button (Austin 10-05).** Any one key, instant: everything (a token list + ETH) goes to your
-  **vault**, an address set in advance that no phone/MetaMask/wedgie controls (default: your paper seed's
-  address). Changing the vault waits 7 d, alerts, any two keys cancel. A thief pressing it only moves your
+  **vault**: a second, slow Safe of yours. **Not the paper seed** (rejected: paper + one stolen key could press
+  panic and send everything to themselves). Vault rules: every move needs wedgie + paper seed and waits 7 d;
+  burner or hot alone can cancel (only theft of all of wedgie, paper and both other keys gets past it).
+  No budget, no panic. Changing which vault is used waits 7 d, alerts, any two keys cancel. A thief pressing it only moves your
   money to your own vault. Against two stolen keys: their moves wait 48 h; your last key presses panic first.
 - **Paper seed breaks ties.** A key being removed can object; the paper seed then approves or rejects at once.
 - **If the wedgie is stolen:** the thief alone can do nothing (needs a second key; cancelling also needs two).

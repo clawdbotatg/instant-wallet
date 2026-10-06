@@ -15,7 +15,7 @@ import { privateKeyToAccount } from "viem/accounts";
 
 const APP = process.env.APP || "http://localhost:3100";
 const RPC = "http://127.0.0.1:8545";
-const USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+const USDC = process.env.USDC || "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; // Base; Ethereum: 0xA0b8…eB48
 const RECOVERY = "0x088f6cfD8BB1dDb1BB069CCb3fc1A98927D233f2";
 const DAO = "0xeF899e80aA814ab8D8e232f9Ed6403A633C727ec";
 const OUT = process.argv[2] || "/tmp";
@@ -272,6 +272,14 @@ await page2.getByText("Sent", { exact: true }).waitFor({ timeout: 90000 }).catch
   throw e;
 });
 ok(usdcOf(FRANK) === 7_000_000n, "the recovered wallet sends from the new phone (its signer deployed on the way)");
+await page2.getByText("Done").tap();
+await page2.waitForTimeout(13000);
+ok(await page2.getByText("Turn off the old phone's budget").isVisible(), "the new phone is told the lost phone still has a budget");
+const rolesAddr = cast(`call ${acct.address} "getModulesPaginated(address,uint256)(address[],address)" 0x0000000000000000000000000000000000000001 10`);
+await page2.getByRole("button", { name: "Turn it off" }).tap();
+await page2.waitForTimeout(20000);
+const modsAfter = cast(`call ${acct.address} "getModulesPaginated(address,uint256)(address[],address)" 0x0000000000000000000000000000000000000001 10`);
+ok(modsAfter.split(",").length < rolesAddr.split(",").length, `the lost phone's budget is off (modules ${rolesAddr.slice(0, 60)} → ${modsAfter.slice(0, 60)})`);
 await page2.screenshot({ path: `${OUT}/s13-recovered-sent.png` });
 
 await browser.close();

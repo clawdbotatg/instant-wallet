@@ -2,10 +2,14 @@
 
 /* eslint-disable @next/next/no-img-element */
 import { useCallback, useEffect, useState } from "react";
-import { CHAINS, chainById } from "@/lib/chains";
+import { CHAINS, chainById, publicClient } from "@/lib/chains";
 import { amount, short, usd } from "@/lib/format";
 import { type ChainState, LEVEL_NAME, type SafeAccount, loadAccount, readAll, saveAccount } from "@/lib/safe/state";
 import type { Asset, Portfolio } from "@/lib/types";
+import { encodeFunctionData } from "viem";
+import { SENTINEL, abi, selfCall } from "@/lib/safe/core";
+import { ownerSigners, ownersSend } from "@/lib/safe/send";
+import { friendly } from "../Welcome";
 import { Blockie, ChainChip, ScanIcon, Sheet, TokenIcon, copy, useToast } from "../bits";
 import { Receive } from "../Receive";
 import { Keys } from "./Keys";
@@ -56,6 +60,25 @@ export function SafeApp() {
     refresh();
   };
   const top = Math.max(1, ...states.map(s => s.level));
+  const feeTokenOn = (chainId: number): "usdc" | "eth" => {
+    const usdcAddr = chainById(chainId)?.usdc?.toLowerCase();
+    return assets.some(a => a.chainId === chainId && a.asset.toLowerCase() === usdcAddr && BigInt(a.balance) >= 100_000n) ? "usdc" : "eth";
+  };
+  // after a recovery, the lost phone is still the burner-budget member: turn the budget off (the owners sign)
+  async function dropOldBudget(s: ChainState) {
+    try {
+      const pc = publicClient(s.chainId);
+      const [mods] = (await pc.readContract({ address: account!.address, abi: abi.safe, functionName: "getModulesPaginated", args: [SENTINEL, 20n] })) as any;
+      const i = (mods as string[]).findIndex(m => m.toLowerCase() === s.roles!.toLowerCase());
+      const prev = i <= 0 ? SENTINEL : (mods[i - 1] as `0x${string}`);
+      const data = encodeFunctionData({ abi: abi.safe, functionName: "disableModule", args: [prev, s.roles!] });
+      await ownersSend({ account: account!, state: s, calls: [selfCall(account!.address, data)], signers: ownerSigners(s), feeToken: feeTokenOn(s.chainId) });
+      setToast("The old phone's budget is off");
+      refresh();
+    } catch (e: any) {
+      setToast(friendly(e));
+    }
+  }
 
   return (
     <>
@@ -71,7 +94,22 @@ export function SafeApp() {
           </button>
         </div>
 
-        {states.map(s => s.recovery && <RecoveryAlert key={s.chainId} account={account} state={s} onDone={refresh} />)}
+        {states.map(s => s.recovery && <RecoveryAlert key={s.chainId} account={account} state={s} feeToken={feeTokenOn(s.chainId)} onDone={refresh} />)}
+        {states.map(
+          s =>
+            s.staleBudget &&
+            s.owners.some(o => o.toLowerCase() === account.burnerSigner.toLowerCase()) && (
+              <div key={`b${s.chainId}`} className="card alert">
+                <b>Turn off the old phone&apos;s budget</b>
+                <p className="fine">
+                  On {chainById(s.chainId)?.name}, a key that isn&apos;t this phone can still spend the daily Face ID budget (a lost phone, after a recovery).
+                </p>
+                <button className="btn btn-red wide" onClick={() => dropOldBudget(s)}>
+                  Turn it off
+                </button>
+              </div>
+            ),
+        )}
         {account.recovered && !states.some(s => s.owners.some(o => o.toLowerCase() === account.burnerSigner.toLowerCase())) && (
           <div className="card stack">
             <b>Waiting for recovery</b>

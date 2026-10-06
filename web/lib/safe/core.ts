@@ -51,6 +51,7 @@ export const abi = {
     "function isModuleEnabled(address) view returns (bool)",
     "function getModulesPaginated(address start, uint256 pageSize) view returns (address[] array, address next)",
     "function enableModule(address module)",
+    "function disableModule(address prevModule, address module)",
     "function addOwnerWithThreshold(address owner, uint256 threshold)",
     "function removeOwner(address prevOwner, address owner, uint256 threshold)",
     "function swapOwner(address prevOwner, address oldOwner, address newOwner)",
@@ -399,19 +400,22 @@ export function signedRolesCalldata(call: Hex, signer: Address, signature: Hex, 
 
 // ---------------------------------------------------------------- recovery
 
+/**
+ * Make `next` the only recovery address. Candide keeps guardians in a linked list (newest first, as getGuardians
+ * returns them); each revoke names the guardian before it in the list as it stands at that moment.
+ */
 export function setGuardianCalls(current: Address[], next: Address): Call[] {
   const calls: Call[] = [];
-  if (!current.map(a => a.toLowerCase()).includes(next.toLowerCase()))
+  const list = [...current];
+  if (!list.some(a => a.toLowerCase() === next.toLowerCase())) {
     calls.push({ to: RECOVERY_7D, value: 0n, data: encodeFunctionData({ abi: abi.recovery, functionName: "addGuardianWithThreshold", args: [next, 1n] }) });
-  // Candide keeps guardians in a linked list; the newest is first. After adding `next`, each old one's previous is the one
-  // before it in [next, ...current].
-  const list = [next, ...current.filter(a => a.toLowerCase() !== next.toLowerCase())];
-  for (let i = list.length - 1; i >= 1; i--) {
-    calls.push({
-      to: RECOVERY_7D,
-      value: 0n,
-      data: encodeFunctionData({ abi: abi.recovery, functionName: "revokeGuardianWithThreshold", args: [list[i - 1], list[i], 1n] }),
-    });
+    list.unshift(next);
+  }
+  for (let i = list.length - 1; i >= 0; i--) {
+    if (list[i].toLowerCase() === next.toLowerCase()) continue;
+    const prev = i === 0 ? SENTINEL : list[i - 1];
+    calls.push({ to: RECOVERY_7D, value: 0n, data: encodeFunctionData({ abi: abi.recovery, functionName: "revokeGuardianWithThreshold", args: [prev, list[i], 1n] }) });
+    list.splice(i, 1);
   }
   return calls;
 }

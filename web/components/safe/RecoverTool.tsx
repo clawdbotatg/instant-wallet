@@ -42,16 +42,21 @@ export function RecoverTool() {
   useEffect(() => {
     if (!w) return setInfo(null);
     const pc = publicClient(chainId);
+    let live = true; // switching chain or wallet mid-read must not show the old one's state
+    setInfo(null);
     (async () => {
       const code = await pc.getCode({ address: w }).catch(() => undefined);
       const deployed = !!code && code !== "0x";
-      if (!deployed) return setInfo({ deployed, guardians: [DAO], executeAfter: 0, newOwners: [] });
+      if (!deployed) return live && setInfo({ deployed, guardians: [DAO], executeAfter: 0, newOwners: [] });
       const [g, r] = await Promise.all([
         pc.readContract({ address: RECOVERY_7D, abi: abi.recovery, functionName: "getGuardians", args: [w] }).catch(() => []),
         pc.readContract({ address: RECOVERY_7D, abi: abi.recovery, functionName: "getRecoveryRequest", args: [w] }).catch(() => null),
       ]);
-      setInfo({ deployed, guardians: [...(g as Address[])], executeAfter: r ? Number((r as any).executeAfter) * 1000 : 0, newOwners: r ? [...(r as any).newOwners] : [] });
+      if (live) setInfo({ deployed, guardians: [...(g as Address[])], executeAfter: r ? Number((r as any).executeAfter) * 1000 : 0, newOwners: r ? [...(r as any).newOwners] : [] });
     })();
+    return () => {
+      live = false;
+    };
   }, [w, chainId, tick]);
 
   const startData = w && isAddress(newKey.trim()) ? encodeFunctionData({ abi: abi.recovery, functionName: "confirmRecovery", args: [w, [getAddress(newKey.trim())], 1n, true] }) : null;
@@ -127,7 +132,7 @@ export function RecoverTool() {
           Start (from the recovery address)
         </button>
         {startData && (
-          <button className="pill" onClick={() => copy(`to ${RECOVERY_7D}\ndata ${startData}`)}>
+          <button className="pill" onClick={() => copy(`chain ${chainById(chainId)?.name} (${chainId})\nto ${RECOVERY_7D}\nvalue 0\ndata ${startData}`)}>
             Copy as a Safe transaction (for the DAO)
           </button>
         )}

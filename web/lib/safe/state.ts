@@ -46,7 +46,7 @@ export function saveAccount(a: SafeAccount | null) {
   } catch {}
 }
 
-export type Recovery = { newOwners: Address[]; executeAfter: number; approvals: number } | null;
+export type Recovery = { newOwners: Address[]; newThreshold: number; executeAfter: number; approvals: number } | null;
 
 /** One chain's view of the wallet. */
 export type ChainState = {
@@ -55,9 +55,10 @@ export type ChainState = {
   owners: Address[];
   threshold: number;
   nonce: bigint;
-  guardians: Address[];
+  guardians: Address[] | null; // null = couldn't read them
   recovery: Recovery;
   roles: Address | null; // enabled Roles modifier (the burner's budget)
+  staleBudget: boolean; // Roles is on but this burner isn't its member (a lost phone's budget, after a recovery)
   budget: { usdc: bigint; eth: bigint; usdcMax: bigint; ethMax: bigint } | null;
   level: 1 | 2 | 3 | 4 | 5;
 };
@@ -77,6 +78,7 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
       guardians: [DAO],
       recovery: null,
       roles: null,
+      staleBudget: false,
       budget: null,
       level: 1,
     };
@@ -88,11 +90,12 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
     read("getThreshold"),
     read("nonce"),
     read("isModuleEnabled", [roles]),
-    read("getGuardians", [safe], RECOVERY_7D, abi.recovery).catch(() => []),
+    read("getGuardians", [safe], RECOVERY_7D, abi.recovery).catch(() => null),
     read("getRecoveryRequest", [safe], RECOVERY_7D, abi.recovery).catch(() => null),
   ]);
   let budget: ChainState["budget"] = null;
-  if (rolesOn) {
+  const member = rolesOn ? await read("isModuleEnabled", [a.burnerSigner], roles, abi.roles).catch(() => false) : false;
+  if (rolesOn && member) {
     const [u, e] = await Promise.all([
       read("allowances", [KEY_USDC], roles, abi.roles).catch(() => null),
       read("allowances", [KEY_ETH], roles, abi.roles).catch(() => null),
@@ -101,15 +104,32 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
   }
   const recovery: Recovery =
     req && Number(req.executeAfter) > 0
-      ? { newOwners: req.newOwners.map((x: string) => getAddress(x)), executeAfter: Number(req.executeAfter) * 1000, approvals: Number(req.guardiansApprovalCount) }
+      ? {
+          newOwners: req.newOwners.map((x: string) => getAddress(x)),
+          newThreshold: Number(req.newThreshold),
+          executeAfter: Number(req.executeAfter) * 1000,
+          approvals: Number(req.guardiansApprovalCount),
+        }
       : null;
   const o = (owners as string[]).map(x => getAddress(x));
-  const g = (guardians as string[]).map(x => getAddress(x));
+  const g = guardians ? (guardians as string[]).map(x => getAddress(x)) : null;
   // another device may have added the keys: the shape says it too (level 4 = 4 owners, threshold 3)
   const hasWedgie = (!!a.wedgie && wedgieSigners(a.wedgie).every(w => o.includes(w))) || (o.length >= 4 && Number(threshold) >= 3);
-  const daoGuardian = g.some(x => x.toLowerCase() === DAO.toLowerCase());
+  const daoGuardian = !g || g.some(x => x.toLowerCase() === DAO.toLowerCase());
   const level: ChainState["level"] = hasWedgie ? (daoGuardian ? 4 : 5) : o.length >= 2 ? (daoGuardian ? 2 : 3) : 1;
-  return { chainId, deployed, owners: o, threshold: Number(threshold), nonce, guardians: g, recovery, roles: rolesOn ? roles : null, budget, level };
+  return {
+    chainId,
+    deployed,
+    owners: o,
+    threshold: Number(threshold),
+    nonce,
+    guardians: g,
+    recovery,
+    roles: rolesOn ? roles : null,
+    staleBudget: !!rolesOn && !member,
+    budget,
+    level,
+  };
 }
 
 /** Zodiac Roles allowance available now: balance plus refills since the last timestamp, capped at maxRefill. */

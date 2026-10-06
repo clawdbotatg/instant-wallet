@@ -5,6 +5,8 @@ import { useState } from "react";
 import { type Address, getAddress, isAddress } from "viem";
 import { CHAINS, publicClient } from "@/lib/chains";
 import { type Candidate, confirmKey, createPasskey, recoverKeys, webauthnAvailable } from "@/lib/passkey";
+import { RECOVERY_7D } from "@/lib/safe/config";
+import { abi } from "@/lib/safe/core";
 import { type SafeAccount, accountFor } from "@/lib/safe/state";
 import { Band } from "../bits";
 import { friendly } from "../Welcome";
@@ -23,13 +25,24 @@ async function used(a: SafeAccount): Promise<boolean> {
   return !!p?.assets?.some((x: { balance: string }) => BigInt(x.balance) > 0n);
 }
 
-/** Safes this signer owns, from Safe's Transaction Service (a phone that took over a wallet by recovery). */
+/**
+ * A wallet this signer took over by recovery, from Safe's Transaction Service, checked on chain: the signer is an
+ * owner and Candide's recovery is on. Anyone can make a Safe listing someone's signer, so the user confirms it too.
+ */
 async function ownedBy(signer: Address): Promise<Address | undefined> {
-  for (const net of ["base", "eth"]) {
+  for (const [net, chainId] of [["base", 8453], ["eth", 1]] as const) {
+    if (!CHAINS.some(c => c.id === chainId)) continue;
     const j = await fetch(`https://api.safe.global/tx-service/${net}/api/v1/owners/${getAddress(signer)}/safes/`)
       .then(r => (r.ok ? r.json() : null))
       .catch(() => null);
-    if (j?.safes?.length) return getAddress(j.safes[0]);
+    for (const w of (j?.safes ?? []) as string[]) {
+      const pc = publicClient(chainId);
+      const [owners, rec] = await Promise.all([
+        pc.readContract({ address: getAddress(w), abi: abi.safe, functionName: "getOwners" }).catch(() => [] as readonly Address[]),
+        pc.readContract({ address: getAddress(w), abi: abi.safe, functionName: "isModuleEnabled", args: [RECOVERY_7D] }).catch(() => false),
+      ]);
+      if (rec && owners.some(o => o.toLowerCase() === signer.toLowerCase())) return getAddress(w);
+    }
   }
   return undefined;
 }
@@ -38,6 +51,7 @@ export function SafeWelcome({ onReady }: { onReady: (a: SafeAccount) => void }) 
   const [busy, setBusy] = useState<"create" | "login" | "recover" | null>(null);
   const [recovering, setRecovering] = useState(false);
   const [wallet, setWallet] = useState("");
+  const [confirm, setConfirm] = useState<SafeAccount | null>(null);
   const [error, setError] = useState<string | null>(null);
   const supported = typeof window === "undefined" || webauthnAvailable();
 
@@ -70,10 +84,7 @@ export function SafeWelcome({ onReady }: { onReady: (a: SafeAccount) => void }) 
       for (const c of pick ? [pick] : accts) {
         if (await used(c)) break;
         const w = await ownedBy(c.burnerSigner);
-        if (w) {
-          pick = accountFor(credentialId, c.qx, c.qy, w);
-          break;
-        }
+        if (w) return setConfirm(accountFor(credentialId, c.qx, c.qy, w)); // the user says yes or no
       }
       if (!pick) {
         const c = await confirmKey(credentialId, candidates); // one more Face ID only when it's ambiguous
@@ -100,6 +111,26 @@ export function SafeWelcome({ onReady }: { onReady: (a: SafeAccount) => void }) 
       setBusy(null);
     }
   }
+
+  if (confirm)
+    return (
+      <div className="app">
+        <div className="welcome">
+          <div className="stack">
+            <h1>Is this your wallet?</h1>
+            <p>This passkey is an owner of a wallet it took over by recovery:</p>
+            <p className="mono">{confirm.address}</p>
+            <p className="fine">Only say yes if you recognise this address. Anyone can make a wallet that lists your key.</p>
+          </div>
+          <button className="btn btn-green wide" onClick={() => onReady(confirm)}>
+            Yes, that&apos;s mine
+          </button>
+          <button className="btn wide" onClick={() => setConfirm(null)}>
+            No
+          </button>
+        </div>
+      </div>
+    );
 
   if (recovering)
     return (

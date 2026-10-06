@@ -65,16 +65,28 @@ export function feePaid(calls: Call[], relayer: Address, usdc: Address | undefin
   return { usdc: 0n, eth: 0n };
 }
 
-/** The calls inside a Roles spend (execTransactionWithRole to MultiSendCallOnly, or Multicall3 for ETH). */
-export function rolesCalls(calldata: Hex): Call[] {
+/**
+ * The calls inside a burner's Roles spend, after checking the call is exactly what the app makes (review: with
+ * shouldRevert = false a failing inner call returns false instead of reverting, and the relay would be paid nothing).
+ */
+export function rolesCalls(calldata: Hex, roleKey: Hex): Call[] {
   const d = decodeFunctionData({ abi: abi.roles, data: calldata });
   if (d.functionName !== "execTransactionWithRole") throw new Error("not a role call");
-  const [to, , data] = d.args as [Address, bigint, Hex, number, Hex, boolean];
-  if (to.toLowerCase() === MULTISEND_CALL_ONLY.toLowerCase()) return unpackMultiSend(data);
+  const [to, value, data, op, key, shouldRevert] = d.args as [Address, bigint, Hex, number, Hex, boolean];
+  if (shouldRevert !== true) throw new Error("role calls must revert on failure");
+  if (key.toLowerCase() !== roleKey.toLowerCase()) throw new Error("unknown role");
+  if (to.toLowerCase() === MULTISEND_CALL_ONLY.toLowerCase()) {
+    if (op !== 1 || value !== 0n) throw new Error("bad batch");
+    return unpackMultiSend(data);
+  }
   if (to.toLowerCase() === MULTICALL3.toLowerCase()) {
+    if (op !== 0) throw new Error("bad ETH send");
     const m = decodeFunctionData({ abi: abi.multicall3, data });
     if (m.functionName !== "aggregate3Value") throw new Error("unexpected Multicall3 call");
-    return (m.args[0] as readonly { target: Address; value: bigint; callData: Hex }[]).map(c => ({ to: c.target, value: c.value, data: c.callData }));
+    const calls = m.args[0] as readonly { target: Address; allowFailure: boolean; value: bigint; callData: Hex }[];
+    if (calls.some(c => c.allowFailure || c.callData !== "0x")) throw new Error("ETH sends only, none may fail");
+    if (calls.reduce((t, c) => t + c.value, 0n) !== value) throw new Error("ETH amounts don't add up");
+    return calls.map(c => ({ to: c.target, value: c.value, data: c.callData }));
   }
   throw new Error("unexpected role target");
 }

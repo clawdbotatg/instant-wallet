@@ -65,6 +65,7 @@ export async function ownersSend(opts: {
   feeToken: FeeToken;
   wedgie?: Wedgie | null;
   setup?: boolean; // a level change: bigger gas budget
+  quote?: Quote; // the one the user saw, if still fresh and for the same kind of send
   onStage?: (s: Stage, hash?: Hash) => void;
 }): Promise<Hash> {
   const { account: a, state: st, signers } = opts;
@@ -74,7 +75,7 @@ export async function ownersSend(opts: {
   const signerCode = signers.includes("burner") ? await publicClient(chainId).getCode({ address: a.burnerSigner }).catch(() => undefined) : "0x01";
   const fresh = !st.deployed || !signerCode || signerCode === "0x"; // the relay deploys the Safe and/or the burner's signer too
   const kind: SendKind = fresh ? (opts.setup ? "first-setup" : "first") : opts.setup ? "setup" : signers.includes("wedgie") ? "exec-wedgie" : "exec";
-  const q = await getQuote(chainId, kind);
+  const q = opts.quote && opts.quote.kind === kind && opts.quote.until > Date.now() + 30_000 ? opts.quote : await getQuote(chainId, kind);
   const t: SafeTx = batch([...opts.calls, feeCall(q, opts.feeToken)], await freshNonce(chainId, a.address, st));
   const h = safeTxHash(chainId, a.address, t);
   const sigs: Sig[] = [];
@@ -115,6 +116,14 @@ export async function ownersSend(opts: {
   return hash;
 }
 
+/** The kind of relayed send (and so the fee quote) a send will be. */
+export async function sendKind(a: SafeAccount, st: ChainState, path: "owners" | "budget", signers: Signer[]): Promise<SendKind> {
+  if (path === "budget") return "roles";
+  const code = signers.includes("burner") ? await publicClient(st.chainId).getCode({ address: a.burnerSigner }).catch(() => undefined) : "0x01";
+  if (!st.deployed || !code || code === "0x") return "first";
+  return signers.includes("wedgie") ? "exec-wedgie" : "exec";
+}
+
 /** RPC nodes lag a block now and then: never reuse a nonce this page just used. */
 const used = new Map<string, bigint>();
 async function freshNonce(chainId: number, safe: Address, st: ChainState): Promise<bigint> {
@@ -130,12 +139,13 @@ export async function budgetSend(opts: {
   state: ChainState;
   calls: Call[]; // all ETH, or all USDC transfers
   feeToken: FeeToken;
+  quote?: Quote;
   onStage?: (s: Stage, hash?: Hash) => void;
 }): Promise<Hash> {
   const { account: a, state: st } = opts;
   const stage = opts.onStage ?? (() => {});
   stage("quote");
-  const q = await getQuote(st.chainId, "roles");
+  const q = opts.quote && opts.quote.kind === "roles" && opts.quote.until > Date.now() + 30_000 ? opts.quote : await getQuote(st.chainId, "roles");
   const call = rolesSpendCall([...opts.calls, feeCall(q, opts.feeToken)]);
   const s: Hex = salt();
   const h = moduleTxHash(st.chainId, rolesAddress(a.address), call, s);

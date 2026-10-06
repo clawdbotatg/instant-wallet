@@ -84,6 +84,7 @@ export function Keys({
       if (!isAddress(paperIn.trim())) throw new Error("Paste the paper seed's address (0x…), from MetaMask after you import the seed.");
       const paper = getAddress(paperIn.trim());
       if (st.owners.some(o => o.toLowerCase() === paper.toLowerCase())) throw new Error("That address is already one of your keys. The paper must be separate.");
+      if (!st.guardians) throw new Error("Couldn't read the current recovery address. Try again in a moment.");
       await ownersSend({ account, state: st, calls: setGuardianCalls(st.guardians, paper), signers: ownerSigners(st), feeToken });
       onAccount({ ...account, paper });
       setPaperIn("");
@@ -156,9 +157,9 @@ export function Keys({
         )}
       </Step>
 
-      <Step n={3} title="Paper backup (your recovery)" done={!!st && st.guardians.length > 0 && !st.guardians.some(g => g.toLowerCase() === DAO.toLowerCase())} current={level === 2}>
+      <Step n={3} title="Paper backup (your recovery)" done={!!st?.guardians && st.guardians.length > 0 && !st.guardians.some(g => g.toLowerCase() === DAO.toLowerCase())} current={level === 2}>
         <p className="fine">
-          Recovery: {st?.guardians.length ? st.guardians.map(NAME).join(", ") : "none"} can replace your keys after a 7-day wait (you get time to cancel).
+          Recovery: {st?.guardians ? (st.guardians.length ? st.guardians.map(NAME).join(", ") : "none") : "…"} can replace your keys after a 7-day wait (you get time to cancel).
         </p>
         <p className="fine">
           To make it yours: create a new 24-word seed in MetaMask (a fresh wallet), write it on the 3 cards (

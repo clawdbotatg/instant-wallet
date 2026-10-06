@@ -11,12 +11,23 @@ import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { friendly } from "../Welcome";
 
 /** A recovery is running on this wallet: say so loudly, with the date it lands and a Cancel. */
-export function RecoveryAlert({ account, state, onDone }: { account: SafeAccount; state: ChainState; onDone: () => void }) {
+export function RecoveryAlert({
+  account,
+  state,
+  feeToken,
+  onDone,
+}: {
+  account: SafeAccount;
+  state: ChainState;
+  feeToken: "usdc" | "eth";
+  onDone: () => void;
+}) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const r = state.recovery!;
   const when = new Date(r.executeAfter);
-  const mine = r.newOwners.some(o => o.toLowerCase() === account.burnerSigner.toLowerCase());
+  // only "mine" when it hands the wallet to exactly this phone (a recovery to [this phone, someone else] is not)
+  const mine = !!account.recovered && r.newOwners.length === 1 && r.newOwners[0].toLowerCase() === account.burnerSigner.toLowerCase();
   async function cancel() {
     setBusy(true);
     setError(null);
@@ -26,7 +37,7 @@ export function RecoveryAlert({ account, state, onDone }: { account: SafeAccount
         state,
         calls: [{ to: RECOVERY_7D, value: 0n, data: encodeFunctionData({ abi: abi.recovery, functionName: "cancelRecovery" }) }],
         signers: ownerSigners(state),
-        feeToken: "usdc",
+        feeToken,
       });
       onDone();
     } catch (e: any) {
@@ -39,7 +50,8 @@ export function RecoveryAlert({ account, state, onDone }: { account: SafeAccount
     <div className="card alert">
       <b>{mine ? "Your recovery is running" : "Someone is recovering this wallet"}</b>
       <p className="fine">
-        On {chainById(state.chainId)?.name}, your keys get replaced by {r.newOwners.map(short).join(", ")} on {when.toLocaleString()}.{" "}
+        On {chainById(state.chainId)?.name}, your keys get replaced by {r.newOwners.map(short).join(", ")}
+        {r.newOwners.length > 1 ? ` (any ${r.newThreshold} of them)` : ""} on {when.toLocaleString()}.{" "}
         {mine ? "That's this phone." : "If that isn't you, cancel it now."}
       </p>
       {!mine && (

@@ -17,6 +17,10 @@ export async function connectHot(): Promise<Address> {
 export async function hotSign(chainId: number, safe: Address, t: SafeTx, expect: Address): Promise<Sig> {
   const who = await connectHot();
   if (who.toLowerCase() !== expect.toLowerCase()) throw new Error(`Switch your wallet to ${expect} (it's on ${who}).`);
+  // MetaMask refuses typed data for a chain other than the one it's on
+  const want = "0x" + chainId.toString(16);
+  const on = await eth().request({ method: "eth_chainId" }).catch(() => want);
+  if (on !== want) await eth().request({ method: "wallet_switchEthereumChain", params: [{ chainId: want }] });
   const typed = safeTxTypedData(chainId, safe, t);
   const sig = (await eth().request({ method: "eth_signTypedData_v4", params: [who, JSON.stringify(typed)] })) as Hex;
   return ecdsaSig(who, sig);

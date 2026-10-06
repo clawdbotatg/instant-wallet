@@ -7,7 +7,7 @@ import { amount as fmtAmount, short, usd } from "@/lib/format";
 import { parse } from "@/lib/parse";
 import { transfer } from "@/lib/safe/core";
 import type { Quote } from "@/lib/safe/fee";
-import { type FeeToken, type Signer, type Stage, budgetSend, getQuote, ownersSend, plan } from "@/lib/safe/send";
+import { type FeeToken, type Signer, type Stage, budgetSend, getQuote, ownersSend, plan, sendKind } from "@/lib/safe/send";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
@@ -63,12 +63,17 @@ export function SafeSend({
     if (isAddress(v)) return setResolved(getAddress(v));
     if (!/\.[a-z]{2,}$/i.test(v)) return;
     setResolving(true);
+    let live = true; // a late answer for an older name must never land on a newer input
     const t = setTimeout(async () => {
       const j = await fetch(`/api/ens?name=${encodeURIComponent(v.toLowerCase())}`).then(r => r.json()).catch(() => null);
+      if (!live) return;
       setResolving(false);
       if (j?.address) setResolved(getAddress(j.address));
     }, 350);
-    return () => clearTimeout(t);
+    return () => {
+      live = false;
+      clearTimeout(t);
+    };
   }, [toInput]);
 
   let base: bigint | null = null;
@@ -96,8 +101,10 @@ export function SafeSend({
     setStage("review");
     setQuote(null);
     try {
-      const kind = !st?.deployed ? "first" : "exec";
-      setQuote(await getQuote(chainId, kind));
+      if (!st || !asset || base === null) throw new Error("Still loading");
+      // a first guess at the path (the budget check needs a fee), then the quote for that exact kind of send
+      const guess = plan(st, account, asset.asset as Address, base, 0n, sendingUsdc || sendingEth);
+      setQuote(await getQuote(chainId, await sendKind(account, st, guess.path, guess.signers)));
     } catch (e: any) {
       setError(friendly(e));
     }
@@ -110,7 +117,12 @@ export function SafeSend({
     setToInput(r.to);
     if (r.chainId || r.asset) {
       const m = assets.find(a => (!r.chainId || a.chainId === r.chainId) && (!r.asset || a.asset.toLowerCase() === r.asset.toLowerCase()));
-      if (m) setPick(key(m));
+      if (!m) {
+        setPick(null);
+        setAmountIn("");
+        return setError("That request is for a token or network you don't hold here.");
+      }
+      setPick(key(m));
     }
     if (r.amount) setAmountIn(r.amount);
   }
@@ -128,8 +140,8 @@ export function SafeSend({
       if (p.signers.includes("wedgie")) wedgie = await Wedgie.connect();
       const h =
         p.path === "budget"
-          ? await budgetSend({ account, state: st, calls, feeToken, onStage })
-          : await ownersSend({ account, state: st, calls, signers: p.signers, feeToken, wedgie, onStage });
+          ? await budgetSend({ account, state: st, calls, feeToken, quote: quote ?? undefined, onStage })
+          : await ownersSend({ account, state: st, calls, signers: p.signers, feeToken, wedgie, quote: quote ?? undefined, onStage });
       setHash(h);
       setStage("done");
     } catch (e: any) {

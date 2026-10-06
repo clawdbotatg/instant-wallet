@@ -381,8 +381,9 @@ over to it and checks it works. The same skill.md helps your own AI walk you thr
    or any Safe tool with your keys).
 7. **The wedgie key never leaves the chip.** You confirm by pressing A after reading the screen (no PIN). Any
    wedgie app can use the key, so a wallet wedgie only runs reviewed apps.
-8. **There's a way out.** Our app is open source and pinned on IPFS, so it still runs if instantwallet.io
-   disappears. Safe's own app may also work, but that's unproven: passkey owners may fail there (#8808), and
+8. **There's a way out.** It's a plain Safe: you can replace every signer and leave us. If instantwallet.io
+   disappears, its passkeys stop working (they're tied to the domain), so your other keys or recovery replace
+   the burner. Our app stays open source and pinned on IPFS for the other keys. Safe's own app may also work, but that's unproven: passkey owners may fail there (#8808), and
    the wedgie needs our firmware anyway.
 
 ## The goal: stronger than any single way of holding crypto (Austin 10-05)
@@ -465,9 +466,9 @@ A thief holding hot or the wedgie alone can switch off your burner's budget. Tha
 7. **Paper share scheme:** SLIP-39 (recommended) vs overlapping word cards. And what the "special paper" is (printed card
    kit, steel plates).
 
-8. **If instantwallet.io dies (review F7).** A passkey only works on the domain it was made on; a copy of the
-   app on IPFS can't use it. Options: keep the domain alive for good (multi-year renewal, held by the DAO),
-   and/or accept recovery as the way back (level 1: DAO, 7 d). Security model #8 overstates IPFS until decided.
+8. ~~If instantwallet.io dies~~ **Decided (Austin 10-05):** the passkey stops working; you replace it. Level 2+:
+   your other keys swap it out (any Safe tool). Level 1: the DAO's recovery (7 d). Leaving us entirely works
+   the same way: it's a plain Safe, so swap in any signers you like.
 9. **When the Safe is deployed (review F8).** Phase 1 says "on Base at first deposit"; the multichain plan says
    "every cheap chain at signup". Pick one, and who pays the gas.
 10. **Paper format (review C2).** Native SLIP-39 (shares of ~20 words, no 24-word phrase; recommended) or a

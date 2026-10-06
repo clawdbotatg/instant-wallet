@@ -71,7 +71,9 @@ export async function ownersSend(opts: {
   const chainId = st.chainId;
   const stage = opts.onStage ?? (() => {});
   stage("quote");
-  const kind: SendKind = !st.deployed ? (opts.setup ? "first-setup" : "first") : opts.setup ? "setup" : signers.includes("wedgie") ? "exec-wedgie" : "exec";
+  const signerCode = signers.includes("burner") ? await publicClient(chainId).getCode({ address: a.burnerSigner }).catch(() => undefined) : "0x01";
+  const fresh = !st.deployed || !signerCode || signerCode === "0x"; // the relay deploys the Safe and/or the burner's signer too
+  const kind: SendKind = fresh ? (opts.setup ? "first-setup" : "first") : opts.setup ? "setup" : signers.includes("wedgie") ? "exec-wedgie" : "exec";
   const q = await getQuote(chainId, kind);
   const t: SafeTx = batch([...opts.calls, feeCall(q, opts.feeToken)], await freshNonce(chainId, a.address, st));
   const h = safeTxHash(chainId, a.address, t);
@@ -104,7 +106,7 @@ export async function ownersSend(opts: {
     safe: a.address,
     tx: t,
     signatures: encodeSignatures(sigs),
-    deploy: st.deployed ? undefined : { x: a.qx, y: a.qy },
+    burner: { x: a.qx, y: a.qy },
     wedgie: signers.includes("wedgie"),
   });
   stage("confirming", hash);

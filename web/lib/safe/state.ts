@@ -14,10 +14,12 @@ export type SafeAccount = {
   hot?: Address; // MetaMask etc., once added
   wedgie?: { x: Hex; y: Hex }; // the wedgie's key, once paired
   paper?: Address; // the paper seed's address, once it's the recovery address
+  recovered?: boolean; // a new phone taking over an existing wallet: `address` is that wallet, not this key's own
 };
 
-export function accountFor(credentialId: string, qx: Hex, qy: Hex): SafeAccount {
+export function accountFor(credentialId: string, qx: Hex, qy: Hex, recovering?: Address): SafeAccount {
   const burnerSigner = signerAddress(qx, qy);
+  if (recovering) return { credentialId, qx, qy, burnerSigner, address: getAddress(recovering), recovered: true };
   return { credentialId, qx, qy, burnerSigner, address: safeAddress(burnerSigner) };
 }
 
@@ -31,7 +33,8 @@ export function loadAccount(): SafeAccount | null {
     const v = localStorage.getItem(KEY);
     if (!v) return null;
     const a = JSON.parse(v) as SafeAccount;
-    return { ...a, ...accountFor(a.credentialId, a.qx, a.qy) }; // addresses are recomputed, never trusted from storage
+    // addresses are recomputed, never trusted from storage (except a recovered wallet's, which no key derives)
+    return { ...a, ...accountFor(a.credentialId, a.qx, a.qy, a.recovered ? a.address : undefined) };
   } catch {
     return null;
   }
@@ -68,7 +71,7 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
     return {
       chainId,
       deployed,
-      owners: [a.burnerSigner],
+      owners: a.recovered ? [] : [a.burnerSigner],
       threshold: 1,
       nonce: 0n,
       guardians: [DAO],

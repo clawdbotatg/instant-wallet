@@ -232,6 +232,48 @@ const again = await page.evaluate(() => JSON.parse(localStorage.getItem("iws.acc
 ok(again.address === acct.address, "logged back in to the same wallet");
 await page.screenshot({ path: `${OUT}/s11-relogin.png` });
 
+// ---------------------------------------------------------------- the phone is lost: a new device recovers the wallet
+const ctx2 = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
+const page2 = await ctx2.newPage();
+page2.on("pageerror", e => console.log("pageerror2", e.message));
+const cdp2 = await ctx2.newCDPSession(page2);
+await cdp2.send("WebAuthn.enable");
+await cdp2.send("WebAuthn.addVirtualAuthenticator", {
+  options: { protocol: "ctap2", ctap2Version: "ctap2_1", transport: "internal", hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
+});
+await page2.goto(`${APP}/safe`);
+await page2.getByText("Lost my phone: recover a wallet").tap();
+await page2.getByPlaceholder("0x… your wallet's address").fill(acct.address);
+await page2.getByText("Make my new key").tap();
+await page2.getByText("Waiting for recovery").waitFor({ timeout: 30000 });
+await page2.screenshot({ path: `${OUT}/s12-waiting-for-recovery.png` });
+const acct2 = await page2.evaluate(() => JSON.parse(localStorage.getItem("iws.account")));
+ok(acct2.address === acct.address && acct2.burnerSigner !== acct.burnerSigner, "new phone: same wallet, new key");
+// the paper seed (the recovery address) starts it, 7 days pass, anyone finishes it
+execSync(`cast send ${RECOVERY} "confirmRecovery(address,address[],uint256,bool)" ${acct.address} "[${acct2.burnerSigner}]" 1 true --unlocked --from ${paper} --rpc-url ${RPC}`, { stdio: "ignore" });
+cast("rpc evm_increaseTime 604801");
+cast("rpc evm_mine");
+execSync(`cast send ${RECOVERY} "finalizeRecovery(address)" ${acct.address} --unlocked --from ${paper} --rpc-url ${RPC}`, { stdio: "ignore" });
+ok(cast(`call ${acct.address} "getOwners()(address[])"`).toLowerCase() === `[${acct2.burnerSigner.toLowerCase()}]`, "recovery finished: the new key is the only owner");
+await page2.waitForTimeout(14000);
+ok(!(await page2.getByText("Waiting for recovery").isVisible()), "the new phone sees it's an owner");
+const FRANK = rand();
+await page2.locator(".balance .btn-green").tap();
+await page2.getByText("Type it instead").tap();
+await page2.getByPlaceholder("0x… or name.eth").fill(FRANK);
+await page2.locator(".picker .pill", { hasText: "USDC" }).first().tap();
+await page2.locator("input.amount").fill("7");
+await page2.getByText("Review").tap();
+await page2.getByText("Send with Face ID").waitFor({ timeout: 15000 });
+await page2.waitForTimeout(1500);
+await page2.getByText("Send with Face ID").tap();
+await page2.getByText("Sent", { exact: true }).waitFor({ timeout: 90000 }).catch(async e => {
+  console.log("on screen:", await page2.locator(".err").allTextContents());
+  throw e;
+});
+ok(usdcOf(FRANK) === 7_000_000n, "the recovered wallet sends from the new phone (its signer deployed on the way)");
+await page2.screenshot({ path: `${OUT}/s13-recovered-sent.png` });
+
 await browser.close();
 console.log(fails ? `${fails} FAILED` : "ALL PASS");
 process.exit(fails ? 1 : 0);

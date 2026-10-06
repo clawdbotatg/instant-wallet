@@ -72,6 +72,23 @@ export function SafeApp() {
         </div>
 
         {states.map(s => s.recovery && <RecoveryAlert key={s.chainId} account={account} state={s} onDone={refresh} />)}
+        {account.recovered && !states.some(s => s.owners.some(o => o.toLowerCase() === account.burnerSigner.toLowerCase())) && (
+          <div className="card stack">
+            <b>Waiting for recovery</b>
+            <p className="fine">
+              This phone&apos;s new key isn&apos;t an owner of this wallet yet. Send your recovery address (the DAO, or whoever holds your paper seed) this link. After they start it, it takes 7 days.
+            </p>
+            <span className="mono" style={{ fontSize: 12 }}>new key {account.burnerSigner}</span>
+            <button
+              className="pill"
+              onClick={async () =>
+                (await copy(`${window.location.origin}/safe/recover?wallet=${account.address}&owner=${account.burnerSigner}`)) && setToast("Link copied")
+              }
+            >
+              Copy the recovery link
+            </button>
+          </div>
+        )}
 
         <div className="card balance">
           <div className="big" onClick={() => setShowUsd(!showUsd)}>

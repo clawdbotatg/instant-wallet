@@ -34,7 +34,7 @@ export const dynamic = "force-dynamic";
  * the user's own batch ends with the relay's fee. It never holds user funds and has no power over any Safe.
  *
  *   GET  /api/safe/relay?chainId=8453&kind=first      → a Quote (fee in USDC and in ETH)
- *   POST /api/safe/relay  { chainId, kind: "exec", safe, tx, signatures, deploy?: { x, y } }
+ *   POST /api/safe/relay  { chainId, kind: "exec", safe, tx, signatures, burner?: { x, y } }  (deploys the Safe / signer if missing)
  *   POST /api/safe/relay  { chainId, kind: "roles", safe, call, signer, signature, salt }
  *   → { hash }  (the client waits for the receipt itself)
  */
@@ -124,18 +124,24 @@ export async function POST(req: NextRequest) {
       if (tx.to !== MULTISEND_CALL_ONLY || tx.operation !== 1 || tx.value !== 0n) throw new Error("only Instant Wallet batches");
       paid = feePaid(unpackMultiSend(tx.data), me, info.usdc);
       const exec = execData(tx, body.signatures);
+      // the burner's signer contract must exist before Safe checks its signature: deploy it in the same transaction
+      // (a new phone after a recovery, or the very first send)
+      const k = body.burner ?? body.deploy;
+      const pre: { to: Address; data: Hex }[] = [];
+      if (k && hex(k.x) && hex(k.y)) {
+        const sc = await pc.getCode({ address: signerAddress(k.x, k.y) });
+        if (!sc || sc === "0x") pre.push(deploySignerCall(k.x, k.y));
+      }
       const code = await pc.getCode({ address: safe });
-      if (code && code !== "0x") {
-        to = safe;
-        data = exec;
-        kind = body.wedgie ? "exec-wedgie" : "exec";
-      } else {
-        // first send on this chain: deploy the burner's signer and the Safe from the first setup, then run the tx
-        const d = body.deploy;
-        if (!d || !hex(d.x) || !hex(d.y)) throw new Error("this wallet isn't deployed here yet: send its key");
-        const signer = signerAddress(d.x, d.y);
+      if (!code || code === "0x") {
+        // first send on this chain: deploy the Safe from the first setup (the burner's own address), then run the tx
+        if (!k || !hex(k.x) || !hex(k.y)) throw new Error("this wallet isn't deployed here yet: send its key");
+        const signer = signerAddress(k.x, k.y);
         if (safeAddress(signer) !== safe) throw new Error("that key doesn't make this address");
-        const calls = [deploySignerCall(d.x, d.y), deploySafeCall(signer), { to: safe, value: 0n, data: exec }];
+        pre.push(deploySafeCall(signer));
+      }
+      if (pre.length) {
+        const calls = [...pre, { to: safe, data: exec }];
         to = MULTICALL3;
         data = encodeFunctionData({
           abi: abi.multicall3,
@@ -143,6 +149,10 @@ export async function POST(req: NextRequest) {
           args: [calls.map(c => ({ target: c.to, allowFailure: false, callData: c.data }))],
         });
         kind = "first";
+      } else {
+        to = safe;
+        data = exec;
+        kind = body.wedgie ? "exec-wedgie" : "exec";
       }
     } else if (body.kind === "roles") {
       if (!hex(body.call) || !hex(body.signature) || !hex(body.salt) || !isAddress(body.signer)) throw new Error("role call?");

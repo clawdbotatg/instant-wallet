@@ -56,6 +56,11 @@ step is one transaction signed by the current owners.
 | 4 Cold | all three: instant. Wedgie + burner or hot: after 24 h | its daily limit | yours, 7 d | DAO, 6 mo |
 | 5 Full self-custody | same as 4 | its daily limit | yours | none, or your own heir address |
 
+**The general rule (Austin 10-05): all your keys = instant; all but one = after the 24 h wait.** Never fewer
+than two for anything beyond the burner's limit, and once you have a wedgie it must be one of them. So:
+level 1, burner alone (only key); levels 2–3, burner + hot, instant (no one-key-with-a-wait path: a single
+stolen key could then drain after 24 h); level 4+, all three instant, wedgie + one after 24 h.
+
 The app nudges you up by balance ("$500 in here, add MetaMask", "$1,000: add a wedgie") and shows a level meter.
 Level 1 is only for spending money. The burner's default daily limit is 100 USDC + 0.04 ETH; the user can change it.
 

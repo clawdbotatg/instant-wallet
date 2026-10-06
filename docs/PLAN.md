@@ -118,8 +118,10 @@ with an alert) until you remove it at level 5. It's a good fit: recovery is rare
 
 | action | who |
 |---|---|
-| spend up to the daily limit | burner alone ($100/token), instant |
-| spend up to the pair limit | wedgie + one ($1,000/token), instant |
+| spend up to the daily limit | burner alone (100 USDC + 0.04 ETH), instant |
+| spend up to the pair limit | wedgie + one (500 USDC + 0.2 ETH), instant |
+| raise a limit | wedgie + one after 24 h, or all three |
+| lower a limit | any one key, instant |
 | anything | all three, instant; or wedgie + burner / wedgie + hot, after 24 h |
 | change a limit, add/remove a key, change recovery | same as "anything" |
 | cancel a waiting move | any two keys, instant |
@@ -140,24 +142,26 @@ instant) removes every old key from Roles and sets up the new ones. Our module n
 Safe's owners, and queued moves already died with the owner change. Until that batch runs, the old burner still has its daily budget,
 so the app does it right away.
 
-**Spending limits (Austin 10-05).** Set per token, as part of each wallet's configuration. Default:
+**Spending limits (Austin 10-05).** Set per token **in token amounts, not dollars**, as part of each wallet's
+configuration. Default (ETH ≈ $2,700 on 10-05):
 
 | who signs | instant, per day | more than that |
 |---|---|---|
-| burner alone | $100 of USDC + $100 of ETH | no |
-| burner + wedgie, or hot + wedgie | $1,000 of USDC + $1,000 of ETH | waits 24 h (the trick-catching wait) |
+| burner alone | 100 USDC + 0.04 ETH | no |
+| burner + wedgie, or hot + wedgie | 500 USDC + 0.2 ETH | waits 24 h (the trick-catching wait) |
 | all three | anything | instant |
 
 - Other tokens: no instant budget. Moving them takes wedgie + one (after the wait), or all three.
-- ETH limits are stored in ETH (e.g. 0.03 ETH). The app picks the amount from today's price when you set
-  it up, shows it in dollars, and offers to update it when the price moves a lot. No price feed on chain.
-- Users can add tokens and change amounts. Raising a limit is weakening (wedgie + one, after the wait);
-  lowering is instant with any one key.
+- Limits are token amounts. USDC ≈ dollars; the ETH defaults were picked to be ≈ $100 / $500 today and drift
+  with the price. The app shows today's dollar value next to each limit. No price feed on chain.
+- **Changing limits:** users can add tokens and change amounts. Lowering: any one key, instant. Raising:
+  wedgie + one, after the 24 h wait, or all three keys, instant. (Level 1: the burner alone. Levels 2–3:
+  burner + hot.)
 - Burner alone: Zodiac Roles allowances (audited). Pair limits: our phase-4 contract (it already checks
   two signatures; within the pair limit it runs now, above it waits). Before phase 4, wedgie + one is instant
   and unlimited.
-- Worst cases: tricked into a pair signature, you lose at most $1,000 per token before you notice. Burner
-  stolen: $100 per token per day.
+- Worst cases: tricked into a pair signature, you lose at most 500 USDC + 0.2 ETH a day before you notice.
+  Burner stolen: 100 USDC + 0.04 ETH a day.
 
 ## Travel lock ("French mode", Austin 10-05, decided)
 
@@ -421,8 +425,8 @@ A thief holding hot or the wedgie alone can switch off your burner's budget. Tha
    if they differ. 6-month wait; owners can cancel.
 3. ~~Level 2~~ **Decided (Austin, 10-05):** with only burner + hot, the two together can do anything. Once a
    wedgie is added, anything big needs the wedgie + burner or hot. The app nudges "add a wedgie" above ~$1,000.
-4. ~~Default daily limit~~ **Decided:** burner $100 of USDC + $100 of ETH; wedgie + one $1,000 of each;
-   other tokens none. Per wallet, configurable.
+4. ~~Default daily limit~~ **Decided:** burner 100 USDC + 0.04 ETH a day; wedgie + one 500 USDC + 0.2 ETH a day;
+   other tokens none. Token amounts, not dollars. Per wallet, configurable.
 5. ~~Wait~~ **Decided:** wedgie + one waits (default 24 h, 1–48 h), all three instant, any two keys cancel
    (our contract, phase 4). The wait catches tricks, not thieves.
 6. ~~Travel lock~~ **Decided:** yes, in the same contract.

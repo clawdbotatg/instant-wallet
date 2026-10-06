@@ -331,7 +331,7 @@ Level 4+ assumes our contract is live (phase 4). Before that, any two keys inclu
 | all three | — | — | **everything**, instantly |
 | one paper share (level 3+) | — | nothing with SLIP-39 (word cards: 16 of 24 words leak) | same |
 | two paper shares / the recovery key | takeover waits 7 d; burner cancels | burner + hot cancel | any two keys cancel |
-| death switch (DAO) | waits 6 mo; owners cancel | same | same (all three at level 4+) |
+| death switch (DAO) | waits 6 mo; owners cancel | same | same (any two keys at level 4+) |
 
 Two stolen keys = out of luck (Austin 10-05): they can do anything you could, after 48 h, and cancel your
 recovery. The wait and the alert are your chance to move first with all three, if you still have them.

@@ -9,7 +9,7 @@ const eth = () => (typeof window === "undefined" ? undefined : (window as any).e
 export const hotAvailable = () => !!eth();
 
 export async function connectHot(): Promise<Address> {
-  if (!eth()) throw new Error("No browser wallet here. Open this page in a browser with MetaMask (or the MetaMask app's browser).");
+  if (!eth()) throw new Error("No browser wallet here. Open this page in a browser with a wallet extension, or in your wallet app's browser.");
   const [a] = await eth().request({ method: "eth_requestAccounts" });
   return getAddress(a);
 }

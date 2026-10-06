@@ -13,7 +13,7 @@ const eth = () => (typeof window === "undefined" ? undefined : (window as any).e
 
 /** Send one transaction from the connected browser wallet (it pays the gas). */
 async function sendFromWallet(chainId: number, to: Address, data: Hex): Promise<Hex> {
-  if (!eth()) throw new Error("No browser wallet here. Open this page in a browser with MetaMask.");
+  if (!eth()) throw new Error("No browser wallet here. Open this page in a browser with a wallet extension.");
   const [from] = await eth().request({ method: "eth_requestAccounts" });
   const want = "0x" + chainId.toString(16);
   if ((await eth().request({ method: "eth_chainId" })) !== want) await eth().request({ method: "wallet_switchEthereumChain", params: [{ chainId: want }] });
@@ -82,7 +82,7 @@ export function RecoverTool() {
   return (
     <div className="app">
       <h1>Recover a wallet</h1>
-      <p className="fine">For a wallet&apos;s recovery address: the DAO, a paper seed opened in MetaMask, a friend. You swap in the owner&apos;s new key; it lands after 7 days, and the owner can cancel it from any key they still have.</p>
+      <p className="fine">For a wallet&apos;s recovery address: the DAO, a paper seed opened in a wallet, a friend. You swap in the owner&apos;s new key; it lands after 7 days, and the owner can cancel it from any key they still have.</p>
       <Band />
       <div className="row" style={{ flexWrap: "wrap" }}>
         {CHAINS.map(c => (

@@ -94,7 +94,7 @@ export function Keys({
   }, [pending]);
 
   const signLabel = (p: Prepared) =>
-    p.opts.signers.map(x => (x === "burner" ? "your Instant wallet" : x === "hot" ? "MetaMask" : "the wedgie")).join(" + ");
+    p.opts.signers.map(x => (x === "burner" ? "your Instant wallet" : x === "hot" ? "your hot wallet" : "the wedgie")).join(" + ");
 
   const addHot = () =>
     prep("hot", async () => {
@@ -112,7 +112,7 @@ export function Keys({
   const setPaper = () =>
     prep("paper", async () => {
       if (!st) throw new Error("Still loading");
-      if (!isAddress(paperIn.trim())) throw new Error("Paste the paper seed's address (0x…), from MetaMask after you import the seed.");
+      if (!isAddress(paperIn.trim())) throw new Error("Paste the paper seed's address (0x…), from the wallet you made the seed in.");
       const paper = getAddress(paperIn.trim());
       if (st.owners.some(o => o.toLowerCase() === paper.toLowerCase())) throw new Error("That address is already one of your keys. The paper must be separate.");
       if (!st.guardians) throw new Error("Couldn't read the current recovery address. Try again in a moment.");
@@ -194,10 +194,10 @@ export function Keys({
         <Addr a={account.burnerSigner} chainId={chainId} />
       </Step>
 
-      <Step n={2} title="Hot wallet (MetaMask)" done={!!hot && (st?.owners.length ?? 0) >= 2} current={level === 1}>
+      <Step n={2} title="Hot wallet (extension)" done={!!hot && (st?.owners.length ?? 0) >= 2} current={level === 1}>
         {hot && (st?.owners.length ?? 0) >= 2 ? (
           <>
-            <p className="fine">Big moves need your Instant wallet + this wallet. The Instant wallet alone: 100 USDC + 0.04 ETH a day.</p>
+            <p className="fine">Big moves need your Instant wallet + this hot wallet. The Instant wallet alone: 100 USDC + 0.04 ETH a day.</p>
             <Addr a={hot} chainId={chainId} />
             {st?.budget && (
               <p className="fine">
@@ -208,8 +208,8 @@ export function Keys({
         ) : (
           <>
             <p className="fine">
-              Add MetaMask (or any browser wallet) as a second key. After this, anything over the Instant wallet&apos;s daily budget (100 USDC + 0.04 ETH) needs both.
-              Do this on a computer with MetaMask, or in the MetaMask app&apos;s browser.
+              Add a browser wallet extension (Rainbow, Rabby, MetaMask, any) as a second key. After this, anything over the Instant wallet&apos;s daily budget (100 USDC + 0.04 ETH) needs both.
+              Do this on a computer with the extension, or in your wallet app&apos;s browser.
             </p>
             <button className="btn btn-green wide" onClick={addHot} disabled={!!busy || !!pending || !canPay || !hotAvailable()}>
               {busy === "hot" ? "Connecting…" : hotAvailable() ? "Connect and add" : "No browser wallet here"}
@@ -223,7 +223,7 @@ export function Keys({
           Recovery: {st?.guardians ? (st.guardians.length ? st.guardians.map(NAME).join(", ") : "none") : "…"} can replace your keys after a 7-day wait (you get time to cancel).
         </p>
         <p className="fine">
-          To make it yours: create a new 24-word seed in MetaMask (a fresh wallet), write it on the 3 cards (
+          To make it yours: create a new 24-word seed in a wallet (a fresh one, only for this), write it on the 3 cards (
           <a href="/safe/paper" target="_blank">print them</a>, any 2 rebuild it), seal each in a tamper-evident bag, then paste its address here.
         </p>
         <div className="input">
@@ -236,7 +236,7 @@ export function Keys({
 
       <Step n={4} title="Wedgie (cold)" done={(st?.owners.length ?? 0) >= 4} current={level === 2 || level === 3}>
         {(st?.owners.length ?? 0) >= 4 ? (
-          <p className="fine">The wedgie counts twice. Big moves need the wedgie + your Instant wallet or MetaMask. The Instant wallet + MetaMask alone can&apos;t.</p>
+          <p className="fine">The wedgie counts twice. Big moves need the wedgie + your Instant wallet or hot wallet. The Instant wallet + hot wallet alone can&apos;t.</p>
         ) : (
           <>
             <p className="fine">

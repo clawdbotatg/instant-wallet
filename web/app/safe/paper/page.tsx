@@ -17,10 +17,10 @@ export default function Paper() {
         Your recovery seed, on 3 cards. Any 2 cards rebuild all 24 words; one card alone is 16 words, and the missing 8 can&apos;t be guessed.
       </p>
       <ol className="fine">
-        <li>In MetaMask: add a new wallet (a fresh seed phrase). Use it only for this.</li>
+        <li>In a wallet app or extension: make a new wallet (a fresh seed phrase). Use it only for this.</li>
         <li>Print this page. Write each word in its numbered box, in pen. Never type the seed anywhere else.</li>
         <li>Seal each card in its own tamper-evident bag. Write down each bag&apos;s serial number. Keep the 3 in 3 places.</li>
-        <li>Copy the seed&apos;s address from MetaMask into Instant Wallet → Keys → Paper backup.</li>
+        <li>Copy the seed&apos;s address into Instant Wallet → Keys → Paper backup.</li>
         <li>Check a bag now and then: seal unbroken, serial matches. Broken seal = make a new seed and new cards.</li>
       </ol>
       {CARDS.map(c => (

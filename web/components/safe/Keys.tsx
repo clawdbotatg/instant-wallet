@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useState } from "react";
 import { type Address, encodeFunctionData, getAddress, isAddress, zeroAddress } from "viem";
 import { CHAINS, chainById, explorerAddress } from "@/lib/chains";
 import { short } from "@/lib/format";
@@ -43,7 +43,8 @@ export function Keys({
 }) {
   const [chainId, setChainId] = useState(CHAINS[0].id);
   const [busy, setBusy] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // an error shows in the step whose button caused it, next to where you tapped
+  const [error, setErrorRaw] = useState<{ what: string; msg: string } | null>(null);
   const [paperIn, setPaperIn] = useState("");
   const st = states.find(s => s.chainId === chainId);
   const usdc = chainById(chainId)?.usdc?.toLowerCase();
@@ -56,15 +57,16 @@ export function Keys({
 
   // two taps: the first gets everything ready (MetaMask / the wedgie connect, the fee, the nonce); the second signs.
   // Face ID has to start straight from a tap: after a MetaMask popup or a network call, Safari and Chrome refuse it.
-  const [pending, setPending] = useState<{ what: string; label: string; p: Prepared; after?: () => void; close?: () => Promise<void> } | null>(null);
+  // The confirm replaces the step's own button, in place.
+  const [pending, setPending] = useState<{ what: string; label: ReactNode; p: Prepared; after?: () => void; close?: () => Promise<void> } | null>(null);
 
-  async function prep(what: string, fn: () => Promise<{ label: string; p: Prepared; after?: () => void; close?: () => Promise<void> }>) {
+  async function prep(what: string, fn: () => Promise<{ label: ReactNode; p: Prepared; after?: () => void; close?: () => Promise<void> }>) {
     setBusy(what);
-    setError(null);
+    setErrorRaw(null);
     try {
       setPending({ what, ...(await fn()) });
     } catch (e: any) {
-      setError(friendly(e));
+      setErrorRaw({ what, msg: friendly(e) });
     } finally {
       setBusy(null);
     }
@@ -73,7 +75,7 @@ export function Keys({
   async function sign() {
     if (!pending) return;
     setBusy(pending.what);
-    setError(null);
+    setErrorRaw(null);
     try {
       await finishOwners(pending.p);
       pending.after?.();
@@ -81,17 +83,12 @@ export function Keys({
       setPending(null);
       onRefresh();
     } catch (e: any) {
-      setError(friendly(e));
+      setErrorRaw({ what: pending.what, msg: friendly(e) });
     } finally {
       await pending.close?.();
       setBusy(null);
     }
   }
-
-  const pendingRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (pending) pendingRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, [pending]);
 
   const signLabel = (p: Prepared) =>
     p.opts.signers.map(x => (x === "burner" ? "your Instant wallet" : x === "hot" ? "your hot wallet" : "the wedgie")).join(" + ");
@@ -106,7 +103,7 @@ export function Keys({
         rolesEnabled: !!st.roles,
       });
       const p = await prepareOwners({ account, state: st, calls, signers: ["burner"], feeToken, setup: true });
-      return { label: `Add ${short(h)} as your hot wallet`, p, after: () => onAccount({ ...account, hot: h }) };
+      return { label: <>Add <Addr a={h} chainId={chainId} inline /> as your hot wallet</>, p, after: () => onAccount({ ...account, hot: h }) };
     });
 
   const setPaper = () =>
@@ -118,7 +115,7 @@ export function Keys({
       if (!st.guardians) throw new Error("Couldn't read the current recovery address. Try again in a moment.");
       const p = await prepareOwners({ account, state: st, calls: setGuardianCalls(st.guardians, paper), signers: ownerSigners(st), feeToken });
       return {
-        label: `Make ${short(paper)} your recovery address`,
+        label: <>Make <Addr a={paper} chainId={chainId} inline /> your recovery address</>,
         p,
         after: () => {
           onAccount({ ...account, paper });
@@ -148,6 +145,37 @@ export function Keys({
       }
     });
 
+  // what === the step's own action: its button, or the confirm that replaces it, plus that step's error
+  const action = (what: string, button: ReactNode) => (
+    <>
+      {pending?.what === what ? (
+        <div className="stack" style={{ gap: 8 }}>
+          <b>{pending.label}</b>
+          <p className="fine">
+            Fee {pending.p.opts.feeToken === "usdc" ? `${(Number(pending.p.fee.feeUsdc) / 1e6).toFixed(4)} USDC` : `${(Number(pending.p.fee.feeEth) / 1e18).toFixed(6)} ETH`}. Signed by{" "}
+            {signLabel(pending.p)}.
+          </p>
+          <button className="btn btn-green wide" onClick={sign} disabled={!!busy}>
+            {busy ? "Signing and sending…" : "Yes"}
+          </button>
+          <button
+            className="btn wide"
+            disabled={!!busy}
+            onClick={async () => {
+              await pending.close?.();
+              setPending(null);
+            }}
+          >
+            Cancel
+          </button>
+        </div>
+      ) : (
+        button
+      )}
+      {error?.what === what && <p className="err">{error.msg}</p>}
+    </>
+  );
+
   const card = `Instant Wallet ${account.address}\nInstant wallet key ${account.burnerSigner}\n(Recovery needs this if the wallet was never deployed on a chain.)`;
 
   return (
@@ -164,29 +192,6 @@ export function Keys({
         Each chain&apos;s wallet is set up on its own. On {chainById(chainId)?.name}: level {level}, {LEVEL_NAME[level]}.
         {st && !st.deployed && " Not deployed here yet: the first change deploys it."}
       </p>
-      {pending && (
-        <div className="card alert stack" ref={pendingRef}>
-          <b>{pending.label}</b>
-          <p className="fine">
-            Fee {pending.p.opts.feeToken === "usdc" ? `${(Number(pending.p.fee.feeUsdc) / 1e6).toFixed(4)} USDC` : `${(Number(pending.p.fee.feeEth) / 1e18).toFixed(6)} ETH`}. Signed by{" "}
-            {signLabel(pending.p)}.
-          </p>
-          <button className="btn btn-green wide" onClick={sign} disabled={!!busy}>
-            {busy ? "Signing and sending…" : "Sign"}
-          </button>
-          <button
-            className="btn wide"
-            disabled={!!busy}
-            onClick={async () => {
-              await pending.close?.();
-              setPending(null);
-            }}
-          >
-            Cancel
-          </button>
-        </div>
-      )}
-      {error && <p className="err">{error}</p>}
       {!canPay && <p className="err">Changes cost a few cents of gas, paid from this wallet. Add a little USDC or ETH on {chainById(chainId)?.name} first.</p>}
 
       <Step n={1} title="Instant wallet" done>
@@ -211,9 +216,12 @@ export function Keys({
               Add your hot wallet as a second key: any wallet extension on your computer, or a wallet app on your phone. After this, anything over the Instant wallet&apos;s daily budget (100 USDC + 0.04 ETH) needs both.
               For now, open this page in that wallet: on a computer with the extension, or in the wallet app&apos;s own browser.
             </p>
-            <button className="btn btn-green wide" onClick={addHot} disabled={!!busy || !!pending || !canPay || !hotAvailable()}>
-              {busy === "hot" ? "Connecting…" : hotAvailable() ? "Connect and add" : "No browser wallet here"}
-            </button>
+            {action(
+              "hot",
+              <button className="btn btn-green wide" onClick={addHot} disabled={!!busy || !!pending || !canPay || !hotAvailable()}>
+                {busy === "hot" ? "Connecting…" : hotAvailable() ? "Connect and add" : "No browser wallet here"}
+              </button>,
+            )}
           </>
         )}
       </Step>
@@ -229,9 +237,12 @@ export function Keys({
         <div className="input">
           <input value={paperIn} onChange={e => setPaperIn(e.target.value)} placeholder="0x… the paper seed's address" autoCapitalize="none" spellCheck={false} />
         </div>
-        <button className="btn wide" onClick={setPaper} disabled={!!busy || !!pending || !canPay || level < 2 || !paperIn}>
-          {busy === "paper" ? "Working…" : level < 2 ? "Add a hot wallet first" : "Make it my recovery"}
-        </button>
+        {action(
+          "paper",
+          <button className="btn wide" onClick={setPaper} disabled={!!busy || !!pending || !canPay || level < 2 || !paperIn}>
+            {busy === "paper" ? "Working…" : level < 2 ? "Add a hot wallet first" : "Make it my recovery"}
+          </button>,
+        )}
       </Step>
 
       <Step n={4} title="Wedgie (cold)" done={(st?.owners.length ?? 0) >= 4} current={level === 2 || level === 3}>
@@ -242,9 +253,12 @@ export function Keys({
             <p className="fine">
               Plug your wedgie into this computer (Chrome), open its Safe signer app, then add it. One press signs for both of its slots.
             </p>
-            <button className="btn btn-green wide" onClick={addWedgie} disabled={!!busy || !!pending || !canPay || level < 2 || !wedgieSupported()}>
-              {busy === "wedgie" ? "Check the wedgie…" : !wedgieSupported() ? "Needs Chrome on a computer" : level < 2 ? "Add a hot wallet first" : "Connect and add the wedgie"}
-            </button>
+            {action(
+              "wedgie",
+              <button className="btn btn-green wide" onClick={addWedgie} disabled={!!busy || !!pending || !canPay || level < 2 || !wedgieSupported()}>
+                {busy === "wedgie" ? "Check the wedgie…" : !wedgieSupported() ? "Needs Chrome on a computer" : level < 2 ? "Add a hot wallet first" : "Connect and add the wedgie"}
+              </button>,
+            )}
           </>
         )}
       </Step>
@@ -283,19 +297,20 @@ function Step({ n, title, done, current, children }: { n: number; title: string;
   );
 }
 
-function Addr({ a, chainId }: { a: Address; chainId: number }) {
+/** inline: sits in a sentence (no chain chip; the chain is already picked above) */
+function Addr({ a, chainId, inline }: { a: Address; chainId: number; inline?: boolean }) {
   const url = explorerAddress(chainId, a);
   return (
-    <span className="row" style={{ gap: 8 }}>
-      <Blockie address={a} size={22} />
+    <span className="row" style={inline ? { display: "inline-flex", gap: 6, verticalAlign: "middle" } : { gap: 8 }}>
+      <Blockie address={a} size={inline ? 18 : 22} />
       {url ? (
-        <a className="mono" href={url} target="_blank" rel="noreferrer" style={{ fontSize: 13 }}>
+        <a className="mono" href={url} target="_blank" rel="noreferrer" style={inline ? undefined : { fontSize: 13 }}>
           {short(a)}
         </a>
       ) : (
         <span className="mono">{short(a)}</span>
       )}
-      <ChainChip chainId={chainId} />
+      {!inline && <ChainChip chainId={chainId} />}
     </span>
   );
 }

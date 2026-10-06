@@ -173,7 +173,7 @@ ok(cast(`balance ${BOB}`) === "1000000000000000", "ETH send arrived (fee in ETH)
 // ---------------------------------------------------------------- level 2: add MetaMask
 await page.locator(".level").tap();
 await page.getByText("Connect and add").first().tap();
-await page.getByRole("button", { name: "Sign", exact: true }).tap();
+await page.getByRole("button", { name: "Yes", exact: true }).tap();
 await page.getByText("Done").waitFor({ timeout: 90000 }).catch(() => {});
 await page.waitForTimeout(14000);
 await page.screenshot({ path: `${OUT}/s5-level2.png`, fullPage: true });
@@ -195,14 +195,14 @@ const paper = privateKeyToAccount("0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca
 await page.locator(".level").tap();
 await page.getByPlaceholder("0x… the paper seed's address").fill(paper);
 await page.getByText("Make it my recovery").tap();
-await page.getByRole("button", { name: "Sign", exact: true }).tap();
+await page.getByRole("button", { name: "Yes", exact: true }).tap();
 await page.waitForTimeout(20000);
 ok(cast(`call ${RECOVERY} "isGuardian(address,address)(bool)" ${acct.address} ${paper}`) === "true", "paper is the recovery address");
 ok(cast(`call ${RECOVERY} "isGuardian(address,address)(bool)" ${acct.address} ${DAO}`) === "false", "the DAO is no longer the recovery address");
 
 // ---------------------------------------------------------------- level 4: the wedgie
 await page.getByText("Connect and add the wedgie").tap();
-await page.getByRole("button", { name: "Sign", exact: true }).tap();
+await page.getByRole("button", { name: "Yes", exact: true }).tap();
 await page.waitForTimeout(25000);
 await page.screenshot({ path: `${OUT}/s8-level4.png`, fullPage: true });
 ok(cast(`call ${acct.address} "getThreshold()(uint256)"`) === "3", "threshold 3 with the wedgie");
@@ -306,7 +306,7 @@ ok(modsAfter === rolesAddr, "Roles stays on, ready for this phone");
 // and the recovered phone can level up again (Roles exists: no second deploy)
 await page2.locator(".level").tap();
 await page2.getByText("Connect and add").first().tap();
-await page2.getByRole("button", { name: "Sign", exact: true }).tap();
+await page2.getByRole("button", { name: "Yes", exact: true }).tap();
 await page2.waitForTimeout(25000);
 const errs2 = await page2.locator(".err").allTextContents();
 if (errs2.length) console.log("on screen:", errs2);

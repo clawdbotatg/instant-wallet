@@ -465,6 +465,14 @@ A thief holding hot or the wedgie alone can switch off your burner's budget. Tha
 7. **Paper share scheme:** SLIP-39 (recommended) vs overlapping word cards. And what the "special paper" is (printed card
    kit, steel plates).
 
+8. **If instantwallet.io dies (review F7).** A passkey only works on the domain it was made on; a copy of the
+   app on IPFS can't use it. Options: keep the domain alive for good (multi-year renewal, held by the DAO),
+   and/or accept recovery as the way back (level 1: DAO, 7 d). Security model #8 overstates IPFS until decided.
+9. **When the Safe is deployed (review F8).** Phase 1 says "on Base at first deposit"; the multichain plan says
+   "every cheap chain at signup". Pick one, and who pays the gas.
+10. **Paper format (review C2).** Native SLIP-39 (shares of ~20 words, no 24-word phrase; recommended) or a
+   24-word BIP-39 phrase split by a documented method. Must restore to the same address with independent software.
+
 ## Not proven yet (Base-fork spike first)
 
 1. Burner budget: Roles with a passkey-signer member, signed by the phone, submitted by a relay. Includes

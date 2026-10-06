@@ -51,13 +51,13 @@ step is one transaction signed by the current owners.
 | level | who can do anything | burner alone | recovery | death switch |
 |---|---|---|---|---|
 | 1 Burner | burner | everything (it's the only key) | DAO, 7 d | DAO, 6 mo |
-| 2 Hot | burner + hot | $100/day | DAO, 7 d | DAO, 6 mo |
-| 3 Paper | burner + hot | $100/day | **your 24-word seed, sharded on paper**, 7 d | DAO, 6 mo |
-| 4 Cold | all three: instant. Wedgie + burner or hot: after 24 h | $100/day | yours, 7 d | DAO, 6 mo |
-| 5 Full self-custody | same as 4 | $100/day | yours | none, or your own heir address |
+| 2 Hot | burner + hot | its daily limit | DAO, 7 d | DAO, 6 mo |
+| 3 Paper | burner + hot | its daily limit | **your 24-word seed, sharded on paper**, 7 d | DAO, 6 mo |
+| 4 Cold | all three: instant. Wedgie + burner or hot: after 24 h | its daily limit | yours, 7 d | DAO, 6 mo |
+| 5 Full self-custody | same as 4 | its daily limit | yours | none, or your own heir address |
 
 The app nudges you up by balance ("$500 in here, add MetaMask", "$1,000: add a wedgie") and shows a level meter.
-Level 1 is only for spending money. The default daily limit is $100 per token, and the user can change it.
+Level 1 is only for spending money. The burner's default daily limit is 100 USDC + 0.04 ETH; the user can change it.
 
 ### Level 3: the paper seed (Austin 10-05)
 
@@ -383,10 +383,10 @@ Level 4+ assumes our contract is live (phase 4). Before that, any two keys inclu
 
 | stolen | level 1 | levels 2–3 | level 4+ |
 |---|---|---|---|
-| burner | **everything** (spending money only) | $100/day; hot stops it; recovery replaces it in 7 d | $100/day; hot or wedgie stops it; wedgie + hot remove it (24 h; 7 d if it objects, or paper now) |
+| burner | **everything** (spending money only) | its daily limit; hot stops it; recovery replaces it in 7 d | its daily limit; hot or wedgie stops it; wedgie + hot remove it (24 h; 7 d if it objects, or paper now) |
 | hot | — | nothing alone; recovery replaces it in 7 d | nothing alone; wedgie + burner remove it (24 h; 7 d if it objects, or paper now) |
 | wedgie | — | — | nothing alone; burner + hot + paper replace it now, or recovery in 7 d. PIN makes it useless |
-| burner + hot | — | **everything** | $100/day; wedgie stops it; recovery replaces both |
+| burner + hot | — | **everything** | its daily limit; wedgie stops it; recovery replaces both |
 | burner + wedgie | — | — | **everything**, after the wait |
 | hot + wedgie | — | — | **everything**, after the wait |
 | all three | — | — | **everything**, instantly |
@@ -405,8 +405,8 @@ A thief holding hot or the wedgie alone can switch off your burner's budget. Tha
 |---|---|---|---|
 | burner (passkey synced to iCloud/Google) | open the app on the new phone | same | same |
 | burner (not synced) | recovery gives you a new one in 7 d | recovery, 7 d | wedgie + hot swap it (24 h) |
-| hot | — | recovery replaces it in 7 d; burner keeps $100/day | wedgie + burner replace it (24 h) |
-| wedgie | — | — | recovery replaces it in 7 d; burner keeps $100/day |
+| hot | — | recovery replaces it in 7 d; burner keeps its daily limit | wedgie + burner replace it (24 h) |
+| wedgie | — | — | recovery replaces it in 7 d; burner keeps its daily limit |
 | any two keys | — | recovery, 7 d | recovery, 7 d |
 | one paper share | — | make new shares (level 3+) | same |
 | every key | recovery, 7 d | recovery, 7 d | recovery, 7 d |

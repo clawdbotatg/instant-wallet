@@ -18,7 +18,8 @@ onto a new key there, like a lost phone).
 
 - **Send:** within the budget = Face ID alone (a signed Zodiac Roles call). Over it = the owners (Face ID + MetaMask,
   or the wedgie + one). The review screen says which keys and the fee.
-- **Recovery:** a running recovery shows a red alert with Cancel. Lost phone: "Lost my phone: recover a wallet" on a
+- **Recovery:** a running recovery shows a red alert with Cancel (it needs your owners' signatures: at level 2+ that's a
+  computer with MetaMask). Lost phone: "Lost my phone: recover a wallet" on a
   new device makes a new key; the recovery address runs `/safe/recover` (deploy-if-needed, start, finish after 7 days;
   for the DAO it copies the calldata for Safe{Wallet}). Afterwards the app offers to turn off the old phone's budget.
 - **Each chain is its own Safe** (same address): level up per chain (Keys has a chain picker).
@@ -31,9 +32,11 @@ onto a new key there, like a lost phone).
 - App: `web/lib/safe/` (core = addresses, batches, hashes, signatures; send = paths; state = per-chain reads),
   `web/components/safe/`, `web/app/safe/`.
 - Relay: `web/app/api/safe/relay/route.ts`, key `RELAYER_PRIVATE_KEY` (the facilitator 0x4cFa…8A2f). It only relays
-  Instant Wallet shapes (token transfers, ETH sends, the wallet's own changes), one submission per signed tx, rate
-  limits, refuses a wallet for a day after a revert, pauses after 10 reverts an hour (Upstash, `RELAY_KV_*`), checks the
-  fee covers the real gas, waits for the receipt. Fees today: first send ≈ $0.04 on Base, ≈ $0.55 on Ethereum.
+  Instant Wallet shapes (ERC-20 transfers; ETH to accounts, 7702 accounts and real Safes; the wallet's own owner/module
+  changes, Roles, Candide, createSigner, deployModule of Roles), Roles calls only with shouldRevert, one submission per
+  signed tx, estimates at the real fee with a gas cap per kind of send, rate limits, refuses the wallet and the IP for a
+  day after a revert (Upstash, `RELAY_KV_*`; fails closed without it in production), waits for the receipt. Two
+  independent reviews' findings are fixed. Fees today: first send ≈ $0.04 on Base, ≈ $0.55 on Ethereum.
 
 ## Tests
 
@@ -41,8 +44,8 @@ onto a new key there, like a lost phone).
 |---|---|---|
 | Solidity, Base fork (levels 1/2/4, recovery, groups) | `cd packages/foundry && BASE_RPC_URL=… forge test --match-path 'test/safe/*'` | 38/38 |
 | TS address math = chain | `cd web && npx tsx tools/safe-check.mts <base rpc>` | ok |
-| Full UI journey, fork (virtual passkey, fake MetaMask, fake wedgie) | `tools/safe-e2e.mjs` (setup in its header) | 24/24 on Base and on Ethereum forks |
-| Relay defences, fork | `tools/safe-relay-check.mts` | 10/10 |
+| Full UI journey, fork (virtual passkey, fake MetaMask, fake wedgie) | `tools/safe-e2e.mjs` (setup in its header) | 27/27 on Base and on Ethereum forks |
+| Relay defences, fork | `tools/safe-relay-check.mts` | 10/10 on both forks and against the live relay (Base) |
 | Live first send through the live relay (raw P-256 key) | `tools/safe-live.mts` | passed on Base and Ethereum mainnet |
 
 ## Not built yet (PLAN.md phases)

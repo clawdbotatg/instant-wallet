@@ -127,8 +127,9 @@ abstract contract SafeBase is Test {
 
     /// P-256 precompile at 0x100 (RIP-7212 / EIP-7951) first, Daimo's Solidity verifier as the fallback.
     uint176 constant VERIFIERS = uint176((uint256(0x100) << 160) | uint256(uint160(DAIMO_VERIFIER)));
-    /// The second wedgie slot: same key, precompile only, so a different signer address.
-    uint176 constant VERIFIERS_SLOT2 = uint176(uint256(0x100) << 160);
+    /// The wedgie's second owner slot: same key, Daimo's verifier only (no precompile), so a different signer
+    /// address that still works on every chain. One press, one signature, fills both slots.
+    uint176 constant VERIFIERS_SLOT2 = uint176(uint256(uint160(DAIMO_VERIFIER)));
 
     /// Every Instant Wallet uses this salt nonce; the owner key makes each address unique.
     uint256 constant SALT_NONCE = uint256(keccak256("instant-wallet.safe.v1"));

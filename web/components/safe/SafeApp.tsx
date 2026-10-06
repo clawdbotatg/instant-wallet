@@ -7,7 +7,7 @@ import { amount, short, usd } from "@/lib/format";
 import { type ChainState, LEVEL_NAME, type SafeAccount, loadAccount, readAll, saveAccount } from "@/lib/safe/state";
 import type { Asset, Portfolio } from "@/lib/types";
 import { dropOtherBudgetsCalls } from "@/lib/safe/core";
-import { ownerSigners, ownersSend } from "@/lib/safe/send";
+import { type Prepared, finishOwners, ownerSigners, prepareOwners } from "@/lib/safe/send";
 import { friendly } from "../Welcome";
 import { Blockie, ChainChip, ScanIcon, Sheet, TokenIcon, copy, useToast } from "../bits";
 import { Receive } from "../Receive";
@@ -26,6 +26,7 @@ export function SafeApp() {
   const [view, setView] = useState<View>({ kind: "home" });
   const [showUsd, setShowUsd] = useState(true);
   const [toast, setToast] = useToast();
+  const [dropReady, setDropReady] = useState<Prepared | null>(null);
 
   useEffect(() => setAccountState(loadAccount()), []);
   const setAccount = (a: SafeAccount | null) => {
@@ -70,9 +71,14 @@ export function SafeApp() {
   // after a recovery, the lost phone still has the burner budget: take it out of Roles (the owners sign)
   async function dropOldBudget(s: ChainState) {
     try {
-      if (!s.rolesMembers) throw new Error("Couldn't read the budget's keys. Try again.");
-      const calls = dropOtherBudgetsCalls(account!.address, s.rolesMembers, account!.burnerSigner);
-      await ownersSend({ account: account!, state: s, calls, signers: ownerSigners(s), feeToken: feeTokenOn(s.chainId) });
+      if (!dropReady) {
+        if (!s.rolesMembers) throw new Error("Couldn't read the budget's keys. Try again.");
+        const calls = dropOtherBudgetsCalls(account!.address, s.rolesMembers, account!.burnerSigner);
+        setDropReady(await prepareOwners({ account: account!, state: s, calls, signers: ownerSigners(s), feeToken: feeTokenOn(s.chainId) }));
+        return; // the next tap signs (Face ID must start straight from a tap)
+      }
+      await finishOwners(dropReady);
+      setDropReady(null);
       setToast("The old phone's budget is off");
       refresh();
     } catch (e: any) {
@@ -105,7 +111,7 @@ export function SafeApp() {
                   On {chainById(s.chainId)?.name}, a key that isn&apos;t this phone can still spend the daily Face ID budget (a lost phone, after a recovery).
                 </p>
                 <button className="btn btn-red wide" onClick={() => dropOldBudget(s)}>
-                  Turn it off
+                  {dropReady ? "Sign to turn it off" : "Turn it off"}
                 </button>
               </div>
             ),

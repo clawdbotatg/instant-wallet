@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { type Address, encodeFunctionData, getAddress, isAddress, zeroAddress } from "viem";
 import { CHAINS, chainById, explorerAddress } from "@/lib/chains";
 import { short } from "@/lib/format";
 import { DAO, VERIFIERS, VERIFIERS_SLOT2 } from "@/lib/safe/config";
 import { DEFAULT_BUDGET, abi, deploySignerCall, levelUpToHotCalls, selfCall, setGuardianCalls } from "@/lib/safe/core";
 import { connectHot, hotAvailable } from "@/lib/safe/hot";
-import { type FeeToken, ownerSigners, ownersSend } from "@/lib/safe/send";
+import { type FeeToken, type Prepared, finishOwners, ownerSigners, prepareOwners } from "@/lib/safe/send";
 import { type ChainState, LEVEL_NAME, type SafeAccount, hotOf, wedgieSigners } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
@@ -54,13 +54,15 @@ export function Keys({
   const hot = st ? hotOf(account, st) : account.hot;
   const level = st?.level ?? 1;
 
-  async function run(what: string, fn: () => Promise<void>) {
+  // two taps: the first gets everything ready (MetaMask / the wedgie connect, the fee, the nonce); the second signs.
+  // Face ID has to start straight from a tap: after a MetaMask popup or a network call, Safari and Chrome refuse it.
+  const [pending, setPending] = useState<{ what: string; label: string; p: Prepared; after?: () => void; close?: () => Promise<void> } | null>(null);
+
+  async function prep(what: string, fn: () => Promise<{ label: string; p: Prepared; after?: () => void; close?: () => Promise<void> }>) {
     setBusy(what);
     setError(null);
     try {
-      await fn();
-      toast("Done");
-      onRefresh();
+      setPending({ what, ...(await fn()) });
     } catch (e: any) {
       setError(friendly(e));
     } finally {
@@ -68,8 +70,34 @@ export function Keys({
     }
   }
 
+  async function sign() {
+    if (!pending) return;
+    setBusy(pending.what);
+    setError(null);
+    try {
+      await finishOwners(pending.p);
+      pending.after?.();
+      toast("Done");
+      setPending(null);
+      onRefresh();
+    } catch (e: any) {
+      setError(friendly(e));
+    } finally {
+      await pending.close?.();
+      setBusy(null);
+    }
+  }
+
+  const pendingRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (pending) pendingRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [pending]);
+
+  const signLabel = (p: Prepared) =>
+    p.opts.signers.map(x => (x === "burner" ? "Face ID" : x === "hot" ? "MetaMask" : "the wedgie")).join(" + ");
+
   const addHot = () =>
-    run("hot", async () => {
+    prep("hot", async () => {
       if (!st) throw new Error("Still loading");
       const h = await connectHot();
       if (h.toLowerCase() === account.address.toLowerCase()) throw new Error("That's this wallet itself.");
@@ -77,24 +105,30 @@ export function Keys({
         rolesDeployed: st.rolesDeployed,
         rolesEnabled: !!st.roles,
       });
-      await ownersSend({ account, state: st, calls, signers: ["burner"], feeToken, setup: true });
-      onAccount({ ...account, hot: h });
+      const p = await prepareOwners({ account, state: st, calls, signers: ["burner"], feeToken, setup: true });
+      return { label: `Add ${short(h)} as your hot wallet`, p, after: () => onAccount({ ...account, hot: h }) };
     });
 
   const setPaper = () =>
-    run("paper", async () => {
+    prep("paper", async () => {
       if (!st) throw new Error("Still loading");
       if (!isAddress(paperIn.trim())) throw new Error("Paste the paper seed's address (0x…), from MetaMask after you import the seed.");
       const paper = getAddress(paperIn.trim());
       if (st.owners.some(o => o.toLowerCase() === paper.toLowerCase())) throw new Error("That address is already one of your keys. The paper must be separate.");
       if (!st.guardians) throw new Error("Couldn't read the current recovery address. Try again in a moment.");
-      await ownersSend({ account, state: st, calls: setGuardianCalls(st.guardians, paper), signers: ownerSigners(st), feeToken });
-      onAccount({ ...account, paper });
-      setPaperIn("");
+      const p = await prepareOwners({ account, state: st, calls: setGuardianCalls(st.guardians, paper), signers: ownerSigners(st), feeToken });
+      return {
+        label: `Make ${short(paper)} your recovery address`,
+        p,
+        after: () => {
+          onAccount({ ...account, paper });
+          setPaperIn("");
+        },
+      };
     });
 
   const addWedgie = () =>
-    run("wedgie", async () => {
+    prep("wedgie", async () => {
       if (!st) throw new Error("Still loading");
       const w = await Wedgie.connect();
       try {
@@ -106,14 +140,15 @@ export function Keys({
           selfCall(account.address, encodeFunctionData({ abi: abi.safe, functionName: "addOwnerWithThreshold", args: [w1, 2n] })),
           selfCall(account.address, encodeFunctionData({ abi: abi.safe, functionName: "addOwnerWithThreshold", args: [w2, 3n] })),
         ];
-        await ownersSend({ account, state: st, calls, signers: ownerSigners(st), feeToken, setup: true, wedgie: w });
-        onAccount({ ...account, wedgie: key });
-      } finally {
+        const p = await prepareOwners({ account, state: st, calls, signers: ownerSigners(st), feeToken, setup: true, wedgie: w });
+        return { label: "Add your wedgie (it counts twice)", p, after: () => onAccount({ ...account, wedgie: key }), close: () => w.close() };
+      } catch (e) {
         await w.close();
+        throw e;
       }
     });
 
-  const card = `Instant Wallet ${account.address}\nBurner signer ${account.burnerSigner}\n(Recovery needs this if the wallet was never deployed on a chain.)`;
+  const card = `Instant Wallet ${account.address}\nInstant wallet key ${account.burnerSigner}\n(Recovery needs this if the wallet was never deployed on a chain.)`;
 
   return (
     <div className="stack">
@@ -129,9 +164,32 @@ export function Keys({
         Each chain&apos;s wallet is set up on its own. On {chainById(chainId)?.name}: level {level}, {LEVEL_NAME[level]}.
         {st && !st.deployed && " Not deployed here yet: the first change deploys it."}
       </p>
+      {pending && (
+        <div className="card alert stack" ref={pendingRef}>
+          <b>{pending.label}</b>
+          <p className="fine">
+            Fee {pending.p.opts.feeToken === "usdc" ? `${(Number(pending.p.fee.feeUsdc) / 1e6).toFixed(4)} USDC` : `${(Number(pending.p.fee.feeEth) / 1e18).toFixed(6)} ETH`}. Signed by{" "}
+            {signLabel(pending.p)}.
+          </p>
+          <button className="btn btn-green wide" onClick={sign} disabled={!!busy}>
+            {busy ? "Signing and sending…" : `Sign with ${signLabel(pending.p)}`}
+          </button>
+          <button
+            className="btn wide"
+            disabled={!!busy}
+            onClick={async () => {
+              await pending.close?.();
+              setPending(null);
+            }}
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+      {error && <p className="err">{error}</p>}
       {!canPay && <p className="err">Changes cost a few cents of gas, paid from this wallet. Add a little USDC or ETH on {chainById(chainId)?.name} first.</p>}
 
-      <Step n={1} title="Burner (Face ID)" done>
+      <Step n={1} title="Instant wallet (Face ID)" done>
         <p className="fine">This phone&apos;s passkey. Level 1 it can do everything; later it keeps a daily budget.</p>
         <Addr a={account.burnerSigner} chainId={chainId} />
       </Step>
@@ -153,8 +211,8 @@ export function Keys({
               Add MetaMask (or any browser wallet) as a second key. After this, anything over Face ID&apos;s daily budget (100 USDC + 0.04 ETH) needs both.
               Do this on a computer with MetaMask, or in the MetaMask app&apos;s browser.
             </p>
-            <button className="btn btn-green wide" onClick={addHot} disabled={!!busy || !canPay || !hotAvailable()}>
-              {busy === "hot" ? "Working…" : hotAvailable() ? "Connect and add" : "No browser wallet here"}
+            <button className="btn btn-green wide" onClick={addHot} disabled={!!busy || !!pending || !canPay || !hotAvailable()}>
+              {busy === "hot" ? "Connecting…" : hotAvailable() ? "Connect and add" : "No browser wallet here"}
             </button>
           </>
         )}
@@ -171,7 +229,7 @@ export function Keys({
         <div className="input">
           <input value={paperIn} onChange={e => setPaperIn(e.target.value)} placeholder="0x… the paper seed's address" autoCapitalize="none" spellCheck={false} />
         </div>
-        <button className="btn wide" onClick={setPaper} disabled={!!busy || !canPay || level < 2 || !paperIn}>
+        <button className="btn wide" onClick={setPaper} disabled={!!busy || !!pending || !canPay || level < 2 || !paperIn}>
           {busy === "paper" ? "Working…" : level < 2 ? "Add a hot wallet first" : "Make it my recovery"}
         </button>
       </Step>
@@ -184,7 +242,7 @@ export function Keys({
             <p className="fine">
               Plug your wedgie into this computer (Chrome), open its Safe signer app, then add it. One press signs for both of its slots.
             </p>
-            <button className="btn btn-green wide" onClick={addWedgie} disabled={!!busy || !canPay || level < 2 || !wedgieSupported()}>
+            <button className="btn btn-green wide" onClick={addWedgie} disabled={!!busy || !!pending || !canPay || level < 2 || !wedgieSupported()}>
               {busy === "wedgie" ? "Check the wedgie…" : !wedgieSupported() ? "Needs Chrome on a computer" : level < 2 ? "Add a hot wallet first" : "Connect and add the wedgie"}
             </button>
           </>
@@ -195,13 +253,11 @@ export function Keys({
         <p className="fine">Wedgie + your own recovery, no DAO. You depend on nobody (this app is open source; any Safe tool works too).</p>
       </Step>
 
-      {error && <p className="err">{error}</p>}
-
       <div className="card stack">
         <b>Wallet card</b>
         <p className="fine">Save this somewhere. If you lose this phone before your first send on a chain, recovery needs it.</p>
         <span className="mono" style={{ fontSize: 13 }}>{account.address}</span>
-        <span className="mono fine" style={{ fontSize: 12 }}>burner signer {account.burnerSigner}</span>
+        <span className="mono fine" style={{ fontSize: 12 }}>Instant wallet key {account.burnerSigner}</span>
         <button className="pill" onClick={async () => (await copy(card)) && toast("Copied")}>
           Copy wallet card
         </button>

@@ -6,7 +6,7 @@ import { chainById } from "@/lib/chains";
 import { short } from "@/lib/format";
 import { RECOVERY_7D } from "@/lib/safe/config";
 import { abi } from "@/lib/safe/core";
-import { ownerSigners, ownersSend } from "@/lib/safe/send";
+import { type Prepared, finishOwners, ownerSigners, prepareOwners } from "@/lib/safe/send";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { friendly } from "../Welcome";
 
@@ -28,17 +28,34 @@ export function RecoveryAlert({
   const when = new Date(r.executeAfter);
   // only "mine" when it hands the wallet to exactly this phone (a recovery to [this phone, someone else] is not)
   const mine = !!account.recovered && r.newOwners.length === 1 && r.newOwners[0].toLowerCase() === account.burnerSigner.toLowerCase();
-  async function cancel() {
+  const [ready, setReady] = useState<Prepared | null>(null);
+  // two taps: get it ready, then sign (Face ID must start straight from a tap)
+  async function prepare() {
     setBusy(true);
     setError(null);
     try {
-      await ownersSend({
-        account,
-        state,
-        calls: [{ to: RECOVERY_7D, value: 0n, data: encodeFunctionData({ abi: abi.recovery, functionName: "cancelRecovery" }) }],
-        signers: ownerSigners(state),
-        feeToken,
-      });
+      setReady(
+        await prepareOwners({
+          account,
+          state,
+          calls: [{ to: RECOVERY_7D, value: 0n, data: encodeFunctionData({ abi: abi.recovery, functionName: "cancelRecovery" }) }],
+          signers: ownerSigners(state),
+          feeToken,
+        }),
+      );
+    } catch (e: any) {
+      setError(friendly(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function cancel() {
+    if (!ready) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await finishOwners(ready);
+      setReady(null);
       onDone();
     } catch (e: any) {
       setError(friendly(e));
@@ -55,8 +72,8 @@ export function RecoveryAlert({
         {mine ? "That's this phone." : "If that isn't you, cancel it now."}
       </p>
       {!mine && state.owners.some(o => o.toLowerCase() === account.burnerSigner.toLowerCase()) && (
-        <button className="btn btn-red wide" onClick={cancel} disabled={busy}>
-          {busy ? "Cancelling…" : "Cancel it"}
+        <button className="btn btn-red wide" onClick={ready ? cancel : prepare} disabled={busy}>
+          {busy ? (ready ? "Cancelling…" : "Getting ready…") : ready ? "Sign to cancel it" : "Cancel it"}
         </button>
       )}
       {error && <p className="err">{error}</p>}

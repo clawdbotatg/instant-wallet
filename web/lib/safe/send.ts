@@ -57,7 +57,7 @@ export async function waitFor(chainId: number, hash: Hash) {
  * An owner transaction: `calls` + the relay's fee as one batch, signed by `signers` (enough for the threshold),
  * relayed. Deploys the Safe first on a chain where it isn't yet (the burner's key is in the account).
  */
-export async function ownersSend(opts: {
+type OwnersOpts = {
   account: SafeAccount;
   state: ChainState;
   calls: Call[];
@@ -67,21 +67,35 @@ export async function ownersSend(opts: {
   setup?: boolean; // a level change: bigger gas budget
   quote?: Quote; // the one the user saw, if still fresh and for the same kind of send
   onStage?: (s: Stage, hash?: Hash) => void;
-}): Promise<Hash> {
+};
+export type Prepared = { opts: OwnersOpts; t: SafeTx; h: Hex; fee: Quote };
+
+/**
+ * Everything before the first signature (quote, nonce, hash). Kept apart so the signing can start straight from a
+ * tap: Safari only allows Face ID inside a user gesture, and network calls first can use that gesture up.
+ */
+export async function prepareOwners(opts: OwnersOpts): Promise<Prepared> {
   const { account: a, state: st, signers } = opts;
   const chainId = st.chainId;
-  const stage = opts.onStage ?? (() => {});
-  stage("quote");
   const signerCode = signers.includes("burner") ? await publicClient(chainId).getCode({ address: a.burnerSigner }).catch(() => undefined) : "0x01";
   const fresh = !st.deployed || !signerCode || signerCode === "0x"; // the relay deploys the Safe and/or the burner's signer too
   const kind: SendKind = fresh ? (opts.setup ? "first-setup" : "first") : opts.setup ? "setup" : signers.includes("wedgie") ? "exec-wedgie" : "exec";
   const q = opts.quote && opts.quote.kind === kind && opts.quote.until > Date.now() + 30_000 ? opts.quote : await getQuote(chainId, kind);
   const t: SafeTx = batch([...opts.calls, feeCall(q, opts.feeToken)], await freshNonce(chainId, a.address, st));
-  const h = safeTxHash(chainId, a.address, t);
+  return { opts, t, h: safeTxHash(chainId, a.address, t), fee: q };
+}
+
+/** Sign (the burner first, straight from the tap) and relay. */
+export async function finishOwners(p: Prepared): Promise<Hash> {
+  const { account: a, state: st, signers } = p.opts;
+  const { t, h } = p;
+  const chainId = st.chainId;
+  const stage = p.opts.onStage ?? (() => {});
+  const order = [...signers].sort((x, y) => (x === "burner" ? -1 : y === "burner" ? 1 : 0));
   const sigs: Sig[] = [];
   let ownWedgie: Wedgie | null = null;
   try {
-    for (const s of signers) {
+    for (const s of order) {
       if (s === "burner") {
         stage("signing");
         sigs.push(await passkeySign(a.credentialId, a.burnerSigner, h));
@@ -91,7 +105,7 @@ export async function ownersSend(opts: {
         stage("signing-hot");
         sigs.push(await hotSign(chainId, a.address, t, hot));
       } else {
-        const w = opts.wedgie ?? (ownWedgie = await Wedgie.connect());
+        const w = p.opts.wedgie ?? (ownWedgie = await Wedgie.connect());
         const key = a.wedgie ?? (await w.key());
         stage("signing-wedgie");
         sigs.push(...(await w.sign(chainId, a.address, t, h, wedgieSigners(key))));
@@ -114,6 +128,15 @@ export async function ownersSend(opts: {
   await waitFor(chainId, hash);
   used.set(`${chainId}:${a.address}`, t.nonce);
   return hash;
+}
+
+/**
+ * An owner transaction: `calls` + the relay's fee as one batch, signed by `signers` (enough for the threshold),
+ * relayed. Deploys the Safe first on a chain where it isn't yet (the burner's key is in the account).
+ */
+export async function ownersSend(opts: OwnersOpts): Promise<Hash> {
+  (opts.onStage ?? (() => {}))("quote");
+  return finishOwners(await prepareOwners(opts));
 }
 
 /** The kind of relayed send (and so the fee quote) a send will be. */

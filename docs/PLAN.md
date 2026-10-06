@@ -6,6 +6,8 @@
 
 ## In one paragraph
 
+**Naming (Austin 10-06): the phone's Face ID key is always called the "Instant wallet" in the product, never "burner".** (This doc and the code still say burner internally.)
+
 **It all starts with a delightful burner wallet at instantwallet.io, and you go down the rabbit hole.**
 
 You open instantwallet.io, Face ID, and you have a wallet: a **Gnosis Safe** controlled by a passkey on your
@@ -50,7 +52,7 @@ step is one transaction signed by the current owners.
 
 | level | who can do anything | burner alone | recovery | death switch |
 |---|---|---|---|---|
-| 1 Burner | burner | everything (it's the only key) | DAO, 7 d | DAO, 6 mo |
+| 1 Instant wallet | burner | everything (it's the only key) | DAO, 7 d | DAO, 6 mo |
 | 2 Hot | burner + hot | its daily limit | DAO, 7 d | DAO, 6 mo |
 | 3 Paper | burner + hot | its daily limit | **your 24-word seed, sharded on paper**, 7 d | DAO, 6 mo |
 | 4 Cold | all three: instant. Wedgie + burner or hot: after 24 h | its daily limit | yours, 7 d | DAO, 6 mo |

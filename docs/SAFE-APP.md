@@ -10,7 +10,7 @@ onto a new key there, like a lost phone).
 
 | level | how | what it does on chain |
 |---|---|---|
-| 1 Burner | Create wallet (Face ID) | Address exists at once on every chain (counterfactual). First send on a chain deploys the passkey signer + the Safe and runs the send, one relayer tx, fee paid in USDC or ETH inside your own batch. DAO (dao.buidlguidl.eth) is the 7-day recovery from the first setup. |
+| 1 Instant wallet | Create wallet (Face ID) | Address exists at once on every chain (counterfactual). First send on a chain deploys the passkey signer + the Safe and runs the send, one relayer tx, fee paid in USDC or ETH inside your own batch. DAO (dao.buidlguidl.eth) is the 7-day recovery from the first setup. |
 | 2 Hot wallet | Keys → Connect and add (a browser with MetaMask) | One batch signed by Face ID: deploys Zodiac Roles, gives the burner a daily budget (100 USDC + 0.04 ETH, refills daily), adds MetaMask, threshold 2. |
 | 3 Paper | Keys → paste the paper seed's address | Your seed's address replaces the DAO as the recovery address. Cards: `/safe/paper` (OPSEK layout). |
 | 4 Wedgie | Keys → Connect and add the wedgie (Chrome on a computer, wedgie running its Safe signer app) | The wedgie becomes two owners (same key, two verifier settings), threshold 3. Big moves need wedgie + one. |

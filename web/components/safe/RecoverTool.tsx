@@ -108,9 +108,9 @@ export function RecoverTool() {
       {info && !info.deployed && (
         <div className="card stack">
           <b>0. Deploy it here first</b>
-          <p className="fine">It was never used on {chainById(chainId)?.name}. Paste the &quot;burner signer&quot; from the owner&apos;s wallet card.</p>
+          <p className="fine">It was never used on {chainById(chainId)?.name}. Paste the &quot;Instant wallet key&quot; from the owner&apos;s wallet card.</p>
           <div className="input">
-            <input value={original} onChange={e => setOriginal(e.target.value)} placeholder="0x… burner signer" autoCapitalize="none" spellCheck={false} />
+            <input value={original} onChange={e => setOriginal(e.target.value)} placeholder="0x… Instant wallet key" autoCapitalize="none" spellCheck={false} />
           </div>
           {isAddress(original.trim()) && w && safeAddress(getAddress(original.trim())) !== w && <p className="err">That signer doesn&apos;t make this wallet.</p>}
           <button

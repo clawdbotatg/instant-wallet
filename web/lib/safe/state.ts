@@ -167,7 +167,7 @@ export function hotOf(a: SafeAccount, st: ChainState): Address | undefined {
 }
 
 export const LEVEL_NAME: Record<number, string> = {
-  1: "Burner",
+  1: "Instant wallet",
   2: "Hot wallet added",
   3: "Paper backup",
   4: "Wedgie",

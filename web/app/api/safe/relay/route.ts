@@ -37,6 +37,7 @@ export const maxDuration = 60; // waits for the receipt (Ethereum ~12 s) so a re
  * the user's own batch ends with the relay's fee. It never holds user funds and has no power over any Safe.
  *
  *   GET  /api/safe/relay?chainId=8453&kind=first      → a Quote (fee in USDC and in ETH)
+ *        &extra=<gas>  a swap's own gas on top of the kind's (its route's estimate; capped by the kind's budget)
  *   POST /api/safe/relay  { chainId, kind: "exec", safe, tx, signatures, burner?: { x, y } }  (deploys the Safe / signer if missing)
  *   POST /api/safe/relay  { chainId, kind: "roles", safe, call, signer, signature, salt }
  *   → { hash }  (the client waits for the receipt itself)
@@ -72,12 +73,13 @@ async function ethUsd(): Promise<number> {
   return v;
 }
 
-async function quote(chainId: number, kind: SendKind): Promise<Quote> {
+async function quote(chainId: number, kind: SendKind, extra = 0n): Promise<Quote> {
   const { pc } = clients(chainId);
   const gasPrice = await pc.getGasPrice(); // what a tx pays now (base fee + tip), not the 2× max fee cap
   const usd = await ethUsd();
   // typical gas × 1.5, + the L1 data fee on an L2 (~$0.0002 on Base today; this allows ~2.5×)
-  const feeEth = (GAS_TYPICAL[kind] * gasPrice * 15n) / 10n + (chainId === 1 ? 0n : L1_ALLOWANCE);
+  const gas = GAS_TYPICAL[kind] + (extra > 0n ? (extra < GAS_BUDGET[kind] ? extra : GAS_BUDGET[kind]) : 0n);
+  const feeEth = (gas * gasPrice * 15n) / 10n + (chainId === 1 ? 0n : L1_ALLOWANCE);
   const feeUsdc = BigInt(Math.ceil((Number(feeEth) / 1e18) * usd * 1e6));
   return {
     chainId,
@@ -96,7 +98,8 @@ export async function GET(req: NextRequest) {
     const chainId = Number(req.nextUrl.searchParams.get("chainId"));
     const kind = (req.nextUrl.searchParams.get("kind") || "exec") as SendKind;
     if (!(kind in GAS_BUDGET)) return NextResponse.json({ error: "bad kind" }, { status: 400 });
-    return NextResponse.json(await quote(chainId, kind));
+    const extra = BigInt(/^\d{1,9}$/.test(req.nextUrl.searchParams.get("extra") || "") ? req.nextUrl.searchParams.get("extra")! : 0);
+    return NextResponse.json(await quote(chainId, kind, extra));
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || String(e) }, { status: 400 });
   }
@@ -125,6 +128,7 @@ export async function POST(req: NextRequest) {
     let data: Hex;
     let paid: { usdc: bigint; eth: bigint };
     let kind: SendKind;
+    let swap = false;
 
     if (body.kind === "exec") {
       const t = body.tx;
@@ -132,10 +136,10 @@ export async function POST(req: NextRequest) {
       const tx: SafeTx = { to: getAddress(t.to), value: BigInt(t.value), data: t.data, operation: Number(t.operation) as 0 | 1, nonce: BigInt(t.nonce) };
       if (tx.to !== MULTISEND_CALL_ONLY || tx.operation !== 1 || tx.value !== 0n) throw new Error("only Instant Wallet batches");
       const inner = unpackMultiSend(tx.data);
-      await checkCalls(safe, inner, plain);
+      swap = (await checkCalls(safe, inner, plain)).swap;
       paid = feePaid(inner, me, info.usdc);
       // a level change (deploys Roles or the wedgie's signers) gets the bigger gas budget
-      const setup = inner.some(c => c.data !== "0x" && !c.data.toLowerCase().startsWith("0xa9059cbb")); // any wallet change
+      const setup = !swap && inner.some(c => c.data !== "0x" && !c.data.toLowerCase().startsWith("0xa9059cbb")); // any wallet change
       const exec = execData(tx, body.signatures);
       // the burner's signer contract must exist before Safe checks its signature: deploy it in the same transaction
       // (a new phone after a recovery, or the very first send)
@@ -161,11 +165,11 @@ export async function POST(req: NextRequest) {
           functionName: "aggregate3",
           args: [calls.map(c => ({ target: c.to, allowFailure: false, callData: c.data }))],
         });
-        kind = setup ? "first-setup" : "first";
+        kind = setup ? "first-setup" : swap ? "first-swap" : "first";
       } else {
         to = safe;
         data = exec;
-        kind = setup ? "setup" : body.wedgie ? "exec-wedgie" : "exec";
+        kind = setup ? "setup" : swap ? (body.wedgie ? "swap-wedgie" : "swap") : body.wedgie ? "exec-wedgie" : "exec";
       }
     } else if (body.kind === "roles") {
       if (!hex(body.call) || !hex(body.signature) || !hex(body.salt) || !isAddress(body.signer)) throw new Error("role call?");
@@ -202,7 +206,7 @@ export async function POST(req: NextRequest) {
     const hash = await withChainLock(chainId, () => wc.sendTransaction({ to, data, gas: (gas * 13n) / 10n, chain: info.chain }));
     const rc = await pc.waitForTransactionReceipt({ hash, timeout: 45_000 }).catch(() => null);
     if (rc && rc.status !== "success") {
-      await reverted(safe, ip);
+      await reverted(safe, ip, swap);
       return NextResponse.json({ error: "it failed on chain", hash }, { status: 400 });
     }
     return NextResponse.json({ hash });

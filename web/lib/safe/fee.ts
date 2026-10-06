@@ -9,7 +9,7 @@ import { type Call, abi } from "./core";
  * Gas budgets are upper bounds per kind of send (Base: P-256 precompile; the wedgie's second slot verifies in
  * Solidity, ~350k). The quote = budget × gas price × 1.25, plus a cent; the relay re-checks with the real estimate.
  */
-export type SendKind = "first" | "exec" | "roles" | "exec-wedgie" | "setup" | "first-setup";
+export type SendKind = "first" | "exec" | "roles" | "exec-wedgie" | "setup" | "first-setup" | "swap" | "first-swap" | "swap-wedgie";
 export const GAS_BUDGET: Record<SendKind, bigint> = {
   first: 900_000n, // deploy signer + Safe (setup with Candide) + the first tx
   exec: 350_000n,
@@ -17,6 +17,9 @@ export const GAS_BUDGET: Record<SendKind, bigint> = {
   "exec-wedgie": 1_100_000n, // the wedgie's second slot verifies P-256 in Solidity
   setup: 1_800_000n, // a level change (deploy Roles + wire it, or add the wedgie's signers)
   "first-setup": 2_600_000n,
+  swap: 1_500_000n, // the Safe tx + approvals + whatever route LI.FI or Uniswap picked
+  "first-swap": 2_100_000n,
+  "swap-wedgie": 2_100_000n,
 };
 
 /** Gas a send of each kind really uses (measured on Base forks and mainnet); the fee is this × gas price × 1.5. */
@@ -27,6 +30,10 @@ export const GAS_TYPICAL: Record<SendKind, bigint> = {
   "exec-wedgie": 650_000n,
   setup: 1_000_000n,
   "first-setup": 1_600_000n,
+  // a swap's own gas comes on top (the quote's `extra`: the route's estimate)
+  swap: 250_000n,
+  "first-swap": 650_000n,
+  "swap-wedgie": 700_000n,
 };
 
 export type Quote = {

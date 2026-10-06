@@ -14,9 +14,10 @@ import { Receive } from "../Receive";
 import { Keys } from "./Keys";
 import { RecoveryAlert } from "./RecoveryAlert";
 import { SafeSend } from "./SafeSend";
+import { SafeSwap } from "./SafeSwap";
 import { SafeWelcome } from "./SafeWelcome";
 
-type View = { kind: "home" } | { kind: "send"; asset?: Asset } | { kind: "receive" } | { kind: "keys" };
+type View = { kind: "home" } | { kind: "send"; asset?: Asset } | { kind: "swap" } | { kind: "receive" } | { kind: "keys" };
 
 /** Instant Wallet on a Safe: a big balance, the level on the address pill, Receive / Swap, a send button on each asset and a scan button. */
 export function SafeApp() {
@@ -143,7 +144,7 @@ export function SafeApp() {
             <button className="btn" onClick={() => setView({ kind: "receive" })}>
               Receive
             </button>
-            <button className="btn" onClick={() => setToast("Swap is coming soon")}>
+            <button className="btn" onClick={() => setView({ kind: "swap" })}>
               Swap
             </button>
           </div>
@@ -189,6 +190,7 @@ export function SafeApp() {
       {view.kind !== "home" && (
         <Sheet onClose={close}>
           {view.kind === "send" && <SafeSend account={account} assets={assets} states={states} start={view.asset} onDone={close} />}
+          {view.kind === "swap" && <SafeSwap account={account} assets={assets} states={states} onDone={close} />}
           {view.kind === "receive" && <Receive account={{ address: account.address } as any} toast={setToast} />}
           {view.kind === "keys" && (
             <Keys

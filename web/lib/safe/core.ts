@@ -84,6 +84,9 @@ export const abi = {
   erc20: parseAbi([
     "function transfer(address to, uint256 amount) returns (bool)",
     "function balanceOf(address) view returns (uint256)",
+    "function approve(address spender, uint256 amount) returns (bool)",
+    "function symbol() view returns (string)",
+    "function decimals() view returns (uint8)",
   ]),
   moduleFactory: parseAbi(["function deployModule(address masterCopy, bytes initializer, uint256 saltNonce) returns (address)"]),
   roles: parseAbi([

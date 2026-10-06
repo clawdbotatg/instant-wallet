@@ -175,6 +175,44 @@ ok(cast(`call ${RECOVERY} "isGuardian(address,address)(bool)" ${acct.address} ${
 await send(BOB, "ETH", "0.001", "s4");
 ok(cast(`balance ${BOB}`) === "1000000000000000", "ETH send arrived (fee in ETH)");
 
+// ---------------------------------------------------------------- swaps (level 1: Face ID alone)
+async function swap(fromSym, amount, toSym, via, shot) {
+  await page.evaluate(v => localStorage.setItem("iws.swapVia", v), via); // force one source, to test both
+  await page.locator(".balance .btn", { hasText: "Swap" }).tap();
+  const fromPill = page.locator(".swap .field").first().locator(".pill").first();
+  if (!((await fromPill.textContent()) || "").includes(fromSym)) {
+    await fromPill.tap();
+    await page.locator(".swap .picker .pill", { has: page.locator("b", { hasText: new RegExp(`^${fromSym}$`) }) }).first().tap();
+  }
+  await page.locator(".swap input.amount").fill(amount);
+  await page.locator(".swap .pill.tok", { hasText: new RegExp(`(^|\\s)${toSym}$`) }).first().tap();
+  await page.locator(".swap .get").waitFor({ timeout: 30000 });
+  await page.waitForFunction(() => !document.querySelector(".go-swap")?.disabled, null, { timeout: 30000 });
+  const how = await page.locator(".swap .via").textContent();
+  await page.screenshot({ path: `${OUT}/${shot}-swap.png` });
+  await page.locator(".go-swap").tap();
+  await page.getByText("Swapped", { exact: true }).waitFor({ timeout: 90000 }).catch(async e => {
+    console.log("on screen:", await page.locator(".err").allTextContents());
+    await page.screenshot({ path: `${OUT}/${shot}-error.png` });
+    throw e;
+  });
+  await page.screenshot({ path: `${OUT}/${shot}-swapped.png` });
+  await page.getByText("Done").tap();
+  await page.evaluate(() => localStorage.removeItem("iws.swapVia"));
+  await page.waitForTimeout(13000);
+  return how;
+}
+{
+  const u0 = usdcOf(acct.address), e0 = BigInt(cast(`balance ${acct.address}`));
+  const how = await swap("USDC", "100", "ETH", "uniswap", "s4a");
+  const u1 = usdcOf(acct.address), e1 = BigInt(cast(`balance ${acct.address}`));
+  ok(/Uniswap/.test(how) && u0 - u1 >= 100_000_000n && u0 - u1 < 102_000_000n && e1 > e0, `swap via Uniswap: 100 USDC → ${Number(e1 - e0) / 1e18} ETH (${how})`);
+  const how2 = await swap("ETH", "0.002", "USDC", "lifi", "s4b");
+  const u2 = usdcOf(acct.address), e2 = BigInt(cast(`balance ${acct.address}`));
+  ok(/LI\.FI/.test(how2) && e1 - e2 >= 2_000_000_000_000_000n && u2 > u1, `swap via LI.FI: 0.002 ETH → ${Number(u2 - u1) / 1e6} USDC (${how2})`);
+  ok(cast(`call ${USDC} "allowance(address,address)(uint256)" ${acct.address} 0x2626664c2603336E57B271c5C0b26F421741e481`) === "0", "no allowance left behind");
+}
+
 // ---------------------------------------------------------------- level 2: add MetaMask
 await page.locator(".top .me").tap();
 await page.getByText("Connect and add").first().tap();

@@ -1,6 +1,7 @@
 // The relay's defences, against a local dev server on a fork (see safe-e2e.mjs for the setup):
 //   a valid first send works; the same signed body again is refused; a batch with an arbitrary call is refused;
-//   a Roles call that could fail silently (shouldRevert = false), a wrong role, or ETH that doesn't add up is refused.
+//   a Roles call that could fail silently (shouldRevert = false), a wrong role, or ETH that doesn't add up is refused;
+//   a swap batch must pay this wallet and leave no approval behind.
 //   APP=http://localhost:3100 RPC=http://127.0.0.1:8545 CHAIN=8453 FUNDER_KEY=<anvil #1> npx tsx tools/safe-relay-check.mts
 import { createHash } from "node:crypto";
 import { p256 } from "@noble/curves/nist.js";
@@ -11,6 +12,7 @@ import { abi, batch, encodeSignatures, encodeWebAuthn, safeAddress, safeTxHash, 
 import { MULTICALL3, MULTISEND_CALL_ONLY, ROLE_BURNER } from "../lib/safe/config";
 import { multiSendData } from "../lib/safe/core";
 import { rolesCalls } from "../lib/safe/fee";
+import { LIFI_DIAMOND, checkSwap } from "../lib/safe/swap";
 
 const APP = process.env.APP!;
 const CHAIN = Number(process.env.CHAIN || 8453);
@@ -52,6 +54,18 @@ ok(!throws(() => rolesCalls(eth(false, 5n), ROLE_BURNER)), "roles: an ETH send i
 ok(throws(() => rolesCalls(eth(true, 5n), ROLE_BURNER)), "roles: an ETH send that may fail is refused");
 ok(throws(() => rolesCalls(eth(false, 6n), ROLE_BURNER)), "roles: ETH that doesn't add up is refused");
 
+// ---- unit: swap batches
+{
+  const me = "0x00000000000000000000000000000000000000aa" as const;
+  const usdc = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
+  const appr = (spender: Hex, n: bigint) => ({ to: usdc, value: 0n, data: encodeFunctionData({ abi: abi.erc20, functionName: "approve", args: [spender, n] }) });
+  const pays = (who: string) => ({ to: LIFI_DIAMOND, value: 0n, data: ("0x12345678" + "0".repeat(24) + who.slice(2)) as Hex });
+  ok(checkSwap(me, [appr(LIFI_DIAMOND, 5n), pays(me), appr(LIFI_DIAMOND, 0n)]) === true, "swap: approve exact → swap → approve 0 is accepted");
+  ok(throws(() => checkSwap(me, [appr(LIFI_DIAMOND, 5n), pays(me)])), "swap: an approval left behind is refused");
+  ok(throws(() => checkSwap(me, [appr(LIFI_DIAMOND, 5n), pays(funder.address), appr(LIFI_DIAMOND, 0n)])), "swap: one that pays someone else is refused");
+  ok(checkSwap(me, [transfer(zeroAddress, funder.address, 1n)]) === false, "swap: a plain send isn't a swap");
+}
+
 // ---- live against the dev server
 const pk = p256.utils.randomSecretKey();
 const pub = p256.getPublicKey(pk, false);
@@ -80,6 +94,11 @@ const post = (body: unknown) =>
 const t0 = batch([{ to: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", value: 0n, data: encodeFunctionData({ abi: abi.erc20 as any, functionName: "transfer", args: [funder.address, 0n] }).replace("a9059cbb", "095ea7b3") as Hex }, transfer(zeroAddress, q.relayer, BigInt(q.feeEth))], 0n);
 const r0 = await post({ chainId: CHAIN, kind: "exec", safe, tx: t0, signatures: sign(t0), burner: { x, y } });
 ok(r0.status === 400 && /only sends transfers/.test(r0.j.error), `an arbitrary call is refused (${r0.status} ${r0.j.error})`);
+
+// a swap that pays someone else: refused before anything is spent
+const tw = batch([{ to: LIFI_DIAMOND, value: 1000n, data: ("0x12345678" + "0".repeat(24) + funder.address.slice(2)) as Hex }, transfer(zeroAddress, q.relayer, BigInt(q.feeEth))], 0n);
+const rw = await post({ chainId: CHAIN, kind: "exec", safe, tx: tw, signatures: sign(tw), burner: { x, y } });
+ok(rw.status === 400 && /won't send this swap/.test(rw.j.error), `a swap paying someone else is refused (${rw.status} ${rw.j.error})`);
 
 const t = batch([transfer(zeroAddress, funder.address, 1000n), transfer(zeroAddress, q.relayer, BigInt(q.feeEth))], 0n);
 const body = { chainId: CHAIN, kind: "exec", safe, tx: t, signatures: sign(t), burner: { x, y } };

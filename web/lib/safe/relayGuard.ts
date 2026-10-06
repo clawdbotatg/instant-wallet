@@ -2,10 +2,12 @@ import "server-only";
 import { type Address, type Hex, keccak256, size, slice } from "viem";
 import { MODULE_FACTORY, MULTICALL3, PASSKEY_FACTORY, RECOVERY_7D, ROLES_MASTERCOPY } from "./config";
 import { type Call, rolesAddress } from "./core";
+import { approvesRouter, checkSwap, isSwapTarget } from "./swap";
 
 /**
  * The relay's defences (review 2026-10-06): it pays gas up front, so it must not be made to pay for nothing.
- *   - only Instant Wallet shapes: token transfers, plain ETH sends, and the wallet's own changes (no arbitrary calls)
+ *   - only Instant Wallet shapes: token transfers, plain ETH sends, the wallet's own changes, and swaps through a
+ *     known router that pay this wallet with no approval left behind (no arbitrary calls)
  *   - one submission per signed tx (a reverted Safe tx keeps its nonce, so a signed body could be replayed)
  *   - rate limits per IP and per wallet; a wallet whose relayed tx reverted is refused for a day; many reverts pause
  *     the relay for an hour
@@ -91,8 +93,13 @@ export async function admit(ip: string, safe: Address) {
   if ((await bump(`safe:${safe}`, 3600)) > 40) throw new RelayRefused("Too many sends from this wallet this hour.");
 }
 
-/** A relayed tx reverted: refuse that wallet and that IP for a day (no global pause: it would be a free outage). */
-export async function reverted(safe: Address, ip: string) {
+/**
+ * A relayed tx reverted: refuse that wallet and that IP for a day (no global pause: it would be a free outage).
+ * A swap can revert honestly (the price moved past the slippage between the estimate and the block): the third
+ * one in a day counts.
+ */
+export async function reverted(safe: Address, ip: string, swap = false) {
+  if (swap && (await bump(`swaprev:${safe}`, 86_400)) < 3) return;
   await flag(`bad:${safe}`, 86_400);
   await flag(`badip:${ip}`, 86_400);
 }
@@ -130,8 +137,14 @@ const SAFE_SELF = new Set([
  * Every call in a relayed batch must be one of the shapes Instant Wallet makes (review 2: anything that can run
  * attacker code could pass the estimate and revert on chain). The owners still sign every one of them.
  */
-export async function checkCalls(safe: Address, calls: Call[], plainRecipient: (a: Address) => Promise<boolean>) {
+export async function checkCalls(safe: Address, calls: Call[], plainRecipient: (a: Address) => Promise<boolean>): Promise<{ swap: boolean }> {
   const roles = rolesAddress(safe).toLowerCase();
+  let swap = false;
+  try {
+    swap = checkSwap(safe, calls);
+  } catch (e: any) {
+    throw new RelayRefused(`The relay won't send this swap: ${e.message}.`, 400);
+  }
   for (const c of calls) {
     const to = c.to.toLowerCase();
     const s = sel(c.data);
@@ -148,6 +161,7 @@ export async function checkCalls(safe: Address, calls: Call[], plainRecipient: (
       continue;
     if (c.data === "0x" && (await plainRecipient(c.to))) continue; // ETH to an account, a 7702 account, or a Safe
     if (c.value === 0n && size(c.data) === 68 && s === TRANSFER) continue; // an ERC-20 transfer
+    if (isSwapTarget(c.to) || approvesRouter(c)) continue; // a swap: checked above (receiver, approvals)
     throw new RelayRefused(
       c.data === "0x"
         ? "The relay doesn't send ETH to contracts. Send this one from a wallet that pays its own gas."
@@ -155,6 +169,7 @@ export async function checkCalls(safe: Address, calls: Call[], plainRecipient: (
       400,
     );
   }
+  return { swap };
 }
 
 /** Runtime code hashes of SafeProxy 1.3.0 and 1.5.0, and the singletons a real Safe points at. */

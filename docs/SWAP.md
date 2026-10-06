@@ -1,8 +1,15 @@
-# Swap — stage 2 plan
+# Swap
 
 Austin, 2026-10-06: a **Swap** button under the balance (next to Receive) that swaps **any asset on any network to
-any other asset on any network**, in our own swap UI. Stage 1 (shipped): the button exists and says "coming soon";
-Send moved onto each asset row (green paper airplane).
+any other asset on any network**, in our own swap UI.
+
+**Built 2026-10-06:** `components/safe/SafeSwap.tsx` (the sheet), `lib/safe/swap.ts` (routers, token list, the batch,
+the relay's check), `lib/safe/uniswap.ts` (on-chain quotes), `app/api/swap/quote` (LI.FI, validated) and
+`app/api/swap/status` (cross-chain progress). Tested: `tools/safe-e2e.mjs` swaps on a Base fork through the real UI,
+once via Uniswap and once via LI.FI; `tools/safe-relay-check.mts` refuses a swap paying someone else or leaving an
+approval. Cross-chain (Base → Ethereum, ETH and USDC) checked by running LI.FI's calldata on a Base fork; the
+arrival side needs a real swap. Not built yet: budget swaps (Face ID alone at level 2+), the wedgie's LI.FI
+decoding, the official-bridge fallback.
 
 ## What the user sees
 
@@ -38,7 +45,9 @@ Uniswap quote is the answer. Cross-chain has no decentralized equivalent of the 
 offer the official Base bridge (Ethereum → Base in minutes; Base → Ethereum takes 7 days — said plainly) or
 "try again later".
 
-Decide: take an integrator fee through LI.FI (e.g. 0.25%) or not.
+No integrator fee of ours (LI.FI takes its own 0.25%, shown in "Price + fees"). LI.FI is asked for the CHEAPEST
+route: across chains that can be a slow bridge (Base → Ethereum USDC: Polymer, ~18 min) when the fast one costs
+~$1 more on $20 — the screen shows the arrival time.
 
 ## How a swap executes (a Safe batch, through our relay)
 
@@ -94,9 +103,8 @@ LI.FI diamond / Universal Router addresses pinned per chain, approvals exact and
    cross-chain checked once for real with a few dollars (Base USDC → Ethereum ETH).
 7. Later: same-chain budget swaps through Roles (option a), wedgie selector table, swap from an asset row.
 
-## Open questions for Austin
+## Open questions for Austin (built with the first answer; easy to change)
 
-- Integrator fee: yes/no, how much?
-- Any-token "To" list: show everything LI.FI knows (scam tokens included, with warnings) or a curated list +
-  paste-an-address?
-- Level 2+ phone-only swaps: OK to need the computer at first (option c)?
+- Integrator fee: none for now.
+- "To" list: a short curated list per chain + what you hold + paste-an-address (not LI.FI's whole list).
+- Level 2+ swaps need the owners (option c): the phone alone can't swap there yet.

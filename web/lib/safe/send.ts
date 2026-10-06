@@ -23,8 +23,8 @@ export type FeeToken = "usdc" | "eth";
 export type Signer = "burner" | "hot" | "wedgie";
 export type Stage = "quote" | "signing" | "signing-hot" | "signing-wedgie" | "sending" | "confirming";
 
-export async function getQuote(chainId: number, kind: SendKind): Promise<Quote> {
-  const r = await fetch(`/api/safe/relay?chainId=${chainId}&kind=${kind}`, { cache: "no-store" });
+export async function getQuote(chainId: number, kind: SendKind, extraGas?: bigint): Promise<Quote> {
+  const r = await fetch(`/api/safe/relay?chainId=${chainId}&kind=${kind}${extraGas ? `&extra=${extraGas}` : ""}`, { cache: "no-store" });
   const j = await r.json();
   if (!r.ok) throw new Error(j.error || "no quote");
   return j;
@@ -65,6 +65,7 @@ type OwnersOpts = {
   feeToken: FeeToken;
   wedgie?: Wedgie | null;
   setup?: boolean; // a level change: bigger gas budget
+  swapGas?: bigint; // a swap: its route's own gas, on top of the Safe tx
   quote?: Quote; // the one the user saw, if still fresh and for the same kind of send
   onStage?: (s: Stage, hash?: Hash) => void;
 };
@@ -79,8 +80,8 @@ export async function prepareOwners(opts: OwnersOpts): Promise<Prepared> {
   const chainId = st.chainId;
   const signerCode = signers.includes("burner") ? await publicClient(chainId).getCode({ address: a.burnerSigner }).catch(() => undefined) : "0x01";
   const fresh = !st.deployed || !signerCode || signerCode === "0x"; // the relay deploys the Safe and/or the burner's signer too
-  const kind: SendKind = fresh ? (opts.setup ? "first-setup" : "first") : opts.setup ? "setup" : signers.includes("wedgie") ? "exec-wedgie" : "exec";
-  const q = opts.quote && opts.quote.kind === kind && opts.quote.until > Date.now() + 30_000 ? opts.quote : await getQuote(chainId, kind);
+  const kind = ownersKind(fresh, signers, opts);
+  const q = opts.quote && opts.quote.kind === kind && opts.quote.until > Date.now() + 30_000 ? opts.quote : await getQuote(chainId, kind, opts.swapGas);
   const t: SafeTx = batch([...opts.calls, feeCall(q, opts.feeToken)], await freshNonce(chainId, a.address, st));
   return { opts, t, h: safeTxHash(chainId, a.address, t), fee: q };
 }
@@ -139,12 +140,23 @@ export async function ownersSend(opts: OwnersOpts): Promise<Hash> {
   return finishOwners(await prepareOwners(opts));
 }
 
+function ownersKind(fresh: boolean, signers: Signer[], o: { setup?: boolean; swapGas?: bigint }): SendKind {
+  if (o.setup) return fresh ? "first-setup" : "setup";
+  if (o.swapGas !== undefined) return fresh ? "first-swap" : signers.includes("wedgie") ? "swap-wedgie" : "swap";
+  return fresh ? "first" : signers.includes("wedgie") ? "exec-wedgie" : "exec";
+}
+
 /** The kind of relayed send (and so the fee quote) a send will be. */
-export async function sendKind(a: SafeAccount, st: ChainState, path: "owners" | "budget", signers: Signer[]): Promise<SendKind> {
+export async function sendKind(
+  a: SafeAccount,
+  st: ChainState,
+  path: "owners" | "budget",
+  signers: Signer[],
+  o: { swapGas?: bigint } = {},
+): Promise<SendKind> {
   if (path === "budget") return "roles";
   const code = signers.includes("burner") ? await publicClient(st.chainId).getCode({ address: a.burnerSigner }).catch(() => undefined) : "0x01";
-  if (!st.deployed || !code || code === "0x") return "first";
-  return signers.includes("wedgie") ? "exec-wedgie" : "exec";
+  return ownersKind(!st.deployed || !code || code === "0x", signers, o);
 }
 
 /** RPC nodes lag a block now and then: never reuse a nonce this page just used. */

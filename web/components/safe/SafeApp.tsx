@@ -9,7 +9,7 @@ import type { Asset, Portfolio } from "@/lib/types";
 import { dropOtherBudgetsCalls } from "@/lib/safe/core";
 import { type Prepared, finishOwners, ownerSigners, prepareOwners } from "@/lib/safe/send";
 import { friendly } from "../Welcome";
-import { Blockie, ScanIcon, Sheet, TokenIcon, copy, useToast } from "../bits";
+import { Blockie, ScanIcon, SendIcon, Sheet, TokenIcon, copy, useToast } from "../bits";
 import { Receive } from "../Receive";
 import { Keys } from "./Keys";
 import { RecoveryAlert } from "./RecoveryAlert";
@@ -18,7 +18,7 @@ import { SafeWelcome } from "./SafeWelcome";
 
 type View = { kind: "home" } | { kind: "send"; asset?: Asset } | { kind: "receive" } | { kind: "keys" };
 
-/** Instant Wallet on a Safe: a big balance, Send / Receive, the level next to the name, and a scan button. */
+/** Instant Wallet on a Safe: a big balance, Receive / Swap, a send button on each asset, the level next to the name, and a scan button. */
 export function SafeApp() {
   const [account, setAccountState] = useState<SafeAccount | null | undefined>(undefined);
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
@@ -140,11 +140,11 @@ export function SafeApp() {
             {portfolio ? (showUsd ? usd(portfolio.totalUsd ?? 0) : `${assets.length} assets`) : "…"}
           </div>
           <div className="actions">
-            <button className="btn btn-green" onClick={() => setView({ kind: "send" })}>
-              Send
-            </button>
             <button className="btn" onClick={() => setView({ kind: "receive" })}>
               Receive
+            </button>
+            <button className="btn" onClick={() => setToast("Swap is coming soon")}>
+              Swap
             </button>
           </div>
         </div>
@@ -156,7 +156,7 @@ export function SafeApp() {
             </p>
           )}
           {assets.map(a => (
-            <button key={`${a.chainId}:${a.asset}`} className="asset" onClick={() => setView({ kind: "send", asset: a })}>
+            <div key={`${a.chainId}:${a.asset}`} className="asset">
               <TokenIcon symbol={a.symbol} asset={a.asset} chainId={a.chainId} logo={a.logo} />
               <div className="grow">
                 <div className="sym">{a.symbol}</div>
@@ -169,7 +169,10 @@ export function SafeApp() {
                 <div className="sym">{showUsd ? usd(a.usd) : amount(a.formatted)}</div>
                 <div className="fine">{showUsd ? `${amount(a.formatted)} ${a.symbol}` : usd(a.usd)}</div>
               </div>
-            </button>
+              <button className="btn btn-green send-one" aria-label={`Send ${a.symbol}`} onClick={() => setView({ kind: "send", asset: a })}>
+                <SendIcon />
+              </button>
+            </div>
           ))}
         </div>
         <div className="row" style={{ justifyContent: "center" }}>

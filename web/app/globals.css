@@ -94,10 +94,13 @@ input { font: inherit; color: inherit; }
 .assets { display: grid; gap: 2px; padding: 8px; }
 .asset { display: flex; align-items: center; gap: 12px; padding: 10px 10px; border-radius: 16px; background: none; border: 0; width: 100%; text-align: left; cursor: pointer; }
 .asset:active { background: rgba(0,0,0,.04); }
+div.asset { cursor: auto; }
+div.asset:active { background: none; }
 .asset .logo { width: 36px; height: 36px; border-radius: 50%; background: var(--recess); display: grid; place-items: center; font-weight: 900; font-size: 13px; overflow: hidden; flex: none; }
 .asset .logo img { width: 100%; height: 100%; object-fit: cover; }
 .asset .sym { font-weight: 800; }
 .asset .right { text-align: right; }
+.asset .send-one { flex: none; width: 44px; height: 44px; padding: 0; border-radius: 14px; display: grid; place-items: center; }
 
 .fab { position: fixed; right: max(18px, calc(50vw - 222px)); bottom: calc(22px + env(safe-area-inset-bottom)); width: 74px; height: 74px; border-radius: 50%; border: 0;
   display: grid; place-items: center; color: #fff; background: var(--green-fill); cursor: pointer; z-index: 30;

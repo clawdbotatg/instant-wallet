@@ -123,6 +123,14 @@ export function ScanIcon({ size = 34 }: { size?: number }) {
   );
 }
 
+export function SendIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 3 10 14M21 3l-7 18-4-7-7-4 18-7z" />
+    </svg>
+  );
+}
+
 export function useToast(): [string | null, (m: string) => void] {
   const [msg, setMsg] = useState<string | null>(null);
   useEffect(() => {

@@ -121,7 +121,7 @@ await cdp.send("WebAuthn.addVirtualAuthenticator", {
 // ---------------------------------------------------------------- level 1
 await page.goto(`${APP}/`);
 await page.getByText("Create wallet").tap();
-await page.getByText("Send", { exact: true }).waitFor({ timeout: 20000 });
+await page.getByText("Receive", { exact: true }).waitFor({ timeout: 20000 });
 const acct = await page.evaluate(() => JSON.parse(localStorage.getItem("iws.account")));
 console.log("wallet", acct.address, "burner signer", acct.burnerSigner);
 ok(cast(`code ${acct.address}`) === "0x", "counterfactual: nothing deployed yet");
@@ -136,10 +136,9 @@ await page.waitForTimeout(13000);
 await page.screenshot({ path: `${OUT}/s2-home-funded.png` });
 
 async function send(to, pickText, amount, shot, button = "Send") {
-  await page.locator(".balance .btn-green").tap();
-  await page.getByText("Type it instead").tap();
+  // the green send button on that asset's row (it skips the scanner and picks the asset)
+  await page.locator(".asset", { has: page.locator(".sym", { hasText: new RegExp(`^${pickText}$`) }) }).first().locator(".send-one").tap();
   await page.getByPlaceholder("0x… or name.eth").fill(to);
-  await page.locator(".picker .pill", { hasText: pickText }).first().tap();
   await page.locator("input.amount").fill(amount);
   await page.getByText("Review").tap();
   const go = page.locator(".confirm .btn-green");
@@ -171,7 +170,7 @@ await send(BOB, "ETH", "0.001", "s4");
 ok(cast(`balance ${BOB}`) === "1000000000000000", "ETH send arrived (fee in ETH)");
 
 // ---------------------------------------------------------------- level 2: add MetaMask
-await page.locator(".level").tap();
+await page.locator(".top .me").tap();
 await page.getByText("Connect and add").first().tap();
 await page.getByRole("button", { name: "Yes", exact: true }).tap();
 await page.getByText("Done").waitFor({ timeout: 90000 }).catch(() => {});
@@ -192,7 +191,7 @@ ok(usdcOf(DAVE) === 300_000_000n && /hot wallet/.test(by2), "over the budget: Fa
 
 // ---------------------------------------------------------------- level 3: paper becomes the recovery
 const paper = privateKeyToAccount("0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a").address; // anvil #2
-await page.locator(".level").tap();
+await page.locator(".top .me").tap();
 await page.getByPlaceholder("0x… the paper seed's address").fill(paper);
 await page.getByText("Make it my recovery").tap();
 await page.getByRole("button", { name: "Yes", exact: true }).tap();
@@ -232,7 +231,7 @@ ok(/^\(0, 0, 0/.test(req), `recovery cancelled (${req.slice(0, 40)})`);
 await page.evaluate(() => localStorage.clear());
 await page.goto(`${APP}/`);
 await page.getByText("I already have one").tap();
-await page.getByText("Send", { exact: true }).waitFor({ timeout: 30000 });
+await page.getByText("Receive", { exact: true }).waitFor({ timeout: 30000 });
 const again = await page.evaluate(() => JSON.parse(localStorage.getItem("iws.account")));
 ok(again.address === acct.address, "logged back in to the same wallet");
 await page.screenshot({ path: `${OUT}/s11-relogin.png` });
@@ -277,10 +276,8 @@ ok(cast(`call ${acct.address} "getOwners()(address[])"`).toLowerCase() === `[${a
 await page2.waitForTimeout(14000);
 ok(!(await page2.getByText("Waiting for recovery").isVisible()), "the new phone sees it's an owner");
 const FRANK = rand();
-await page2.locator(".balance .btn-green").tap();
-await page2.getByText("Type it instead").tap();
+await page2.locator(".asset", { has: page2.locator(".sym", { hasText: /^USDC$/ }) }).first().locator(".send-one").tap();
 await page2.getByPlaceholder("0x… or name.eth").fill(FRANK);
-await page2.locator(".picker .pill", { hasText: "USDC" }).first().tap();
 await page2.locator("input.amount").fill("7");
 await page2.getByText("Review").tap();
 await page2.locator(".confirm .btn-green").waitFor({ timeout: 15000 });
@@ -304,7 +301,7 @@ const members = cast(`call ${rolesOf} "getModulesPaginated(address,uint256)(addr
 ok(!members.toLowerCase().includes(acct.burnerSigner.toLowerCase().slice(2)), `the lost phone is out of the budget (${members.slice(0, 50)})`);
 ok(modsAfter === rolesAddr, "Roles stays on, ready for this phone");
 // and the recovered phone can level up again (Roles exists: no second deploy)
-await page2.locator(".level").tap();
+await page2.locator(".top .me").tap();
 await page2.getByText("Connect and add").first().tap();
 await page2.getByRole("button", { name: "Yes", exact: true }).tap();
 await page2.waitForTimeout(25000);

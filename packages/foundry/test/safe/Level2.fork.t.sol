@@ -154,7 +154,7 @@ contract Level2Test is SafeBase {
         SafeTx memory t = _batch(
             abi.encodePacked(
                 _call(MODULE_FACTORY, 0, abi.encodeCall(IModuleProxyFactory.deployModule, (ROLES_MASTERCOPY, init, 0))),
-                _call(address(0), 0, abi.encodeCall(ISafe.enableModule, (address(roles)))),
+                _call(address(safe), 0, abi.encodeCall(ISafe.enableModule, (address(roles)))),
                 _call(address(roles), 0, abi.encodeCall(IRoles.enableModule, (burnerSigner))),
                 _call(address(roles), 0, abi.encodeCall(IRoles.assignRoles, (burnerSigner, keys, yes))),
                 _call(
@@ -166,7 +166,7 @@ contract Level2Test is SafeBase {
                     )
                 ),
                 _rolesSetup(today),
-                _call(address(0), 0, abi.encodeCall(ISafe.addOwnerWithThreshold, (hot, 2)))
+                _call(address(safe), 0, abi.encodeCall(ISafe.addOwnerWithThreshold, (hot, 2)))
             )
         );
         assertTrue(_exec(safe, t, _encodeSigs(_one(_passkeySig(burner, _hash(safe, t))))));

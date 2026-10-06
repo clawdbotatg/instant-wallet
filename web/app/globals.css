@@ -150,3 +150,19 @@ input { font: inherit; color: inherit; }
 .token > img:first-child { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
 .token .letter { font-weight: 900; color: var(--muted); }
 .token .badge { position: absolute; right: -3px; bottom: -3px; border-radius: 50%; box-shadow: 0 0 0 2px #fff; }
+
+/* Safe build (/safe): level meter, the key ladder, alerts, paper cards */
+.level { display: grid; gap: 10px; text-align: left; border: 0; cursor: pointer; font: inherit; color: inherit; width: 100%; }
+.meter { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.meter i { height: 10px; border-radius: 6px; background: var(--recess); box-shadow: var(--recess-shadow); }
+.meter i.on { background: var(--green-fill); box-shadow: inset 0 2px 0 rgba(255,255,255,.35), inset 0 -2px 0 rgba(0,0,0,.15); }
+.step { display: grid; gap: 10px; padding: 16px; }
+.step.current { box-shadow: var(--shell-shadow), 0 0 0 3px var(--mint); }
+.step.done { opacity: .92; }
+.alert { display: grid; gap: 8px; box-shadow: var(--shell-shadow), 0 0 0 3px var(--coral); }
+.paper ol { padding-left: 20px; display: grid; gap: 4px; }
+.seedcard { display: grid; gap: 12px; break-inside: avoid; }
+.seedcard .words { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.seedcard .word { border: 1.5px solid var(--ink); border-radius: 8px; height: 46px; position: relative; background: #fff; }
+.seedcard .word span { position: absolute; top: 2px; left: 6px; font-size: 11px; font-weight: 900; color: var(--muted); }
+@media print { .noprint, .fab { display: none !important; } body, html { background: #fff; } .card { box-shadow: none; border: 1.5px solid #1a1b1a; } }

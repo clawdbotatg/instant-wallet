@@ -168,6 +168,14 @@ export async function confirmKey(credentialId: string, candidates: Candidate[]):
   return hit;
 }
 
+/** One Face ID over a 32-byte challenge, unprocessed (the Safe build encodes it its own way: lib/safe/sign.ts). */
+export async function assertChallenge(credentialId: string | undefined, digest: Hex) {
+  const challenge = hexToBytes(digest) as Uint8Array<ArrayBuffer>;
+  if (challenge.length !== 32) throw new Error("digest must be 32 bytes");
+  const a = await assert(challenge, credentialId);
+  return { credentialId: a.credentialId, authenticatorData: a.authenticatorData, clientDataJSON: a.clientDataJSON, ...parseDerSignature(a.signature) };
+}
+
 /** Sign a 32-byte digest with Face ID. Returns the contract encoding and, if supported, the PRF output. */
 export async function signDigest(credentialId: string, digest: Hex): Promise<{ signature: Hex; prf?: Uint8Array }> {
   const challenge = hexToBytes(digest) as Uint8Array<ArrayBuffer>;

@@ -116,7 +116,10 @@ abstract contract SafeBase is Test {
     // ---- deployed pieces (Base 8453 and Ethereum 1, identical addresses) ----
     address constant SAFE_FACTORY = 0x14F2982D601c9458F93bd70B218933A6f8165e7b; // SafeProxyFactory 1.5.0
     address constant SAFE_L2 = 0xEdd160fEBBD92E350D4D398fb636302fccd67C7e; // SafeL2 1.5.0
-    address constant MULTISEND_CALL_ONLY = 0xA83c336B20401Af773B6219BA5027174338D1836; // 1.5.0
+    /// MultiSendCallOnly 1.5.0: only for the first setup (its `to = 0` means "the Safe", needed before the address exists).
+    address constant MULTISEND_SETUP = 0xA83c336B20401Af773B6219BA5027174338D1836;
+    /// MultiSendCallOnly 1.4.1: every later batch (the wedgie's Safe app decodes this one and shows each action).
+    address constant MULTISEND_CALL_ONLY = 0x9641d764fc13c8B624c04430C7356C1C7C8102e2;
     address constant FALLBACK_HANDLER = 0x3EfCBb83A4A7AfcB4F68D501E2c2203a38be77f4; // CompatibilityFallbackHandler 1.5.0
     address constant PASSKEY_FACTORY = 0x1d31F259eE307358a26dFb23EB365939E8641195; // safe-modules passkey 0.2.1
     address constant DAIMO_VERIFIER = 0xc2b78104907F722DABAc4C69f826a522B2754De4; // P-256 fallback verifier
@@ -263,7 +266,7 @@ abstract contract SafeBase is Test {
         );
         return abi.encodeCall(
             ISafe.setup,
-            (owners, 1, MULTISEND_CALL_ONLY, _multiSend(setupCalls), FALLBACK_HANDLER, address(0), 0, payable(0))
+            (owners, 1, MULTISEND_SETUP, _multiSend(setupCalls), FALLBACK_HANDLER, address(0), 0, payable(0))
         );
     }
 

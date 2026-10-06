@@ -32,12 +32,12 @@ contract Level4Test is SafeBase {
         _dealUSDC(address(safe), 10_000e6);
 
         // level 2 then 4, each in one batch signed by the owners of the moment
-        SafeTx memory t = _batch(_call(address(0), 0, abi.encodeCall(ISafe.addOwnerWithThreshold, (hot, 2))));
+        SafeTx memory t = _batch(_call(address(safe), 0, abi.encodeCall(ISafe.addOwnerWithThreshold, (hot, 2))));
         _exec(safe, t, _encodeSigs(_one(_passkeySig(burner, _hash(safe, t)))));
         t = _batch(
             abi.encodePacked(
-                _call(address(0), 0, abi.encodeCall(ISafe.addOwnerWithThreshold, (w1, 2))),
-                _call(address(0), 0, abi.encodeCall(ISafe.addOwnerWithThreshold, (w2, 3)))
+                _call(address(safe), 0, abi.encodeCall(ISafe.addOwnerWithThreshold, (w1, 2))),
+                _call(address(safe), 0, abi.encodeCall(ISafe.addOwnerWithThreshold, (w2, 3)))
             )
         );
         bytes32 h = _hash(safe, t);
@@ -126,7 +126,7 @@ contract Level4Test is SafeBase {
         // pre-phase-4 the "burner + hot + paper" path doesn't exist on chain: a stolen wedgie is replaced by recovery
         SafeTx memory t = _batch(
             abi.encodePacked(
-                _call(address(0), 0, abi.encodeCall(ISafe.removeOwner, (w2, w1, 2)))
+                _call(address(safe), 0, abi.encodeCall(ISafe.removeOwner, (w2, w1, 2)))
             )
         );
         bytes32 h = _hash(safe, t);

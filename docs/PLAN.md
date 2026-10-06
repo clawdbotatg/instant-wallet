@@ -523,7 +523,8 @@ A thief holding hot or the wedgie alone can switch off your burner's budget. Tha
 11. Safe 1.5 deployed on Base and every target chain; Safe's owners endpoint lists Safes owned by a
     passkey signer and by a Safe (for groups).
 12. Ethereum mainnet: check every piece is deployed there too, not just Base.
-13. Attacks to test: one stolen key trying to cancel or block anything (must fail); old keys spending right
+13. Recovering a wallet that was never deployed (DAO deploys with the first setup, then recovers).
+13b. Attacks to test: one stolen key trying to cancel or block anything (must fail); old keys spending right
     after a recovery, app offline (must fail); a cancelled move after owners change and change back (must
     stay dead); a lock paying out through Safe's gas refund (must fail); re-locking right after a lock ends;
     a stolen key objecting to its removal (only delays to 7 d); burner + hot + paper replacing the wedgie; a wedgie PIN; the old burner's budget after a recovery (and the reset batch); travel-lock bypasses (standing
@@ -537,12 +538,13 @@ A thief holding hot or the wedgie alone can switch off your burner's budget. Tha
 ## Decide before the first user
 
 A Safe's address is fixed by its first setup, forever, on every chain. So before anyone gets a wallet:
-- **Recovery in the first setup (recommended, not yet confirmed).** An undeployed wallet has no recovery, so
-  losing an unsynced phone before the first send loses the money. Putting the DAO recovery module in the
-  first setup fixes that, but fixes the recovery module's design into the address forever (the recovery
-  address itself can still change later).
-- **Keep the first setup minimal:** the burner's signer as the only owner, plus a fallback handler. Add
-  everything else (Roles, recovery, more owners) afterwards with normal transactions, so changing those plans
+- **First setup = burner owner + DAO recovery (decided, Austin 10-05).** The setup turns on Candide's 7-day
+  recovery module with dao.buidlguidl.eth as guardian. So a wallet that was never deployed can still be
+  recovered: the DAO deploys it (anyone can, with that setup) and starts recovery. Cost: that recovery
+  module is fixed into every address forever (the recovery address itself can still change), Candide must be
+  at the same address on every supported chain, and deployment costs a bit more gas.
+- **Otherwise keep the first setup minimal:** burner owner, DAO recovery, a fallback handler. Add
+  everything else (Roles, death switch, more owners) afterwards with normal transactions, so changing those plans
   never moves anyone's address.
 - **Safe version: 1.5** (the travel lock / canceller guard needs it; the wedgie was tested on 1.4.1). Check
   that it's deployed on every chain we want.

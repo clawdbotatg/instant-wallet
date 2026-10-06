@@ -169,7 +169,7 @@ export function SafeWelcome({ onReady }: { onReady: (a: SafeAccount) => void }) 
         <div className="welcome">
           <div className="stack">
             <h1>Recover a wallet</h1>
-            <p>Lost your phone? This makes a new Face ID key here. Your recovery address (the DAO, or your paper seed) then swaps it in; it takes 7 days, and you can cancel it from any key you still have.</p>
+            <p>Lost your phone? This makes a new key on this device. Your recovery address (the DAO, or your paper seed) then swaps it in; it takes 7 days, and you can cancel it from any key you still have.</p>
           </div>
           <div className="input">
             <input value={wallet} onChange={e => setWallet(e.target.value)} placeholder="0x… your wallet's address" autoCapitalize="none" spellCheck={false} />
@@ -191,7 +191,7 @@ export function SafeWelcome({ onReady }: { onReady: (a: SafeAccount) => void }) 
         <img className="mark" src="/mark.png" alt="" />
         <div className="stack">
           <h1>Instant Wallet</h1>
-          <p style={{ fontSize: 19, color: "#3b3d3b" }}>A wallet right now. Face ID is the key. Grow it into full self-custody when you&apos;re ready.</p>
+          <p style={{ fontSize: 19, color: "#3b3d3b" }}>A wallet right now. This device is the key. Grow it into full self-custody when you&apos;re ready.</p>
         </div>
         <Band />
         {supported ? (

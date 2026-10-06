@@ -108,7 +108,7 @@ export function SafeApp() {
               <div key={`b${s.chainId}`} className="card alert">
                 <b>Turn off the old phone&apos;s budget</b>
                 <p className="fine">
-                  On {chainById(s.chainId)?.name}, a key that isn&apos;t this phone can still spend the daily Face ID budget (a lost phone, after a recovery).
+                  On {chainById(s.chainId)?.name}, a key that isn&apos;t this phone can still spend the Instant wallet's daily budget (a lost phone, after a recovery).
                 </p>
                 <button className="btn btn-red wide" onClick={() => dropOldBudget(s)}>
                   {dropReady ? "Sign to turn it off" : "Turn it off"}

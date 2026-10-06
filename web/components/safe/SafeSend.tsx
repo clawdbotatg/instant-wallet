@@ -15,7 +15,7 @@ import { Blockie, ChainChip, ScanIcon, TokenIcon } from "../bits";
 import { Scanner } from "../Scanner";
 import { friendly } from "../Welcome";
 
-const SIGNER_NAME: Record<Signer, string> = { burner: "Face ID", hot: "your hot wallet", wedgie: "your wedgie (press A)" };
+const SIGNER_NAME: Record<Signer, string> = { burner: "your Instant wallet", hot: "your hot wallet", wedgie: "your wedgie (press A)" };
 
 /**
  * Send: who → what → how much → review (which keys, the fee) → sign → the relay sends. The burner alone covers
@@ -186,7 +186,7 @@ export function SafeSend({
     const busy = stage !== "review";
     const label: Record<string, string> = {
       quote: "Getting the fee…",
-      signing: "Face ID…",
+      signing: "Signing…",
       "signing-hot": "Sign in your hot wallet…",
       "signing-wedgie": "Check the wedgie, press A…",
       sending: "Sending…",
@@ -236,14 +236,14 @@ export function SafeSend({
           {p?.path === "budget" && (
             <div className="line">
               <span>Daily budget</span>
-              <span className="fine">within your Face ID budget</span>
+              <span className="fine">within your Instant wallet's daily budget</span>
             </div>
           )}
         </div>
         {feeShort && <p className="err">Not enough {feeToken === "usdc" ? "USDC" : "ETH"} on {chainById(chainId)?.name} for this plus the fee.</p>}
         {error && <p className="err">{error}</p>}
         <button className="btn btn-green wide" onClick={send} disabled={busy || !quote || feeShort}>
-          {busy ? label[stage] ?? "…" : p?.signers.length === 1 ? "Send with Face ID" : "Sign and send"}
+          {busy ? label[stage] ?? "…" : "Sign and send"}
         </button>
         {!busy && (
           <button className="btn wide" onClick={() => setStage("form")}>
@@ -316,7 +316,7 @@ export function SafeSend({
                 <span className="fine">{asset.price && amountIn ? `≈ ${usd(Number(amountIn) * asset.price)}` : ""}</span>
                 <span className="fine">
                   {st?.budget && (sendingUsdc || sendingEth)
-                    ? `Face ID budget left today: ${sendingUsdc ? `${fmtAmount(formatUnits(st.budget.usdc, 6))} USDC` : `${fmtAmount(formatUnits(st.budget.eth, 18))} ETH`}`
+                    ? `Daily budget left: ${sendingUsdc ? `${fmtAmount(formatUnits(st.budget.usdc, 6))} USDC` : `${fmtAmount(formatUnits(st.budget.eth, 18))} ETH`}`
                     : `You have ${fmtAmount(asset.formatted)}`}
                 </span>
               </div>

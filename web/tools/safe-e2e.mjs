@@ -135,7 +135,7 @@ void slot;
 await page.waitForTimeout(13000);
 await page.screenshot({ path: `${OUT}/s2-home-funded.png` });
 
-async function send(to, pickText, amount, shot, button = /Send with Face ID|Sign and send/) {
+async function send(to, pickText, amount, shot, button = "Sign and send") {
   await page.locator(".balance .btn-green").tap();
   await page.getByText("Type it instead").tap();
   await page.getByPlaceholder("0x… or name.eth").fill(to);
@@ -172,7 +172,7 @@ ok(cast(`balance ${BOB}`) === "1000000000000000", "ETH send arrived (fee in ETH)
 // ---------------------------------------------------------------- level 2: add MetaMask
 await page.locator(".level").tap();
 await page.getByText("Connect and add").first().tap();
-await page.getByRole("button", { name: /^Sign with/ }).tap();
+await page.getByRole("button", { name: "Sign", exact: true }).tap();
 await page.getByText("Done").waitFor({ timeout: 90000 }).catch(() => {});
 await page.waitForTimeout(14000);
 await page.screenshot({ path: `${OUT}/s5-level2.png`, fullPage: true });
@@ -184,7 +184,7 @@ await page.waitForTimeout(1000);
 
 const CAROL = rand();
 const by1 = await send(CAROL, "USDC", "40", "s6");
-ok(usdcOf(CAROL) === 40_000_000n && /Face ID/.test(by1) && !/hot/.test(by1), "within the budget: Face ID alone (Roles)");
+ok(usdcOf(CAROL) === 40_000_000n && /Instant wallet/.test(by1) && !/hot/.test(by1), "within the budget: Face ID alone (Roles)");
 const DAVE = rand();
 const by2 = await send(DAVE, "USDC", "300", "s7", "Sign and send");
 ok(usdcOf(DAVE) === 300_000_000n && /hot wallet/.test(by2), "over the budget: Face ID + hot wallet");
@@ -194,14 +194,14 @@ const paper = privateKeyToAccount("0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca
 await page.locator(".level").tap();
 await page.getByPlaceholder("0x… the paper seed's address").fill(paper);
 await page.getByText("Make it my recovery").tap();
-await page.getByRole("button", { name: /^Sign with/ }).tap();
+await page.getByRole("button", { name: "Sign", exact: true }).tap();
 await page.waitForTimeout(20000);
 ok(cast(`call ${RECOVERY} "isGuardian(address,address)(bool)" ${acct.address} ${paper}`) === "true", "paper is the recovery address");
 ok(cast(`call ${RECOVERY} "isGuardian(address,address)(bool)" ${acct.address} ${DAO}`) === "false", "the DAO is no longer the recovery address");
 
 // ---------------------------------------------------------------- level 4: the wedgie
 await page.getByText("Connect and add the wedgie").tap();
-await page.getByRole("button", { name: /^Sign with/ }).tap();
+await page.getByRole("button", { name: "Sign", exact: true }).tap();
 await page.waitForTimeout(25000);
 await page.screenshot({ path: `${OUT}/s8-level4.png`, fullPage: true });
 ok(cast(`call ${acct.address} "getThreshold()(uint256)"`) === "3", "threshold 3 with the wedgie");
@@ -282,9 +282,9 @@ await page2.getByPlaceholder("0x… or name.eth").fill(FRANK);
 await page2.locator(".picker .pill", { hasText: "USDC" }).first().tap();
 await page2.locator("input.amount").fill("7");
 await page2.getByText("Review").tap();
-await page2.getByText("Send with Face ID").waitFor({ timeout: 15000 });
+await page2.getByText("Sign and send").waitFor({ timeout: 15000 });
 await page2.waitForTimeout(1500);
-await page2.getByText("Send with Face ID").tap();
+await page2.getByText("Sign and send").tap();
 await page2.getByText("Sent", { exact: true }).waitFor({ timeout: 90000 }).catch(async e => {
   console.log("on screen:", await page2.locator(".err").allTextContents());
   throw e;
@@ -305,7 +305,7 @@ ok(modsAfter === rolesAddr, "Roles stays on, ready for this phone");
 // and the recovered phone can level up again (Roles exists: no second deploy)
 await page2.locator(".level").tap();
 await page2.getByText("Connect and add").first().tap();
-await page2.getByRole("button", { name: /^Sign with/ }).tap();
+await page2.getByRole("button", { name: "Sign", exact: true }).tap();
 await page2.waitForTimeout(25000);
 const errs2 = await page2.locator(".err").allTextContents();
 if (errs2.length) console.log("on screen:", errs2);

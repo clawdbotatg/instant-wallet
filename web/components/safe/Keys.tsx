@@ -94,7 +94,7 @@ export function Keys({
   }, [pending]);
 
   const signLabel = (p: Prepared) =>
-    p.opts.signers.map(x => (x === "burner" ? "Face ID" : x === "hot" ? "MetaMask" : "the wedgie")).join(" + ");
+    p.opts.signers.map(x => (x === "burner" ? "your Instant wallet" : x === "hot" ? "MetaMask" : "the wedgie")).join(" + ");
 
   const addHot = () =>
     prep("hot", async () => {
@@ -172,7 +172,7 @@ export function Keys({
             {signLabel(pending.p)}.
           </p>
           <button className="btn btn-green wide" onClick={sign} disabled={!!busy}>
-            {busy ? "Signing and sending…" : `Sign with ${signLabel(pending.p)}`}
+            {busy ? "Signing and sending…" : "Sign"}
           </button>
           <button
             className="btn wide"
@@ -189,7 +189,7 @@ export function Keys({
       {error && <p className="err">{error}</p>}
       {!canPay && <p className="err">Changes cost a few cents of gas, paid from this wallet. Add a little USDC or ETH on {chainById(chainId)?.name} first.</p>}
 
-      <Step n={1} title="Instant wallet (Face ID)" done>
+      <Step n={1} title="Instant wallet" done>
         <p className="fine">This phone&apos;s passkey. Level 1 it can do everything; later it keeps a daily budget.</p>
         <Addr a={account.burnerSigner} chainId={chainId} />
       </Step>
@@ -197,18 +197,18 @@ export function Keys({
       <Step n={2} title="Hot wallet (MetaMask)" done={!!hot && (st?.owners.length ?? 0) >= 2} current={level === 1}>
         {hot && (st?.owners.length ?? 0) >= 2 ? (
           <>
-            <p className="fine">Big moves need Face ID + this wallet. Face ID alone: 100 USDC + 0.04 ETH a day.</p>
+            <p className="fine">Big moves need your Instant wallet + this wallet. The Instant wallet alone: 100 USDC + 0.04 ETH a day.</p>
             <Addr a={hot} chainId={chainId} />
             {st?.budget && (
               <p className="fine">
-                Today&apos;s Face ID budget: {(Number(st.budget.usdc) / 1e6).toFixed(2)} USDC · {(Number(st.budget.eth) / 1e18).toFixed(4)} ETH
+                Today&apos;s Instant wallet budget: {(Number(st.budget.usdc) / 1e6).toFixed(2)} USDC · {(Number(st.budget.eth) / 1e18).toFixed(4)} ETH
               </p>
             )}
           </>
         ) : (
           <>
             <p className="fine">
-              Add MetaMask (or any browser wallet) as a second key. After this, anything over Face ID&apos;s daily budget (100 USDC + 0.04 ETH) needs both.
+              Add MetaMask (or any browser wallet) as a second key. After this, anything over the Instant wallet&apos;s daily budget (100 USDC + 0.04 ETH) needs both.
               Do this on a computer with MetaMask, or in the MetaMask app&apos;s browser.
             </p>
             <button className="btn btn-green wide" onClick={addHot} disabled={!!busy || !!pending || !canPay || !hotAvailable()}>
@@ -236,7 +236,7 @@ export function Keys({
 
       <Step n={4} title="Wedgie (cold)" done={(st?.owners.length ?? 0) >= 4} current={level === 2 || level === 3}>
         {(st?.owners.length ?? 0) >= 4 ? (
-          <p className="fine">The wedgie counts twice. Big moves need the wedgie + Face ID or MetaMask. Face ID + MetaMask alone can&apos;t.</p>
+          <p className="fine">The wedgie counts twice. Big moves need the wedgie + your Instant wallet or MetaMask. The Instant wallet + MetaMask alone can&apos;t.</p>
         ) : (
           <>
             <p className="fine">

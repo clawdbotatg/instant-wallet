@@ -243,7 +243,7 @@ export function SafeSend({
         {feeShort && <p className="err">Not enough {feeToken === "usdc" ? "USDC" : "ETH"} on {chainById(chainId)?.name} for this plus the fee.</p>}
         {error && <p className="err">{error}</p>}
         <button className="btn btn-green wide" onClick={send} disabled={busy || !quote || feeShort}>
-          {busy ? label[stage] ?? "…" : "Sign and send"}
+          {busy ? label[stage] ?? "…" : "Send"}
         </button>
         {!busy && (
           <button className="btn wide" onClick={() => setStage("form")}>

@@ -135,18 +135,19 @@ void slot;
 await page.waitForTimeout(13000);
 await page.screenshot({ path: `${OUT}/s2-home-funded.png` });
 
-async function send(to, pickText, amount, shot, button = "Sign and send") {
+async function send(to, pickText, amount, shot, button = "Send") {
   await page.locator(".balance .btn-green").tap();
   await page.getByText("Type it instead").tap();
   await page.getByPlaceholder("0x… or name.eth").fill(to);
   await page.locator(".picker .pill", { hasText: pickText }).first().tap();
   await page.locator("input.amount").fill(amount);
   await page.getByText("Review").tap();
-  await page.getByText(button).waitFor({ timeout: 15000 });
+  const go = page.locator(".confirm .btn-green");
+  await go.waitFor({ timeout: 15000 });
   await page.waitForTimeout(1500); // the quote
   await page.screenshot({ path: `${OUT}/${shot}-review.png` });
   const signedBy = await page.locator(".line", { hasText: "Signed by" }).textContent();
-  await page.getByText(button).tap();
+  await go.tap();
   await page.getByText("Sent", { exact: true }).waitFor({ timeout: 90000 }).catch(async e => {
     console.log("on screen:", await page.locator(".err").allTextContents());
     await page.screenshot({ path: `${OUT}/${shot}-error.png` });
@@ -186,7 +187,7 @@ const CAROL = rand();
 const by1 = await send(CAROL, "USDC", "40", "s6");
 ok(usdcOf(CAROL) === 40_000_000n && /Instant wallet/.test(by1) && !/hot/.test(by1), "within the budget: Face ID alone (Roles)");
 const DAVE = rand();
-const by2 = await send(DAVE, "USDC", "300", "s7", "Sign and send");
+const by2 = await send(DAVE, "USDC", "300", "s7");
 ok(usdcOf(DAVE) === 300_000_000n && /hot wallet/.test(by2), "over the budget: Face ID + hot wallet");
 
 // ---------------------------------------------------------------- level 3: paper becomes the recovery
@@ -210,7 +211,7 @@ await page.keyboard.press("Escape");
 await page.waitForTimeout(1000);
 const before = wedgieSigns;
 const ERIN = rand();
-const by3 = await send(ERIN, "USDC", "500", "s9", "Sign and send");
+const by3 = await send(ERIN, "USDC", "500", "s9");
 ok(usdcOf(ERIN) === 500_000_000n && /wedgie/.test(by3) && wedgieSigns === before + 1, "big move at level 4: wedgie (one press) + hot wallet");
 
 // ---------------------------------------------------------------- a recovery someone else starts: alert + cancel
@@ -282,9 +283,9 @@ await page2.getByPlaceholder("0x… or name.eth").fill(FRANK);
 await page2.locator(".picker .pill", { hasText: "USDC" }).first().tap();
 await page2.locator("input.amount").fill("7");
 await page2.getByText("Review").tap();
-await page2.getByText("Sign and send").waitFor({ timeout: 15000 });
+await page2.locator(".confirm .btn-green").waitFor({ timeout: 15000 });
 await page2.waitForTimeout(1500);
-await page2.getByText("Sign and send").tap();
+await page2.locator(".confirm .btn-green").tap();
 await page2.getByText("Sent", { exact: true }).waitFor({ timeout: 90000 }).catch(async e => {
   console.log("on screen:", await page2.locator(".err").allTextContents());
   throw e;

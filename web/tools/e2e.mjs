@@ -52,7 +52,7 @@ async function send(to, pickText, amount, shot) {
   await page.screenshot({ path: `${OUT}/${shot}-form.png` });
   await page.getByText("Review").tap();
   await page.screenshot({ path: `${OUT}/${shot}-confirm.png` });
-  await page.getByText("Send with Face ID").tap();
+  await page.locator(".confirm .btn-green").tap();
   await page.getByText("Sent", { exact: true }).waitFor({ timeout: 60000 }).catch(async e => {
     console.log("on screen:", await page.locator(".err").allTextContents());
     throw e;

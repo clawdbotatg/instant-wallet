@@ -226,7 +226,7 @@ export function Send({
         </div>
         {error && <p className="err">{error}</p>}
         <button className="btn btn-green wide" onClick={send} disabled={busy}>
-          {stage === "signing" ? "Face ID…" : stage === "sending" ? "Sending…" : stage === "confirming" ? "Confirming…" : "Send with Face ID"}
+          {stage === "signing" ? "Signing…" : stage === "sending" ? "Sending…" : stage === "confirming" ? "Confirming…" : "Send"}
         </button>
         {!busy && (
           <button className="btn wide" onClick={() => setStage("form")}>

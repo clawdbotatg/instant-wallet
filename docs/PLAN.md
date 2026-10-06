@@ -479,7 +479,7 @@ Plan everything now (this doc); build in phases. Each phase updates `skill.md`.
    DAO recovery (7 d). First alerts. Find your Safes (Safe's service + localStorage). Before-you-sign:
    clear signing + simulator + AI explanation. Safe SDK, loaded lazily. `skill.md` v1.
 2. **Levels 2–4.** Add MetaMask (ENS). Paper seed: make, shard, practice restore, becomes recovery. Pair the
-   wedgie (counts twice; wedgie + one instant until phase 4). Burner budget (Roles, $100/day, user-set).
+   wedgie (counts twice; wedgie + one instant until phase 4). Burner budget (Roles, 100 USDC + 0.04 ETH a day, user-set).
    Protect role. The level meter and nudges.
 3. **Safety.** Death switch (6 mo, our Candide deployment) + heir on EAS. Level 5 (DAO removed). Full
    alerts (push, email, Telegram; open-source watcher).

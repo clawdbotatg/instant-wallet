@@ -18,7 +18,7 @@ import { SafeWelcome } from "./SafeWelcome";
 
 type View = { kind: "home" } | { kind: "send"; asset?: Asset } | { kind: "receive" } | { kind: "keys" };
 
-/** Instant Wallet on a Safe: a big balance, Receive / Swap, a send button on each asset, the level next to the name, and a scan button. */
+/** Instant Wallet on a Safe: a big balance, the level on the address pill, Receive / Swap, a send button on each asset and a scan button. */
 export function SafeApp() {
   const [account, setAccountState] = useState<SafeAccount | null | undefined>(undefined);
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
@@ -93,11 +93,11 @@ export function SafeApp() {
           <div className="brand">
             <img src="/mark-160.png" alt="" height={30} />
             Instant Wallet
-            <span className="lvl">LVL {top}</span>
           </div>
           <button className="pill me" onClick={() => setView({ kind: "keys" })}>
             <Blockie address={account.address} size={28} />
             <span className="mono" style={{ fontSize: 13 }}>{short(account.address)}</span>
+            <span className="lvl">LVL{top}</span>
           </button>
         </div>
 

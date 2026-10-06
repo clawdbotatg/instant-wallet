@@ -275,7 +275,7 @@ Goal: the wallet on lots of chains, added as you go, at the same address. Some c
   stolen and later removed on Base, the thief could deploy the Safe on a new chain with the first setup and
   own it there, along with anything sent there. Nothing lets you take that chain back. So **the promise is
   limited**:
-  1. At signup, deploy on every cheap supported chain while the burner is fresh.
+  1. Deploy on a chain at its first send, paid in USDC from the wallet (open decision #9).
   2. Same address on a later chain **only while the original burner is still trusted** (still yours, never
      stolen). Once it's removed or lost, a new chain gets a **new** address whose first setup is your current
      keys.
@@ -472,8 +472,20 @@ A thief holding hot or the wedgie alone can switch off your burner's budget. Tha
 8. ~~If instantwallet.io dies~~ **Decided (Austin 10-05):** the passkey stops working; you replace it. Level 2+:
    your other keys swap it out (any Safe tool). Level 1: the DAO's recovery (7 d). Leaving us entirely works
    the same way: it's a plain Safe, so swap in any signers you like.
-9. **When the Safe is deployed (review F8).** Phase 1 says "on Base at first deposit"; the multichain plan says
-   "every cheap chain at signup". Pick one, and who pays the gas.
+9. ~~When the Safe is deployed~~ **Decided (Austin 10-05): the user pays, in USDC, on their first send.** We
+   never pay to create wallets.
+   - The address is known before the Safe exists (counterfactual). People can send USDC to it right away;
+     the money is safe there.
+   - First send on a chain = one transaction from the relay: deploy the Safe (+ the passkey signer, or use
+     Safe's shared signer, which needs no deploy), then run the user's signed Safe tx, whose batch ends with a
+     USDC fee to the relay covering both. Anyone can deploy a Safe with a given setup, and the setup fixes
+     the owners, so the relay can't change who owns it. The relay simulates first, so it never pays for a
+     failure. Base cost: a few cents.
+   - Same with 4337 (mode B): the first user op carries the deploy code, and Circle's paymaster takes USDC.
+   - Each chain is deployed only when that wallet first sends there. Deposits can wait undeployed.
+   - The relay never deploys a wallet whose first setup has a removed or stolen burner (the app knows; see
+     "Many chains"). Replaces "deploy on every cheap chain at signup".
+
 10. ~~Paper format~~ **Decided (Austin 10-05): a plain 24-word BIP-39 phrase on 3 cards, any 2 rebuild it.**
    Card 1 = words 1–16, card 2 = words 9–24, card 3 = words 1–8 + 17–24 (OPSEK's free sheet,
    github.com/Opsek/seed-phrase-sheet, from Pablo Sabbatella on slop.computer). One card per tamper-evident
@@ -527,7 +539,7 @@ A Safe's address is fixed by its first setup, forever, on every chain. So before
 Plan everything now (this doc); build in phases. Each phase updates `skill.md`.
 
 0. **Decide + spike.** The list above, then prove "Not proven yet" on a Base fork. Fix the plan where it breaks.
-1. **Level 1 on Base.** Face ID → Safe (created on first deposit), scan, send. Our relay with a USDC fee.
+1. **Level 1 on Base.** Face ID → Safe address now; deployed on the first send, paid in USDC. Our relay with a USDC fee.
    DAO recovery (7 d). First alerts. Find your Safes (Safe's service + localStorage). Before-you-sign:
    clear signing + simulator + AI explanation. Safe SDK, loaded lazily. `skill.md` v1.
 2. **Levels 2–4.** Add MetaMask (ENS). Paper seed: make, shard, practice restore, becomes recovery. Pair the

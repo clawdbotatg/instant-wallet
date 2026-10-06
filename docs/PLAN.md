@@ -162,6 +162,9 @@ configuration. Default (ETH ≈ $2,700 on 10-05):
 - **Changing limits:** users can add tokens and change amounts. Lowering: any one key, instant. Raising:
   wedgie + one, after the 24 h wait, or all three keys, instant. (Level 1: the burner alone. Levels 2–3:
   burner + hot.)
+- **Pair budget rules:** one shared daily allowance for every wedgie + one pair (burner + wedgie and hot + wedgie
+  together), separate from the burner's own. Instant only for plain `transfer` of USDC or ETH to any address;
+  approvals, delegatecalls and any other call, or a batch containing one, take the 24 h wait.
 - Burner alone: Zodiac Roles allowances (audited). Pair limits: our phase-4 contract (it already checks
   two signatures; within the pair limit it runs now, above it waits). Before phase 4, wedgie + one is instant
   and unlimited.

@@ -16,13 +16,27 @@ Send moved onto each asset row (green paper airplane).
    list refreshes on both chains.
 5. Also reachable from an asset row later (long-press or a ⇄ next to the airplane) with From pre-filled.
 
-## Where quotes come from
+## Where quotes come from: two sources, best price wins
 
-**LI.FI** (`li.quest/v1/quote`): one API for same-chain DEX aggregation and cross-chain bridges/solvers
-(Relay, Across, Stargate, …), every chain we'll ever add, returns a ready `transactionRequest` + `approvalAddress`.
-The v3 plan already picked it (`docs/V3.md`). Fallback/compare later: Relay.link direct (fastest Base↔Ethereum),
-0x for same-chain only. Quote through our own `/api/swap/quote` (key server-side, response validated before the
-browser sees it).
+Austin, 2026-10-06: quote both and take whichever gives more; Uniswap is also the fallback when LI.FI is down.
+
+1. **LI.FI** (`li.quest/v1/quote`): one API for same-chain DEX aggregation and cross-chain bridges/solvers
+   (Relay, Across, Stargate, …), returns a ready `transactionRequest` + `approvalAddress`. Convenient, **not
+   decentralized**: a company's API (can rate-limit, geo-block, screen, disappear) and an upgradeable diamond
+   contract (exploited July 2024 through a new facet that drained infinite approvals — our exact-amount approvals
+   reset to 0 in the same tx are why that can't hit us). Quoted through our own `/api/swap/quote` (key
+   server-side, response validated before the browser sees it).
+2. **Uniswap, straight on chain** (same-chain only): quote with QuoterV2 via plain RPC calls, from the browser —
+   no API, no key, nothing to go down but an RPC. Execute through the Universal Router (recipient = the Safe,
+   `amountOutMinimum` from the quote and slippage). Try the common fee tiers (0.05 / 0.3 / 1%) and one hop through
+   WETH or USDC.
+
+**Picking:** fetch both in parallel (same-chain); compare what lands in the wallet **after** every fee (DEX/bridge
+fees, LI.FI's integrator fee if any, our relay fee — the Uniswap path's batch is smaller, so its gas is cheaper);
+show the winner with a small "via Uniswap" / "via LI.FI (Across)" line. If LI.FI times out (~3 s) or errors, the
+Uniswap quote is the answer. Cross-chain has no decentralized equivalent of the same quality: when LI.FI is down,
+offer the official Base bridge (Ethereum → Base in minutes; Base → Ethereum takes 7 days — said plainly) or
+"try again later".
 
 Decide: take an integrator fee through LI.FI (e.g. 0.25%) or not.
 
@@ -31,7 +45,7 @@ Decide: take an integrator fee through LI.FI (e.g. 0.25%) or not.
 One Safe tx via MultiSendCallOnly 1.4.1 (the same path as Send, `lib/safe/send.ts`):
 
     [ approve(approvalAddress, exact amount) ]   — ERC-20 only
-    call LI.FI diamond (transactionRequest.data, value)
+    call LI.FI diamond (transactionRequest.data, value)   — or Uniswap Universal Router
     [ approve(approvalAddress, 0) ]              — no allowance outlives the tx
     fee transfer to the relayer                  — as today (USDC or ETH)
 
@@ -44,7 +58,7 @@ Checks before signing (in the browser) and again in the relay:
   add a LI.FI selector table to the wedgie decoder later.
 
 **Relay guard** (`lib/safe/relayGuard.ts`) today refuses arbitrary calls. Add one allowed shape: the batch above,
-diamond address pinned per chain, approvals exact and zeroed in the same batch.
+LI.FI diamond / Universal Router addresses pinned per chain, approvals exact and zeroed in the same batch.
 
 ## Who can sign a swap (the hard part)
 
@@ -65,7 +79,8 @@ diamond address pinned per chain, approvals exact and zeroed in the same batch.
 
 ## Build order
 
-1. `/api/swap/quote` (LI.FI, server-side key, validation) + token list endpoint (LI.FI `/tokens` for our chains,
+1. `/api/swap/quote` (LI.FI, server-side key, validation) + `lib/safe/uniswap.ts` (QuoterV2 quote + Universal
+   Router calls, browser-side) + the best-price pick + token list endpoint (LI.FI `/tokens` for our chains,
    cached, merged with what the wallet holds).
 2. `components/safe/SafeSwap.tsx`: the sheet, From/To pickers (reuse SafeSend's asset picker + a token search
    sheet), live quote, slippage (0.5% default, tap to change), review.

@@ -241,12 +241,12 @@ function QueueCard({
           </button>
         )}
         {isKey && !mineQueued && !ready && !s.noTwoKeySkip && (
-          <button className="pill on" disabled={!!busy} onClick={() => onRun("skip the wait", skipAndRunCalls(wallet, q))}>
+          <button className="pill go" disabled={!!busy} onClick={() => onRun("skip the wait", skipAndRunCalls(wallet, q))}>
             Skip the wait (both keys)
           </button>
         )}
         {ready && isKey && (
-          <button className="pill on" disabled={!!busy} onClick={() => onRun("run", runCalls(wallet, q))}>
+          <button className="pill go" disabled={!!busy} onClick={() => onRun("run", runCalls(wallet, q))}>
             Run it now
           </button>
         )}

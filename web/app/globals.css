@@ -73,7 +73,10 @@ input { font: inherit; color: inherit; }
   text-decoration: none; font-weight: 800; font-size: 14px; background: var(--shell); cursor: pointer;
   box-shadow: inset 0 1.5px 0 #fff, inset 0 -3px 0 #dddcd7, 0 6px 14px -8px rgba(0,0,0,.3); }
 .pill:active { transform: translateY(2px); }
-.pill.on { background: var(--green-fill); color: #fff; }
+/* selected = pressed in, like the LVL chip; green is for actions only (.pill.go) */
+.pill.on { background: var(--recess); box-shadow: var(--recess-shadow); cursor: default; }
+.pill.on:active { transform: none; }
+.pill.go { background: var(--green-fill); color: #fff; }
 .led { width: 9px; height: 9px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #bbb, #777); box-shadow: inset 0 1px 1px rgba(0,0,0,.35); }
 .led.on { background: radial-gradient(circle at 35% 35%, #8cf5a6, #1bb24a); box-shadow: 0 0 8px #22c452, inset 0 -1px 1px rgba(0,0,0,.25); }
 .chip { display: inline-block; font-size: 11px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; padding: 2px 7px;

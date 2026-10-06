@@ -628,7 +628,7 @@ A Safe's address is fixed by its first setup, forever, on every chain. So before
 
 ## Status (2026-10-06)
 
-**First version live:** phases 0–2 + recovery on Base and Ethereum at instant-wallet-b2jn.vercel.app/safe. What's
+**First version live:** phases 0–2 + recovery on Base and Ethereum at instant-wallet-b2jn.vercel.app. What's
 built, how to use it, how it's tested, what's not done: `SAFE-APP.md`.
 
 ## Build order (phases)

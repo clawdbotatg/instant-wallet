@@ -126,7 +126,7 @@ export function SafeApp() {
             <button
               className="pill"
               onClick={async () =>
-                (await copy(`${window.location.origin}/safe/recover?wallet=${account.address}&owner=${account.burnerSigner}`)) && setToast("Link copied")
+                (await copy(`${window.location.origin}/recover?wallet=${account.address}&owner=${account.burnerSigner}`)) && setToast("Link copied")
               }
             >
               Copy the recovery link

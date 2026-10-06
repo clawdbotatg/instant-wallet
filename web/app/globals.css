@@ -151,7 +151,7 @@ input { font: inherit; color: inherit; }
 .token .letter { font-weight: 900; color: var(--muted); }
 .token .badge { position: absolute; right: -3px; bottom: -3px; border-radius: 50%; box-shadow: 0 0 0 2px #fff; }
 
-/* Safe build (/safe): level meter, the key ladder, alerts, paper cards */
+/* Safe build (/): level meter, the key ladder, alerts, paper cards */
 .level { display: grid; gap: 10px; text-align: left; border: 0; cursor: pointer; font: inherit; color: inherit; width: 100%; }
 .meter { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
 .meter i { height: 10px; border-radius: 6px; background: var(--recess); box-shadow: var(--recess-shadow); }

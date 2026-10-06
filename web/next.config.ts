@@ -6,6 +6,14 @@ const config: NextConfig = {
   // died tracing the whole monorepo).
   outputFileTracingRoot: path.join(__dirname),
   reactStrictMode: true,
+  // the Safe build moved from /safe to / (2026-10-06); the v3 wallet is at /v3
+  async redirects() {
+    return [
+      { source: "/safe", destination: "/", permanent: false },
+      { source: "/safe/paper", destination: "/paper", permanent: false },
+      { source: "/safe/recover", destination: "/recover", permanent: false },
+    ];
+  },
 };
 
 export default config;

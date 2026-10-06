@@ -224,7 +224,7 @@ export function Keys({
         </p>
         <p className="fine">
           To make it yours: create a new 24-word seed in a wallet (a fresh one, only for this), write it on the 3 cards (
-          <a href="/safe/paper" target="_blank">print them</a>, any 2 rebuild it), seal each in a tamper-evident bag, then paste its address here.
+          <a href="/paper" target="_blank">print them</a>, any 2 rebuild it), seal each in a tamper-evident bag, then paste its address here.
         </p>
         <div className="input">
           <input value={paperIn} onChange={e => setPaperIn(e.target.value)} placeholder="0x… the paper seed's address" autoCapitalize="none" spellCheck={false} />

@@ -119,7 +119,7 @@ await cdp.send("WebAuthn.addVirtualAuthenticator", {
 });
 
 // ---------------------------------------------------------------- level 1
-await page.goto(`${APP}/safe`);
+await page.goto(`${APP}/`);
 await page.getByText("Create wallet").tap();
 await page.getByText("Send", { exact: true }).waitFor({ timeout: 20000 });
 const acct = await page.evaluate(() => JSON.parse(localStorage.getItem("iws.account")));
@@ -230,7 +230,7 @@ ok(/^\(0, 0, 0/.test(req), `recovery cancelled (${req.slice(0, 40)})`);
 
 // ---------------------------------------------------------------- log in again on a "new device"
 await page.evaluate(() => localStorage.clear());
-await page.goto(`${APP}/safe`);
+await page.goto(`${APP}/`);
 await page.getByText("I already have one").tap();
 await page.getByText("Send", { exact: true }).waitFor({ timeout: 30000 });
 const again = await page.evaluate(() => JSON.parse(localStorage.getItem("iws.account")));
@@ -260,7 +260,7 @@ await cdp2.send("WebAuthn.enable");
 await cdp2.send("WebAuthn.addVirtualAuthenticator", {
   options: { protocol: "ctap2", ctap2Version: "ctap2_1", transport: "internal", hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
 });
-await page2.goto(`${APP}/safe`);
+await page2.goto(`${APP}/`);
 await page2.getByText("Lost my phone: recover a wallet").tap();
 await page2.getByPlaceholder("0x… your wallet's address").fill(acct.address);
 await page2.getByText("Make my new key").tap();

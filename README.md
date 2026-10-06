@@ -1,5 +1,7 @@
 # Instant Wallet
 
+> **Live (2026-10-06): the Safe build at instant-wallet-b2jn.vercel.app/safe — `docs/SAFE-APP.md`.**
+>
 > **The plan (2026-10-05): `docs/PLAN.md`** — Instant Wallet becomes a Gnosis Safe front end: burner passkey →
 > MetaMask → sharded paper seed → wedgie, progressive decentralization. The older v3 plan (`docs/V3.md`, our own
 > contract) is shelved.

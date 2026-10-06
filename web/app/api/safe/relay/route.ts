@@ -26,7 +26,7 @@ import {
   signedRolesCalldata,
   signerAddress,
 } from "@/lib/safe/core";
-import { GAS_BUDGET, type Quote, type SendKind, feePaid, rolesCalls, unpackMultiSend } from "@/lib/safe/fee";
+import { GAS_BUDGET, GAS_TYPICAL, type Quote, type SendKind, feePaid, rolesCalls, unpackMultiSend } from "@/lib/safe/fee";
 import { RelayRefused, admit, checkCalls, once, plainRecipientCheck, reverted, withChainLock } from "@/lib/safe/relayGuard";
 
 export const dynamic = "force-dynamic";
@@ -60,6 +60,8 @@ function clients(chainId: number) {
   };
 }
 
+const L1_ALLOWANCE = 200_000_000_000n; // 0.0000002 ETH
+
 let price: { v: number; at: number } | null = null;
 async function ethUsd(): Promise<number> {
   if (price && Date.now() - price.at < 60_000) return price.v;
@@ -72,11 +74,11 @@ async function ethUsd(): Promise<number> {
 
 async function quote(chainId: number, kind: SendKind): Promise<Quote> {
   const { pc } = clients(chainId);
-  const fees = await pc.estimateFeesPerGas().catch(async () => ({ maxFeePerGas: await pc.getGasPrice() }));
-  const gasPrice = (fees.maxFeePerGas ?? 0n) as bigint;
+  const gasPrice = await pc.getGasPrice(); // what a tx pays now (base fee + tip), not the 2× max fee cap
   const usd = await ethUsd();
-  const feeEth = (GAS_BUDGET[kind] * gasPrice * 125n) / 100n + (chainId === 1 ? 0n : 2_000_000_000_000n); // + L1 data, roughly
-  const feeUsdc = BigInt(Math.ceil((Number(feeEth) / 1e18) * usd * 1e6)) + 10_000n; // + 1 cent
+  // typical gas × 1.5, + the L1 data fee on an L2 (~$0.0002 on Base today; this allows ~2.5×)
+  const feeEth = (GAS_TYPICAL[kind] * gasPrice * 15n) / 10n + (chainId === 1 ? 0n : L1_ALLOWANCE);
+  const feeUsdc = BigInt(Math.ceil((Number(feeEth) / 1e18) * usd * 1e6));
   return {
     chainId,
     relayer: relayer().address,
@@ -189,8 +191,8 @@ export async function POST(req: NextRequest) {
         throw new Error(`it would fail on chain: ${e?.shortMessage || e?.message || e}`);
       });
     if (gas > GAS_BUDGET[kind]) throw new RelayRefused("That's bigger than a normal Instant Wallet send.", 400);
-    const l1 = chainId === 1 ? 0n : 2_000_000_000_000n;
-    const costEth = (gas * BigInt(q.gasPrice) * 11n) / 10n + l1;
+    const l1 = chainId === 1 ? 0n : L1_ALLOWANCE;
+    const costEth = (gas * BigInt(q.gasPrice) * 105n) / 100n + l1; // gas price may tick up a little before inclusion
     const costUsdc = BigInt(Math.ceil((Number(costEth) / 1e18) * q.ethUsd * 1e6));
     if (paid.eth < costEth && paid.usdc < costUsdc)
       return NextResponse.json({ error: "fee too low", need: { feeEth: q.feeEth, feeUsdc: q.feeUsdc } }, { status: 402 });

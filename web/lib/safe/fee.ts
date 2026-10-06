@@ -19,6 +19,16 @@ export const GAS_BUDGET: Record<SendKind, bigint> = {
   "first-setup": 2_600_000n,
 };
 
+/** Gas a send of each kind really uses (measured on Base forks and mainnet); the fee is this × gas price × 1.5. */
+export const GAS_TYPICAL: Record<SendKind, bigint> = {
+  first: 600_000n, // live first sends used ~570k
+  exec: 200_000n,
+  roles: 300_000n,
+  "exec-wedgie": 650_000n,
+  setup: 1_000_000n,
+  "first-setup": 1_600_000n,
+};
+
 export type Quote = {
   chainId: number;
   relayer: Address;

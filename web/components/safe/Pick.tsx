@@ -1,0 +1,161 @@
+"use client";
+
+import { type ReactNode, useState } from "react";
+import { isAddress } from "viem";
+import type { Signer, SignerOption } from "@/lib/safe/send";
+
+export type Opt = { key: string; icon?: ReactNode; label: ReactNode; right?: ReactNode; search?: string };
+
+/**
+ * A select box: closed, it shows the choice; open, a filter takes its place and the list below scrolls. `custom`
+ * adds a last row that turns into a paste box (a token's contract address); `onCustom` answers an error or null.
+ */
+export function Select({
+  value,
+  options,
+  onPick,
+  placeholder = "Choose",
+  filter = true,
+  custom,
+  disabled,
+}: {
+  value: Opt | null;
+  options: Opt[];
+  onPick: (key: string) => void;
+  placeholder?: string;
+  filter?: boolean;
+  custom?: { label: string; placeholder: string; onCustom: (address: string) => Promise<string | null> };
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const [pasting, setPasting] = useState(false);
+  const [pasted, setPasted] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+  const f = q.trim().toLowerCase();
+  const shown = f ? options.filter(o => (o.search ?? "").toLowerCase().includes(f)) : options;
+  const close = () => {
+    setOpen(false);
+    setPasting(false);
+    setErr(null);
+  };
+  const pick = (k: string) => {
+    onPick(k);
+    close();
+  };
+
+  if (!open)
+    return (
+      <button
+        className="pill select"
+        disabled={disabled}
+        onClick={() => {
+          setQ("");
+          setOpen(true);
+        }}
+      >
+        <span className="row">
+          {value?.icon}
+          {value ? <b>{value.label}</b> : <span className="fine">{placeholder}</span>}
+        </span>
+        <span className="fine row" style={{ gap: 6 }}>
+          {value?.right} ▾
+        </span>
+      </button>
+    );
+
+  return (
+    <div className="stack" style={{ gap: 6 }}>
+      {pasting ? (
+        <div className="input" style={{ minHeight: 50 }}>
+          <input
+            key="paste"
+            autoFocus
+            value={pasted}
+            placeholder={custom?.placeholder}
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            style={{ fontSize: 15, padding: "10px 0" }}
+            onChange={async e => {
+              const v = e.target.value.trim();
+              setPasted(v);
+              setErr(null);
+              if (!isAddress(v) || !custom) return;
+              const bad = await custom.onCustom(v);
+              if (bad) setErr(bad);
+              else close();
+            }}
+          />
+          <button className="pill" aria-label="Close" onClick={close}>
+            ▴
+          </button>
+        </div>
+      ) : filter ? (
+        <div className="input" style={{ minHeight: 50 }}>
+          <input key="filter" autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Filter" autoCapitalize="none" autoCorrect="off" spellCheck={false} style={{ fontSize: 16, padding: "10px 0" }} />
+          <button className="pill" aria-label="Close" onClick={close}>
+            ▴
+          </button>
+        </div>
+      ) : null}
+      {err && <span className="err">{err}</span>}
+      {!pasting && (
+        <div className="picker">
+          {shown.length === 0 && <p className="fine center">Nothing matches “{q}”</p>}
+          {shown.map(o => (
+            <button key={o.key} className={`pill ${o.key === value?.key ? "on" : ""}`} style={{ justifyContent: "space-between", height: 46 }} onClick={() => pick(o.key)}>
+              <span className="row">
+                {o.icon} <b>{o.label}</b>
+              </span>
+              <span>{o.right}</span>
+            </button>
+          ))}
+          {custom && (
+            <button
+              className="pill"
+              style={{ height: 46 }}
+              onClick={() => {
+                setPasted("");
+                setPasting(true);
+              }}
+            >
+              <b>{custom.label}</b>
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const KEY_NAME: Record<Signer, string> = { burner: "Instant", hot: "Hot wallet", wedgie: "Wedgie" };
+export const signedByLabel = (s: Signer[]) => s.map(k => KEY_NAME[k]).join(" + ");
+
+/** Which keys sign, when there's more than one way: "Instant + Wedgie 3/3", "Hot wallet + Wedgie 3/3", … */
+export function SignerChoice({ options, value, onChange, disabled }: { options: SignerOption[]; value: Signer[]; onChange: (s: Signer[]) => void; disabled?: boolean }) {
+  const same = (a: Signer[], b: Signer[]) => a.length === b.length && a.every(k => b.includes(k));
+  if (options.length < 2) return <span>{signedByLabel(value)}</span>;
+  const off = options.filter(o => !o.ready);
+  return (
+    <span className="stack signers" style={{ gap: 6, justifyItems: "end" }}>
+      <span className="row" style={{ gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+        {options.map(o => (
+          <button
+            key={o.signers.join("+")}
+            className={`pill ${same(o.signers, value) ? "on" : ""}`}
+            disabled={disabled || !o.ready}
+            onClick={() => onChange(o.signers)}
+          >
+            {signedByLabel(o.signers)} <span className="fine">{o.weight}/{o.threshold}</span>
+          </button>
+        ))}
+      </span>
+      {off.map(o => (
+        <span key={o.signers.join("+")} className="fine">
+          {signedByLabel(o.signers)}: {o.why}
+        </span>
+      ))}
+    </span>
+  );
+}

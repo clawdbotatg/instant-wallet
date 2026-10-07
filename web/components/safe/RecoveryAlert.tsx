@@ -39,7 +39,7 @@ export function RecoveryAlert({
           account,
           state,
           calls: [{ to: RECOVERY_7D, value: 0n, data: encodeFunctionData({ abi: abi.recovery, functionName: "cancelRecovery" }) }],
-          signers: ownerSigners(state),
+          signers: ownerSigners(state, account),
           feeToken,
         }),
       );

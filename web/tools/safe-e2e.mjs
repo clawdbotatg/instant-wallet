@@ -141,7 +141,7 @@ void slot;
 await page.waitForTimeout(13000);
 await page.screenshot({ path: `${OUT}/s2-home-funded.png` });
 
-async function send(to, pickText, amount, shot, button = "Send") {
+async function send(to, pickText, amount, shot, keys) {
   // the green send button on that asset's row (it skips the scanner and picks the asset)
   await page.locator(".asset", { has: page.locator(".sym", { hasText: new RegExp(`^${pickText}$`) }) }).first().locator(".send-one").tap();
   await page.getByPlaceholder("0x… or name.eth").fill(to);
@@ -150,8 +150,14 @@ async function send(to, pickText, amount, shot, button = "Send") {
   const go = page.locator(".confirm .btn-green");
   await go.waitFor({ timeout: 15000 });
   await page.waitForTimeout(1500); // the quote
+  const line = page.locator(".line", { hasText: "Signed by" });
+  if (keys) {
+    await line.locator(".pill", { hasText: keys }).tap(); // pick another way to sign
+    await page.waitForTimeout(1500); // its quote
+  }
   await page.screenshot({ path: `${OUT}/${shot}-review.png` });
-  const signedBy = await page.locator(".line", { hasText: "Signed by" }).textContent();
+  // the chosen way to sign (a pressed-in pill when there's a choice)
+  const signedBy = (await line.locator(".pill.on").count()) ? await line.locator(".pill.on").textContent() : (await line.textContent()).replace(/^Signed by/, "");
   await go.tap();
   await page.getByText("Sent", { exact: true }).waitFor({ timeout: 90000 }).catch(async e => {
     console.log("on screen:", await page.locator(".err").allTextContents());
@@ -179,13 +185,26 @@ ok(cast(`balance ${BOB}`) === "1000000000000000", "ETH send arrived (fee in ETH)
 async function swap(fromSym, amount, toSym, via, shot) {
   await page.evaluate(v => localStorage.setItem("iws.swapVia", v), via); // force one source, to test both
   await page.locator(".balance .btn", { hasText: "Swap" }).tap();
-  const fromPill = page.locator(".swap .field").first().locator(".pill").first();
-  if (!((await fromPill.textContent()) || "").includes(fromSym)) {
-    await fromPill.tap();
+  // From: a select box with a filter
+  const fromSel = page.locator(".swap .field").first().locator(".pill.select");
+  if (!((await fromSel.textContent()) || "").includes(fromSym)) {
+    await fromSel.tap();
+    await page.getByPlaceholder("Filter").fill(fromSym.toLowerCase());
+    await page.screenshot({ path: `${OUT}/${shot}-from.png` });
     await page.locator(".swap .picker .pill", { has: page.locator("b", { hasText: new RegExp(`^${fromSym}$`) }) }).first().tap();
   }
   await page.locator(".swap input.amount").fill(amount);
-  await page.locator(".swap .pill.tok", { hasText: new RegExp(`(^|\\s)${toSym}$`) }).first().tap();
+  // To: network select + token select (a filter, or Custom: paste a contract address)
+  const toSel = page.locator(".swap .pair .pill.select").nth(1);
+  await toSel.tap();
+  if (toSym.startsWith("0x")) {
+    await page.getByText("Custom: paste a contract address").tap();
+    await page.getByPlaceholder(/Token contract on/).fill(toSym);
+  } else {
+    await page.getByPlaceholder("Filter").fill(toSym.toLowerCase());
+    await page.locator(".swap .picker .pill", { has: page.locator("b", { hasText: new RegExp(`^${toSym}$`) }) }).first().tap();
+  }
+  await page.screenshot({ path: `${OUT}/${shot}-to.png` });
   await page.locator(".swap .get").waitFor({ timeout: 30000 });
   await page.waitForFunction(() => !document.querySelector(".go-swap")?.disabled, null, { timeout: 30000 });
   const how = await page.locator(".swap .via").textContent();
@@ -207,7 +226,7 @@ async function swap(fromSym, amount, toSym, via, shot) {
   const how = await swap("USDC", "100", "ETH", "uniswap", "s4a");
   const u1 = usdcOf(acct.address), e1 = BigInt(cast(`balance ${acct.address}`));
   ok(/Uniswap/.test(how) && u0 - u1 >= 100_000_000n && u0 - u1 < 102_000_000n && e1 > e0, `swap via Uniswap: 100 USDC → ${Number(e1 - e0) / 1e18} ETH (${how})`);
-  const how2 = await swap("ETH", "0.002", "USDC", "lifi", "s4b");
+  const how2 = await swap("ETH", "0.002", USDC, "lifi", "s4b"); // USDC picked as a custom (pasted) token
   const u2 = usdcOf(acct.address), e2 = BigInt(cast(`balance ${acct.address}`));
   ok(/LI\.FI/.test(how2) && e1 - e2 >= 2_000_000_000_000_000n && u2 > u1, `swap via LI.FI: 0.002 ETH → ${Number(u2 - u1) / 1e6} USDC (${how2})`);
   ok(cast(`call ${USDC} "allowance(address,address)(uint256)" ${acct.address} 0x2626664c2603336E57B271c5C0b26F421741e481`) === "0", "no allowance left behind");
@@ -228,10 +247,10 @@ await page.waitForTimeout(1000);
 
 const CAROL = rand();
 const by1 = await send(CAROL, "USDC", "40", "s6");
-ok(usdcOf(CAROL) === 40_000_000n && /Instant wallet/.test(by1) && !/hot/.test(by1), "within the budget: Face ID alone (Roles)");
+ok(usdcOf(CAROL) === 40_000_000n && /Instant/.test(by1) && !/Hot/.test(by1), "within the budget: Face ID alone (Roles)");
 const DAVE = rand();
 const by2 = await send(DAVE, "USDC", "300", "s7");
-ok(usdcOf(DAVE) === 300_000_000n && /hot wallet/.test(by2), "over the budget: Face ID + hot wallet");
+ok(usdcOf(DAVE) === 300_000_000n && /Instant \+ Hot wallet/.test(by2), "over the budget: Face ID + hot wallet");
 
 // ---------------------------------------------------------------- level 3: paper becomes the recovery
 const paper = privateKeyToAccount("0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a").address; // anvil #2
@@ -258,8 +277,8 @@ await page.keyboard.press("Escape");
 await page.waitForTimeout(1000);
 const before = wedgieSigns;
 const ERIN = rand();
-const by3 = await send(ERIN, "USDC", "500", "s9");
-ok(usdcOf(ERIN) === 500_000_000n && /wedgie/.test(by3) && wedgieSigns === before + 1, "big move at level 4: wedgie (one press) + hot wallet");
+const by3 = await send(ERIN, "USDC", "500", "s9", "Wedgie + Hot wallet");
+ok(usdcOf(ERIN) === 500_000_000n && /^Wedgie \+ Hot wallet/.test(by3) && wedgieSigns === before + 1, `big move with all three keys, picked: wedgie (one press) + hot wallet (${by3})`);
 
 // ---------------------------------------------------------------- a recovery someone else starts: alert + cancel
 const thief = rand();
@@ -399,10 +418,10 @@ ok((await lvl()) === "LVL2", "Instant + wedgie: LVL2");
 let w0 = wedgieSigns;
 const GUS = rand();
 const by4 = await send(GUS, "USDC", "30", "s16");
-ok(usdcOf(GUS) === 30_000_000n && !/wedgie/.test(by4) && wedgieSigns === w0, "Instant + wedgie, within the budget: Face ID alone");
+ok(usdcOf(GUS) === 30_000_000n && !/Wedgie/.test(by4) && wedgieSigns === w0, "Instant + wedgie, within the budget: Face ID alone");
 const HAL = rand();
 const by5 = await send(HAL, "USDC", "300", "s17");
-ok(usdcOf(HAL) === 300_000_000n && /wedgie/.test(by5) && /Instant/.test(by5) && wedgieSigns === w0 + 1, "Instant + wedgie, over the budget: Face ID + wedgie");
+ok(usdcOf(HAL) === 300_000_000n && /^Instant \+ Wedgie/.test(by5) && wedgieSigns === w0 + 1, "Instant + wedgie, over the budget: Face ID + wedgie");
 // then the hot wallet: the wedgie signs it, 3 of 4 after
 w0 = wedgieSigns;
 await page.locator(".top .me").tap();

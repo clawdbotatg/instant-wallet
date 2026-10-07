@@ -108,7 +108,7 @@ export function Keys({
       if (h.toLowerCase() === account.address.toLowerCase()) throw new Error("That's this wallet itself.");
       // Instant alone: 2 of 2. With the wedgie (3 of 3): 3 of 4, so the wedgie + any one.
       const calls = [...budgetFirst(st), selfCall(account.address, encodeFunctionData({ abi: abi.safe, functionName: "addOwnerWithThreshold", args: [h, st.hasWedgie ? 3n : 2n] }))];
-      const signers = ownerSigners(st);
+      const signers = ownerSigners(st, account);
       const w = await wedgieFor(signers);
       try {
         const p = await prepareOwners({ account, state: st, calls, signers, feeToken, setup: true, wedgie: w });
@@ -126,7 +126,7 @@ export function Keys({
       const paper = guardianIn;
       if (st.owners.some(o => o.toLowerCase() === paper.toLowerCase())) throw new Error("That address is already one of your keys. The guardian must be separate.");
       if (!st.guardians) throw new Error("Couldn't read the current recovery address. Try again in a moment.");
-      const signers = ownerSigners(st);
+      const signers = ownerSigners(st, account);
       const w = await wedgieFor(signers);
       try {
         const p = await prepareOwners({ account, state: st, calls: setGuardianCalls(st.guardians, paper), signers, feeToken, wedgie: w });
@@ -159,7 +159,7 @@ export function Keys({
           selfCall(account.address, encodeFunctionData({ abi: abi.safe, functionName: "addOwnerWithThreshold", args: [w1, 2n] })),
           selfCall(account.address, encodeFunctionData({ abi: abi.safe, functionName: "addOwnerWithThreshold", args: [w2, 3n] })),
         ];
-        const p = await prepareOwners({ account, state: st, calls, signers: ownerSigners(st), feeToken, setup: true, wedgie: w });
+        const p = await prepareOwners({ account, state: st, calls, signers: ownerSigners(st, account), feeToken, setup: true, wedgie: w });
         return { label: "Add your wedgie (it counts twice)", p, after: () => onAccount({ ...account, wedgie: key }), close: () => w.close() };
       } catch (e) {
         await w.close();

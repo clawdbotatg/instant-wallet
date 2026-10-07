@@ -1,24 +1,41 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { type Address, type Hash, formatUnits, getAddress, isAddress, parseUnits, zeroAddress } from "viem";
+import { type Hash, formatUnits, getAddress, parseUnits, zeroAddress } from "viem";
 import { CHAINS, chainById, explorerTx, publicClient } from "@/lib/chains";
 import { amount as fmtAmount, usd } from "@/lib/format";
 import { abi } from "@/lib/safe/core";
 import type { Quote } from "@/lib/safe/fee";
-import { hotAvailable } from "@/lib/safe/hot";
-import { type FeeToken, type Signer, type Stage, getQuote, ownerSigners, ownersSend, sendKind } from "@/lib/safe/send";
+import { type FeeToken, type Signer, type Stage, getQuote, ownerSigners, ownersSend, sendKind, signerOptions } from "@/lib/safe/send";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { POPULAR, type SwapRoute, type Token, swapCalls } from "@/lib/safe/swap";
 import { uniswapRoute } from "@/lib/safe/uniswap";
 import { Wedgie } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
 import { ChainChip, TokenIcon } from "../bits";
+import { type Opt, Select, SignerChoice } from "./Pick";
 import { friendly } from "../Welcome";
 
-const SIGNER_NAME: Record<Signer, string> = { burner: "your Instant wallet", hot: "your hot wallet", wedgie: "your wedgie (press A)" };
 const SLIPPAGE_BPS = 50;
 const tokenOf = (a: Asset): Token => ({ chainId: a.chainId, address: a.asset, symbol: a.symbol, decimals: a.decimals, logo: a.logo, priceUsd: a.price ?? undefined });
+const assetOpt = (a: Asset): Opt => ({
+  key: `${a.chainId}:${a.asset.toLowerCase()}`,
+  icon: <TokenIcon symbol={a.symbol} asset={a.asset} chainId={a.chainId} logo={a.logo} size={28} />,
+  label: a.symbol,
+  right: (
+    <>
+      {fmtAmount(a.formatted)} {a.usd !== null && <span style={{ opacity: 0.75 }}>· {usd(a.usd)}</span>}
+    </>
+  ),
+  search: `${a.symbol} ${a.name} ${chainById(a.chainId)?.name ?? ""}`,
+});
+const tokenOpt = (t: Token): Opt => ({
+  key: t.address,
+  icon: <TokenIcon symbol={t.symbol} asset={t.address} chainId={t.chainId} logo={t.logo} size={28} />,
+  label: t.symbol,
+  search: `${t.symbol} ${t.address}`,
+});
+const chainOpt = (id: number): Opt => ({ key: String(id), label: <ChainChip chainId={id} />, search: chainById(id)?.name });
 const same = (x: { chainId: number; address: string }, y: { chainId: number; address: string }) =>
   x.chainId === y.chainId && x.address.toLowerCase() === y.address.toLowerCase();
 
@@ -50,13 +67,11 @@ export function SafeSwap({
 }) {
   const key = (a: { chainId: number; asset: string }) => `${a.chainId}:${a.asset.toLowerCase()}`;
   const [fromKey, setFromKey] = useState<string | null>(start ? key(start) : assets[0] ? key(assets[0]) : null);
-  const [choosingFrom, setChoosingFrom] = useState(false);
   const [amountIn, setAmountIn] = useState("");
   const from = useMemo(() => assets.find(a => key(a) === fromKey) ?? null, [assets, fromKey]);
   const chainId = from?.chainId ?? CHAINS[0].id;
   const [toChain, setToChain] = useState(chainId);
   const [to, setTo] = useState<Token | null>(null);
-  const [paste, setPaste] = useState("");
   const [routes, setRoutes] = useState<{ uni: SwapRoute | null; lifi: SwapRoute | null; lifiErr?: string } | null>(null);
   const [quoting, setQuoting] = useState(false);
   const [tick, setTick] = useState(0);
@@ -76,8 +91,9 @@ export function SafeSwap({
   const choices = useMemo(() => {
     const list: Token[] = (POPULAR[toChain] ?? []).map(t => ({ ...t, chainId: toChain }));
     for (const a of assets) if (a.chainId === toChain && !list.some(t => same(t, tokenOf(a)))) list.push(tokenOf(a));
+    if (to && to.chainId === toChain && !list.some(t => same(t, to))) list.push(to); // a pasted custom token
     return list.filter(t => !from || !same(t, tokenOf(from)));
-  }, [toChain, assets, from]);
+  }, [toChain, assets, from, to]);
   // a sensible default: USDC → ETH, anything else → USDC, same chain
   useEffect(() => {
     if (to && to.chainId === toChain && (!from || !same(to, tokenOf(from)))) return;
@@ -86,27 +102,18 @@ export function SafeSwap({
     setTo(choices.find(t => t.address.toLowerCase() === pick?.toLowerCase()) ?? choices[0] ?? null);
   }, [toChain, from, choices, to]);
 
-  // a pasted token address on the "To" chain
-  useEffect(() => {
-    const v = paste.trim();
-    if (!isAddress(v)) return;
-    let live = true;
-    (async () => {
-      const address = getAddress(v);
-      const pc = publicClient(toChain);
-      const [symbol, decimals] = await Promise.all([
-        pc.readContract({ address, abi: abi.erc20, functionName: "symbol" }),
-        pc.readContract({ address, abi: abi.erc20, functionName: "decimals" }),
-      ]).catch(() => [null, null] as const);
-      if (!live) return;
-      if (symbol === null || decimals === null) return setError(`That isn't a token on ${chainById(toChain)?.name}.`);
-      setError(null);
-      setTo({ chainId: toChain, address, symbol: String(symbol), decimals: Number(decimals) });
-    })();
-    return () => {
-      live = false;
-    };
-  }, [paste, toChain]);
+  // a custom token: its contract address on the "To" chain
+  async function customTo(v: string): Promise<string | null> {
+    const address = getAddress(v);
+    const pc = publicClient(toChain);
+    const [symbol, decimals] = await Promise.all([
+      pc.readContract({ address, abi: abi.erc20, functionName: "symbol" }),
+      pc.readContract({ address, abi: abi.erc20, functionName: "decimals" }),
+    ]).catch(() => [null, null] as const);
+    if (symbol === null || decimals === null) return `That isn't a token on ${chainById(toChain)?.name}.`;
+    setTo({ chainId: toChain, address, symbol: String(symbol), decimals: Number(decimals) });
+    return null;
+  }
 
   let base: bigint | null = null;
   try {
@@ -116,8 +123,12 @@ export function SafeSwap({
   }
   const tooMuch = !!from && base !== null && base > BigInt(from.balance);
   const st = states.find(s => s.chainId === chainId);
-  const signers: Signer[] = st ? ownerSigners(st) : ["burner"];
-  const needsComputer = signers.includes("hot") && !hotAvailable();
+  // which keys sign: the first way this device can, unless the user picks another
+  const options = st && st.threshold > 1 ? signerOptions(st, account) : [];
+  const [chosen, setChosen] = useState<Signer[] | null>(null);
+  const signers: Signer[] =
+    chosen && options.some(o => o.ready && o.signers.join() === chosen.join()) ? chosen : st ? ownerSigners(st, account) : ["burner"];
+  const needsComputer = options.length > 0 && !options.some(o => o.ready);
 
   // quotes: both sources at once, again every 20 s while the form is up
   useEffect(() => {
@@ -198,7 +209,7 @@ export function SafeSwap({
     return () => {
       live = false;
     };
-  }, [route?.tx.data]);
+  }, [route?.tx.data, signers.join()]);
   const feeAmt = fee ? BigInt(feeToken === "usdc" ? fee.feeUsdc : fee.feeEth) : 0n;
   const feeLabel = fee ? (feeToken === "usdc" ? `${fmtAmount(formatUnits(feeAmt, 6))} USDC` : `${fmtAmount(formatUnits(feeAmt, 18))} ETH`) : "…";
   const feeBalance = BigInt((feeToken === "usdc" ? usdcHeld?.balance : ethHeld?.balance) ?? "0");
@@ -319,39 +330,17 @@ export function SafeSwap({
       <div className="field">
         <label>From</label>
         {from ? (
-          <button className="pill" style={{ justifyContent: "space-between", height: 50 }} onClick={() => setChoosingFrom(!choosingFrom)} disabled={busy}>
-            <span className="row">
-              <TokenIcon symbol={from.symbol} asset={from.asset} chainId={from.chainId} logo={from.logo} size={30} /> <b>{from.symbol}</b>
-            </span>
-            <span className="fine">
-              {fmtAmount(from.formatted)} {choosingFrom ? "▴" : "▾"}
-            </span>
-          </button>
+          <Select
+            value={assetOpt(from)}
+            options={assets.map(assetOpt)}
+            onPick={k => {
+              setFromKey(k);
+              setAmountIn("");
+            }}
+            disabled={busy}
+          />
         ) : (
           <p className="fine">Nothing to swap yet. Receive something first.</p>
-        )}
-        {choosingFrom && (
-          <div className="picker">
-            {assets.map(a => (
-              <button
-                key={key(a)}
-                className={`pill ${key(a) === fromKey ? "on" : ""}`}
-                style={{ justifyContent: "space-between", height: 46 }}
-                onClick={() => {
-                  setFromKey(key(a));
-                  setAmountIn("");
-                  setChoosingFrom(false);
-                }}
-              >
-                <span className="row">
-                  <TokenIcon symbol={a.symbol} asset={a.asset} chainId={a.chainId} logo={a.logo} size={28} /> <b>{a.symbol}</b>
-                </span>
-                <span>
-                  {fmtAmount(a.formatted)} {a.usd !== null && <span style={{ opacity: 0.75 }}>· {usd(a.usd)}</span>}
-                </span>
-              </button>
-            ))}
-          </div>
         )}
         {from && (
           <>
@@ -379,46 +368,23 @@ export function SafeSwap({
 
       <div className="field">
         <label>To</label>
-        {CHAINS.length > 1 && (
-          <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
-            {CHAINS.map(c => (
-              <button key={c.id} className={`pill ${c.id === toChain ? "on" : ""}`} onClick={() => setToChain(c.id)} disabled={busy}>
-                <ChainChip chainId={c.id} />
-              </button>
-            ))}
-          </div>
-        )}
-        <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
-          {choices.map(t => (
-            <button
-              key={t.address}
-              className={`pill tok ${to && same(t, to) ? "on" : ""}`}
-              onClick={() => {
-                setPaste("");
-                setTo(t);
-              }}
-              disabled={busy}
-            >
-              <TokenIcon symbol={t.symbol} asset={t.address} chainId={t.chainId} logo={t.logo} size={22} /> {t.symbol}
-            </button>
-          ))}
-        </div>
-        <div className="input" style={{ minHeight: 46 }}>
-          <input
-            value={paste}
-            onChange={e => setPaste(e.target.value.trim())}
-            placeholder="or paste a token address"
-            autoCapitalize="none"
-            autoCorrect="off"
-            spellCheck={false}
-            style={{ fontSize: 15, padding: "10px 0" }}
+        <div className="pair">
+          <Select
+            value={chainOpt(toChain)}
+            options={CHAINS.map(c => chainOpt(c.id))}
+            onPick={k => setToChain(Number(k))}
+            filter={false}
+            disabled={busy}
+          />
+          <Select
+            value={to ? tokenOpt(to) : null}
+            options={choices.map(tokenOpt)}
+            onPick={k => setTo(choices.find(t => t.address === k) ?? null)}
+            placeholder="Token"
+            custom={{ label: "Custom: paste a contract address", placeholder: `Token contract on ${toName}`, onCustom: customTo }}
+            disabled={busy}
           />
         </div>
-        {to && paste && isAddress(paste) && same(to, { chainId: toChain, address: paste }) && (
-          <span className="fine">
-            {to.symbol} on {toName} — check this is the token you mean
-          </span>
-        )}
       </div>
 
       {from && to && base !== null && base > 0n && !tooMuch && (
@@ -462,7 +428,7 @@ export function SafeSwap({
               </div>
               <div className="line">
                 <span>Signed by</span>
-                <span>{signers.map(s => SIGNER_NAME[s]).join(" + ")}</span>
+                <SignerChoice options={options} value={signers} onChange={setChosen} disabled={busy} />
               </div>
               {!st?.deployed && (
                 <div className="line">

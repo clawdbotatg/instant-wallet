@@ -166,6 +166,8 @@ div.asset:active { background: none; }
 .sheet > *, .stack > *, .field > * { min-width: 0; }
 .sheet { overflow-x: hidden; }
 .picker .pill { width: 100%; }
+.pill.select { width: 100%; justify-content: space-between; height: 50px; }
+.pair { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; align-items: start; }
 
 /* token logo + network badge */
 .token { position: relative; display: inline-grid; place-items: center; flex: none; border-radius: 50%; background: var(--recess); }

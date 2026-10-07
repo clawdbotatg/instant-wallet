@@ -7,15 +7,15 @@ import { amount as fmtAmount, short, usd } from "@/lib/format";
 import { parse } from "@/lib/parse";
 import { transfer } from "@/lib/safe/core";
 import type { Quote } from "@/lib/safe/fee";
-import { type FeeToken, type Signer, type Stage, budgetSend, getQuote, ownersSend, plan, sendKind } from "@/lib/safe/send";
+import { type FeeToken, type Signer, type Stage, budgetSend, getQuote, ownersSend, plan, sendKind, signerOptions } from "@/lib/safe/send";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
 import { Blockie, ChainChip, ScanIcon, TokenIcon } from "../bits";
 import { Scanner } from "../Scanner";
 import { friendly } from "../Welcome";
+import { SignerChoice } from "./Pick";
 
-const SIGNER_NAME: Record<Signer, string> = { burner: "your Instant wallet", hot: "your hot wallet", wedgie: "your wedgie (press A)" };
 
 /**
  * Send: who → what → how much → review (which keys, the fee) → sign → the relay sends. The burner alone covers
@@ -91,6 +91,22 @@ export function SafeSend({
   const fee = quote ? BigInt(feeToken === "usdc" ? quote.feeUsdc : quote.feeEth) : 0n;
   const feeLabel = quote ? (feeToken === "usdc" ? `${fmtAmount(formatUnits(fee, 6))} USDC` : `${fmtAmount(formatUnits(fee, 18))} ETH`) : "…";
   const p = st && asset && base !== null ? plan(st, account, asset.asset as Address, base, fee, sendingUsdc || sendingEth) : null;
+  // which keys sign a big move: the first way this device can, unless the user picks another
+  const options = st && p?.path === "owners" && st.threshold > 1 ? signerOptions(st, account) : [];
+  const [chosen, setChosen] = useState<Signer[] | null>(null);
+  const signers: Signer[] = p?.path === "owners" && chosen && options.some(o => o.ready && o.signers.join() === chosen.join()) ? chosen : (p?.signers ?? []);
+  useEffect(() => {
+    // another set of keys can be another kind of send (the wedgie verifies in Solidity): quote that one
+    if (stage !== "review" || !st || p?.path !== "owners" || !quote) return;
+    let live = true;
+    sendKind(account, st, "owners", signers)
+      .then(k => (k === quote.kind ? null : getQuote(chainId, k)))
+      .then(q => live && q && setQuote(q))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [signers.join(), stage]);
   const feeBalance = feeToken === "usdc" ? BigInt(usdcHeld?.balance ?? "0") : BigInt(ethHeld?.balance ?? "0");
   const spentInFeeToken = (feeToken === "usdc" && sendingUsdc) || (feeToken === "eth" && sendingEth) ? (base ?? 0n) : 0n;
   const feeShort = !!quote && feeBalance < spentInFeeToken + fee;
@@ -144,11 +160,11 @@ export function SafeSend({
         setStage(s);
         if (h) setHash(h);
       };
-      if (p.signers.includes("wedgie")) wedgie = await Wedgie.connect();
+      if (signers.includes("wedgie")) wedgie = await Wedgie.connect();
       const h =
         p.path === "budget"
           ? await budgetSend({ account, state: st, calls, feeToken, quote: quote ?? undefined, onStage })
-          : await ownersSend({ account, state: st, calls, signers: p.signers, feeToken, wedgie, quote: quote ?? undefined, onStage });
+          : await ownersSend({ account, state: st, calls, signers, feeToken, wedgie, quote: quote ?? undefined, onStage });
       setHash(h);
       setStage("done");
     } catch (e: any) {
@@ -225,7 +241,7 @@ export function SafeSend({
           </div>
           <div className="line">
             <span>Signed by</span>
-            <span>{p ? p.signers.map(s => SIGNER_NAME[s]).join(" + ") : "…"}</span>
+            {p ? <SignerChoice options={options} value={signers} onChange={setChosen} disabled={busy} /> : <span>…</span>}
           </div>
           {!st?.deployed && (
             <div className="line">

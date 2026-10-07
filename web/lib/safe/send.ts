@@ -14,10 +14,10 @@ import {
   transfer,
 } from "./core";
 import { type Quote, type SendKind } from "./fee";
-import { hotAvailable, hotSign } from "./hot";
+import { connectHot, hotAvailable, hotSign } from "./hot";
 import { passkeySign, passkeySignRaw } from "./sign";
 import { type ChainState, type SafeAccount, hotOf, salt, wedgieSigners } from "./state";
-import { Wedgie } from "./wedgie";
+import { Wedgie, wedgieSupported } from "./wedgie";
 
 export type FeeToken = "usdc" | "eth";
 export type Signer = "burner" | "hot" | "wedgie";
@@ -92,6 +92,15 @@ export async function finishOwners(p: Prepared): Promise<Hash> {
   const { t, h } = p;
   const chainId = st.chainId;
   const stage = p.opts.onStage ?? (() => {});
+  // everything that can fail without a signature fails first: never ask the wedgie to sign for a key that isn't here
+  const hot = signers.includes("hot") ? hotOf(a, st) : undefined;
+  if (signers.includes("hot") && (!hot || !hotAvailable())) throw new Error("Your hot wallet isn't here. Pick another way to sign.");
+  // without Face ID first (whose prompt must start straight from the tap), check the hot wallet is the right one
+  // before the wedgie is asked to press anything
+  if (hot && !signers.includes("burner")) {
+    const who = await connectHot();
+    if (who.toLowerCase() !== hot.toLowerCase()) throw new Error(`Switch your wallet to ${hot} (it's on ${who}).`);
+  }
   const order = [...signers].sort((x, y) => (x === "burner" ? -1 : y === "burner" ? 1 : 0));
   const sigs: Sig[] = [];
   let ownWedgie: Wedgie | null = null;
@@ -193,14 +202,37 @@ export async function budgetSend(opts: {
   return hash;
 }
 
+/** One way to reach the threshold: which keys sign, how many signatures they make, and whether this device can. */
+export type SignerOption = { signers: Signer[]; weight: number; threshold: number; ready: boolean; why?: string };
+
 /**
- * The owners needed for a change on this chain, at its current shape (pre-phase-4 thresholds). Keys come in any order:
- * Instant + hot = 2 of 2; Instant + wedgie = 3 of 3 (the wedgie counts twice); all three = 3 of 4.
+ * Every set of keys that can sign an owners transaction on this chain, read from the owners and threshold on chain
+ * (keys come in any order; the wedgie counts twice). Only keys we can name: an owner we can't identify is never
+ * asked for. Minimal sets only (no key that isn't needed), the ones this device can sign first.
  */
-export function ownerSigners(st: ChainState): Signer[] {
+export function signerOptions(st: ChainState, a: SafeAccount): SignerOption[] {
+  const t = st.threshold;
+  const owners = st.owners.map(o => o.toLowerCase());
+  const w: Partial<Record<Signer, number>> = {};
+  if (owners.includes(a.burnerSigner.toLowerCase()) || !st.deployed) w.burner = 1;
+  if (st.hasWedgie) w.wedgie = a.wedgie ? wedgieSigners(a.wedgie).filter(x => owners.includes(x.toLowerCase())).length : 2;
+  if (st.hasHot && hotOf(a, st)) w.hot = 1;
+  const keys = (["burner", "wedgie", "hot"] as Signer[]).filter(k => w[k]);
+  const sum = (ks: Signer[]) => ks.reduce((n, k) => n + (w[k] ?? 0), 0);
+  const out: SignerOption[] = [];
+  for (let m = 1; m < 1 << keys.length; m++) {
+    const ks = keys.filter((_, i) => m & (1 << i));
+    if (sum(ks) < t || ks.some(k => sum(ks.filter(x => x !== k)) >= t)) continue;
+    const why = ks.includes("hot") && !hotAvailable() ? "needs your hot wallet (a browser with it)" : ks.includes("wedgie") && !wedgieSupported() ? "needs the wedgie (Chrome on a computer)" : undefined;
+    out.push({ signers: ks, weight: sum(ks), threshold: t, ready: !why, why });
+  }
+  return out.sort((x, y) => Number(y.ready) - Number(x.ready) || x.signers.length - y.signers.length || Number(y.signers.includes("burner")) - Number(x.signers.includes("burner")));
+}
+
+/** The keys to ask for by default: the first option this device can sign. */
+export function ownerSigners(st: ChainState, a: SafeAccount): Signer[] {
   if (st.threshold <= 1) return ["burner"];
-  if (st.hasWedgie) return ["wedgie", st.hasHot && hotAvailable() ? "hot" : "burner"]; // the wedgie + whichever other key is here
-  return ["burner", "hot"];
+  return signerOptions(st, a)[0]?.signers ?? ["burner"];
 }
 
 /** Which keys a send needs, given the wallet's shape on that chain and what's within the burner's budget. */
@@ -214,5 +246,5 @@ export function plan(st: ChainState, a: SafeAccount, token: Address, amount: big
     if (amount + (feeIsSameToken ? fee : 0n) <= left) return { path: "budget" as const, signers: ["burner"] as Signer[] };
   }
   // a big move: the owners. Burner + hot, or the wedgie + one more.
-  return { path: "owners" as const, signers: ownerSigners(st) };
+  return { path: "owners" as const, signers: ownerSigners(st, a) };
 }

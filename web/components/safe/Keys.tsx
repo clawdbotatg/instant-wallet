@@ -273,23 +273,22 @@ export function Keys({
 /** The rules on this network, now: how many keys each kind of move needs. */
 function Rules({ st }: { st?: ChainState }) {
   if (!st) return <div className="card fine">Loading…</div>;
-  const n = (v: bigint, d: number) => String(Number(v) / 10 ** d);
+  // left / daily limit, short: 99.77/100 USDC · 0.04/0.04 ETH
+  const n = (v: bigint, d: number, dp: number) => String(Math.floor((Number(v) / 10 ** d) * 10 ** dp) / 10 ** dp);
+  const b = st.budget;
   const big = st.hasWedgie ? (st.hasHot ? "Wedgie + Face ID or hot wallet" : "Wedgie + Face ID") : "Face ID + hot wallet";
   const rows: [string, string][] =
     st.threshold <= 1
-      ? [["Anything", "Face ID"]]
+      ? [["Face ID", "anything"]]
       : [
-          [
-            st.budget ? `Up to ${n(st.budget.usdcMax, 6)} USDC + ${n(st.budget.ethMax, 18)} ETH a day` : "Daily budget",
-            st.budget ? `Face ID (${n(st.budget.usdc, 6).replace(/(\.\d\d)\d+$/, "$1")} USDC · ${Number(n(st.budget.eth, 18)).toFixed(4)} ETH left)` : "Face ID",
-          ],
-          ["More, or key changes", big],
+          ["Face ID", b ? `${n(b.usdc, 6, 2)}/${n(b.usdcMax, 6, 2)} USDC · ${n(b.eth, 18, 4)}/${n(b.ethMax, 18, 4)} ETH` : "a daily budget"],
+          [big, "anything"],
         ];
   return (
     <ul className="card rules">
-      {rows.map(([what, who]) => (
-        <li key={what}>
-          <b>{what}:</b> {who}
+      {rows.map(([who, what]) => (
+        <li key={who}>
+          <b>{who}:</b> {what}
         </li>
       ))}
     </ul>

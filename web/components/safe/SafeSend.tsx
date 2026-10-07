@@ -48,7 +48,9 @@ export function SafeSend({
   const [resolving, setResolving] = useState(false);
   const key = (a: { chainId: number; asset: string }) => `${a.chainId}:${a.asset.toLowerCase()}`;
   const [pick, setPick] = useState<string | null>(start ? key(start) : null);
-  const [amountIn, setAmountIn] = useState("");
+  const [amountIn, setAmountIn] = useState(""); // always the token amount; in dollar mode it's worked out from usdIn
+  const [inUsd, setInUsd] = useState(true); // type dollars (the default) or the token
+  const [usdIn, setUsdIn] = useState("");
   const [stage, setStage] = useState<"form" | "review" | Stage | "done">("form");
   const [quote, setQuote] = useState<Quote | null>(null);
   const [hash, setHash] = useState<Hash>();
@@ -90,6 +92,18 @@ export function SafeSend({
   } catch {
     base = null;
   }
+  const price = asset?.price || null;
+  const dollars = inUsd && !!price; // no price: only the token amount makes sense
+  const tokenFromUsd = (u: string) =>
+    u && price && asset ? (Number(u) / price).toFixed(Math.min(asset.decimals, 8)).replace(/\.?0+$/, "") : "";
+  const switchUnit = () => {
+    if (!price) return;
+    if (dollars) setInUsd(false);
+    else {
+      setUsdIn(amountIn ? (Number(amountIn) * price).toFixed(2) : "");
+      setInUsd(true);
+    }
+  };
   const tooMuch = !!asset && base !== null && base > BigInt(asset.balance);
 
   // the fee: in the token being sent when it's USDC or ETH, else USDC if there's enough, else ETH
@@ -151,11 +165,15 @@ export function SafeSend({
       if (!m) {
         setPick(null);
         setAmountIn("");
+        setUsdIn("");
         return setError("That request is for a token or network you don't hold here.");
       }
       setPick(key(m));
     }
-    if (r.amount) setAmountIn(r.amount);
+    if (r.amount) {
+      setAmountIn(r.amount);
+      setInUsd(false); // a payment request names the token amount
+    }
   }
 
   async function send() {
@@ -313,7 +331,15 @@ export function SafeSend({
           <div className="field">
             <label>What</label>
             {assets.length ? (
-              <Select value={asset ? assetOpt(asset) : null} options={assets.map(assetOpt)} onPick={setPick} />
+              <Select
+                value={asset ? assetOpt(asset) : null}
+                options={assets.map(assetOpt)}
+                onPick={k => {
+                  setPick(k);
+                  setAmountIn("");
+                  setUsdIn("");
+                }}
+              />
             ) : (
               <p className="fine">Nothing to send yet. Receive something first.</p>
             )}
@@ -323,17 +349,32 @@ export function SafeSend({
             <div className="field">
               <label>Amount</label>
               <div className="input">
+                {dollars && <span className="amount-cur">$</span>}
                 <input
                   className="amount"
                   inputMode="decimal"
-                  value={amountIn}
-                  onChange={e => setAmountIn(e.target.value.replace(",", ".").replace(/[^0-9.]/g, ""))}
+                  value={dollars ? usdIn : amountIn}
+                  onChange={e => {
+                    const v = e.target.value.replace(",", ".").replace(/[^0-9.]/g, "");
+                    if (dollars) {
+                      setUsdIn(v);
+                      setAmountIn(tokenFromUsd(v));
+                    } else setAmountIn(v);
+                  }}
                   placeholder="0"
                 />
-                <span className="unit">{asset.symbol}</span>
+                {price ? (
+                  <button className="pill" onClick={switchUnit} aria-label={dollars ? `Type ${asset.symbol} instead` : "Type dollars instead"}>
+                    {dollars ? "USD" : asset.symbol} ⇅
+                  </button>
+                ) : (
+                  <span className="unit">{asset.symbol}</span>
+                )}
               </div>
               <div className="row" style={{ justifyContent: "space-between" }}>
-                <span className="fine">{asset.price && amountIn ? `≈ ${usd(Number(amountIn) * asset.price)}` : ""}</span>
+                <span className="fine">
+                  {!amountIn || !price ? "" : dollars ? `= ${fmtAmount(amountIn)} ${asset.symbol}` : `≈ ${usd(Number(amountIn) * price)}`}
+                </span>
                 <span className="fine">
                   {st?.budget && (sendingUsdc || sendingEth)
                     ? `Daily budget left: ${sendingUsdc ? `${fmtAmount(formatUnits(st.budget.usdc, 6))} USDC` : `${fmtAmount(formatUnits(st.budget.eth, 18))} ETH`}`

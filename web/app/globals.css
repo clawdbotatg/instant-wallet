@@ -138,6 +138,7 @@ div.asset:active { background: none; }
 .input { display: flex; align-items: center; gap: 10px; background: var(--recess); box-shadow: var(--recess-shadow); border-radius: 18px; padding: 0 8px 0 16px; min-height: 58px; }
 .input input { flex: 1; min-width: 0; border: 0; background: none; outline: none; font-size: 18px; font-weight: 700; padding: 14px 0; }
 .input input.amount { font-size: 34px; font-weight: 900; letter-spacing: -.02em; }
+.input .amount-cur { font-size: 34px; font-weight: 900; margin-right: -8px; }
 .input .unit { font-weight: 900; color: var(--muted); }
 
 .picker { display: grid; gap: 6px; max-height: 40dvh; overflow: auto; }

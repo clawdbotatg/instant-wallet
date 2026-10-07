@@ -251,8 +251,7 @@ export function Keys({
 
       <Step title="Guardian" done={ownRecovery}>
         <p className="fine">
-          If you lose your keys, your guardian can replace them. It takes 7 days, and you can cancel. Best: a paper seed only you hold (
-          <a href="/paper" target="_blank">print the cards</a>).
+          Replaces lost keys in 7 days. Best: <a href="/paper" target="_blank">a paper seed</a>.
         </p>
         <div className="guardian">
           <AddressInput key={chainId} initial={current} onChange={setGuardianIn} />

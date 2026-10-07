@@ -11,7 +11,7 @@ import { type FeeToken, type Prepared, type Signer, finishOwners, ownerSigners, 
 import { type ChainState, type SafeAccount, hotOf, wedgieSigners } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { AddressInput, Blockie, ChainChip, ChainIcon, copy } from "../bits";
+import { AddressInput, Blockie, ChainIcon } from "../bits";
 import { friendly } from "../Welcome";
 
 /**
@@ -202,7 +202,6 @@ export function Keys({
   const changed = !!guardianIn && guardianIn.toLowerCase() !== current?.toLowerCase();
   const ownRecovery = !!st?.guardians && st.guardians.length > 0 && !st.guardians.some(g => g.toLowerCase() === DAO.toLowerCase());
 
-  const card = `Instant Wallet ${account.address}\nInstant wallet key ${account.burnerSigner}\n(Recovery needs this if the wallet was never deployed on a chain.)`;
 
   return (
     <div className="stack">
@@ -264,15 +263,6 @@ export function Keys({
         )}
       </Step>
 
-      <div className="card stack">
-        <b>Wallet card</b>
-        <p className="fine">Save this somewhere. If you lose this phone before your first send on a chain, recovery needs it.</p>
-        <span className="mono" style={{ fontSize: 13 }}>{account.address}</span>
-        <span className="mono fine" style={{ fontSize: 12 }}>Instant wallet key {account.burnerSigner}</span>
-        <button className="pill" onClick={async () => (await copy(card)) && toast("Copied")}>
-          Copy wallet card
-        </button>
-      </div>
       <button className="btn wide" onClick={onSignOut}>
         Sign out of this device
       </button>

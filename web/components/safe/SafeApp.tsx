@@ -177,11 +177,6 @@ export function SafeApp() {
             </div>
           ))}
         </div>
-        <div className="row" style={{ justifyContent: "center" }}>
-          <button className="pill" onClick={async () => (await copy(account.address)) && setToast("Address copied")}>
-            Copy my address
-          </button>
-        </div>
       </div>
 
       <WedgieButton account={account} states={states} onKeys={() => setView({ kind: "keys" })} />

@@ -276,7 +276,7 @@ function Rules({ st }: { st?: ChainState }) {
   // left / daily limit, short: 99.77/100 USDC · 0.04/0.04 ETH
   const n = (v: bigint, d: number, dp: number) => String(Math.floor((Number(v) / 10 ** d) * 10 ** dp) / 10 ** dp);
   const b = st.budget;
-  const big = st.hasWedgie ? (st.hasHot ? "Wedgie + Face ID or hot wallet" : "Wedgie + Face ID") : "Face ID + hot wallet";
+  const big = st.hasWedgie ? (st.hasHot ? "Wedgie + any key" : "Wedgie + Face ID") : "Face ID + hot wallet";
   const rows: [string, string][] =
     st.threshold <= 1
       ? [["Face ID", "anything"]]

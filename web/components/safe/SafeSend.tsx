@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { type Address, type Hash, formatUnits, getAddress, isAddress, parseUnits, zeroAddress } from "viem";
 import { chainById, explorerTx } from "@/lib/chains";
 import { amount as fmtAmount, short, usd } from "@/lib/format";
@@ -11,7 +11,7 @@ import { type FeeToken, type Signer, type Stage, budgetSend, getQuote, ownersSen
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { Blockie, ChainChip, ScanIcon, TokenIcon } from "../bits";
+import { Blockie, ChainChip, ScanIcon, TokenIcon, useSheetBack } from "../bits";
 import { Scanner } from "../Scanner";
 import { friendly } from "../Welcome";
 import { SignerChoice } from "./Pick";
@@ -36,6 +36,13 @@ export function SafeSend({
 }) {
   const [toInput, setToInput] = useState("");
   const [scanning, setScanning] = useState(!start);
+  // the scanner opened from the form: swiping it away goes back to the form
+  const [scanFromForm, setScanFromForm] = useState(false);
+  const leaveScan = useCallback(() => {
+    setScanning(false);
+    setScanFromForm(false);
+  }, []);
+  useSheetBack(scanning && scanFromForm ? leaveScan : null);
   const [resolved, setResolved] = useState<Address | null>(null);
   const [resolving, setResolving] = useState(false);
   const key = (a: { chainId: number; asset: string }) => `${a.chainId}:${a.asset.toLowerCase()}`;
@@ -287,7 +294,14 @@ export function SafeSend({
             <div className="input">
               {resolved && <Blockie address={resolved} size={30} />}
               <input value={toInput} onChange={e => setToInput(e.target.value)} placeholder="0x… or name.eth" autoCapitalize="none" autoCorrect="off" spellCheck={false} />
-              <button className="pill" onClick={() => setScanning(true)} aria-label="Scan">
+              <button
+                className="pill"
+                onClick={() => {
+                  setScanFromForm(true);
+                  setScanning(true);
+                }}
+                aria-label="Scan"
+              >
                 <ScanIcon size={20} />
               </button>
             </div>

@@ -1,7 +1,7 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { blo } from "blo";
 import QRCode from "qrcode";
 import { type Address, getAddress, isAddress } from "viem";
@@ -53,18 +53,36 @@ export function Qr({ value, center }: { value: string; center?: string }) {
   );
 }
 
+const SheetBack = createContext<React.MutableRefObject<(() => void) | null> | null>(null);
+
+/** While `back` is set, dismissing the sheet (swipe down, Escape, tap outside) runs it instead: one step back, not all the way out. */
+export function useSheetBack(back: (() => void) | null) {
+  const ref = useContext(SheetBack);
+  useEffect(() => {
+    if (!ref) return;
+    ref.current = back;
+    return () => {
+      if (ref.current === back) ref.current = null;
+    };
+  }, [ref, back]);
+}
+
 /**
  * A bottom sheet. Closes on Escape, a tap outside, or a swipe down (grab anywhere while it's scrolled to the
- * top and pull it down, like an iOS sheet).
+ * top and pull it down, like an iOS sheet). A screen inside can make those go one step back (useSheetBack).
  */
 export function Sheet({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   const drag = useRef<{ y0: number; t0: number; dy: number; on: boolean } | null>(null);
+  const back = useRef<(() => void) | null>(null);
+  const dismissRef = useRef(onClose);
+  dismissRef.current = () => (back.current ? back.current() : onClose());
+  const dismiss = () => dismissRef.current();
   useEffect(() => {
-    const k = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const k = (e: KeyboardEvent) => e.key === "Escape" && dismissRef.current();
     window.addEventListener("keydown", k);
     return () => window.removeEventListener("keydown", k);
-  }, [onClose]);
+  }, []);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -90,8 +108,14 @@ export function Sheet({ onClose, children }: { onClose: () => void; children: Re
       const fast = d.dy / Math.max(1, Date.now() - d.t0) > 0.6; // a flick
       el.style.transition = "transform .2s ease-out";
       if (d.dy > el.offsetHeight * 0.25 || (fast && d.dy > 40)) {
-        el.style.transform = "translateY(100%)";
-        setTimeout(onClose, 180);
+        if (back.current) {
+          // one step back: the sheet springs up again on the screen before
+          el.style.transform = "translateY(0)";
+          dismissRef.current();
+        } else {
+          el.style.transform = "translateY(100%)";
+          setTimeout(() => dismissRef.current(), 180);
+        }
       } else el.style.transform = "translateY(0)";
     };
     el.addEventListener("touchstart", start, { passive: true });
@@ -104,14 +128,16 @@ export function Sheet({ onClose, children }: { onClose: () => void; children: Re
       el.removeEventListener("touchend", end);
       el.removeEventListener("touchcancel", end);
     };
-  }, [onClose]);
+  }, []);
   return (
-    <div className="sheet-bg" onClick={onClose}>
-      <div className="sheet" ref={ref} onClick={e => e.stopPropagation()}>
-        <div className="grab" />
-        {children}
+    <SheetBack.Provider value={back}>
+      <div className="sheet-bg" onClick={dismiss}>
+        <div className="sheet" ref={ref} onClick={e => e.stopPropagation()}>
+          <div className="grab" />
+          {children}
+        </div>
       </div>
-    </div>
+    </SheetBack.Provider>
   );
 }
 

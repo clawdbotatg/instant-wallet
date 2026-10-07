@@ -236,8 +236,12 @@ ok(usdcOf(DAVE) === 300_000_000n && /hot wallet/.test(by2), "over the budget: Fa
 // ---------------------------------------------------------------- level 3: paper becomes the recovery
 const paper = privateKeyToAccount("0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a").address; // anvil #2
 await page.locator(".top .me").tap();
-await page.getByPlaceholder("0x… the paper seed's address").fill(paper);
-await page.getByText("Make it my recovery").tap();
+await page.locator(".guardian input").waitFor();
+ok(await page.getByRole("button", { name: "Save", exact: true }).isDisabled(), "guardian: Save is off until the address changes");
+await page.locator(".guardian input").tap();
+await page.waitForTimeout(300);
+await page.locator(".guardian input").fill(paper);
+await page.getByRole("button", { name: "Save", exact: true }).tap();
 await page.getByRole("button", { name: "Yes", exact: true }).tap();
 await page.waitForTimeout(20000);
 ok(cast(`call ${RECOVERY} "isGuardian(address,address)(bool)" ${acct.address} ${paper}`) === "true", "paper is the recovery address");
@@ -408,8 +412,10 @@ await page.waitForTimeout(25000);
 ok(cast(`call ${acct3.address} "getOwners()(address[])"`).toLowerCase().includes(hot.address.toLowerCase().slice(2)), "hot wallet added after the wedgie");
 ok(cast(`call ${acct3.address} "getThreshold()(uint256)"`) === "3" && wedgieSigns === w0 + 1, "still threshold 3 (now 3 of 4); the wedgie signed it");
 // and paper last
-await page.getByPlaceholder("0x… the paper seed's address").fill(paper);
-await page.getByText("Make it my recovery").tap();
+await page.locator(".guardian input").tap();
+await page.waitForTimeout(300);
+await page.locator(".guardian input").fill(paper);
+await page.getByRole("button", { name: "Save", exact: true }).tap();
 await page.getByRole("button", { name: "Yes", exact: true }).tap();
 await page.waitForTimeout(25000);
 ok(cast(`call ${RECOVERY} "isGuardian(address,address)(bool)" ${acct3.address} ${paper}`) === "true", "paper after the wedgie: it's the recovery address");

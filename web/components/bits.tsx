@@ -4,8 +4,9 @@
 import { useEffect, useRef, useState } from "react";
 import { blo } from "blo";
 import QRCode from "qrcode";
-import { type Address, getAddress } from "viem";
+import { type Address, getAddress, isAddress } from "viem";
 import { chainById } from "@/lib/chains";
+import { short } from "@/lib/format";
 
 export function Band() {
   return (
@@ -151,6 +152,10 @@ export async function copy(text: string): Promise<boolean> {
 }
 
 const CHAIN_ICON: Record<number, string> = { 8453: "/tokens/base.webp", 1: "/tokens/ethereum.webp" };
+/** A network's logo, round. */
+export function ChainIcon({ chainId, size = 20 }: { chainId: number; size?: number }) {
+  return CHAIN_ICON[chainId] ? <img src={CHAIN_ICON[chainId]} alt="" width={size} height={size} style={{ borderRadius: "50%", display: "block" }} /> : null;
+}
 const TW_CHAIN: Record<number, string> = { 8453: "base", 1: "ethereum" };
 const LOCAL_TOKEN: Record<string, string> = { ETH: "/tokens/eth.png", WETH: "/tokens/eth.png", USDC: "/tokens/usdc.png" };
 
@@ -194,5 +199,85 @@ export function TokenIcon({
         <img className="badge" src={CHAIN_ICON[chainId]} alt={chainById(chainId)?.name} width={badge} height={badge} />
       )}
     </span>
+  );
+}
+
+/**
+ * An address field: the blockie + its ENS name (or 0x12ab…cdef) while idle, the full text while editing.
+ * Takes 0x… or name.eth; `onChange` gets the address it resolves to, or null.
+ */
+export function AddressInput({ initial, onChange, placeholder = "0x… or name.eth" }: { initial?: Address; onChange: (a: Address | null) => void; placeholder?: string }) {
+  const [text, setText] = useState<string>(initial ?? "");
+  const [addr, setAddr] = useState<Address | null>(initial ?? null);
+  const [name, setName] = useState<string | null>(null);
+  const [focus, setFocus] = useState(false);
+  const [looking, setLooking] = useState(false);
+  // a guardian read from chain arrives after the first paint: take it while the field is untouched
+  const touched = useRef(false);
+  useEffect(() => {
+    if (initial && !touched.current) setText(initial);
+  }, [initial]);
+  useEffect(() => {
+    const v = text.trim();
+    let live = true; // a late answer for older text must never land on newer text
+    setName(null);
+    if (isAddress(v)) {
+      const a = getAddress(v);
+      setAddr(a);
+      onChange(a);
+      fetch(`/api/ens?address=${a}`)
+        .then(r => r.json())
+        .then(j => live && j?.name && setName(j.name))
+        .catch(() => {});
+      return () => {
+        live = false;
+      };
+    }
+    setAddr(null);
+    onChange(null);
+    if (!/\.[a-z]{2,}$/i.test(v)) return;
+    setLooking(true);
+    const t = setTimeout(async () => {
+      const j = await fetch(`/api/ens?name=${encodeURIComponent(v.toLowerCase())}`).then(r => r.json()).catch(() => null);
+      if (!live) return;
+      setLooking(false);
+      if (j?.address) {
+        const a = getAddress(j.address);
+        setAddr(a);
+        setName(v.toLowerCase());
+        onChange(a);
+      }
+    }, 350);
+    return () => {
+      live = false;
+      clearTimeout(t);
+      setLooking(false);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [text]);
+  const idle = !focus && !!addr;
+  return (
+    <div className="input">
+      {addr && <Blockie address={addr} size={30} />}
+      <input
+        className={idle && !name ? "mono" : undefined}
+        value={idle ? (name ?? short(addr)) : text}
+        onChange={e => {
+          touched.current = true;
+          setText(e.target.value);
+        }}
+        onFocus={e => {
+          setFocus(true);
+          // the full address replaces the short one on focus: select it all, so a paste replaces it
+          const el = e.currentTarget;
+          requestAnimationFrame(() => el.select());
+        }}
+        onBlur={() => setFocus(false)}
+        placeholder={looking ? "Looking it up…" : placeholder}
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
+      />
+    </div>
   );
 }

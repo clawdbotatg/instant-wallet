@@ -1,7 +1,7 @@
 "use client";
 
 import { type ReactNode, useState } from "react";
-import { type Address, encodeFunctionData, getAddress, isAddress, zeroAddress } from "viem";
+import { type Address, encodeFunctionData, zeroAddress } from "viem";
 import { CHAINS, chainById, explorerAddress } from "@/lib/chains";
 import { short } from "@/lib/format";
 import { DAO, VERIFIERS, VERIFIERS_SLOT2 } from "@/lib/safe/config";
@@ -11,10 +11,8 @@ import { type FeeToken, type Prepared, type Signer, finishOwners, ownerSigners, 
 import { type ChainState, type SafeAccount, hotOf, wedgieSigners } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { Blockie, ChainChip, copy } from "../bits";
+import { AddressInput, Blockie, ChainChip, ChainIcon, copy } from "../bits";
 import { friendly } from "../Welcome";
-
-const NAME = (a: string) => (a.toLowerCase() === DAO.toLowerCase() ? "dao.buidlguidl.eth" : short(a));
 
 /**
  * Keys & safety, per chain (each chain's Safe is its own). The burner (Face ID) starts alone, the DAO can recover it
@@ -45,7 +43,7 @@ export function Keys({
   const [busy, setBusy] = useState<string | null>(null);
   // an error shows in the step whose button caused it, next to where you tapped
   const [error, setErrorRaw] = useState<{ what: string; msg: string } | null>(null);
-  const [paperIn, setPaperIn] = useState("");
+  const [guardianIn, setGuardianIn] = useState<Address | null>(null);
   const st = states.find(s => s.chainId === chainId);
   const usdc = chainById(chainId)?.usdc?.toLowerCase();
   const haveUsdc = assets.some(a => a.chainId === chainId && a.asset.toLowerCase() === usdc && BigInt(a.balance) >= (chainId === 1 ? 10_000_000n : 1_000_000n));
@@ -53,8 +51,6 @@ export function Keys({
   const feeToken: FeeToken = haveUsdc ? "usdc" : "eth";
   const canPay = haveUsdc || haveEth || assets.some(a => a.chainId === chainId && a.asset.toLowerCase() === usdc && BigInt(a.balance) > 0n);
   const hot = st ? hotOf(account, st) : account.hot;
-  const level = st?.level ?? 1;
-  const keysWord = (n: number) => `${n} key${n === 1 ? "" : "s"}`;
 
   // the budget comes with the first second key, whichever it is (the burner is still the only owner then)
   const budgetFirst = (s: ChainState): Call[] =>
@@ -126,20 +122,19 @@ export function Keys({
   const setPaper = () =>
     prep("paper", async () => {
       if (!st) throw new Error("Still loading");
-      if (!isAddress(paperIn.trim())) throw new Error("Paste the paper seed's address (0x…), from the wallet you made the seed in.");
-      const paper = getAddress(paperIn.trim());
-      if (st.owners.some(o => o.toLowerCase() === paper.toLowerCase())) throw new Error("That address is already one of your keys. The paper must be separate.");
+      if (!guardianIn) throw new Error("Enter an address (0x…) or an ENS name.");
+      const paper = guardianIn;
+      if (st.owners.some(o => o.toLowerCase() === paper.toLowerCase())) throw new Error("That address is already one of your keys. The guardian must be separate.");
       if (!st.guardians) throw new Error("Couldn't read the current recovery address. Try again in a moment.");
       const signers = ownerSigners(st);
       const w = await wedgieFor(signers);
       try {
         const p = await prepareOwners({ account, state: st, calls: setGuardianCalls(st.guardians, paper), signers, feeToken, wedgie: w });
         return {
-          label: <>Make <Addr a={paper} chainId={chainId} inline /> your recovery address</>,
+          label: <>Make <Addr a={paper} chainId={chainId} inline /> your guardian</>,
           p,
           after: () => {
             onAccount({ ...account, paper });
-            setPaperIn("");
           },
           close: async () => w?.close(),
         };
@@ -203,6 +198,8 @@ export function Keys({
     </>
   );
 
+  const current = st?.guardians?.[0];
+  const changed = !!guardianIn && guardianIn.toLowerCase() !== current?.toLowerCase();
   const ownRecovery = !!st?.guardians && st.guardians.length > 0 && !st.guardians.some(g => g.toLowerCase() === DAO.toLowerCase());
 
   const card = `Instant Wallet ${account.address}\nInstant wallet key ${account.burnerSigner}\n(Recovery needs this if the wallet was never deployed on a chain.)`;
@@ -213,41 +210,28 @@ export function Keys({
       <div className="row" style={{ flexWrap: "wrap" }}>
         {CHAINS.map(c => (
           <button key={c.id} className={`pill ${c.id === chainId ? "on" : ""}`} onClick={() => setChainId(c.id)}>
-            {c.name} · {states.find(s => s.chainId === c.id)?.level ?? "…"}
+            <ChainIcon chainId={c.id} />
+            {c.name}
           </button>
         ))}
       </div>
-      <p className="fine">
-        Each chain&apos;s wallet is set up on its own. On {chainById(chainId)?.name}: {keysWord(level)}. Add the others in any order.
-        {st && !st.deployed && " Not deployed here yet: the first change deploys it."}
-      </p>
+
+      <Rules st={st} />
+      {st && !st.deployed && <p className="fine">Not deployed on {chainById(chainId)?.name} yet: the first send or change deploys it. Each network&apos;s wallet is set up on its own.</p>}
       {!canPay && <p className="err">Changes cost a few cents of gas, paid from this wallet. Add a little USDC or ETH on {chainById(chainId)?.name} first.</p>}
 
+      <h3>Your keys</h3>
       <Step title="Instant wallet" done>
-        <p className="fine">This phone&apos;s passkey. Alone it can do everything; once you add another key, it keeps a daily budget.</p>
+        <p className="fine">This phone&apos;s passkey (Face ID).</p>
         <Addr a={account.burnerSigner} chainId={chainId} />
       </Step>
 
       <Step title="Hot wallet" done={!!st?.hasHot}>
         {st?.hasHot ? (
-          <>
-            <p className="fine">
-              {st.hasWedgie ? "Big moves need the wedgie + this hot wallet or your Instant wallet." : "Big moves need your Instant wallet + this hot wallet."} The
-              Instant wallet alone: 100 USDC + 0.04 ETH a day.
-            </p>
-            {hot && <Addr a={hot} chainId={chainId} />}
-            {st?.budget && (
-              <p className="fine">
-                Today&apos;s Instant wallet budget: {(Number(st.budget.usdc) / 1e6).toFixed(2)} USDC · {(Number(st.budget.eth) / 1e18).toFixed(4)} ETH
-              </p>
-            )}
-          </>
+          hot && <Addr a={hot} chainId={chainId} />
         ) : (
           <>
-            <p className="fine">
-              Add your hot wallet as a second key: any wallet extension on your computer, or a wallet app on your phone. After this, anything over the Instant wallet&apos;s daily budget (100 USDC + 0.04 ETH) needs a second key.
-              For now, open this page in that wallet: on a computer with the extension, or in the wallet app&apos;s own browser.
-            </p>
+            <p className="fine">Any wallet extension on a computer, or a wallet app on your phone. Open this page in it, then add it.</p>
             {action(
               "hot",
               <button className="btn btn-green wide" onClick={addHot} disabled={!!busy || !!pending || !canPay || !hotAvailable()}>
@@ -258,37 +242,12 @@ export function Keys({
         )}
       </Step>
 
-      <Step title="Paper backup (your recovery)" done={ownRecovery}>
-        <p className="fine">
-          Recovery: {st?.guardians ? (st.guardians.length ? st.guardians.map(NAME).join(", ") : "none") : "…"} can replace your keys after a 7-day wait (you get time to cancel).
-        </p>
-        <p className="fine">
-          To make it yours: create a new 24-word seed in a wallet (a fresh one, only for this), write it on the 3 cards (
-          <a href="/paper" target="_blank">print them</a>, any 2 rebuild it), seal each in a tamper-evident bag, then paste its address here.
-        </p>
-        <div className="input">
-          <input value={paperIn} onChange={e => setPaperIn(e.target.value)} placeholder="0x… the paper seed's address" autoCapitalize="none" spellCheck={false} />
-        </div>
-        {action(
-          "paper",
-          <button className="btn wide" onClick={setPaper} disabled={!!busy || !!pending || !canPay || !paperIn}>
-            {busy === "paper" ? "Working…" : "Make it my recovery"}
-          </button>,
-        )}
-      </Step>
-
       <Step title="Wedgie (cold)" done={!!st?.hasWedgie}>
         {st?.hasWedgie ? (
-          <p className="fine">
-            {st.hasHot
-              ? "The wedgie counts twice. Big moves need the wedgie + your Instant wallet or hot wallet. The Instant wallet + hot wallet alone can't."
-              : "The wedgie counts twice. Big moves need the wedgie + your Instant wallet; neither alone can."}
-          </p>
+          <p className="fine">Added. One press signs.</p>
         ) : (
           <>
-            <p className="fine">
-              Plug your wedgie into this computer (Chrome), open its Safe signer app, then add it. One press signs for both of its slots.
-            </p>
+            <p className="fine">Plug it into a computer (Chrome), open its Safe signer app, then add it.</p>
             {action(
               "wedgie",
               <button className="btn btn-green wide" onClick={addWedgie} disabled={!!busy || !!pending || !canPay || !wedgieSupported()}>
@@ -299,8 +258,20 @@ export function Keys({
         )}
       </Step>
 
-      <Step title="Full self-custody" done={!!st?.hasWedgie && ownRecovery}>
-        <p className="fine">Wedgie + your own recovery, no DAO. You depend on nobody (this app is open source; any Safe tool works too).</p>
+      <Step title="Guardian" done={ownRecovery}>
+        <p className="fine">
+          If you lose your keys, your guardian can replace them. It takes 7 days, and you can cancel. Best: a paper seed only you hold (
+          <a href="/paper" target="_blank">print the cards</a>).
+        </p>
+        <div className="guardian">
+          <AddressInput key={chainId} initial={current} onChange={setGuardianIn} />
+        </div>
+        {action(
+          "paper",
+          <button className="btn btn-green wide" onClick={setPaper} disabled={!!busy || !!pending || !canPay || !changed}>
+            {busy === "paper" ? "Working…" : "Save"}
+          </button>,
+        )}
       </Step>
 
       <div className="card stack">
@@ -315,6 +286,41 @@ export function Keys({
       <button className="btn wide" onClick={onSignOut}>
         Sign out of this device
       </button>
+    </div>
+  );
+}
+
+/** The rules on this network, now: how many keys each kind of move needs. */
+function Rules({ st }: { st?: ChainState }) {
+  if (!st) return <div className="card fine">Loading…</div>;
+  const big = st.hasWedgie ? (st.hasHot ? "The wedgie + Face ID or the hot wallet" : "Face ID + the wedgie") : "Face ID + the hot wallet";
+  const rows: { n: number; what: string; who: string; sub?: string }[] =
+    st.threshold <= 1
+      ? [{ n: 1, what: "Any send or change", who: "Face ID" }]
+      : [
+          {
+            n: 1,
+            what: "Sends up to 100 USDC + 0.04 ETH a day",
+            who: "Face ID",
+            sub: st.budget ? `Left today: ${(Number(st.budget.usdc) / 1e6).toFixed(2)} USDC · ${(Number(st.budget.eth) / 1e18).toFixed(4)} ETH` : undefined,
+          },
+          { n: 2, what: "Anything bigger, and key changes", who: big },
+        ];
+  return (
+    <div className="card stack" style={{ gap: 12 }}>
+      {rows.map(r => (
+        <div key={r.n} className="row" style={{ alignItems: "flex-start", gap: 12 }}>
+          <span className="sigs">{r.n}</span>
+          <div style={{ display: "grid", gap: 2 }}>
+            <b>{r.what}</b>
+            <span className="fine">
+              {r.who}
+              {r.sub && <br />}
+              {r.sub}
+            </span>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

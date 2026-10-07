@@ -15,6 +15,35 @@ export const wedgieSupported = () => typeof navigator !== "undefined" && "serial
 
 type Pending = { res: (v: any) => void; rej: (e: Error) => void; t: number };
 
+// One user of the port at a time: a status peek (WedgieButton) never opens it while a signing connection holds
+// it, and a connect waits for a peek in flight to close it.
+let holder: Wedgie | null = null;
+let peeking: Promise<unknown> | null = null;
+
+// On a Mac, Chrome's first look for serial ports (getPorts included) also looks for Bluetooth ones and macOS
+// asks "Chrome would like to use Bluetooth". So nothing peeks until this browser has asked for a wedgie once.
+const ARMED = "iws.wedgie-armed";
+export const wedgieArmed = () => {
+  try {
+    return localStorage.getItem(ARMED) === "1";
+  } catch {
+    return false;
+  }
+};
+const arm = () => {
+  try {
+    localStorage.setItem(ARMED, "1");
+  } catch {}
+};
+
+/** What a plugged-in wedgie said when asked hello (nothing signs, nothing shows on its screen). */
+export type WedgieHello = { version?: string; short?: string; running?: string | null; safe?: { x: Hex; y: Hex } | null };
+export type Peek =
+  | { kind: "none" } // no wedgie this browser was allowed to see is plugged in
+  | { kind: "busy" } // a signing connection has it open right now
+  | { kind: "silent"; error: string } // plugged in, but it didn't answer (still booting, or not running wedgie firmware)
+  | { kind: "hello"; hello: WedgieHello };
+
 export class Wedgie {
   private port: any;
   private writer?: WritableStreamDefaultWriter<Uint8Array>;
@@ -28,13 +57,81 @@ export class Wedgie {
     const serial = (navigator as any).serial;
     const known = (await serial.getPorts()).filter((p: any) => p.getInfo().usbVendorId === RPI_VID);
     const port = known[0] ?? (await serial.requestPort({ filters: [{ usbVendorId: RPI_VID }] }));
+    arm();
+    await peeking?.catch(() => {});
+    if (holder) throw new Error("The wedgie is busy with another transaction.");
     const w = new Wedgie();
     w.port = port;
     await port.open({ baudRate: 115200 });
     w.writer = port.writable.getWriter();
     w.reader = port.readable.getReader();
     w.read();
+    holder = w;
     return w;
+  }
+
+  /** Let this browser see a wedgie (the port picker; needs a tap). False if the person cancelled. */
+  static async pick(): Promise<boolean> {
+    if (!wedgieSupported()) return false;
+    try {
+      await (navigator as any).serial.requestPort({ filters: [{ usbVendorId: RPI_VID }] });
+      arm();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Is a wedgie plugged in, and what is it running? Opens the port for a hello and closes it again. */
+  static async peek(): Promise<Peek> {
+    if (!wedgieSupported() || !wedgieArmed()) return { kind: "none" };
+    if (holder) return { kind: "busy" };
+    if (peeking) return (await peeking.catch(() => ({ kind: "none" }))) as Peek;
+    const run = (async (): Promise<Peek> => {
+      const ports = (await (navigator as any).serial.getPorts()).filter((p: any) => p.getInfo().usbVendorId === RPI_VID);
+      if (!ports.length) return { kind: "none" };
+      const w = new Wedgie();
+      w.port = ports[0];
+      try {
+        await w.port.open({ baudRate: 115200 });
+      } catch (e: any) {
+        return { kind: "silent", error: `Couldn't open it (${e?.message || "in use by another tab?"})` };
+      }
+      w.writer = w.port.writable.getWriter();
+      w.reader = w.port.readable.getReader();
+      w.read();
+      try {
+        return { kind: "hello", hello: await w.request({ type: "hello" }, 2500) };
+      } catch {
+        return { kind: "silent", error: "It didn't answer." };
+      } finally {
+        await w.close();
+      }
+    })();
+    peeking = run;
+    try {
+      return await run;
+    } finally {
+      peeking = null;
+    }
+  }
+
+  /** Plugged in / unplugged (only for wedgies this browser may see). Returns the unsubscribe. */
+  static watch(fn: () => void): () => void {
+    if (!wedgieSupported() || !wedgieArmed()) return () => {};
+    const serial = (navigator as any).serial;
+    serial.addEventListener("connect", fn);
+    serial.addEventListener("disconnect", fn);
+    return () => {
+      serial.removeEventListener("connect", fn);
+      serial.removeEventListener("disconnect", fn);
+    };
+  }
+
+  /** Stop letting this browser see the wedgie (it asks again next time). */
+  static async forget() {
+    if (!wedgieSupported()) return;
+    for (const p of await (navigator as any).serial.getPorts()) if (p.getInfo().usbVendorId === RPI_VID) await p.forget?.().catch(() => {});
   }
 
   private async read() {
@@ -61,6 +158,7 @@ export class Wedgie {
         }
       }
     } catch {}
+    if (holder === this) holder = null;
     for (const [, p] of this.pending) p.rej(new Error("wedgie unplugged"));
     this.pending.clear();
   }
@@ -109,6 +207,7 @@ export class Wedgie {
   }
 
   async close() {
+    if (holder === this) holder = null;
     try {
       await this.reader?.cancel();
       this.writer?.releaseLock();

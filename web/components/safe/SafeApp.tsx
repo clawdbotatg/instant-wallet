@@ -16,10 +16,11 @@ import { RecoveryAlert } from "./RecoveryAlert";
 import { SafeSend } from "./SafeSend";
 import { SafeSwap } from "./SafeSwap";
 import { SafeWelcome } from "./SafeWelcome";
+import { WedgieButton } from "./WedgieButton";
 
 type View = { kind: "home" } | { kind: "send"; asset?: Asset } | { kind: "swap" } | { kind: "receive" } | { kind: "keys" };
 
-/** Instant Wallet on a Safe: a big balance, the level on the address pill, Receive / Swap, a send button on each asset and a scan button. */
+/** Instant Wallet on a Safe: a big balance, the level on the address pill, Receive / Swap, a send button on each asset, a scan button and the wedgie (bottom left). */
 export function SafeApp() {
   const [account, setAccountState] = useState<SafeAccount | null | undefined>(undefined);
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
@@ -75,7 +76,7 @@ export function SafeApp() {
       if (!dropReady) {
         if (!s.rolesMembers) throw new Error("Couldn't read the budget's keys. Try again.");
         const calls = dropOtherBudgetsCalls(account!.address, s.rolesMembers, account!.burnerSigner);
-        setDropReady(await prepareOwners({ account: account!, state: s, calls, signers: ownerSigners(s), feeToken: feeTokenOn(s.chainId) }));
+        setDropReady(await prepareOwners({ account: account!, state: s, calls, signers: ownerSigners(s, account!), feeToken: feeTokenOn(s.chainId) }));
         return; // the next tap signs (Face ID must start straight from a tap)
       }
       await finishOwners(dropReady);
@@ -183,6 +184,7 @@ export function SafeApp() {
         </div>
       </div>
 
+      <WedgieButton account={account} states={states} onKeys={() => setView({ kind: "keys" })} />
       <button className="fab" aria-label="Scan to send" onClick={() => setView({ kind: "send" })}>
         <ScanIcon />
       </button>

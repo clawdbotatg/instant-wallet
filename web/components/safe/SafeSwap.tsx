@@ -13,22 +13,11 @@ import { uniswapRoute } from "@/lib/safe/uniswap";
 import { Wedgie } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
 import { ChainChip, TokenIcon } from "../bits";
-import { type Opt, Select, SignerChoice } from "./Pick";
+import { type Opt, Select, SignerChoice, assetOpt } from "./Pick";
 import { friendly } from "../Welcome";
 
 const SLIPPAGE_BPS = 50;
 const tokenOf = (a: Asset): Token => ({ chainId: a.chainId, address: a.asset, symbol: a.symbol, decimals: a.decimals, logo: a.logo, priceUsd: a.price ?? undefined });
-const assetOpt = (a: Asset): Opt => ({
-  key: `${a.chainId}:${a.asset.toLowerCase()}`,
-  icon: <TokenIcon symbol={a.symbol} asset={a.asset} chainId={a.chainId} logo={a.logo} size={28} />,
-  label: a.symbol,
-  right: (
-    <>
-      {fmtAmount(a.formatted)} {a.usd !== null && <span style={{ opacity: 0.75 }}>· {usd(a.usd)}</span>}
-    </>
-  ),
-  search: `${a.symbol} ${a.name} ${chainById(a.chainId)?.name ?? ""}`,
-});
 const tokenOpt = (t: Token): Opt => ({
   key: t.address,
   icon: <TokenIcon symbol={t.symbol} asset={t.address} chainId={t.chainId} logo={t.logo} size={28} />,

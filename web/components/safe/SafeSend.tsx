@@ -13,6 +13,7 @@ import { Wedgie } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
 import { Blockie, ChainChip, ScanIcon, TokenIcon, useSheetBack } from "../bits";
 import { Scanner } from "../Scanner";
+import { Select, assetOpt } from "./Pick";
 import { friendly } from "../Welcome";
 import { SignerChoice } from "./Pick";
 
@@ -312,18 +313,7 @@ export function SafeSend({
           <div className="field">
             <label>What</label>
             {assets.length ? (
-              <div className="picker">
-                {assets.map(a => (
-                  <button key={key(a)} className={`pill ${key(a) === pick ? "on" : ""}`} style={{ justifyContent: "space-between", height: 46 }} onClick={() => setPick(key(a))}>
-                    <span className="row">
-                      <TokenIcon symbol={a.symbol} asset={a.asset} chainId={a.chainId} logo={a.logo} size={28} /> <b>{a.symbol}</b>
-                    </span>
-                    <span>
-                      {fmtAmount(a.formatted)} {a.usd !== null && <span style={{ opacity: 0.75 }}>· {usd(a.usd)}</span>}
-                    </span>
-                  </button>
-                ))}
-              </div>
+              <Select value={asset ? assetOpt(asset) : null} options={assets.map(assetOpt)} onPick={setPick} />
             ) : (
               <p className="fine">Nothing to send yet. Receive something first.</p>
             )}

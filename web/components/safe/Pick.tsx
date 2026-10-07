@@ -2,7 +2,24 @@
 
 import { type ReactNode, useState } from "react";
 import { isAddress } from "viem";
+import { chainById } from "@/lib/chains";
+import { amount as fmtAmount, usd } from "@/lib/format";
 import type { Signer, SignerOption } from "@/lib/safe/send";
+import type { Asset } from "@/lib/types";
+import { TokenIcon } from "../bits";
+
+/** A token you hold, as a select-box row: icon, symbol, and how much (in dollars too). */
+export const assetOpt = (a: Asset): Opt => ({
+  key: `${a.chainId}:${a.asset.toLowerCase()}`,
+  icon: <TokenIcon symbol={a.symbol} asset={a.asset} chainId={a.chainId} logo={a.logo} size={28} />,
+  label: a.symbol,
+  right: (
+    <>
+      {fmtAmount(a.formatted)} {a.usd !== null && <span style={{ opacity: 0.75 }}>· {usd(a.usd)}</span>}
+    </>
+  ),
+  search: `${a.symbol} ${a.name} ${chainById(a.chainId)?.name ?? ""}`,
+});
 
 export type Opt = { key: string; icon?: ReactNode; label: ReactNode; right?: ReactNode; search?: string };
 

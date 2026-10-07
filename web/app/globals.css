@@ -87,8 +87,6 @@ input { font: inherit; color: inherit; }
 .top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .brand { display: flex; align-items: center; gap: 8px; font-weight: 900; font-size: 19px; letter-spacing: -.02em; }
 .me { display: flex; align-items: center; gap: 8px; padding: 4px; }
-.sigs { flex: none; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; background: var(--recess); box-shadow: var(--recess-shadow);
-  font-size: 16px; font-weight: 900; color: var(--muted); }
 .me .lvl { height: 30px; display: grid; place-items: center; padding: 0 9px; border-radius: 999px; background: var(--recess); box-shadow: var(--recess-shadow);
   font-size: 12px; font-weight: 900; letter-spacing: .03em; color: var(--muted); }
 .blockie { border-radius: 50%; display: block; image-rendering: pixelated; box-shadow: 0 0 0 2px #fff, 0 3px 8px -3px rgba(0,0,0,.4); }
@@ -179,6 +177,8 @@ div.asset:active { background: none; }
 .step { display: grid; gap: 10px; padding: 16px; }
 .step.current { box-shadow: var(--shell-shadow), 0 0 0 3px var(--mint); }
 .step.done { opacity: .92; }
+.rules { margin: 0; padding: 16px 16px 16px 34px; display: grid; gap: 6px; }
+.keyrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 16px; }
 .alert { display: grid; gap: 8px; box-shadow: var(--shell-shadow), 0 0 0 3px var(--coral); }
 .paper ol { padding-left: 20px; display: grid; gap: 4px; }
 .seedcard { display: grid; gap: 12px; break-inside: avoid; }

@@ -221,42 +221,33 @@ export function Keys({
       {!canPay && <p className="err">Changes cost a few cents of gas, paid from this wallet. Add a little USDC or ETH on {chainById(chainId)?.name} first.</p>}
 
       <h3>Your keys</h3>
-      <Step title="Instant wallet" done>
-        <p className="fine">This phone&apos;s passkey (Face ID).</p>
-        <Addr a={account.burnerSigner} chainId={chainId} />
-      </Step>
-
-      <Step title="Hot wallet" done={!!st?.hasHot}>
-        {st?.hasHot ? (
-          hot && <Addr a={hot} chainId={chainId} />
-        ) : (
-          <>
-            <p className="fine">Any wallet extension on a computer, or a wallet app on your phone. Open this page in it, then add it.</p>
-            {action(
-              "hot",
-              <button className="btn btn-green wide" onClick={addHot} disabled={!!busy || !!pending || !canPay || !hotAvailable()}>
-                {busy === "hot" ? "Connecting…" : hotAvailable() ? "Connect and add" : "No browser wallet here"}
-              </button>,
-            )}
-          </>
-        )}
-      </Step>
-
-      <Step title="Wedgie (cold)" done={!!st?.hasWedgie}>
-        {st?.hasWedgie ? (
-          <p className="fine">Added. One press signs.</p>
-        ) : (
-          <>
-            <p className="fine">Plug it into a computer (Chrome), open its Safe signer app, then add it.</p>
-            {action(
-              "wedgie",
-              <button className="btn btn-green wide" onClick={addWedgie} disabled={!!busy || !!pending || !canPay || !wedgieSupported()}>
-                {busy === "wedgie" ? "Check the wedgie…" : !wedgieSupported() ? "Needs Chrome on a computer" : "Connect and add the wedgie"}
-              </button>,
-            )}
-          </>
-        )}
-      </Step>
+      <KeyRow kind="Instant wallet" a={account.burnerSigner} chainId={chainId} />
+      {st?.hasHot ? (
+        <KeyRow kind="Hot wallet" a={hot} chainId={chainId} />
+      ) : (
+        <Step title="Hot wallet">
+          <p className="fine">Any wallet extension on a computer, or a wallet app on your phone. Open this page in it, then add it.</p>
+          {action(
+            "hot",
+            <button className="btn btn-green wide" onClick={addHot} disabled={!!busy || !!pending || !canPay || !hotAvailable()}>
+              {busy === "hot" ? "Connecting…" : hotAvailable() ? "Connect and add" : "No browser wallet here"}
+            </button>,
+          )}
+        </Step>
+      )}
+      {st?.hasWedgie ? (
+        <KeyRow kind="Wedgie" a={st.wedgie} chainId={chainId} />
+      ) : (
+        <Step title="Wedgie (cold)">
+          <p className="fine">Plug it into a computer (Chrome), open its Safe signer app, then add it.</p>
+          {action(
+            "wedgie",
+            <button className="btn btn-green wide" onClick={addWedgie} disabled={!!busy || !!pending || !canPay || !wedgieSupported()}>
+              {busy === "wedgie" ? "Check the wedgie…" : !wedgieSupported() ? "Needs Chrome on a computer" : "Connect and add the wedgie"}
+            </button>,
+          )}
+        </Step>
+      )}
 
       <Step title="Guardian" done={ownRecovery}>
         <p className="fine">
@@ -293,34 +284,35 @@ export function Keys({
 /** The rules on this network, now: how many keys each kind of move needs. */
 function Rules({ st }: { st?: ChainState }) {
   if (!st) return <div className="card fine">Loading…</div>;
-  const big = st.hasWedgie ? (st.hasHot ? "The wedgie + Face ID or the hot wallet" : "Face ID + the wedgie") : "Face ID + the hot wallet";
-  const rows: { n: number; what: string; who: string; sub?: string }[] =
+  const n = (v: bigint, d: number) => String(Number(v) / 10 ** d);
+  const big = st.hasWedgie ? (st.hasHot ? "Wedgie + Face ID or hot wallet" : "Wedgie + Face ID") : "Face ID + hot wallet";
+  const rows: [string, string][] =
     st.threshold <= 1
-      ? [{ n: 1, what: "Any send or change", who: "Face ID" }]
+      ? [["Anything", "Face ID"]]
       : [
-          {
-            n: 1,
-            what: "Sends up to 100 USDC + 0.04 ETH a day",
-            who: "Face ID",
-            sub: st.budget ? `Left today: ${(Number(st.budget.usdc) / 1e6).toFixed(2)} USDC · ${(Number(st.budget.eth) / 1e18).toFixed(4)} ETH` : undefined,
-          },
-          { n: 2, what: "Anything bigger, and key changes", who: big },
+          [
+            st.budget ? `Up to ${n(st.budget.usdcMax, 6)} USDC + ${n(st.budget.ethMax, 18)} ETH a day` : "Daily budget",
+            st.budget ? `Face ID (${n(st.budget.usdc, 6).replace(/(\.\d\d)\d+$/, "$1")} USDC · ${Number(n(st.budget.eth, 18)).toFixed(4)} ETH left)` : "Face ID",
+          ],
+          ["More, or key changes", big],
         ];
   return (
-    <div className="card stack" style={{ gap: 12 }}>
-      {rows.map(r => (
-        <div key={r.n} className="row" style={{ alignItems: "flex-start", gap: 12 }}>
-          <span className="sigs">{r.n}</span>
-          <div style={{ display: "grid", gap: 2 }}>
-            <b>{r.what}</b>
-            <span className="fine">
-              {r.who}
-              {r.sub && <br />}
-              {r.sub}
-            </span>
-          </div>
-        </div>
+    <ul className="card rules">
+      {rows.map(([what, who]) => (
+        <li key={what}>
+          <b>{what}:</b> {who}
+        </li>
       ))}
+    </ul>
+  );
+}
+
+/** A key you have: what kind on the left, its address on the right. */
+function KeyRow({ kind, a, chainId }: { kind: string; a?: Address; chainId: number }) {
+  return (
+    <div className="card keyrow">
+      <b>{kind}</b>
+      {a ? <Addr a={a} chainId={chainId} /> : <span className="fine">…</span>}
     </div>
   );
 }
@@ -337,7 +329,7 @@ function Step({ title, done, children }: { title: string; done?: boolean; childr
   );
 }
 
-/** inline: sits in a sentence (no chain chip; the chain is already picked above) */
+/** An address: blockie + short link to the explorer (no chain chip: the chain is already picked above). inline: in a sentence */
 function Addr({ a, chainId, inline }: { a: Address; chainId: number; inline?: boolean }) {
   const url = explorerAddress(chainId, a);
   return (
@@ -350,7 +342,6 @@ function Addr({ a, chainId, inline }: { a: Address; chainId: number; inline?: bo
       ) : (
         <span className="mono">{short(a)}</span>
       )}
-      {!inline && <ChainChip chainId={chainId} />}
     </span>
   );
 }

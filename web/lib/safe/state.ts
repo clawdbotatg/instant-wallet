@@ -1,4 +1,4 @@
-import { type Address, type Hex, getAddress, keccak256, toBytes, zeroAddress } from "viem";
+import { type Address, type Hex, getAddress, keccak256, size, toBytes, zeroAddress } from "viem";
 import { CHAINS, publicClient } from "../chains";
 import { DAO, KEY_ETH, KEY_USDC, RECOVERY_7D } from "./config";
 import { abi, rolesAddress, safeAddress, signerAddress } from "./core";
@@ -64,6 +64,8 @@ export type ChainState = {
   budget: { usdc: bigint; eth: bigint; usdcMax: bigint; ethMax: bigint } | null;
   hasHot: boolean;
   hasWedgie: boolean;
+  hot?: Address; // the hot wallet's address, when there is one
+  wedgie?: Address; // the wedgie's first owner slot, when it's on
   level: 1 | 2 | 3; // how many signing keys: the Instant wallet, + a hot wallet, + the wedgie (any order; paper isn't a signer)
 };
 
@@ -131,8 +133,14 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
   // another device may have added the keys: the shape says it too (only the wedgie takes the threshold to 3)
   const known = !!a.wedgie && wedgieSigners(a.wedgie).every(w => o.includes(w));
   const hasWedgie = known || Number(threshold) >= 3;
+  // the hot wallet is the owner that's an account, not a passkey signer (the wedgie's slots are passkey signers,
+  // 236-byte proxies): so it's found even on a device that never paired the wedgie
   const mine = [a.burnerSigner, ...(a.wedgie ? wedgieSigners(a.wedgie) : [])].map(x => x.toLowerCase());
-  const hasHot = o.filter(x => !mine.includes(x.toLowerCase())).length - (hasWedgie && !known ? 2 : 0) >= 1;
+  const others = o.filter(x => !mine.includes(x.toLowerCase()));
+  const codes = await Promise.all(others.map(x => pc.getCode({ address: x }).catch(() => "0x00" as Hex)));
+  const hot = others.find((_, i) => !codes[i] || codes[i] === "0x" || size(codes[i]!) !== PASSKEY_SIGNER_SIZE);
+  const hasHot = !!hot;
+  const wedgie = known ? wedgieSigners(a.wedgie!)[0] : others.find((_, i) => !!codes[i] && size(codes[i]!) === PASSKEY_SIGNER_SIZE);
   const level = (1 + Number(hasHot) + Number(hasWedgie)) as ChainState["level"];
   return {
     chainId,
@@ -149,6 +157,8 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
     budget,
     hasHot,
     hasWedgie,
+    hot,
+    wedgie: hasWedgie ? wedgie : undefined,
     level,
   };
 }
@@ -167,12 +177,14 @@ export async function readAll(a: SafeAccount): Promise<ChainState[]> {
   return Promise.all(CHAINS.map(c => readChain(c.id, a).catch(() => null))).then(r => r.filter((x): x is ChainState => !!x));
 }
 
-/** The hot wallet on this chain: the owner that isn't the burner or a wedgie slot. */
+/** The hot wallet on this chain: the owner that's an account, not the burner or a wedgie slot. */
 export function hotOf(a: SafeAccount, st: ChainState): Address | undefined {
-  const known = [a.burnerSigner, ...(a.wedgie ? wedgieSigners(a.wedgie) : [])].map(x => x.toLowerCase());
-  const rest = st.owners.filter(o => !known.includes(o.toLowerCase()));
-  return a.hot ?? (rest.length === 1 ? rest[0] : undefined);
+  if (a.hot && st.owners.some(o => o.toLowerCase() === a.hot!.toLowerCase())) return a.hot;
+  return st.hot;
 }
+
+/** SafeWebAuthnSignerProxy's runtime size (the burner and both wedgie slots; checked on a Base fork 2026-10-06). */
+const PASSKEY_SIGNER_SIZE = 236;
 
 export const salt = (): Hex => keccak256(toBytes(`${Date.now()}-${Math.random()}`));
 export { zeroAddress };

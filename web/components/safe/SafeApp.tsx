@@ -9,8 +9,9 @@ import type { Asset, Portfolio } from "@/lib/types";
 import { dropOtherBudgetsCalls } from "@/lib/safe/core";
 import { type Prepared, finishOwners, ownerSigners, prepareOwners } from "@/lib/safe/send";
 import { friendly } from "../Welcome";
-import { Blockie, ReceiveIcon, ScanIcon, SendIcon, Sheet, SwapIcon, TokenIcon, copy, useToast } from "../bits";
+import { Blockie, DepositIcon, GearIcon, ScanIcon, SendIcon, Sheet, SwapIcon, TokenIcon, copy, useToast } from "../bits";
 import { Receive } from "../Receive";
+import { Deposit } from "./Deposit";
 import { Keys } from "./Keys";
 import { RecoveryAlert } from "./RecoveryAlert";
 import { SafeSend } from "./SafeSend";
@@ -18,9 +19,9 @@ import { SafeSwap } from "./SafeSwap";
 import { SafeWelcome } from "./SafeWelcome";
 import { WedgieButton } from "./WedgieButton";
 
-type View = { kind: "home" } | { kind: "send"; asset?: Asset } | { kind: "swap" } | { kind: "receive" } | { kind: "keys" };
+type View = { kind: "home" } | { kind: "send"; asset?: Asset } | { kind: "swap" } | { kind: "receive" } | { kind: "deposit" } | { kind: "keys" };
 
-/** Instant Wallet on a Safe: a big balance, the level on the address pill, Receive / Swap, a send button on each asset, a scan button and the wedgie (bottom left). */
+/** Instant Wallet on a Safe: a big balance, Deposit / Swap, the address pill opens Receive, settings (with the level) bottom middle, a send button on each asset, a scan button and the wedgie (bottom left). */
 export function SafeApp() {
   const [account, setAccountState] = useState<SafeAccount | null | undefined>(undefined);
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
@@ -96,10 +97,9 @@ export function SafeApp() {
             <img src="/mark-160.png" alt="" height={30} />
             Instant Wallet
           </div>
-          <button className="pill me" onClick={() => setView({ kind: "keys" })}>
+          <button className="pill me" onClick={() => setView({ kind: "receive" })}>
             <Blockie address={account.address} size={28} />
             <span className="mono" style={{ fontSize: 13 }}>{short(account.address)}</span>
-            <span className="lvl">LVL{top}</span>
           </button>
         </div>
 
@@ -142,8 +142,8 @@ export function SafeApp() {
             {portfolio ? (showUsd ? usd(portfolio.totalUsd ?? 0) : `${assets.length} assets`) : "…"}
           </div>
           <div className="actions">
-            <button className="btn" onClick={() => setView({ kind: "receive" })}>
-              <ReceiveIcon /> Receive
+            <button className="btn" onClick={() => setView({ kind: "deposit" })}>
+              <DepositIcon /> Deposit
             </button>
             <button className="btn" onClick={() => setView({ kind: "swap" })}>
               <SwapIcon /> Swap
@@ -154,7 +154,7 @@ export function SafeApp() {
         <div className="card assets">
           {assets.length === 0 && (
             <p className="fine center" style={{ padding: 18 }}>
-              Empty. Tap Receive and send USDC or ETH to your address on {CHAINS.map(c => c.name).join(" or ")}.
+              Empty. Tap Deposit, or tap your address and send USDC or ETH to your address on {CHAINS.map(c => c.name).join(" or ")}.
             </p>
           )}
           {assets.map(a => (
@@ -180,6 +180,10 @@ export function SafeApp() {
       </div>
 
       <WedgieButton account={account} states={states} onKeys={() => setView({ kind: "keys" })} />
+      <button className="fab fab-settings" aria-label="Settings" onClick={() => setView({ kind: "keys" })}>
+        <GearIcon />
+        <span className="lvl">LVL{top}</span>
+      </button>
       <button className="fab" aria-label="Scan to send" onClick={() => setView({ kind: "send" })}>
         <ScanIcon />
       </button>
@@ -188,6 +192,7 @@ export function SafeApp() {
         <Sheet onClose={close}>
           {view.kind === "send" && <SafeSend account={account} assets={assets} states={states} start={view.asset} onDone={close} />}
           {view.kind === "swap" && <SafeSwap account={account} assets={assets} states={states} onDone={close} />}
+          {view.kind === "deposit" && <Deposit address={account.address} />}
           {view.kind === "receive" && <Receive account={{ address: account.address } as any} toast={setToast} />}
           {view.kind === "keys" && (
             <Keys

@@ -88,8 +88,6 @@ input { font: inherit; color: inherit; }
 .brand { display: flex; align-items: center; gap: 8px; font-weight: 900; font-size: 19px; letter-spacing: -.02em; }
 .me { display: flex; align-items: center; gap: 8px; padding: 4px; flex: none; white-space: nowrap; }
 .me .mono { word-break: normal; }
-.me .lvl { height: 30px; display: grid; place-items: center; padding: 0 9px; border-radius: 999px; background: var(--recess); box-shadow: var(--recess-shadow);
-  font-size: 12px; font-weight: 900; letter-spacing: .03em; color: var(--muted); }
 .blockie { border-radius: 50%; display: block; image-rendering: pixelated; box-shadow: 0 0 0 2px #fff, 0 3px 8px -3px rgba(0,0,0,.4); }
 
 .balance { text-align: center; padding: 26px 16px 22px; }
@@ -188,3 +186,8 @@ div.asset:active { background: none; }
 .seedcard .word { border: 1.5px solid var(--ink); border-radius: 8px; height: 46px; position: relative; background: #fff; }
 .seedcard .word span { position: absolute; top: 2px; left: 6px; font-size: 11px; font-weight: 900; color: var(--muted); }
 @media print { .noprint, .fab { display: none !important; } body, html { background: #fff; } .card { box-shadow: none; border: 1.5px solid #1a1b1a; } }
+/* bottom middle: settings (keys + rules), the level under the gear */
+.fab-settings { right: auto; left: 50%; transform: translateX(-50%); width: 66px; height: 66px; bottom: calc(26px + env(safe-area-inset-bottom));
+  color: var(--ink); background: var(--shell); box-shadow: var(--shell-shadow); gap: 0; align-content: center; }
+.fab-settings:active { transform: translateX(-50%) translateY(3px); }
+.fab-settings .lvl { font-size: 10px; font-weight: 900; letter-spacing: .03em; color: var(--muted); line-height: 1; margin-top: 1px; }

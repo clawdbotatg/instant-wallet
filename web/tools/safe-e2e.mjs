@@ -127,7 +127,7 @@ await cdp.send("WebAuthn.addVirtualAuthenticator", {
 // ---------------------------------------------------------------- level 1
 await page.goto(`${APP}/`);
 await page.getByText("Create wallet").tap();
-await page.getByText("Receive", { exact: true }).waitFor({ timeout: 20000 });
+await page.getByText("Deposit", { exact: true }).waitFor({ timeout: 20000 });
 const acct = await page.evaluate(() => JSON.parse(localStorage.getItem("iws.account")));
 console.log("wallet", acct.address, "burner signer", acct.burnerSigner);
 ok(cast(`code ${acct.address}`) === "0x", "counterfactual: nothing deployed yet");
@@ -233,7 +233,7 @@ async function swap(fromSym, amount, toSym, via, shot) {
 }
 
 // ---------------------------------------------------------------- level 2: add MetaMask
-await page.locator(".top .me").tap();
+await page.locator(".fab-settings").tap();
 await page.getByText("Connect and add").first().tap();
 await page.getByRole("button", { name: "Yes", exact: true }).tap();
 await page.getByText("Done").waitFor({ timeout: 90000 }).catch(() => {});
@@ -254,7 +254,7 @@ ok(usdcOf(DAVE) === 300_000_000n && /Instant \+ Hot wallet/.test(by2), "over the
 
 // ---------------------------------------------------------------- level 3: paper becomes the recovery
 const paper = privateKeyToAccount("0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a").address; // anvil #2
-await page.locator(".top .me").tap();
+await page.locator(".fab-settings").tap();
 await page.locator(".guardian input").waitFor();
 ok(await page.getByRole("button", { name: "Save", exact: true }).isDisabled(), "guardian: Save is off until the address changes");
 await page.locator(".guardian input").tap();
@@ -298,7 +298,7 @@ ok(/^\(0, 0, 0/.test(req), `recovery cancelled (${req.slice(0, 40)})`);
 await page.evaluate(() => localStorage.clear());
 await page.goto(`${APP}/`);
 await page.getByText("I already have one").tap();
-await page.getByText("Receive", { exact: true }).waitFor({ timeout: 30000 });
+await page.getByText("Deposit", { exact: true }).waitFor({ timeout: 30000 });
 const again = await page.evaluate(() => JSON.parse(localStorage.getItem("iws.account")));
 ok(again.address === acct.address, "logged back in to the same wallet");
 await page.screenshot({ path: `${OUT}/s11-relogin.png` });
@@ -368,7 +368,7 @@ const members = cast(`call ${rolesOf} "getModulesPaginated(address,uint256)(addr
 ok(!members.toLowerCase().includes(acct.burnerSigner.toLowerCase().slice(2)), `the lost phone is out of the budget (${members.slice(0, 50)})`);
 ok(modsAfter === rolesAddr, "Roles stays on, ready for this phone");
 // and the recovered phone can level up again (Roles exists: no second deploy)
-await page2.locator(".top .me").tap();
+await page2.locator(".fab-settings").tap();
 await page2.getByText("Connect and add").first().tap();
 await page2.getByRole("button", { name: "Yes", exact: true }).tap();
 await page2.waitForTimeout(25000);
@@ -396,14 +396,14 @@ await page.goto(`${APP}/`);
 await page.evaluate(() => localStorage.clear());
 await page.goto(`${APP}/`);
 await page.getByText("Create wallet").tap();
-await page.getByText("Receive", { exact: true }).waitFor({ timeout: 20000 });
+await page.getByText("Deposit", { exact: true }).waitFor({ timeout: 20000 });
 const acct3 = await page.evaluate(() => JSON.parse(localStorage.getItem("iws.account")));
 setUsdc(acct3.address, 2000_000_000n);
 cast(`rpc anvil_setBalance ${acct3.address} 0x2386f26fc10000`);
 await page.waitForTimeout(13000);
-const lvl = async () => (await page.locator(".top .me .lvl").textContent()).replace(/\s/g, "");
+const lvl = async () => (await page.locator(".fab-settings .lvl").textContent()).replace(/\s/g, "");
 ok((await lvl()) === "LVL1", "a new wallet: LVL1");
-await page.locator(".top .me").tap();
+await page.locator(".fab-settings").tap();
 await page.getByText("Connect and add the wedgie", { exact: true }).tap();
 await page.getByRole("button", { name: "Yes", exact: true }).tap();
 await page.waitForTimeout(25000);
@@ -424,7 +424,7 @@ const by5 = await send(HAL, "USDC", "300", "s17");
 ok(usdcOf(HAL) === 300_000_000n && /^Instant \+ Wedgie/.test(by5) && wedgieSigns === w0 + 1, "Instant + wedgie, over the budget: Face ID + wedgie");
 // then the hot wallet: the wedgie signs it, 3 of 4 after
 w0 = wedgieSigns;
-await page.locator(".top .me").tap();
+await page.locator(".fab-settings").tap();
 await page.getByText("Connect and add", { exact: true }).tap();
 await page.getByRole("button", { name: "Yes", exact: true }).tap();
 await page.waitForTimeout(25000);

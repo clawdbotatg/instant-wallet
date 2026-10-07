@@ -226,9 +226,12 @@ async function swap(fromSym, amount, toSym, via, shot) {
   const how = await swap("USDC", "100", "ETH", "uniswap", "s4a");
   const u1 = usdcOf(acct.address), e1 = BigInt(cast(`balance ${acct.address}`));
   ok(/Uniswap/.test(how) && u0 - u1 >= 100_000_000n && u0 - u1 < 102_000_000n && e1 > e0, `swap via Uniswap: 100 USDC → ${Number(e1 - e0) / 1e18} ETH (${how})`);
-  const how2 = await swap("ETH", "0.002", USDC, "lifi", "s4b"); // USDC picked as a custom (pasted) token
-  const u2 = usdcOf(acct.address), e2 = BigInt(cast(`balance ${acct.address}`));
-  ok(/LI\.FI/.test(how2) && e1 - e2 >= 2_000_000_000_000_000n && u2 > u1, `swap via LI.FI: 0.002 ETH → ${Number(u2 - u1) / 1e6} USDC (${how2})`);
+  // SKIP_LIFI=1: LI.FI's live route sometimes reverts on a fork (solver/RFQ state the fork doesn't have)
+  if (!process.env.SKIP_LIFI) {
+    const how2 = await swap("ETH", "0.002", USDC, "lifi", "s4b"); // USDC picked as a custom (pasted) token
+    const u2 = usdcOf(acct.address), e2 = BigInt(cast(`balance ${acct.address}`));
+    ok(/LI\.FI/.test(how2) && e1 - e2 >= 2_000_000_000_000_000n && u2 > u1, `swap via LI.FI: 0.002 ETH → ${Number(u2 - u1) / 1e6} USDC (${how2})`);
+  }
   ok(cast(`call ${USDC} "allowance(address,address)(uint256)" ${acct.address} 0x2626664c2603336E57B271c5C0b26F421741e481`) === "0", "no allowance left behind");
 }
 
@@ -402,7 +405,7 @@ setUsdc(acct3.address, 2000_000_000n);
 cast(`rpc anvil_setBalance ${acct3.address} 0x2386f26fc10000`);
 await page.waitForTimeout(13000);
 const lvl = async () => (await page.locator(".fab-settings .lvl").textContent()).replace(/\s/g, "");
-ok((await lvl()) === "LVL1", "a new wallet: LVL1");
+ok((await lvl()) === "1/1", "a new wallet: 1/1");
 await page.locator(".fab-settings").tap();
 await page.getByText("Connect and add the wedgie", { exact: true }).tap();
 await page.getByRole("button", { name: "Yes", exact: true }).tap();
@@ -414,7 +417,7 @@ ok(cast(`call ${acct3.address} "getThreshold()(uint256)"`) === "3", "wedgie firs
 ok(cast(`call ${acct3.address} "getOwners()(address[])"`).split(",").length === 3, "3 owners: Instant + the wedgie's two slots");
 await page.keyboard.press("Escape");
 await page.waitForTimeout(1000);
-ok((await lvl()) === "LVL2", "Instant + wedgie: LVL2");
+ok((await lvl()) === "2/2", "Instant + wedgie: 2/2");
 let w0 = wedgieSigns;
 const GUS = rand();
 const by4 = await send(GUS, "USDC", "30", "s16");
@@ -440,7 +443,7 @@ await page.waitForTimeout(25000);
 ok(cast(`call ${RECOVERY} "isGuardian(address,address)(bool)" ${acct3.address} ${paper}`) === "true", "paper after the wedgie: it's the recovery address");
 await page.keyboard.press("Escape");
 await page.waitForTimeout(1000);
-ok((await lvl()) === "LVL3", "Instant + hot + wedgie: LVL3");
+ok((await lvl()) === "2/3", "Instant + hot + wedgie: 2/3");
 await page.screenshot({ path: `${OUT}/s18-any-order-done.png` });
 
 await browser.close();

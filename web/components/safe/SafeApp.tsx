@@ -7,7 +7,7 @@ import { amount, short, usd } from "@/lib/format";
 import { type ChainState, type SafeAccount, loadAccount, readAll, saveAccount } from "@/lib/safe/state";
 import type { Asset, Portfolio } from "@/lib/types";
 import { dropOtherBudgetsCalls } from "@/lib/safe/core";
-import { type Prepared, finishOwners, ownerSigners, prepareOwners } from "@/lib/safe/send";
+import { type Prepared, finishOwners, ownerSigners, prepareOwners, signerOptions } from "@/lib/safe/send";
 import { friendly } from "../Welcome";
 import { Blockie, DepositIcon, GearIcon, ScanIcon, SendIcon, Sheet, SwapIcon, TokenIcon, copy, useToast } from "../bits";
 import { Receive } from "../Receive";
@@ -21,7 +21,7 @@ import { WedgieButton } from "./WedgieButton";
 
 type View = { kind: "home" } | { kind: "send"; asset?: Asset } | { kind: "swap" } | { kind: "receive" } | { kind: "deposit" } | { kind: "keys" };
 
-/** Instant Wallet on a Safe: a big balance, Deposit / Swap, the address pill opens Receive, settings (with the level) bottom middle, a send button on each asset, a scan button and the wedgie (bottom left). */
+/** Instant Wallet on a Safe: a big balance, Deposit / Swap, the address pill opens Receive, settings bottom middle (keys needed / keys you have), a send button on each asset, a scan button and the wedgie (bottom left). */
 export function SafeApp() {
   const [account, setAccountState] = useState<SafeAccount | null | undefined>(undefined);
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
@@ -63,6 +63,11 @@ export function SafeApp() {
     refresh();
   };
   const top = Math.max(1, ...states.map(s => s.level));
+  // the settings button's "2/3": keys it takes to move everything / keys you have (on the chain at the top level)
+  const topState = states.find(s => s.level === top);
+  const opts = topState && topState.threshold > 1 ? signerOptions(topState, account!) : [];
+  const keysHave = new Set(opts.flatMap(o => o.signers)).size || 1;
+  const keysNeed = opts.length ? Math.min(...opts.map(o => o.signers.length)) : 1;
   const feeTokenOn = (chainId: number): "usdc" | "eth" => {
     const usdcAddr = chainById(chainId)?.usdc?.toLowerCase();
     // USDC only when there's plenty for a fee there (Ethereum fees are dollars); else ETH
@@ -182,7 +187,7 @@ export function SafeApp() {
       <WedgieButton account={account} states={states} onKeys={() => setView({ kind: "keys" })} />
       <button className="fab fab-settings" aria-label="Settings" onClick={() => setView({ kind: "keys" })}>
         <GearIcon />
-        <span className="lvl">LVL{top}</span>
+        <span className="lvl">{keysNeed}/{keysHave}</span>
       </button>
       <button className="fab" aria-label="Scan to send" onClick={() => setView({ kind: "send" })}>
         <ScanIcon />

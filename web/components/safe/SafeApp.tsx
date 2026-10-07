@@ -9,7 +9,7 @@ import type { Asset, Portfolio } from "@/lib/types";
 import { dropOtherBudgetsCalls } from "@/lib/safe/core";
 import { type Prepared, finishOwners, ownerSigners, prepareOwners } from "@/lib/safe/send";
 import { friendly } from "../Welcome";
-import { Blockie, ScanIcon, SendIcon, Sheet, TokenIcon, copy, useToast } from "../bits";
+import { Blockie, ReceiveIcon, ScanIcon, SendIcon, Sheet, SwapIcon, TokenIcon, copy, useToast } from "../bits";
 import { Receive } from "../Receive";
 import { Keys } from "./Keys";
 import { RecoveryAlert } from "./RecoveryAlert";
@@ -143,10 +143,10 @@ export function SafeApp() {
           </div>
           <div className="actions">
             <button className="btn" onClick={() => setView({ kind: "receive" })}>
-              Receive
+              <ReceiveIcon /> Receive
             </button>
             <button className="btn" onClick={() => setView({ kind: "swap" })}>
-              Swap
+              <SwapIcon /> Swap
             </button>
           </div>
         </div>

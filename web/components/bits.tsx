@@ -132,6 +132,22 @@ export function SendIcon({ size = 20 }: { size?: number }) {
   );
 }
 
+export function ReceiveIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3v12M7 10l5 5 5-5M4 20h16" />
+    </svg>
+  );
+}
+
+export function SwapIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M7 4v14M3 14l4 4 4-4M17 20V6M13 10l4-4 4 4" />
+    </svg>
+  );
+}
+
 export function useToast(): [string | null, (m: string) => void] {
   const [msg, setMsg] = useState<string | null>(null);
   useEffect(() => {

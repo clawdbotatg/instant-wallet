@@ -150,8 +150,12 @@ div.asset:active { background: none; }
 .scanner .cap { position: absolute; bottom: 14px; inset-inline: 0; text-align: center; color: #fff; font-weight: 600; }
 
 .confirm .line { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); }
-.confirm .line:last-child { border: 0; }
+.confirm .line:last-of-type { border: 0; }
 .confirm .line span:first-child { color: var(--muted); font-weight: 600; }
+.confirm.pending { position: relative; }
+.confirm .status { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: max-content; max-width: 85%; margin: 0; padding: 10px 18px; border-radius: 999px; background: var(--shell); box-shadow: var(--shell-shadow); }
+.confirm .status:empty { display: none; }
+.confirm.pending .line > :last-child { color: var(--muted); }
 
 .welcome { min-height: 92dvh; display: grid; align-content: center; gap: 22px; text-align: center; }
 .welcome h1 { font-size: clamp(42px, 12vw, 60px); }

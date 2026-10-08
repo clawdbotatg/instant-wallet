@@ -376,59 +376,77 @@ export function SafeSwap({
         </div>
       </div>
 
-      {from && to && base !== null && base > 0n && !tooMuch && (
-        <div className="card confirm">
-          {route ? (
-            <>
-              <div className="line">
-                <span>You get</span>
-                <b className="get">
+      {from && (
+        // always the same rows, so nothing below jumps while a price loads: blanks until there's a route
+        <div className={`card confirm${route ? "" : " pending"}`}>
+          <div className="line">
+            <span>You get</span>
+            <b className="get">
+              {route ? (
+                <>
                   ≈ {outFmt(route, route.toAmount)} {toUsd ? <span className="fine">{usd(toUsd)}</span> : null}
-                </b>
-              </div>
-              <div className="line">
-                <span>At least</span>
-                <span>{outFmt(route, route.toAmountMin)}</span>
-              </div>
-              {route.to.chainId !== route.from.chainId && (
-                <div className="line">
-                  <span>Arrives</span>
-                  <span>
-                    on {toName} in ~{route.seconds < 90 ? `${route.seconds} s` : `${Math.round(route.seconds / 60)} min`}
-                  </span>
-                </div>
+                </>
+              ) : (
+                "—"
               )}
-              <div className="line">
-                <span>Via</span>
-                <span className="via">
+            </b>
+          </div>
+          <div className="line">
+            <span>At least</span>
+            <span>{route ? outFmt(route, route.toAmountMin) : "—"}</span>
+          </div>
+          {!!to && tokenOf(from).chainId !== to.chainId && (
+            <div className="line">
+              <span>Arrives</span>
+              <span>
+                {route ? `on ${toName} in ~${route.seconds < 90 ? `${route.seconds} s` : `${Math.round(route.seconds / 60)} min`}` : "—"}
+              </span>
+            </div>
+          )}
+          <div className="line">
+            <span>Via</span>
+            <span className="via">
+              {route ? (
+                <>
                   {route.via === "uniswap" ? "Uniswap" : `LI.FI · ${route.tool}`}
                   {other && <span className="fine"> (beat {other.via === "uniswap" ? "Uniswap" : "LI.FI"})</span>}
-                </span>
-              </div>
-              {lost !== null && (
-                <div className="line">
-                  <span>Price + fees</span>
-                  <span className={lost > 0.02 ? "err" : ""}>{lost <= 0 ? "none" : `${(lost * 100).toFixed(2)}%`}</span>
-                </div>
+                </>
+              ) : (
+                "—"
               )}
-              <div className="line">
-                <span>Network fee</span>
-                <span>{feeLabel}</span>
-              </div>
-              <div className="line">
-                <span>Signed by</span>
-                <SignerChoice options={options} value={signers} onChange={setChosen} disabled={busy} />
-              </div>
-              {!st?.deployed && (
-                <div className="line">
-                  <span>First tx here</span>
-                  <span className="fine">deploys your wallet on {chainById(chainId)?.name}</span>
-                </div>
-              )}
-            </>
-          ) : (
-            <p className="fine center" style={{ padding: 8 }}>
-              {quoting ? "Finding the best price…" : routes ? `No route for this swap.${routes.lifiErr ? ` (${routes.lifiErr})` : ""}` : "…"}
+            </span>
+          </div>
+          <div className="line">
+            <span>Price + fees</span>
+            {route && lost !== null ? (
+              <span className={lost > 0.02 ? "err" : ""}>{lost <= 0 ? "none" : `${(lost * 100).toFixed(2)}%`}</span>
+            ) : (
+              <span>—</span>
+            )}
+          </div>
+          <div className="line">
+            <span>Network fee</span>
+            <span>{route ? feeLabel : "—"}</span>
+          </div>
+          <div className="line">
+            <span>Signed by</span>
+            <SignerChoice options={options} value={signers} onChange={setChosen} disabled={busy} />
+          </div>
+          {!st?.deployed && (
+            <div className="line">
+              <span>First tx here</span>
+              <span className="fine">deploys your wallet on {chainById(chainId)?.name}</span>
+            </div>
+          )}
+          {!route && (
+            <p className="fine center status">
+              {tooMuch || !to || base === null || base <= 0n
+                ? ""
+                : quoting
+                  ? "Finding the best price…"
+                  : routes
+                    ? `No route for this swap.${routes.lifiErr ? ` (${routes.lifiErr})` : ""}`
+                    : "Finding the best price…"}
             </p>
           )}
         </div>

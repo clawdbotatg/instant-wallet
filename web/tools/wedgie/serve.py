@@ -17,8 +17,9 @@ sys.modules["wedgie"] = W; sys.modules["lcd"] = L; sys.modules["ui"] = ui; sys.m
 import safe as S
 def screen(head, lines, yes, k):
     sys.stderr.write("-- %s\n" % head)
-    for s, c in lines:
-        sys.stderr.write(("!! " if c == "RED" else "   ") + s + "\n")
+    for l in lines:
+        s, c, k = l[0], l[1], (l[2] if len(l) > 2 else "")
+        sys.stderr.write(("!! " if c == "RED" else "   ") + ("[blockie] " if k in ("addr", "pic") else "") + s + ("  (big)" if k == "big" else "") + "\n")
     return True
 S._screen = screen
 S.key = {"x": "0x" + "11" * 32, "y": "0x" + "22" * 32}

@@ -16,7 +16,7 @@ import { Scanner } from "../Scanner";
 import { Select, assetOpt } from "./Pick";
 import { friendly } from "../Welcome";
 import { SignerChoice } from "./Pick";
-import { WedgieIcon } from "./WedgieButton";
+import { TxPicture, WedgieIcon } from "./WedgieButton";
 import { Parked } from "@/lib/safe/pending";
 
 
@@ -197,7 +197,10 @@ export function SafeSend({
       setHash(h);
       setStage("done");
     } catch (e: any) {
-      if (e instanceof Parked) return setStage("parked");
+      if (e instanceof Parked) {
+        setHash(e.hash as Hash);
+        return setStage("parked");
+      }
       setError(friendly(e));
       setStage("review");
     } finally {
@@ -216,6 +219,7 @@ export function SafeSend({
         <p>
           You signed {what} to {who}. Open Instant Wallet on your computer with the wedgie plugged in and press A to send it.
         </p>
+        {hash && <TxPicture hash={hash} />}
         <button className="btn btn-green wide" onClick={onDone}>
           OK
         </button>

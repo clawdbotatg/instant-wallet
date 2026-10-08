@@ -38,9 +38,11 @@ export async function cancelPending(p: Pending) {
 
 /** Thrown by a send that signed here and now waits for the wedgie on a computer. */
 export class Parked extends Error {
-  constructor() {
+  hash: Hex; // the safeTxHash: the wedgie draws its blockie, and so does this phone
+  constructor(hash: Hex) {
     super("Signed here. Finish it with your wedgie on your computer.");
     this.name = "Parked";
+    this.hash = hash;
   }
 }
 

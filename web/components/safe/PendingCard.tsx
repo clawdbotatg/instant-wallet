@@ -7,7 +7,7 @@ import { type Stage, finishPending } from "@/lib/safe/send";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import { friendly } from "../Welcome";
-import { WedgieIcon } from "./WedgieButton";
+import { TxPicture, WedgieIcon } from "./WedgieButton";
 
 const STAGE: Partial<Record<Stage, string>> = { "signing-wedgie": "Check the wedgie, press A…", sending: "Sending…", confirming: "Confirming…" };
 
@@ -76,6 +76,7 @@ function One({ p, account, onGone, toast }: { p: Pending; account: SafeAccount; 
           <p className="fine">{what}</p>
         </div>
       </div>
+      <TxPicture hash={p.hash} />
       {!here && <p className="fine">Open Instant Wallet on your computer with the wedgie plugged in. It&apos;s there, ready to send.</p>}
       {error && <p className="err">{error}</p>}
       <div className="row">

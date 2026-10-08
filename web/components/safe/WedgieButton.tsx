@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { type ChainState, type SafeAccount, wedgieSigners } from "@/lib/safe/state";
 import { type Peek, Wedgie, wedgieArmed, wedgieSupported } from "@/lib/safe/wedgie";
-import { Sheet } from "../bits";
+import { Blockie, Sheet } from "../bits";
 
 /** The wedgie, drawn after the device render (design/brand/device-mark.png): white shell, a bill and a card behind, knob, screen, four buttons. */
 export function WedgieIcon({ size = 44 }: { size?: number }) {
@@ -24,6 +24,20 @@ export function WedgieIcon({ size = 44 }: { size?: number }) {
         <rect key={i} x="48" y={19 + i * 6} width="8" height="4.4" rx="1.2" fill={c} />
       ))}
     </svg>
+  );
+}
+
+/** The transaction's picture: the wedgie draws the same blockie of the Safe tx hash on its first page. */
+export function TxPicture({ hash }: { hash: string }) {
+  return (
+    <div className="row" style={{ justifyContent: "center", gap: 12 }}>
+      <Blockie address={hash} size={48} />
+      <span className="fine" style={{ textAlign: "left" }}>
+        The wedgie shows this picture.
+        <br />
+        <span className="mono">tx {hash.slice(0, 6)}..{hash.slice(-4)}</span>
+      </span>
+    </div>
   );
 }
 

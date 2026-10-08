@@ -133,7 +133,7 @@ export async function finishOwners(p: Prepared): Promise<Hash> {
   if (later) {
     stage("sending");
     await parkPending({ chainId, safe: a.address, tx: t, hash: h, sigs, burner: { x: a.qx, y: a.qy }, label: p.opts.label });
-    throw new Parked();
+    throw new Parked(h);
   }
   stage("sending");
   const hash = await post({

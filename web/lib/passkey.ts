@@ -44,8 +44,8 @@ export function credentialIdHash(credentialId: string): Hex {
   return keccak256(base64urlToBytes(credentialId));
 }
 
-function prfOf(cred: PublicKeyCredential): Uint8Array | undefined {
-  const r = (cred.getClientExtensionResults() as any)?.prf?.results?.first;
+function prfOf(cred: PublicKeyCredential, which: "first" | "second" = "first"): Uint8Array | undefined {
+  const r = (cred.getClientExtensionResults() as any)?.prf?.results?.[which];
   return r ? new Uint8Array(r) : undefined;
 }
 
@@ -83,9 +83,12 @@ type Assertion = {
   clientDataJSON: Uint8Array;
   signature: Uint8Array;
   prf?: Uint8Array;
+  prfSecond?: Uint8Array;
 };
 
-async function assert(challenge: Uint8Array<ArrayBuffer>, credentialId?: string): Promise<Assertion> {
+type Salts = { first: Uint8Array; second?: Uint8Array };
+
+async function assert(challenge: Uint8Array<ArrayBuffer>, credentialId?: string, salts: Salts = { first: PRF_SALT }): Promise<Assertion> {
   const cred = (await navigator.credentials.get({
     publicKey: {
       challenge,
@@ -93,7 +96,7 @@ async function assert(challenge: Uint8Array<ArrayBuffer>, credentialId?: string)
       userVerification: "required",
       allowCredentials: credentialId ? [{ type: "public-key", id: base64urlToBytes(credentialId) as Uint8Array<ArrayBuffer> }] : undefined,
       timeout: 60_000,
-      extensions: { prf: { eval: { first: PRF_SALT } } } as any,
+      extensions: { prf: { eval: salts } } as any,
     },
   })) as PublicKeyCredential | null;
   if (!cred) throw new Error("No passkey signature");
@@ -104,6 +107,7 @@ async function assert(challenge: Uint8Array<ArrayBuffer>, credentialId?: string)
     clientDataJSON: new Uint8Array(r.clientDataJSON),
     signature: new Uint8Array(r.signature),
     prf: prfOf(cred),
+    prfSecond: prfOf(cred, "second"),
   };
 }
 
@@ -174,6 +178,21 @@ export async function assertChallenge(credentialId: string | undefined, digest: 
   if (challenge.length !== 32) throw new Error("digest must be 32 bytes");
   const a = await assert(challenge, credentialId);
   return { credentialId: a.credentialId, authenticatorData: a.authenticatorData, clientDataJSON: a.clientDataJSON, ...parseDerSignature(a.signature) };
+}
+
+/** assertChallenge plus the PRF outputs for two caller-chosen salts (the post-quantum hybrid: lib/safe/pq). */
+export async function assertChallengePrf(credentialId: string | undefined, digest: Hex, first: Uint8Array, second: Uint8Array) {
+  const challenge = hexToBytes(digest) as Uint8Array<ArrayBuffer>;
+  if (challenge.length !== 32) throw new Error("digest must be 32 bytes");
+  const a = await assert(challenge, credentialId, { first, second });
+  return {
+    credentialId: a.credentialId,
+    authenticatorData: a.authenticatorData,
+    clientDataJSON: a.clientDataJSON,
+    ...parseDerSignature(a.signature),
+    prf: a.prf,
+    prfSecond: a.prfSecond,
+  };
 }
 
 /** Sign a 32-byte digest with Face ID. Returns the contract encoding and, if supported, the PRF output. */

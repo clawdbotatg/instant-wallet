@@ -524,6 +524,12 @@ A thief holding hot or the wedgie alone can switch off your burner's budget. Tha
 | recovery (DAO or paper) | burner sets a new one | burner + hot | all three |
 | you (death) | death switch → heir after 6 mo | same | same |
 
+## Post-quantum passkey (experimental, Austin 10-08)
+
+One Face ID makes two signatures the wallet needs together: the passkey's own (P-256) and a hash-only one from a
+key derived from the passkey's PRF secret. The hash key rolls every transaction, so each public key is seen once.
+Off by default; prototype + tests in `PQ-HYBRID.md`.
+
 ## Open decisions
 
 1. ~~Death switch length~~ **Decided: 6 months** (Austin, 10-05).

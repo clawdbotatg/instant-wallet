@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { type Hash, formatUnits, getAddress, parseUnits, zeroAddress } from "viem";
-import { CHAINS, chainById, explorerTx, publicClient } from "@/lib/chains";
-import { amount as fmtAmount, usd } from "@/lib/format";
+import { CHAINS, chainById, explorerAddress, explorerTx, publicClient } from "@/lib/chains";
+import { amount as fmtAmount, short, usd } from "@/lib/format";
 import { abi } from "@/lib/safe/core";
 import type { Quote } from "@/lib/safe/fee";
 import { type FeeToken, type Signer, type Stage, getQuote, ownerSigners, ownersSend, sendKind, signerOptions } from "@/lib/safe/send";
@@ -18,11 +18,21 @@ import { friendly } from "../Welcome";
 
 const SLIPPAGE_BPS = 50;
 const tokenOf = (a: Asset): Token => ({ chainId: a.chainId, address: a.asset, symbol: a.symbol, decimals: a.decimals, logo: a.logo, priceUsd: a.price ?? undefined });
-const tokenOpt = (t: Token): Opt => ({
+/** A search hit: a token plus its name and how deep its pools are (what tells the real coin from its copies). */
+type Found = Token & { name: string; liquidityUsd?: number };
+const compactUsd = (v: number) => "$" + v.toLocaleString("en-US", { notation: "compact", maximumFractionDigits: 1 });
+const tokenOpt = (t: Token | Found): Opt => ({
   key: t.address,
   icon: <TokenIcon symbol={t.symbol} asset={t.address} chainId={t.chainId} logo={t.logo} size={28} />,
   label: t.symbol,
-  search: `${t.symbol} ${t.address}`,
+  right:
+    "name" in t ? (
+      <span className="fine">
+        {t.liquidityUsd ? `${compactUsd(t.liquidityUsd)} pool · ` : ""}
+        {short(t.address)}
+      </span>
+    ) : undefined,
+  search: `${t.symbol} ${"name" in t ? t.name : ""} ${t.address}`,
 });
 const chainOpt = (id: number): Opt => ({ key: String(id), label: <ChainChip chainId={id} />, search: chainById(id)?.name });
 const same = (x: { chainId: number; address: string }, y: { chainId: number; address: string }) =>
@@ -83,6 +93,35 @@ export function SafeSwap({
     if (to && to.chainId === toChain && !list.some(t => same(t, to))) list.push(to); // a pasted custom token
     return list.filter(t => !from || !same(t, tokenOf(from)));
   }, [toChain, assets, from, to]);
+  // typed in the "To" box: search every token on that chain (well-known ones + anything with a pool)
+  const [query, setQuery] = useState("");
+  const [found, setFound] = useState<Found[]>([]);
+  const [searching, setSearching] = useState(false);
+  useEffect(() => {
+    setFound([]);
+    if (query.length < 2) return setSearching(false);
+    setSearching(true);
+    const ctl = new AbortController();
+    const timer = setTimeout(async () => {
+      const j = await fetch(`/api/swap/tokens?chain=${toChain}&q=${encodeURIComponent(query)}`, { signal: ctl.signal })
+        .then(r => r.json())
+        .catch(() => null);
+      if (ctl.signal.aborted) return;
+      setFound(j?.tokens ?? []);
+      setSearching(false);
+    }, 300);
+    return () => {
+      clearTimeout(timer);
+      ctl.abort();
+    };
+  }, [query, toChain]);
+  const toOptions = useMemo(
+    () => [...choices, ...found.filter(t => !choices.some(c => same(c, t)) && (!from || !same(t, tokenOf(from))))],
+    [choices, found, from],
+  );
+  // not a well-known token or one you hold: say so, with its address, since anyone can make a token with any name
+  const unknownTo = !!to && !(POPULAR[to.chainId] ?? []).some(t => same({ ...t, chainId: to.chainId }, to)) && !assets.some(a => same(tokenOf(a), to));
+
   // a sensible default: USDC → ETH, anything else → USDC, same chain
   useEffect(() => {
     if (to && to.chainId === toChain && (!from || !same(to, tokenOf(from)))) return;
@@ -366,14 +405,24 @@ export function SafeSwap({
             disabled={busy}
           />
           <Select
-            value={to ? tokenOpt(to) : null}
-            options={choices.map(tokenOpt)}
-            onPick={k => setTo(choices.find(t => t.address === k) ?? null)}
+            value={to ? { ...tokenOpt(to), right: undefined } : null}
+            options={toOptions.map(tokenOpt)}
+            onPick={k => setTo(toOptions.find(t => t.address === k) ?? null)}
             placeholder="Token"
+            search={{ onQuery: setQuery, busy: searching, placeholder: "Search any token, or paste its address" }}
             custom={{ label: "Custom: paste a contract address", placeholder: `Token contract on ${toName}`, onCustom: customTo }}
             disabled={busy}
           />
         </div>
+        {unknownTo && to && (
+          <span className="fine">
+            Anyone can make a token called {to.symbol}. This one is{" "}
+            <a href={explorerAddress(to.chainId, to.address)} target="_blank" rel="noreferrer">
+              {short(to.address)}
+            </a>
+            {"liquidityUsd" in to && (to as Found).liquidityUsd ? ` · ${compactUsd((to as Found).liquidityUsd!)} in its pools` : ""}.
+          </span>
+        )}
       </div>
 
       {from && (

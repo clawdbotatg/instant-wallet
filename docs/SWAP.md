@@ -4,7 +4,8 @@ Austin, 2026-10-06: a **Swap** button under the balance (next to Receive) that s
 any other asset on any network**, in our own swap UI.
 
 **Built 2026-10-06:** `components/safe/SafeSwap.tsx` (the sheet), `lib/safe/swap.ts` (routers, token list, the batch,
-the relay's check), `lib/safe/uniswap.ts` (on-chain quotes), `app/api/swap/quote` (LI.FI, validated) and
+the relay's check), `app/api/swap/tokens` (token search for the To box: LI.FI's list + DexScreener, ranked by pool
+liquidity, copies of popular symbols dropped — added 2026-10-08), `lib/safe/uniswap.ts` (on-chain quotes), `app/api/swap/quote` (LI.FI, validated) and
 `app/api/swap/status` (cross-chain progress). Tested: `tools/safe-e2e.mjs` swaps on a Base fork through the real UI,
 once via Uniswap and once via LI.FI; `tools/safe-relay-check.mts` refuses a swap paying someone else or leaving an
 approval. Cross-chain (Base → Ethereum, ETH and USDC) checked by running LI.FI's calldata on a Base fork; the

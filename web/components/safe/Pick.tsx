@@ -27,6 +27,7 @@ export type Opt = { key: string; icon?: ReactNode; label: ReactNode; right?: Rea
  * A select box: closed, it shows the choice; open, you type in its place to filter and a short list floats over
  * the page below it (↑↓ + Enter, Escape or a tap outside closes). `custom`
  * adds a last row that turns into a paste box (a token's contract address); `onCustom` answers an error or null.
+ * `search` also sends what's typed to the parent, which adds what it finds (a token search) to `options`.
  */
 export function Select({
   value,
@@ -35,6 +36,7 @@ export function Select({
   placeholder = "Choose",
   filter = true,
   custom,
+  search,
   disabled,
 }: {
   value: Opt | null;
@@ -43,6 +45,7 @@ export function Select({
   placeholder?: string;
   filter?: boolean;
   custom?: { label: string; placeholder: string; onCustom: (address: string) => Promise<string | null> };
+  search?: { onQuery: (q: string) => void; busy: boolean; placeholder: string };
   disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -53,6 +56,7 @@ export function Select({
   const f = q.trim().toLowerCase();
   const shown = f ? options.filter(o => (o.search ?? "").toLowerCase().includes(f)) : options;
   const close = () => {
+    search?.onQuery("");
     setOpen(false);
     setPasting(false);
     setErr(null);
@@ -132,7 +136,7 @@ export function Select({
         </div>
       ) : filter ? (
         <div className="input" style={{ minHeight: 50 }}>
-          <input key="filter" autoFocus value={q} onChange={e => setQ(e.target.value)} onKeyDown={keys} placeholder="Type to filter" autoCapitalize="none" autoCorrect="off" spellCheck={false} style={{ fontSize: 16, padding: "10px 0" }} />
+          <input key="filter" autoFocus value={q} onChange={e => (setQ(e.target.value), search?.onQuery(e.target.value.trim()))} onKeyDown={keys} placeholder={search?.placeholder ?? "Type to filter"} autoCapitalize="none" autoCorrect="off" spellCheck={false} style={{ fontSize: 16, padding: "10px 0" }} />
           <button className="pill" aria-label="Close" onClick={close}>
             ▴
           </button>
@@ -141,7 +145,7 @@ export function Select({
       {err && <span className="err">{err}</span>}
       {!pasting && (
         <div className="picker drop" style={filter ? undefined : { top: 0 }}>
-          {shown.length === 0 && <p className="fine center">Nothing matches “{q}”</p>}
+          {shown.length === 0 && !search?.busy && <p className="fine center">Nothing matches “{q}”</p>}
           {shown.map((o, i) => (
             <button
               key={o.key}
@@ -156,6 +160,7 @@ export function Select({
               <span>{o.right}</span>
             </button>
           ))}
+          {search?.busy && f && <p className="fine center">Searching…</p>}
           {custom && (
             <button
               className="pill"

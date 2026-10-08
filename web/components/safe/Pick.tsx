@@ -199,7 +199,7 @@ export function SignerChoice({ options, value, onChange, disabled }: { options: 
             disabled={disabled || !o.ready}
             onClick={() => onChange(o.signers)}
           >
-            {signedByLabel(o.signers)} <span className="fine">{o.weight}/{o.threshold}</span>
+            {signedByLabel(o.signers)} <span className="fine">{o.signers.length}/{o.of}</span>
           </button>
         ))}
       </span>

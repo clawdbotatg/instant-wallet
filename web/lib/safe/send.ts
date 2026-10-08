@@ -226,8 +226,12 @@ export async function budgetSend(opts: {
   return hash;
 }
 
-/** One way to reach the threshold: which keys sign, how many signatures they make, and whether this device can. */
-export type SignerOption = { signers: Signer[]; weight: number; threshold: number; ready: boolean; why?: string; later?: string };
+/**
+ * One way to reach the threshold: which keys sign, how many signatures they make, and whether this device can.
+ * `of` = how many keys the wallet has (what the user sees: Instant + Wedgie is 2 of 3 keys, though the wedgie
+ * makes 2 of the 3 signatures).
+ */
+export type SignerOption = { signers: Signer[]; weight: number; threshold: number; of: number; ready: boolean; why?: string; later?: string };
 
 /**
  * Every set of keys that can sign an owners transaction on this chain, read from the owners and threshold on chain
@@ -250,7 +254,7 @@ export function signerOptions(st: ChainState, a: SafeAccount): SignerOption[] {
     const why = ks.includes("hot") && !hotAvailable() ? "needs your hot wallet (a browser with it)" : undefined;
     // the wedgie on a phone: sign here, finish on the computer (a send parks for it)
     const later = ks.includes("wedgie") && !wedgieSupported() ? "the wedgie signs after, on your computer" : undefined;
-    out.push({ signers: ks, weight: sum(ks), threshold: t, ready: !why, why, later });
+    out.push({ signers: ks, weight: sum(ks), threshold: t, of: keys.length, ready: !why, why, later });
   }
   return out.sort((x, y) => Number(y.ready) - Number(x.ready) || Number(!!x.later) - Number(!!y.later) || x.signers.length - y.signers.length || Number(y.signers.includes("burner")) - Number(x.signers.includes("burner")));
 }

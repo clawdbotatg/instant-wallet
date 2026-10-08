@@ -1,6 +1,7 @@
 // The wedgie hand-off on a Base fork: a big send started on a "phone" (no Web Serial) signs with Face ID and parks
 // on /api/safe/pending; the "computer" (the fake wedgie on Web Serial) sees a card, one press sends it.
-// Same setup as safe-e2e.mjs (anvil fork + next dev); RPC= / APP= pick another fork / app port.
+// Same setup as safe-e2e.mjs (anvil fork + next dev, plus NEXT_PUBLIC_TEST_FEE_ALLOWANCE=10000000: the fork's fees are
+// ~$2.5, over Base's 1 USDC fee allowance); RPC= / APP= pick another fork / app port.
 import { chromium } from "playwright-core";
 import { execSync } from "node:child_process";
 import fs from "node:fs";
@@ -202,7 +203,8 @@ await page.screenshot({ path: `${OUT}/p5-computer-done.png` });
 // a smaller daily limit (owners: Face ID + the wedgie), then 5 USDC is over it
 const w1 = wedgieSigns;
 await page.locator(".fab-settings").tap();
-await page.getByPlaceholder("100").fill("2");
+await page.getByRole("button", { name: "Edit", exact: true }).tap();
+await page.locator(".input", { hasText: "USDC" }).locator("input").fill("2");
 await page.getByRole("button", { name: "Save", exact: true }).first().tap();
 await page.getByRole("button", { name: "Yes", exact: true }).tap();
 await page.waitForTimeout(20000);
@@ -210,6 +212,27 @@ const errsL = await page.locator(".err").allTextContents();
 if (errsL.length) console.log("on screen:", errsL);
 await page.screenshot({ path: `${OUT}/p6-limit.png`, fullPage: true });
 ok(wedgieSigns === w1 + 1 && (await page.getByText(/\/2 USDC/).count()) > 0, "daily limit changed to 2 USDC (the wedgie signed)");
+await page.keyboard.press("Escape");
+
+// exactly the limit: the USDC fee is on its own allowance, so 2 of 2 USDC goes on Face ID alone
+await page.evaluate(() => localStorage.setItem("test.phone", "1"));
+await page.reload();
+await page.waitForTimeout(13000);
+const IVY = rand();
+await page.locator(".asset", { has: page.locator(".sym", { hasText: /^USDC$/ }) }).first().locator(".send-one").tap();
+await page.getByPlaceholder("0x… or name.eth").fill(IVY);
+if (await unit.count()) await unit.tap();
+await page.locator("input.amount").fill("2");
+await page.getByText("Review").tap();
+await page.locator(".confirm .btn-green").waitFor({ timeout: 15000 });
+await page.waitForTimeout(1500);
+await page.screenshot({ path: `${OUT}/p7-exact-limit.png` });
+await page.locator(".confirm .btn-green").tap();
+await page.getByText("Sent", { exact: true }).waitFor({ timeout: 60000 }).catch(async () => {
+  console.log("on screen:", await page.locator(".err").allTextContents());
+  await page.screenshot({ path: `${OUT}/p7-error.png` });
+});
+ok(usdcOf(IVY) === 2_000_000n && wedgieSigns === w1 + 1, "sent exactly the 2 USDC limit with Face ID alone (fee on its own allowance)");
 
 await browser.close();
 console.log(fails ? `${fails} FAILED` : "ALL PASS");

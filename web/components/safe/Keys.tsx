@@ -4,10 +4,10 @@ import { type ReactNode, useState } from "react";
 import { type Address, encodeFunctionData, formatUnits, parseUnits, zeroAddress } from "viem";
 import { CHAINS, chainById, explorerAddress } from "@/lib/chains";
 import { short } from "@/lib/format";
-import { DAO, VERIFIERS, VERIFIERS_SLOT2 } from "@/lib/safe/config";
-import { type Call, DEFAULT_BUDGET, abi, budgetCalls, deploySignerCall, selfCall, setBudgetCalls, setGuardianCalls } from "@/lib/safe/core";
+import { DAO, FEE_ALLOWANCE, VERIFIERS, VERIFIERS_SLOT2 } from "@/lib/safe/config";
+import { type Call, DEFAULT_BUDGET, abi, budgetCalls, deploySignerCall, feeAllowanceCalls, selfCall, setBudgetCalls, setGuardianCalls } from "@/lib/safe/core";
 import { connectHot, hotAvailable } from "@/lib/safe/hot";
-import { type FeeToken, type Prepared, type Signer, finishOwners, ownerSigners, prepareOwners } from "@/lib/safe/send";
+import { type FeeToken, type Prepared, type Signer, finishOwners, getQuote, ownerSigners, prepareOwners } from "@/lib/safe/send";
 import { type ChainState, type SafeAccount, hotOf, wedgieSigners } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
@@ -53,12 +53,19 @@ export function Keys({
   const hot = st ? hotOf(account, st) : account.hot;
 
   // the budget comes with the first second key, whichever it is (the burner is still the only owner then)
-  const budgetFirst = (s: ChainState): Call[] =>
+  // (with the fee's own allowance, so the relay's USDC fee doesn't come off the limit)
+  const now = () => BigInt(Math.floor(Date.now() / 1000));
+  const feeApart = async () =>
+    feeAllowanceCalls(account.address, chainById(chainId)!.usdc!, (await getQuote(chainId, "setup")).relayer, FEE_ALLOWANCE[chainId] ?? 1_000_000n, now());
+  const budgetFirst = async (s: ChainState): Promise<Call[]> =>
     s.threshold <= 1
-      ? budgetCalls(account.address, chainById(chainId)!.usdc!, account.burnerSigner, DEFAULT_BUDGET, BigInt(Math.floor(Date.now() / 1000)), {
-          rolesDeployed: s.rolesDeployed,
-          rolesEnabled: !!s.roles,
-        })
+      ? [
+          ...budgetCalls(account.address, chainById(chainId)!.usdc!, account.burnerSigner, DEFAULT_BUDGET, now(), {
+            rolesDeployed: s.rolesDeployed,
+            rolesEnabled: !!s.roles,
+          }),
+          ...(await feeApart()),
+        ]
       : [];
   // a change the wedgie has to sign: connect it now, while this is still the tap (a port prompt needs one)
   const wedgieFor = async (signers: Signer[]) => (signers.includes("wedgie") && wedgieSupported() ? await Wedgie.connect() : null);
@@ -107,7 +114,7 @@ export function Keys({
       const h = await connectHot();
       if (h.toLowerCase() === account.address.toLowerCase()) throw new Error("That's this wallet itself.");
       // Instant alone: 2 of 2. With the wedgie (3 of 3): 3 of 4, so the wedgie + any one.
-      const calls = [...budgetFirst(st), selfCall(account.address, encodeFunctionData({ abi: abi.safe, functionName: "addOwnerWithThreshold", args: [h, st.hasWedgie ? 3n : 2n] }))];
+      const calls = [...(await budgetFirst(st)), selfCall(account.address, encodeFunctionData({ abi: abi.safe, functionName: "addOwnerWithThreshold", args: [h, st.hasWedgie ? 3n : 2n] }))];
       const signers = ownerSigners(st, account);
       const w = await wedgieFor(signers);
       try {
@@ -155,7 +162,7 @@ export function Keys({
       const signers = ownerSigners(st, account);
       const w = await wedgieFor(signers);
       try {
-        const calls = setBudgetCalls(account.address, { usdc: usdcV, eth: ethV }, BigInt(Math.floor(Date.now() / 1000)));
+        const calls = [...setBudgetCalls(account.address, { usdc: usdcV, eth: ethV }, now()), ...(await feeApart())];
         const p = await prepareOwners({ account, state: st, calls, signers, feeToken, setup: true, wedgie: w, label: "Change the daily limit" });
         return {
           label: `Daily limit: ${formatUnits(usdcV, 6)} USDC · ${formatUnits(ethV, 18)} ETH`,
@@ -178,7 +185,7 @@ export function Keys({
         const [w1, w2] = wedgieSigners(key);
         // Instant alone (1 of 1) → 3 of 3; Instant + hot (2 of 2) → 3 of 4. Either way the wedgie + one more.
         const calls = [
-          ...budgetFirst(st),
+          ...(await budgetFirst(st)),
           deploySignerCall(key.x, key.y, VERIFIERS),
           deploySignerCall(key.x, key.y, VERIFIERS_SLOT2),
           selfCall(account.address, encodeFunctionData({ abi: abi.safe, functionName: "addOwnerWithThreshold", args: [w1, 2n] })),

@@ -39,3 +39,8 @@ export const SIGNER_PROXY_CODE: Hex = "0x610100346100ad57601f6101b53881900391820
 export const ROLE_BURNER: Hex = keccak256(toBytes("instant-wallet.burner"));
 export const KEY_USDC: Hex = keccak256(toBytes("instant-wallet.burner.usdc"));
 export const KEY_ETH: Hex = keccak256(toBytes("instant-wallet.burner.eth"));
+/** The relay's fee, paid in USDC on the daily budget: its own small allowance, so the fee doesn't eat the limit. */
+export const KEY_FEE_USDC: Hex = keccak256(toBytes("instant-wallet.burner.fee-usdc"));
+// USDC a day: Base, Ethereum. A fork test raises it (anvil's 1 gwei tip makes a fee ~100× Base's)
+const TEST_FEE = process.env.NEXT_PUBLIC_TEST_FEE_ALLOWANCE;
+export const FEE_ALLOWANCE: Record<number, bigint> = TEST_FEE ? { 8453: BigInt(TEST_FEE), 1: BigInt(TEST_FEE) } : { 8453: 1_000_000n, 1: 20_000_000n };

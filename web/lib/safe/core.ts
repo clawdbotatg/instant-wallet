@@ -17,6 +17,7 @@ import {
   DAO,
   FALLBACK_HANDLER,
   KEY_ETH,
+  KEY_FEE_USDC,
   KEY_USDC,
   MODULE_FACTORY,
   MULTICALL3,
@@ -316,7 +317,7 @@ export function rolesAddress(safe: Address): Address {
   return getContractAddress({ opcode: "CREATE2", from: MODULE_FACTORY, salt, bytecode });
 }
 
-const OP = { Pass: 0, Matches: 5, WithinAllowance: 28, EtherWithinAllowance: 29 } as const;
+const OP = { Pass: 0, Or: 2, Matches: 5, EqualTo: 16, WithinAllowance: 28, EtherWithinAllowance: 29 } as const;
 const PT = { None: 0, Static: 1, Dynamic: 2, Tuple: 3, Array: 4, Calldata: 5 } as const;
 const enc32 = (h: Hex) => encodeAbiParameters([{ type: "bytes32" }], [h]);
 
@@ -386,6 +387,29 @@ export function setBudgetCalls(safe: Address, budget: Budget, now: bigint): Call
     data: encodeFunctionData({ abi: abi.roles, functionName: "setAllowance", args: [key, v, v, v, day, now] }),
   });
   return [r(KEY_USDC, budget.usdc), r(KEY_ETH, budget.eth)];
+}
+
+/**
+ * The relay's USDC fee off the daily limit: the burner's USDC transfers are re-scoped to
+ *   transfer(relayer, ≤ the fee allowance)  OR  transfer(anyone, ≤ the daily limit)
+ * so the fee to the relayer (only that address) spends its own small daily allowance first.
+ */
+export function feeAllowanceCalls(safe: Address, usdc: Address, relayer: Address, perDay: bigint, now: bigint): Call[] {
+  const roles = rolesAddress(safe);
+  const r = (functionName: any, args: any): Call => ({ to: roles, value: 0n, data: encodeFunctionData({ abi: abi.roles, functionName, args } as any) });
+  const conditions = [
+    { parent: 0, paramType: PT.None, operator: OP.Or, compValue: "0x" as Hex },
+    { parent: 0, paramType: PT.Calldata, operator: OP.Matches, compValue: "0x" as Hex }, // the fee
+    { parent: 0, paramType: PT.Calldata, operator: OP.Matches, compValue: "0x" as Hex }, // any transfer
+    { parent: 1, paramType: PT.Static, operator: OP.EqualTo, compValue: encodeAbiParameters([{ type: "address" }], [relayer]) },
+    { parent: 1, paramType: PT.Static, operator: OP.WithinAllowance, compValue: enc32(KEY_FEE_USDC) },
+    { parent: 2, paramType: PT.Static, operator: OP.Pass, compValue: "0x" as Hex },
+    { parent: 2, paramType: PT.Static, operator: OP.WithinAllowance, compValue: enc32(KEY_USDC) },
+  ];
+  return [
+    r("scopeFunction", [ROLE_BURNER, usdc, "0xa9059cbb", conditions, 0]),
+    r("setAllowance", [KEY_FEE_USDC, perDay, perDay, perDay, 86_400n, now]),
+  ];
 }
 
 /** A burner spend through Roles: the calldata the burner signs (plus a salt), and what the relay submits. */

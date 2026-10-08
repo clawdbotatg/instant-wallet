@@ -269,7 +269,9 @@ export function plan(st: ChainState, a: SafeAccount, token: Address, amount: big
   const isUsdc = token.toLowerCase() === usdc;
   if (st.budget && (isEth || isUsdc)) {
     const left = isEth ? st.budget.eth : st.budget.usdc;
-    if (amount + (feeIsSameToken ? fee : 0n) <= left) return { path: "budget" as const, signers: ["burner"] as Signer[] };
+    // a USDC fee on its own allowance doesn't come off the limit: the full limit can be sent
+    const feeApart = isUsdc && feeIsSameToken && st.budget.feeUsdc !== null && fee <= st.budget.feeUsdc;
+    if (amount + (feeIsSameToken && !feeApart ? fee : 0n) <= left) return { path: "budget" as const, signers: ["burner"] as Signer[] };
   }
   // a big move: the owners. Burner + hot, or the wedgie + one more.
   return { path: "owners" as const, signers: ownerSigners(st, a) };

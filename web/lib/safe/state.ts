@@ -1,6 +1,6 @@
 import { type Address, type Hex, getAddress, keccak256, size, toBytes, zeroAddress } from "viem";
 import { CHAINS, publicClient } from "../chains";
-import { DAO, KEY_ETH, KEY_USDC, RECOVERY_7D } from "./config";
+import { DAO, KEY_ETH, KEY_FEE_USDC, KEY_USDC, RECOVERY_7D } from "./config";
 import { abi, rolesAddress, safeAddress, signerAddress } from "./core";
 import { VERIFIERS_SLOT2 } from "./config";
 
@@ -61,7 +61,7 @@ export type ChainState = {
   staleBudget: boolean; // Roles is on and some other key is its member (a lost phone's budget, after a recovery)
   rolesMembers: Address[] | null; // the keys with a burner budget (null = couldn't read)
   rolesDeployed: boolean;
-  budget: { usdc: bigint; eth: bigint; usdcMax: bigint; ethMax: bigint } | null;
+  budget: { usdc: bigint; eth: bigint; usdcMax: bigint; ethMax: bigint; feeUsdc: bigint | null } | null;
   hasHot: boolean;
   hasWedgie: boolean;
   hot?: Address; // the hot wallet's address, when there is one
@@ -113,11 +113,13 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
       : [];
   const member = !!members?.some(m => m.toLowerCase() === a.burnerSigner.toLowerCase());
   if (rolesOn && member) {
-    const [u, e] = await Promise.all([
+    const [u, e, f] = await Promise.all([
       read("allowances", [KEY_USDC], roles, abi.roles).catch(() => null),
       read("allowances", [KEY_ETH], roles, abi.roles).catch(() => null),
+      read("allowances", [KEY_FEE_USDC], roles, abi.roles).catch(() => null),
     ]);
-    if (u && e) budget = { usdc: avail(u), eth: avail(e), usdcMax: u[1], ethMax: e[1] };
+    // the fee allowance: null on a wallet set up before it existed (its USDC fee still comes off the limit)
+    if (u && e) budget = { usdc: avail(u), eth: avail(e), usdcMax: u[1], ethMax: e[1], feeUsdc: f && f[2] > 0n ? avail(f) : null };
   }
   const recovery: Recovery =
     req && Number(req.executeAfter) > 0

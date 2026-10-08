@@ -103,9 +103,9 @@ export function SafeApp() {
             <img src="/mark-160.png" alt="" height={30} />
             Instant Wallet
           </div>
-          <button className="pill me" onClick={() => setView({ kind: "receive" })}>
-            <Blockie address={account.address} size={28} />
-            <span className="mono" style={{ fontSize: 13 }}>{short(account.address)}</span>
+          <button className="pill me" style={{ height: 48, paddingRight: 16, gap: 10 }} onClick={() => setView({ kind: "receive" })}>
+            <Blockie address={account.address} size={38} />
+            <span className="mono" style={{ fontSize: 16 }}>{short(account.address)}</span>
           </button>
         </div>
 

@@ -240,7 +240,7 @@ export function Keys({
         ))}
       </div>
 
-      <Rules st={st} />
+      {!st && <p className="fine">Loading…</p>}
       {st && !st.deployed && <p className="fine">Not deployed on {chainById(chainId)?.name} yet: the first send or change deploys it. Each network&apos;s wallet is set up on its own.</p>}
       {!canPay && <p className="err">Changes cost a few cents of gas, paid from this wallet. Add a little USDC or ETH on {chainById(chainId)?.name} first.</p>}
 
@@ -275,12 +275,18 @@ export function Keys({
 
       {st?.budget && st.threshold > 1 && (
         <Step title="Daily limit" key={`limit${chainId}`}>
-          <p className="fine">What Face ID alone can send each day. Over that needs two keys.</p>
+          <p className="fine">What Face ID alone can send each day. Over that: {overLimit(st)}.</p>
           {editLimit !== chainId ? (
             <div className="row" style={{ justifyContent: "space-between" }}>
-              <b>
-                {formatUnits(st.budget.usdcMax, 6)} USDC · {formatUnits(st.budget.ethMax, 18)} ETH
-              </b>
+              <span>
+                <b>
+                  {formatUnits(st.budget.usdcMax, 6)} USDC · {formatUnits(st.budget.ethMax, 18)} ETH
+                </b>
+                <br />
+                <span className="fine">
+                  left today: {cut(st.budget.usdc, 6, 2)} USDC · {cut(st.budget.eth, 18, 4)} ETH
+                </span>
+              </span>
               <button
                 className="pill"
                 disabled={!!busy || !!pending}
@@ -341,31 +347,10 @@ export function Keys({
   );
 }
 
-/** The daily limit on this network, now: what's left of it, and which keys can go over it. */
-function Rules({ st }: { st?: ChainState }) {
-  if (!st) return <div className="card fine">Loading…</div>;
-  // left / daily limit, short: 99.77/100 USDC · 0.04/0.04 ETH
-  const n = (v: bigint, d: number, dp: number) => String(Math.floor((Number(v) / 10 ** d) * 10 ** dp) / 10 ** dp);
-  const b = st.budget;
-  // over the daily limit: the keys this wallet has that can sign together
-  const over = st.hasWedgie ? (st.hasHot ? "wedgie + Face ID or hot wallet" : "Face ID + wedgie") : "Face ID + hot wallet";
-  const rows: [string, string][] =
-    st.threshold <= 1
-      ? [["Daily", "no limit"]]
-      : [
-          ["Daily", b ? `${n(b.usdc, 6, 2)}/${n(b.usdcMax, 6, 2)} USDC · ${n(b.eth, 18, 4)}/${n(b.ethMax, 18, 4)} ETH` : "a budget"],
-          ["Over that", over],
-        ];
-  return (
-    <ul className="card rules">
-      {rows.map(([who, what]) => (
-        <li key={who}>
-          <b>{who}:</b> {what}
-        </li>
-      ))}
-    </ul>
-  );
-}
+// a balance, cut (not rounded) to a few decimals: 99.77
+const cut = (v: bigint, d: number, dp: number) => String(Math.floor((Number(v) / 10 ** d) * 10 ** dp) / 10 ** dp);
+/** Over the daily limit: the keys this wallet has that can sign together. */
+const overLimit = (st: ChainState) => (st.hasWedgie ? (st.hasHot ? "the wedgie + Face ID or hot wallet" : "Face ID + the wedgie") : "Face ID + hot wallet");
 
 /** A key you have: what kind on the left, its address on the right. */
 function KeyRow({ kind, a, chainId }: { kind: string; a?: Address; chainId: number }) {

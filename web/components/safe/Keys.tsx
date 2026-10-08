@@ -146,11 +146,12 @@ export function Keys({
 
   const [limitUsdc, setLimitUsdc] = useState("");
   const [limitEth, setLimitEth] = useState("");
+  const [editLimit, setEditLimit] = useState<number | null>(null); // the chain whose limit is open for editing
   const setLimit = () =>
     prep("limit", async () => {
       if (!st?.budget) throw new Error("Still loading");
-      const usdcV = limitUsdc ? parseUnits(limitUsdc, 6) : st.budget.usdcMax;
-      const ethV = limitEth ? parseUnits(limitEth, 18) : st.budget.ethMax;
+      const usdcV = parseUnits(limitUsdc, 6);
+      const ethV = parseUnits(limitEth, 18);
       const signers = ownerSigners(st, account);
       const w = await wedgieFor(signers);
       try {
@@ -159,10 +160,7 @@ export function Keys({
         return {
           label: `Daily limit: ${formatUnits(usdcV, 6)} USDC · ${formatUnits(ethV, 18)} ETH`,
           p,
-          after: () => {
-            setLimitUsdc("");
-            setLimitEth("");
-          },
+          after: () => setEditLimit(null),
           close: async () => w?.close(),
         };
       } catch (e) {
@@ -276,23 +274,47 @@ export function Keys({
       )}
 
       {st?.budget && st.threshold > 1 && (
-        <Step title="Daily limit">
+        <Step title="Daily limit" key={`limit${chainId}`}>
           <p className="fine">What Face ID alone can send each day. Over that needs two keys.</p>
-          <div className="row">
-            <div className="input grow">
-              <input inputMode="decimal" value={limitUsdc} onChange={e => setLimitUsdc(e.target.value.replace(",", ".").replace(/[^0-9.]/g, ""))} placeholder={formatUnits(st.budget.usdcMax, 6)} />
-              <span className="unit">USDC</span>
+          {editLimit !== chainId ? (
+            <div className="row" style={{ justifyContent: "space-between" }}>
+              <b>
+                {formatUnits(st.budget.usdcMax, 6)} USDC · {formatUnits(st.budget.ethMax, 18)} ETH
+              </b>
+              <button
+                className="pill"
+                disabled={!!busy || !!pending}
+                onClick={() => {
+                  setLimitUsdc(formatUnits(st.budget!.usdcMax, 6));
+                  setLimitEth(formatUnits(st.budget!.ethMax, 18));
+                  setEditLimit(chainId);
+                }}
+              >
+                Edit
+              </button>
             </div>
-            <div className="input grow">
-              <input inputMode="decimal" value={limitEth} onChange={e => setLimitEth(e.target.value.replace(",", ".").replace(/[^0-9.]/g, ""))} placeholder={formatUnits(st.budget.ethMax, 18)} />
-              <span className="unit">ETH</span>
-            </div>
-          </div>
-          {action(
-            "limit",
-            <button className="btn btn-green wide" onClick={setLimit} disabled={!!busy || !!pending || !canPay || (!limitUsdc && !limitEth)}>
-              {busy === "limit" ? "Working…" : "Save"}
-            </button>,
+          ) : (
+            <>
+              <div className="input">
+                <input inputMode="decimal" value={limitUsdc} onChange={e => setLimitUsdc(e.target.value.replace(",", ".").replace(/[^0-9.]/g, ""))} />
+                <span className="unit">USDC</span>
+              </div>
+              <div className="input">
+                <input inputMode="decimal" value={limitEth} onChange={e => setLimitEth(e.target.value.replace(",", ".").replace(/[^0-9.]/g, ""))} />
+                <span className="unit">ETH</span>
+              </div>
+              {action(
+                "limit",
+                <div className="row">
+                  <button className="btn grow" onClick={() => setEditLimit(null)} disabled={!!busy}>
+                    Cancel
+                  </button>
+                  <button className="btn btn-green grow" onClick={setLimit} disabled={!!busy || !!pending || !canPay || !limitUsdc || !limitEth}>
+                    {busy === "limit" ? "Working…" : "Save"}
+                  </button>
+                </div>,
+              )}
+            </>
           )}
         </Step>
       )}

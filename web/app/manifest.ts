@@ -3,7 +3,7 @@ import type { MetadataRoute } from "next";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Instant Wallet",
-    short_name: "Instant",
+    short_name: "Instant Wallet",
     description: "Your money, instantly. Face ID makes the key; a wedgie guards the big money.",
     start_url: "/",
     scope: "/",

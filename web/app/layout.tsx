@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   openGraph: { title: "Instant Wallet", description, url: "/", siteName: "Instant Wallet", images: [{ url: "/og.png", width: 1200, height: 630 }] },
   twitter: { card: "summary_large_image", title: "Instant Wallet", description, images: ["/og.png"] },
   // no `capable`: iOS opens the home-screen icon in Safari (same storage); see manifest.ts
-  appleWebApp: { title: "Instant" },
+  appleWebApp: { title: "Instant Wallet" },
   icons: {
     icon: [
       { url: "/icons/favicon-32.png", sizes: "32x32", type: "image/png" },

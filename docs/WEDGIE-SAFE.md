@@ -60,6 +60,39 @@ Base/Ethereum), add/remove/swap owner, change threshold. A DELEGATECALL to Safe'
 batch: one page per action, "sign all" on the last. Any other DELEGATECALL, or a call it can't read, is red.
 A big tx (1 KB of data) took ~10 s from send to signature, press included.
 
+## Next for the wedgie: every line in plain words (2026-10-08)
+
+Rule: **the wedgie never shows text from the computer.** It decodes the calldata itself; anything it can't decode
+exactly is red. A hacked computer can send any label it likes, so labels prove nothing.
+
+What a daily-limit change shows today (wedgie-safe 6b81635, `web/tools/wedgie-app-check.mts` style run):
+
+```
+1 of 5  budget: up to 3 USDC a day          ok
+2 of 5  budget: up to 0.04 ETH a day        ok
+3 of 5  budget: rules for USDC              says nothing about what the rule is
+4 of 5  budget: up to 1000000 units a day   unknown key
+5 of 5  send 0.02 USDC to 0x4cfab3…8a2f     raw address
+```
+
+Wanted:
+
+1. **The fee cap.** `setAllowance(KEY_FEE_USDC, …)`, KEY_FEE_USDC = keccak256("instant-wallet.burner.fee-usdc"):
+   "fee cap: up to 1 USDC a day" (USDC decimals, like KEY_USDC).
+2. **The USDC rule.** `scopeFunction(ROLE_BURNER, USDC, transfer, conditions, 0)`: match the exact condition tree
+   from `feeAllowanceCalls` (`web/lib/safe/core.ts`):
+   `Or( Matches(to == R, amount ≤ KEY_FEE_USDC), Matches(to any, amount ≤ KEY_USDC) )` →
+   "USDC: fees to <R's name> from the fee cap; anyone else from the daily limit". The original tree from
+   `budgetCalls` (`Matches(to any, amount ≤ KEY_USDC)`) → "USDC: anyone, from the daily limit". Any other tree: red.
+3. **The relay's name.** 0x4cFaB32186e65E2A39EC0e882e11380cbf2f8A2f = "the Instant relay", built into the wedgie
+   (never from the host). Used in 2 and in fee transfers: "fee 0.02 USDC to the Instant relay".
+4. **This Safe's Roles.** Only call it "budget" when the target is this Safe's own Roles: the zodiac
+   ModuleProxyFactory CREATE2 address (`rolesAddress()` in core.ts). Another address: red.
+5. **A picture of the transaction** (for a send the phone started and the computer finishes): the wedgie draws a
+   blockie of the safeTxHash (the same algorithm as the app's `Blockie`, `blo`), and the phone's "Now the wedgie" screen and the
+   computer's card draw it too. Same picture on the phone and the wedgie = the computer didn't swap the
+   transaction. Not a replacement for 1–4.
+
 ## Safe's Transaction Service
 
 `https://api.safe.global/tx-service/base/api/v1/...` works from a browser: no API key, CORS open.

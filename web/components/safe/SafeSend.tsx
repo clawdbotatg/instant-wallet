@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { type Address, type Hash, formatUnits, getAddress, isAddress, parseUnits, zeroAddress } from "viem";
 import { chainById, explorerTx } from "@/lib/chains";
 import { amount as fmtAmount, short, usd } from "@/lib/format";
+import { isClaimLink } from "@/lib/claim";
 import { parse } from "@/lib/parse";
 import { transfer } from "@/lib/safe/core";
 import type { Quote } from "@/lib/safe/fee";
@@ -159,6 +160,7 @@ export function SafeSend({
 
   function onScan(text: string) {
     setScanning(false);
+    if (isClaimLink(text)) return void (window.location.href = `/claim${new URL(text.trim()).hash}`); // a claim card (any host): claim it into this wallet
     const r = parse(text);
     if (r.kind !== "pay") return setError("That QR isn't an address.");
     setToInput(r.to);

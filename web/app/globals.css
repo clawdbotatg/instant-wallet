@@ -192,3 +192,7 @@ div.asset:active { background: none; }
   color: var(--ink); background: var(--shell); box-shadow: var(--shell-shadow); gap: 0; align-content: center; }
 .fab-settings:active { transform: translateX(-50%) translateY(3px); }
 .fab-settings .lvl { font-size: 10px; font-weight: 900; letter-spacing: .03em; color: var(--muted); line-height: 1; margin-top: 1px; }
+
+/* claim cards (/claim/new): printed, the QR alone fills a card; several to a page */
+.claim-card .qr .code { max-width: 260px; }
+@media print { .claim-maker { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; } .claim-card { break-inside: avoid; } }

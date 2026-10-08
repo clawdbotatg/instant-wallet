@@ -27,6 +27,7 @@ import {
   signerAddress,
 } from "@/lib/safe/core";
 import { GAS_BUDGET, GAS_TYPICAL, type Quote, type SendKind, feePaid, rolesCalls, unpackMultiSend } from "@/lib/safe/fee";
+import { authCall, validAuth } from "@/lib/claim";
 import { RelayRefused, admit, checkCalls, once, plainRecipientCheck, reverted, withChainLock } from "@/lib/safe/relayGuard";
 
 export const dynamic = "force-dynamic";
@@ -40,6 +41,7 @@ export const maxDuration = 60; // waits for the receipt (Ethereum ~12 s) so a re
  *        &extra=<gas>  a swap's own gas on top of the kind's (its route's estimate; capped by the kind's budget)
  *   POST /api/safe/relay  { chainId, kind: "exec", safe, tx, signatures, burner?: { x, y } }  (deploys the Safe / signer if missing)
  *   POST /api/safe/relay  { chainId, kind: "roles", safe, call, signer, signature, salt }
+ *   POST /api/safe/relay  { chainId, kind: "claim", auths: [toWallet, fee] }  a claim card's two USDC EIP-3009 transfers
  *   → { hash }  (the client waits for the receipt itself)
  */
 
@@ -122,6 +124,8 @@ export async function POST(req: NextRequest) {
       a => (a.toLowerCase() === me.toLowerCase() ? Promise.resolve(undefined) : pc.getCode({ address: a }).catch(() => "0xfe" as Hex)),
       a => pc.getStorageAt({ address: a, slot: "0x0" }).catch(() => undefined),
     );
+    // a claim card has no Safe: its own key is the one rate-limited and refused after a revert
+    if (body.kind === "claim" && validAuth(body.auths?.[0]) && isAddress(body.auths[0].from)) body.safe = body.auths[0].from;
     if (!isAddress(body.safe)) throw new Error("safe?");
     const safe = getAddress(body.safe);
     let to: Address;
@@ -179,6 +183,23 @@ export async function POST(req: NextRequest) {
       to = rolesAddress(safe);
       data = signedRolesCalldata(body.call, getAddress(body.signer), body.signature, body.salt);
       kind = "roles";
+    } else if (body.kind === "claim") {
+      // only USDC transfers from the card's key: everything to one wallet, the fee to the relay (lib/claim.ts)
+      const [main, fee] = body.auths ?? [];
+      if (body.auths.length !== 2 || !validAuth(main) || !validAuth(fee) || !info.usdc) throw new Error("claim?");
+      if (!isAddress(main.to) || getAddress(fee.from) !== safe) throw new Error("claim?");
+      if (getAddress(fee.to) !== me || getAddress(main.to) === me) throw new Error("the fee goes to the relay, the rest to a wallet");
+      if (BigInt(main.value) === 0n) throw new Error("nothing to claim");
+      if (main.nonce.toLowerCase() === fee.nonce.toLowerCase()) throw new Error("claim?");
+      const usdcAddr = getAddress(info.usdc);
+      paid = { usdc: BigInt(fee.value), eth: 0n };
+      to = MULTICALL3;
+      data = encodeFunctionData({
+        abi: abi.multicall3,
+        functionName: "aggregate3",
+        args: [[main, fee].map(a => ({ target: usdcAddr, allowFailure: false, callData: authCall(a) }))],
+      });
+      kind = "claim";
     } else throw new Error("kind?");
 
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "?";

@@ -191,7 +191,6 @@ export function SafeWelcome({ onReady }: { onReady: (a: SafeAccount) => void }) 
         <img className="mark" src="/mark.png" alt="" />
         <div className="stack">
           <h1>Instant Wallet</h1>
-          <p style={{ fontSize: 19, color: "#3b3d3b" }}>A wallet right now. This device is the key. Grow it into full self-custody when you&apos;re ready.</p>
         </div>
         <Band />
         {supported ? (

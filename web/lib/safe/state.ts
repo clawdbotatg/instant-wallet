@@ -15,6 +15,7 @@ export type SafeAccount = {
   wedgie?: { x: Hex; y: Hex }; // the wedgie's key, once paired
   paper?: Address; // the paper seed's address, once it's the recovery address
   recovered?: boolean; // a new phone taking over an existing wallet: `address` is that wallet, not this key's own
+  offramp?: Address; // where Withdraw sends: your Coinbase (or exchange) deposit address on Base. This device only
 };
 
 export function accountFor(credentialId: string, qx: Hex, qy: Hex, recovering?: Address): SafeAccount {

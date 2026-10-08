@@ -30,16 +30,18 @@ export function SafeSend({
   assets,
   states,
   start,
+  to,
   onDone,
 }: {
   account: SafeAccount;
   assets: Asset[];
   states: ChainState[];
   start?: Asset;
+  to?: Address; // Withdraw: the saved cash-out address, filled in
   onDone: () => void;
 }) {
-  const [toInput, setToInput] = useState("");
-  const [scanning, setScanning] = useState(!start);
+  const [toInput, setToInput] = useState<string>(to ?? "");
+  const [scanning, setScanning] = useState(!start && !to);
   // the scanner opened from the form: swiping it away goes back to the form
   const [scanFromForm, setScanFromForm] = useState(false);
   const leaveScan = useCallback(() => {
@@ -323,7 +325,7 @@ export function SafeSend({
 
   return (
     <div className="stack">
-      <h2>Send</h2>
+      <h2>{to ? "Withdraw" : "Send"}</h2>
       {scanning ? (
         <>
           <Scanner onResult={onScan} />

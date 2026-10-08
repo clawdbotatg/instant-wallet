@@ -30,6 +30,7 @@ export function Keys({
   onAccount,
   onRefresh,
   onSignOut,
+  onWithdraw,
 }: {
   account: SafeAccount;
   states: ChainState[];
@@ -38,12 +39,15 @@ export function Keys({
   onAccount: (a: SafeAccount) => void;
   onRefresh: () => void;
   onSignOut: () => void;
+  onWithdraw: (to: Address) => void;
 }) {
   const [chainId, setChainId] = useState(CHAINS[0].id);
   const [busy, setBusy] = useState<string | null>(null);
   // an error shows in the step whose button caused it, next to where you tapped
   const [error, setErrorRaw] = useState<{ what: string; msg: string } | null>(null);
   const [guardianIn, setGuardianIn] = useState<Address | null>(null);
+  const [offrampIn, setOfframpIn] = useState<Address | null>(null);
+  const [editOfframp, setEditOfframp] = useState(false);
   const st = states.find(s => s.chainId === chainId);
   const usdc = chainById(chainId)?.usdc?.toLowerCase();
   const haveUsdc = assets.some(a => a.chainId === chainId && a.asset.toLowerCase() === usdc && BigInt(a.balance) >= (chainId === 1 ? 10_000_000n : 1_000_000n));
@@ -337,6 +341,48 @@ export function Keys({
           <button className="btn btn-green wide" onClick={setPaper} disabled={!!busy || !!pending || !canPay || !changed}>
             {busy === "paper" ? "Working…" : "Save"}
           </button>,
+        )}
+      </Step>
+
+      <Step title="Withdraw" done={!!account.offramp}>
+        {account.offramp && !editOfframp ? (
+          <>
+            <div className="row" style={{ justifyContent: "space-between" }}>
+              <span className="fine">To your cash-out address</span>
+              <Addr a={account.offramp} chainId={8453} />
+            </div>
+            <div className="row">
+              <button className="btn grow" onClick={() => setEditOfframp(true)}>
+                Change
+              </button>
+              <button className="btn btn-green grow" onClick={() => onWithdraw(account.offramp!)}>
+                Withdraw
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="fine">Your cash-out address, saved on this device. In Coinbase: Receive → USDC → network Base → copy the address.</p>
+            <AddressInput initial={account.offramp} onChange={setOfframpIn} />
+            <div className="row">
+              {account.offramp && (
+                <button className="btn grow" onClick={() => setEditOfframp(false)}>
+                  Cancel
+                </button>
+              )}
+              <button
+                className="btn btn-green grow"
+                disabled={!offrampIn || offrampIn.toLowerCase() === account.address.toLowerCase()}
+                onClick={() => {
+                  onAccount({ ...account, offramp: offrampIn! });
+                  setEditOfframp(false);
+                  toast("Cash-out address saved");
+                }}
+              >
+                Save
+              </button>
+            </div>
+          </>
         )}
       </Step>
 

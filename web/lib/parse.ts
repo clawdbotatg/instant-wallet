@@ -1,5 +1,5 @@
 import { type Address, getAddress, isAddress } from "viem";
-import { ETH, chainById, chainByShort } from "./chains";
+import { ETH, chainByShort } from "./chains";
 
 /**
  * What a scanned QR, a pasted string or a link means, in punk wallet's order:
@@ -88,8 +88,13 @@ export function parse(input: string): Parsed {
   return { kind: "unknown", text: s };
 }
 
-/** Our own link for a payment request: instantwallet.io/base:0xADDR;0.01 (punk wallet compatible). */
-export function payLink(origin: string, to: Address, chainId?: number, amount?: string): string {
-  const net = chainId ? `${chainById(chainId)?.short ?? chainId}:` : "";
-  return `${origin}/${net}${to}${amount ? `;${amount}` : ""}`;
+/**
+ * An EIP-681 payment request, what MetaMask, Rainbow, Coinbase Wallet and our own scanner read:
+ *   ethereum:<to>@<chainId>?value=<wei>                                   ETH
+ *   ethereum:<token>@<chainId>/transfer?address=<to>&uint256=<base units>  a token
+ */
+export function requestUri(to: Address, chainId: number, asset: Address | "eth", base: bigint): string {
+  return asset === "eth"
+    ? `ethereum:${to}@${chainId}?value=${base}`
+    : `ethereum:${asset}@${chainId}/transfer?address=${to}&uint256=${base}`;
 }

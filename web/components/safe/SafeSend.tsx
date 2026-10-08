@@ -162,8 +162,8 @@ export function SafeSend({
     const r = parse(text);
     if (r.kind !== "pay") return setError("That QR isn't an address.");
     setToInput(r.to);
+    const m = r.chainId || r.asset ? assets.find(a => (!r.chainId || a.chainId === r.chainId) && (!r.asset || a.asset.toLowerCase() === r.asset.toLowerCase())) : undefined;
     if (r.chainId || r.asset) {
-      const m = assets.find(a => (!r.chainId || a.chainId === r.chainId) && (!r.asset || a.asset.toLowerCase() === r.asset.toLowerCase()));
       if (!m) {
         setPick(null);
         setAmountIn("");
@@ -172,8 +172,9 @@ export function SafeSend({
       }
       setPick(key(m));
     }
-    if (r.amount) {
-      setAmountIn(r.amount);
+    const amt = r.amount ?? (r.amountBase !== undefined && m ? formatUnits(r.amountBase, m.decimals) : undefined);
+    if (amt) {
+      setAmountIn(amt);
       setInUsd(false); // a payment request names the token amount
     }
   }

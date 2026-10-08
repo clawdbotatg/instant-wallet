@@ -17,6 +17,10 @@ const GO = process.argv.includes("--go");
 const TARGET = Number(process.env.TARGET_USD || 5);
 const MIN_TOPUP = 1; // dollars: don't bridge pocket change
 const keyFile = (process.env.FUNDER_KEY_FILE || "~/.instant-wallet-funder.key").replace(/^~/, os.homedir());
+// what was sent when: a bridge can take ~20 min (Arc), so a network sent to in the last 30 min is skipped, not sent twice
+const logFile = `${keyFile}.sent.json`;
+const sent: Record<string, number> = fs.existsSync(logFile) ? JSON.parse(fs.readFileSync(logFile, "utf8")) : {};
+const IN_FLIGHT_MS = 30 * 60_000;
 const env = Object.fromEntries(
   fs.readFileSync(new URL("../.env.local", import.meta.url), "utf8").split("\n").filter(l => l.includes("=")).map(l => [l.slice(0, l.indexOf("=")).trim(), l.slice(l.indexOf("=") + 1).trim()]),
 );
@@ -55,6 +59,10 @@ for (const c of CHAINS) {
     console.log(`${line}  ok`);
     continue;
   }
+  if (Date.now() - (sent[c.id] ?? 0) < IN_FLIGHT_MS) {
+    console.log(`${line}  on its way (sent ${Math.round((Date.now() - sent[c.id]) / 60_000)} min ago)`);
+    continue;
+  }
   const wei = parseEther((need / ethUsd).toFixed(18));
   if (!GO) {
     console.log(`${line}  would send ${formatEther(wei).slice(0, 8)} ETH (~$${need.toFixed(2)})`);
@@ -81,11 +89,13 @@ for (const c of CHAINS) {
       const t = j.transactionRequest;
       if (!t) throw new Error(j.message || "no route");
       if (j.action?.toAddress?.toLowerCase() !== relayer.toLowerCase()) throw new Error("LI.FI changed the receiver");
-      if (BigInt(t.value) !== wei) throw new Error("LI.FI's ETH value doesn't match");
+      // some bridges (Squid, to Celo) add their own fee on top of the amount: allow up to 5%
+      if (BigInt(t.value) < wei || BigInt(t.value) > (wei * 105n) / 100n) throw new Error("LI.FI's ETH value doesn't match");
       via = j.toolDetails?.name || j.tool;
       hash = await wc.sendTransaction({ to: t.to, data: t.data, value: BigInt(t.value), gas: t.gasLimit ? BigInt(t.gasLimit) : undefined });
     }
     const rc = await basePc.waitForTransactionReceipt({ hash });
+    if (rc.status === "success") fs.writeFileSync(logFile, JSON.stringify({ ...sent, [c.id]: (sent[c.id] = Date.now()) }));
     console.log(`${line}  sent ~$${need.toFixed(2)} via ${via}: ${rc.status} ${base.explorer}/tx/${hash}`);
   } catch (e: any) {
     console.log(`${line}  FAILED: ${e?.shortMessage || e?.message || e}`);

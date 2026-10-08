@@ -1,6 +1,7 @@
 # Instant Wallet
 
 > **Live (2026-10-06): the Safe build at instant-wallet-b2jn.vercel.app — `docs/SAFE-APP.md`.**
+> **14 networks (2026-10-08):** which ones, why, and how the relay gets gas on each — `docs/NETWORKS.md`.
 > **Claim cards (2026-10-08):** money on a QR / NFC tag / link, claimed into a new wallet — `docs/CLAIM.md`.
 >
 > **The plan (2026-10-05): `docs/PLAN.md`** — Instant Wallet becomes a Gnosis Safe front end: burner passkey →

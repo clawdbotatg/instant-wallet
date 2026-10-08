@@ -48,7 +48,7 @@ await cdp.send("WebAuthn.addVirtualAuthenticator", {
   options: { protocol: "ctap2", ctap2Version: "ctap2_1", transport: "internal", hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
 });
 
-await page.goto(`${APP}/claim#${key.slice(2)}`);
+await page.goto(`${APP}/pk#${key}`); // punk wallet's format; /claim#<key> below
 await page.getByText("Someone sent you").waitFor({ timeout: 20000 });
 await page.getByText("5 USDC").first().waitFor({ timeout: 20000 });
 ok(!page.url().includes("#"), "the key leaves the address bar");

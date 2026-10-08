@@ -101,7 +101,7 @@ async function claimEth(key: Hex, chainId: number, to: Address): Promise<bigint>
   return bal - cost;
 }
 
-/** /claim#<key>: see what's on the card, make a wallet if this phone has none, move it all in. */
+/** /pk#0x<key> (or /claim#<key>): see what's on the card, make a wallet if this phone has none, move it all in. */
 export function Claim() {
   const [key, setKey] = useState<Hex | null | undefined>(undefined);
   const [account, setAccount] = useState<SafeAccount | null | undefined>(undefined);
@@ -118,7 +118,7 @@ export function Claim() {
       else k = claimKey(sessionStorage.getItem(STORE) || "");
     } catch {}
     // out of the address bar and the history: a shared screenshot or a synced tab shouldn't carry the money
-    if (window.location.hash) history.replaceState(null, "", "/claim");
+    if (window.location.hash) history.replaceState(null, "", window.location.pathname);
     setKey(k);
     setAccount(loadAccount());
     ethUsd().then(setPrice);

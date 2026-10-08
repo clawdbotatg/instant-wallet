@@ -2,7 +2,8 @@ import { type Address, type Hex, encodeFunctionData, getAddress, isHex, parseAbi
 
 /**
  * Claim cards (docs/CLAIM.md): a private key printed as a QR, written to an NFC tag, or sent as a link, holding
- * USDC (and maybe ETH). The link is <origin>/claim#<key>: after the `#`, so it never reaches a server or its logs.
+ * USDC (and maybe ETH). The link is <origin>/pk#0x<key>, punk wallet's / the Burner Wallet paper wallets' format (no ERC
+ * covers claim links); /claim#<key> works too. The key is after the `#`, so it never reaches a server or its logs.
  *
  * The card's key never needs gas: it signs two USDC EIP-3009 transfers (everything to the new wallet, the relay's
  * fee to the relay) and the relay submits both in one Multicall3 call. ETH on a card pays its own gas.
@@ -38,7 +39,7 @@ export const AUTH_TYPES = {
   ],
 } as const;
 
-export const claimUrl = (origin: string, key: Hex) => `${origin}/claim#${key.slice(2)}`;
+export const claimUrl = (origin: string, key: Hex) => `${origin}/pk#${key}`;
 
 /** The key in a claim link's fragment (with or without 0x), or null. */
 export function claimKey(hash: string): Hex | null {
@@ -46,11 +47,11 @@ export function claimKey(hash: string): Hex | null {
   return /^[0-9a-f]{64}$/i.test(k) ? (`0x${k.toLowerCase()}` as Hex) : null;
 }
 
-/** Is this scanned text a claim link (ours, on any host)? */
+/** Is this scanned text a claim link (ours or punk wallet's, on any host)? */
 export function isClaimLink(text: string): boolean {
   try {
     const u = new URL(text.trim());
-    return /^\/claim\/?$/.test(u.pathname) && !!claimKey(u.hash);
+    return /^\/(claim|pk)\/?$/.test(u.pathname) && !!claimKey(u.hash);
   } catch {
     return false;
   }

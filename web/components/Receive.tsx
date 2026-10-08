@@ -1,17 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { type Address, parseUnits } from "viem";
 import { CHAINS } from "@/lib/chains";
 import { requestUri } from "@/lib/parse";
+import { short } from "@/lib/format";
 import type { Account } from "@/lib/types";
 import { Blockie, ChainIcon, CopyIcon, Qr, copy } from "./bits";
 
 /**
- * Your address as a QR (blockie in the middle); tap the QR or the address to copy it. Request → an amount,
- * token and network, and the QR becomes an EIP-681 payment request.
+ * One card: your address as a QR (blockie in the middle), the short address + a copy icon under it; a tap anywhere
+ * copies it and says so. Request → an amount, token and network, and the QR becomes an EIP-681 payment request.
  */
-export function Receive({ account, toast }: { account: Account; toast: (m: string) => void }) {
+export function Receive({ account }: { account: Account; toast?: (m: string) => void }) {
   const [asking, setAsking] = useState(false);
   const [amount, setAmount] = useState("");
   const [token, setToken] = useState<"USDC" | "ETH">("USDC");
@@ -28,18 +29,36 @@ export function Receive({ account, toast }: { account: Account; toast: (m: strin
             : null;
     } catch {}
   }
-  const copyAddr = async () => (await copy(account.address)) && toast("Address copied");
+  const [copied, setCopied] = useState<string | null>(null);
+  useEffect(() => {
+    if (!copied) return;
+    const t = setTimeout(() => setCopied(null), 1500);
+    return () => clearTimeout(t);
+  }, [copied]);
+  const onTap = async () => {
+    if (uri) (await copy(uri)) && setCopied("Request copied");
+    else (await copy(account.address)) && setCopied("Copied");
+  };
   return (
     <div className="stack">
       <h2>{asking ? "Request" : "Receive"}</h2>
-      <div onClick={uri ? async () => (await copy(uri!)) && toast("Request copied") : copyAddr} style={{ cursor: "pointer" }}>
-        <Qr value={uri ?? account.address} center={account.address} />
+      <div onClick={onTap} style={{ cursor: "pointer", position: "relative" }}>
+        <Qr value={uri ?? account.address} center={account.address}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, color: "var(--ink)" }}>
+            <span className="mono" style={{ fontSize: 17, fontWeight: 700 }}>{short(account.address)}</span>
+            <CopyIcon />
+          </div>
+        </Qr>
+        {copied && (
+          <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px 10px 10px", borderRadius: 999, background: "var(--ink)", color: "#fff", boxShadow: "0 10px 30px -8px rgba(0,0,0,.5)", animation: "fade .15s" }}>
+              <Blockie address={account.address} size={30} />
+              <span className="mono" style={{ fontSize: 15 }}>{short(account.address)}</span>
+              <b>{copied}</b>
+            </div>
+          </div>
+        )}
       </div>
-      <button className="pill" style={{ justifyContent: "center", height: "auto", padding: "10px 14px" }} onClick={copyAddr}>
-        <Blockie address={account.address} size={22} />
-        <span className="mono" style={{ fontSize: 14 }}>{account.address}</span>
-        <CopyIcon />
-      </button>
       {!asking ? (
         <button className="btn wide" onClick={() => setAsking(true)}>
           Request

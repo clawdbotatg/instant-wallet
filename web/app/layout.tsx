@@ -18,8 +18,15 @@ export const metadata: Metadata = {
   alternates: { canonical: "/" },
   openGraph: { title: "Instant Wallet", description, url: "/", siteName: "Instant Wallet", images: [{ url: "/og.png", width: 1200, height: 630 }] },
   twitter: { card: "summary_large_image", title: "Instant Wallet", description, images: ["/og.png"] },
-  appleWebApp: { capable: true, title: "Instant", statusBarStyle: "default" },
-  icons: { icon: "/icons/icon-192.png", apple: "/icons/apple-touch-icon.png" },
+  // no `capable`: iOS opens the home-screen icon in Safari (same storage); see manifest.ts
+  appleWebApp: { title: "Instant" },
+  icons: {
+    icon: [
+      { url: "/icons/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: { url: "/icons/apple-touch-icon.png", sizes: "180x180" },
+  },
 };
 
 export const viewport: Viewport = {

@@ -6,7 +6,7 @@ const nunito = Nunito({ subsets: ["latin"], weight: ["500", "700", "800", "900"]
 const mono = DM_Mono({ subsets: ["latin"], weight: ["500"], variable: "--font-mono" });
 
 const description =
-  "Instant Wallet: an Ethereum smart wallet you make in seconds with Face ID or your fingerprint. No seed phrase, no app to install. Send, receive, and swap on Base; a wedgie guards the big money.";
+  "Instant Wallet: an Ethereum smart wallet you make in seconds with Face ID or your fingerprint. No seed phrase, no app to install. Send, receive, and swap on Base; a wedgie (DIY hardware wallet) guards the big money.";
 
 export const metadata: Metadata = {
   // share cards need absolute image URLs

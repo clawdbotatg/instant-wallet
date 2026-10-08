@@ -9,7 +9,7 @@ export default function Page() {
         <h1>Instant Wallet</h1>
         <p>
           Make an Ethereum smart wallet in seconds with Face ID or your fingerprint (a passkey). No seed phrase, no app
-          to install. Send, receive, and swap on Base. Built on Safe; a wedgie (a hardware key) guards the big money.
+          to install. Send, receive, and swap on Base. Built on Safe; a wedgie (DIY hardware wallet) guards the big money.
         </p>
       </div>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />

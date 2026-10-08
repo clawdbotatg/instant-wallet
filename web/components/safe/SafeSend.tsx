@@ -145,19 +145,47 @@ export function SafeSend({
     setQuote(null);
     try {
       if (!st || !asset || base === null) throw new Error("Still loading");
-      // a first guess at the path (the budget check needs a fee), then the quote for that exact kind of send
-      const same = sendingUsdc || sendingEth;
-      const guess = plan(st, account, asset.asset as Address, base, 0n, same);
-      const k1 = await sendKind(account, st, guess.path, guess.signers);
-      let q = await getQuote(chainId, k1);
-      // with the real fee, the path can change (near the budget's edge): then quote that kind instead
-      const real = plan(st, account, asset.asset as Address, base, BigInt(feeToken === "usdc" ? q.feeUsdc : q.feeEth), same);
-      const k2 = await sendKind(account, st, real.path, real.signers);
-      if (k2 !== k1) q = await getQuote(chainId, k2);
-      setQuote(q);
+      setQuote(await quoteFor(base));
     } catch (e: any) {
       setError(friendly(e));
     }
+  }
+
+  async function quoteFor(amount: bigint) {
+    if (!st || !asset) throw new Error("Still loading");
+    // a first guess at the path (the budget check needs a fee), then the quote for that exact kind of send
+    const same = sendingUsdc || sendingEth;
+    const guess = plan(st, account, asset.asset as Address, amount, 0n, same);
+    const k1 = await sendKind(account, st, guess.path, guess.signers);
+    let q = await getQuote(chainId, k1);
+    // with the real fee, the path can change (near the budget's edge): then quote that kind instead
+    const real = plan(st, account, asset.asset as Address, amount, BigInt(feeToken === "usdc" ? q.feeUsdc : q.feeEth), same);
+    const k2 = await sendKind(account, st, real.path, real.signers);
+    if (k2 !== k1) q = await getQuote(chainId, k2);
+    return q;
+  }
+
+  // Max: the whole balance, less the fee when the fee is paid in this same token
+  const [maxing, setMaxing] = useState(false);
+  async function max() {
+    if (!asset) return;
+    setError(null);
+    let amt = BigInt(asset.balance);
+    if (sendingUsdc || sendingEth) {
+      setMaxing(true);
+      try {
+        const q = await quoteFor(amt);
+        amt -= BigInt(sendingUsdc ? q.feeUsdc : q.feeEth);
+      } catch (e: any) {
+        setMaxing(false);
+        return setError(friendly(e));
+      }
+      setMaxing(false);
+    }
+    if (amt < 0n) amt = 0n;
+    const t = formatUnits(amt, asset.decimals);
+    setAmountIn(t);
+    setUsdIn(price ? (Math.floor(Number(t) * price * 100) / 100).toFixed(2) : "");
   }
 
   function onScan(text: string) {
@@ -405,7 +433,10 @@ export function SafeSend({
                 <span className="fine">
                   {st?.budget && (sendingUsdc || sendingEth)
                     ? `Daily budget left: ${sendingUsdc ? `${fmtAmount(formatUnits(st.budget.usdc, 6))} USDC` : `${fmtAmount(formatUnits(st.budget.eth, 18))} ${nativeSymbol(chainId)}`}`
-                    : `You have ${fmtAmount(asset.formatted)}`}
+                    : `You have ${fmtAmount(asset.formatted)}`}{" "}
+                  <button className="pill" style={{ height: 28, padding: "0 10px", marginLeft: 6 }} onClick={max} disabled={maxing}>
+                    {maxing ? "…" : "Max"}
+                  </button>
                 </span>
               </div>
               {tooMuch && <span className="err">More than you have</span>}

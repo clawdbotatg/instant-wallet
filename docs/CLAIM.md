@@ -12,20 +12,40 @@ the card into the person's own passkey wallet, so the card is just cash, not the
 
 ## 1. Using it
 
-### Make cards (the giver)
+### Make one card (the giver)
 
-1. Open `/claim/new` on any browser.
-2. Tap **New card**. Each tap makes a new random key: one card = one key.
-3. Fill it: **Copy address**, then send USDC (or ETH) to that address on Base or Ethereum. Any wallet works, including
-   Instant Wallet's own Send. The card shows its balance a few seconds later.
-4. Get it to the person, any of these ways:
-   - **Print**: prints the QRs, two to a row, no buttons. Cut them out.
-   - **Copy link**: send it in a message.
-   - **Write NFC tag**: hold a blank tag to the phone (Android Chrome only, see section 4).
-5. **Take it back**: opens the card's link in your own browser, which claims it into your own wallet. Use it for cards
-   nobody claimed.
-6. **Forget**: removes the card from this list. If it still holds money, it asks first. Forgetting doesn't empty the
-   card: whoever has the card can still claim it. You just lose your way to take it back.
+1. Open `/claim/new` on any browser and tap **New card**. Each card is a new random key.
+2. **Step 1, put money on it:** the card shows its *address* as a QR (not the claim QR yet). Send USDC or ETH on Base
+   or Ethereum to it: scan it with your wallet (Instant Wallet's scanner reads it as a send) or **Copy address**. It
+   says "Waiting for money…" until it lands (it checks every 6 s).
+3. **Step 2, ready:** once money is on it, the card shows what's on it and the **claim QR**. Now: **PDF**, **Copy
+   link**, **Write NFC tag** (Android Chrome, see section 4), or **Take it back**.
+4. **Claimed:** once someone claims it, the card collapses to "Claimed" with **Delete**.
+
+A card only shows a claim QR once it holds money, so you can't print an empty card by mistake.
+
+### Make many (a batch)
+
+1. **Make many** → for example `10 cards × 5 USDC` → **Make 10 cards** (2 to 200).
+2. **Step 1, fill them all at once:** **Fill 10 cards with my wallet** uses the browser wallet (MetaMask, Rabby,
+   Coinbase Wallet…) on Base, through BuidlGuidl's splitter (split.buidlguidl.com,
+   `0x6A8A356C2Fdb6d4004e785ADd08Af7e085a1432a`): one `approve` for the total, then one `splitERC20` per 25 cards (the
+   splitter's limit). A lone leftover card gets a plain USDC transfer. Only empty cards are filled, so pressing it
+   again after a failure doesn't pay twice.
+   No browser wallet? **Copy addresses** (one per line) and paste them into split.buidlguidl.com.
+3. **Step 2, print:** **Download PDF**: business-card layout (Avery 8371 / 5371: Letter, 2 × 5 cards of 3.5 × 2 in,
+   10 a page) with dashed cut lines, so plain paper works too. Each card: the claim QR, the amount, "Scan to claim".
+   Only ready cards go in it.
+4. The batch line says `7 ready · 3 claimed`. **Cards** opens the list (each with **Take back**). **Delete** forgets
+   the whole batch (asks first if any card still holds money).
+
+**PDF of ready cards** at the top puts every ready card (single or batch) in one PDF.
+
+### Take back, delete
+
+- **Take it back** opens the card's link in your own browser, which claims it into your own wallet.
+- **Delete** forgets the key. If the card still holds money it asks first: whoever has the card can still claim it,
+  you just lose your way to take it back.
 
 The keys live in this browser only (localStorage `iw.cards`). Clearing site data, or a different browser, means no
 take-back. Make cards on a device you keep.
@@ -175,7 +195,8 @@ can sweep a plain key (import it) if our site is ever gone.
 |---|---|
 | `web/lib/claim.ts` | link format (`claimUrl`, `claimKey`, `isClaimLink`), EIP-3009 ABI and types, the relay's shape check |
 | `web/components/Claim.tsx` | the claim page: read balances, make a wallet, sign, post, wait |
-| `web/components/ClaimMaker.tsx` | `/claim/new`: make, list, fund, print, NFC, take back, forget |
+| `web/components/ClaimMaker.tsx` | `/claim/new`: single cards (empty → ready → claimed), batches, NFC, take back, delete |
+| `web/lib/claimBatch.ts` | balances of many cards (one multicall per network), fill through the splitter, the PDF (jsPDF) |
 | `web/app/pk/page.tsx`, `web/app/claim/page.tsx`, `web/app/claim/new/page.tsx` | the routes |
 | `web/app/api/safe/relay/route.ts` | `kind: "claim"` branch |
 | `web/lib/safe/fee.ts` | gas: `claim` typical 130k, budget 250k |
@@ -194,6 +215,11 @@ It fills a card with 5 USDC + 0.001 ETH, opens `/pk#0x…` on a phone with no wa
 claims, checks the wallet got the USDC minus the fee and the ETH, opens `/claim#…` and sees it empty, then tests the
 relay's refusals. **8/8 passed 2026-10-08.** Live check: the Base relay quotes `kind=claim` (fee ≈ $0.003).
 
+`web/tools/claim-batch-e2e.mjs`, same setup, with a fake browser wallet (anvil #1): makes 26 cards × 1 USDC, fills
+them (3 wallet transactions: approve, splitERC20 of 25, transfer of 1), checks every card holds 1 USDC and the giver
+paid exactly 26, downloads the PDF (3 pages), claims one card on a second phone, and sees `25 ready · 1 claimed`.
+**5/5 passed 2026-10-08.**
+
 Not yet done: a real claim on mainnet with a real phone and a real NFC tag.
 
 ---
@@ -205,13 +231,14 @@ Not yet done: a real claim on mainnet with a real phone and a real NFC tag.
 - Tokens other than USDC and ETH stay on the card (import the key into any wallet to get them).
 - USDC under the fee can't be claimed through the relay.
 - USB: a phone won't open a link from a USB stick by itself. A wedgie could hold claim keys and hand them over later.
-- The card doesn't print its amount or a note.
+- Filling many at once needs a browser wallet and Base.
 
 **Ideas**
 
-- **Fill from my wallet:** one button on `/claim/new` that opens Send with the card's address and an amount.
-- **Make many at once:** "10 cards × $5" fills them all in one batch from your wallet.
-- **Amount + note on the printed card**, and a nicer card design (logo, cut lines, folded so the QR is hidden).
+- **Fill from Instant Wallet itself:** one Safe batch of N USDC transfers (the relay already sends transfers), so you
+  don't need MetaMask.
+- **Fill on Ethereum:** the splitter is only on Base (and Arbitrum, Optimism).
+- **A note on the printed card**, and a nicer design (logo, folded so the QR is hidden).
 - **Password cards:** a second secret on a separate channel (like Peanut's), so a stolen card alone isn't enough.
 - **Expiry:** auto take-back of unclaimed cards after N days (needs the giver's browser open, or a contract).
 - **Claim other tokens** with Permit2 or the card's own ETH.

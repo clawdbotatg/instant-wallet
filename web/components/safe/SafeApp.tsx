@@ -1,7 +1,7 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CHAINS, chainById } from "@/lib/chains";
 import { amount, short, usd } from "@/lib/format";
 import { type ChainState, type SafeAccount, loadAccount, readAll, saveAccount } from "@/lib/safe/state";
@@ -38,22 +38,35 @@ export function SafeApp() {
     setAccountState(a);
   };
 
-  const refresh = useCallback(async () => {
-    if (!account) return;
-    const [p, s] = await Promise.all([
-      fetch(`/api/portfolio?address=${account.address}`, { cache: "no-store" }).then(r => r.json()).catch(() => null),
-      readAll(account).catch(() => null),
-    ]);
+  // the balance shows as soon as it lands; the keys read (slower, several calls per network) never holds it up
+  const busy = useRef(false);
+  const loadBalance = useCallback(async () => {
+    if (!account || busy.current) return;
+    busy.current = true;
+    const p = await fetch(`/api/portfolio?address=${account.address}`, { cache: "no-store" }).then(r => r.json()).catch(() => null);
+    busy.current = false;
     if (p?.assets) setPortfolio(p);
+  }, [account]);
+  const loadStates = useCallback(async () => {
+    if (!account) return;
+    const s = await readAll(account).catch(() => null);
     if (s) setStates(s);
   }, [account]);
+  const refresh = useCallback(async () => {
+    await Promise.all([loadBalance(), loadStates()]);
+  }, [loadBalance, loadStates]);
 
   useEffect(() => {
     if (!account) return;
     refresh();
-    const t = setInterval(refresh, 12_000);
-    return () => clearInterval(t);
-  }, [account, refresh]);
+    // balance every 3 s, keys every 12 s; nothing while the tab is hidden
+    const b = setInterval(() => document.hidden || loadBalance(), 3_000);
+    const k = setInterval(() => document.hidden || loadStates(), 12_000);
+    return () => {
+      clearInterval(b);
+      clearInterval(k);
+    };
+  }, [account, refresh, loadBalance, loadStates]);
 
   if (account === undefined) return null;
   if (!account) return <SafeWelcome onReady={setAccount} />;

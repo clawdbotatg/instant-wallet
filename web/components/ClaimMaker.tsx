@@ -252,7 +252,7 @@ export function ClaimMaker() {
                 <p className="fine">Send USDC or ETH on {CHAINS.map(x => x.name).join(" or ")} to this address. Scan it with your wallet, or copy it.</p>
                 <div onClick={async () => (await copy(a)) && setToast("Address copied")} style={{ cursor: "pointer" }}>
                   <Qr value={a} center={a}>
-                    <span className="mono" style={{ marginTop: 8, fontWeight: 700 }}>{short(a)}</span>
+                    <span className="mono" style={{ marginTop: 8, fontWeight: 600 }}>{short(a)}</span>
                   </Qr>
                 </div>
                 <p className="fine center">Waiting for money…</p>

@@ -175,7 +175,7 @@ export function Claim() {
     <div className="stack center">
       {account && <img className="mark" src="/mark.png" alt="" style={{ width: 96, margin: "0 auto" }} />}
       <div className="fine">{done !== null ? "It's in your wallet" : empty ? "This card" : "Someone sent you"}</div>
-      <div className="big" style={{ fontSize: 56, fontWeight: 900 }}>{done !== null ? usd(done) : onChain === null || (ethTotal > 0n && !price) ? "…" : usd(value)}</div>
+      <div className="big" style={{ fontSize: 56, fontWeight: 700 }}>{done !== null ? usd(done) : onChain === null || (ethTotal > 0n && !price) ? "…" : usd(value)}</div>
       {done === null && !empty && onChain && (
         <div className="fine">
           {[usdcTotal > 0n && `${formatUnits(usdcTotal, 6)} USDC`, ethTotal > 0n && `${Number(formatUnits(ethTotal, 18)).toFixed(6)} ETH`].filter(Boolean).join(" + ")}

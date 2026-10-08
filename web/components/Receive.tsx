@@ -45,7 +45,7 @@ export function Receive({ account }: { account: Account; toast?: (m: string) => 
       <div onClick={onTap} style={{ cursor: "pointer", position: "relative" }}>
         <Qr value={uri ?? account.address} center={account.address}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, color: "var(--ink)" }}>
-            <span className="mono" style={{ fontSize: 17, fontWeight: 700 }}>{short(account.address)}</span>
+            <span className="mono" style={{ fontSize: 17, fontWeight: 600 }}>{short(account.address)}</span>
             <CopyIcon />
           </div>
         </Qr>

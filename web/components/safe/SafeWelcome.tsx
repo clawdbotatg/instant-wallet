@@ -210,8 +210,7 @@ export function SafeWelcome({ onReady }: { onReady: (a: SafeAccount) => void }) 
         )}
         {error && <p className="err">{error}</p>}
         <p className="fine">
-          A Safe on {CHAINS.map(c => c.name).join(" and ")}, the same address on each. It exists the moment you make it; it&apos;s
-          deployed on a chain the first time you send there (you pay a few cents, in USDC or ETH).
+          Passkey signer · DIY hardware wallet · Powered by Safe
         </p>
       </div>
     </div>

@@ -152,7 +152,14 @@ export const signedByLabel = (s: Signer[]) => s.map(k => KEY_NAME[k]).join(" + "
 /** Which keys sign, when there's more than one way: "Instant + Wedgie 3/3", "Hot wallet + Wedgie 3/3", … */
 export function SignerChoice({ options, value, onChange, disabled }: { options: SignerOption[]; value: Signer[]; onChange: (s: Signer[]) => void; disabled?: boolean }) {
   const same = (a: Signer[], b: Signer[]) => a.length === b.length && a.every(k => b.includes(k));
-  if (options.length < 2) return <span>{signedByLabel(value)}</span>;
+  const later = options.find(o => same(o.signers, value))?.later;
+  if (options.length < 2)
+    return (
+      <span className="stack" style={{ gap: 2, justifyItems: "end" }}>
+        <span>{signedByLabel(value)}</span>
+        {later && <span className="fine">{later}</span>}
+      </span>
+    );
   const off = options.filter(o => !o.ready);
   return (
     <span className="stack signers" style={{ gap: 6, justifyItems: "end" }}>
@@ -168,6 +175,7 @@ export function SignerChoice({ options, value, onChange, disabled }: { options: 
           </button>
         ))}
       </span>
+      {later && <span className="fine">{later}</span>}
       {off.map(o => (
         <span key={o.signers.join("+")} className="fine">
           {signedByLabel(o.signers)}: {o.why}

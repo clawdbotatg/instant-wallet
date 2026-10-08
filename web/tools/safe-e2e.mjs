@@ -8,6 +8,7 @@
 //   CHROME=<chromium> node tools/safe-e2e.mjs /tmp/shots
 import { chromium } from "playwright-core";
 import { execSync } from "node:child_process";
+import fs from "node:fs";
 import { createHash } from "node:crypto";
 import { p256 } from "@noble/curves/nist.js";
 import { hashTypedData } from "viem";
@@ -55,11 +56,19 @@ const hotSign = async json => {
   return hot.signTypedData(t);
 };
 await page.exposeFunction("__hotSign", hotSign);
+let wPieces = ""; // a big tx's data, sent ahead in pieces (safe_data), as wedgie-safe takes it
 const fakeWedgie = async msg => {
-  if (msg.type === "hello") return { id: msg.id, type: "hello", safe: wKey };
+  if (msg.type === "hello") return { id: msg.id, type: "hello", safe: wKey, safe_chunk: 4000 };
+  if (msg.type === "safe_data") {
+    if (msg.at === 0) wPieces = "";
+    if (msg.at !== wPieces.length / 2 || msg.hex.length > 4000) return { id: msg.id, type: "error", error: "bad piece" };
+    wPieces += msg.hex;
+    return { id: msg.id, type: "safe_data", have: wPieces.length / 2 };
+  }
   if (msg.type === "safe_sign") {
     wedgieSigns++;
-    const t = msg.tx;
+    const t = msg.tx.data === "@" ? { ...msg.tx, data: "0x" + wPieces } : msg.tx;
+    if (process.env.WEDGIE_DUMP) fs.appendFileSync(process.env.WEDGIE_DUMP, JSON.stringify(t) + "\n"); // what the wedgie is asked to show
     const h = hashTypedData({
       domain: { chainId: t.chainId, verifyingContract: t.safe },
       types: {

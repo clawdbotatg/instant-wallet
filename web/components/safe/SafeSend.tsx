@@ -9,13 +9,15 @@ import { transfer } from "@/lib/safe/core";
 import type { Quote } from "@/lib/safe/fee";
 import { type FeeToken, type Signer, type Stage, budgetSend, getQuote, ownersSend, plan, sendKind, signerOptions } from "@/lib/safe/send";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
-import { Wedgie } from "@/lib/safe/wedgie";
+import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
 import { Blockie, ChainChip, ScanIcon, TokenIcon, useSheetBack } from "../bits";
 import { Scanner } from "../Scanner";
 import { Select, assetOpt } from "./Pick";
 import { friendly } from "../Welcome";
 import { SignerChoice } from "./Pick";
+import { WedgieIcon } from "./WedgieButton";
+import { Parked } from "@/lib/safe/pending";
 
 
 /**
@@ -51,7 +53,7 @@ export function SafeSend({
   const [amountIn, setAmountIn] = useState(""); // always the token amount; in dollar mode it's worked out from usdIn
   const [inUsd, setInUsd] = useState(true); // type dollars (the default) or the token
   const [usdIn, setUsdIn] = useState("");
-  const [stage, setStage] = useState<"form" | "review" | Stage | "done">("form");
+  const [stage, setStage] = useState<"form" | "review" | Stage | "done" | "parked">("form");
   const [quote, setQuote] = useState<Quote | null>(null);
   const [hash, setHash] = useState<Hash>();
   const [error, setError] = useState<string | null>(null);
@@ -186,14 +188,15 @@ export function SafeSend({
         setStage(s);
         if (h) setHash(h);
       };
-      if (signers.includes("wedgie")) wedgie = await Wedgie.connect();
+      if (signers.includes("wedgie") && wedgieSupported()) wedgie = await Wedgie.connect(); // a phone: it parks for the computer
       const h =
         p.path === "budget"
           ? await budgetSend({ account, state: st, calls, feeToken, quote: quote ?? undefined, onStage })
-          : await ownersSend({ account, state: st, calls, signers, feeToken, wedgie, quote: quote ?? undefined, onStage });
+          : await ownersSend({ account, state: st, calls, signers, feeToken, wedgie, quote: quote ?? undefined, onStage, label: `Send ${what} to ${who}` });
       setHash(h);
       setStage("done");
     } catch (e: any) {
+      if (e instanceof Parked) return setStage("parked");
       setError(friendly(e));
       setStage("review");
     } finally {
@@ -202,6 +205,21 @@ export function SafeSend({
   }
 
   const what = asset && amountIn ? `${fmtAmount(amountIn)} ${asset.symbol}` : "";
+  const who = resolved ? (toInput.includes(".") ? toInput : short(resolved)) : "";
+
+  if (stage === "parked")
+    return (
+      <div className="stack center">
+        <WedgieIcon size={120} />
+        <h2>Now the wedgie</h2>
+        <p>
+          You signed {what} to {who}. Open Instant Wallet on your computer with the wedgie plugged in and press A to send it.
+        </p>
+        <button className="btn btn-green wide" onClick={onDone}>
+          OK
+        </button>
+      </div>
+    );
 
   if (stage === "done" && resolved) {
     const url = hash && explorerTx(chainId, hash);

@@ -17,7 +17,7 @@ import { approvesRouter, checkSwap, isSwapTarget } from "./swap";
 
 const URL_ = process.env.RELAY_KV_URL;
 const TOKEN = process.env.RELAY_KV_TOKEN;
-const mem = new Map<string, { v: number; until: number }>();
+const mem = new Map<string, { v: number | string; until: number }>();
 
 async function kv(cmd: (string | number)[]): Promise<any> {
   if (!URL_ || !TOKEN) {
@@ -30,11 +30,11 @@ async function kv(cmd: (string | number)[]): Promise<any> {
     if (op === "SET") {
       const ex = rest.includes("EX") ? Number(rest[rest.indexOf("EX") + 1]) : 3600;
       if (rest.includes("NX") && live) return null;
-      mem.set(k, { v: Number(rest[0]) || 1, until: now + ex * 1000 });
+      mem.set(k, { v: rest[0] ?? 1, until: now + ex * 1000 });
       return "OK";
     }
     if (op === "INCR") {
-      const v = (live?.v ?? 0) + 1;
+      const v = Number(live?.v ?? 0) + 1;
       mem.set(k, { v, until: live?.until ?? now + 3600_000 });
       return v;
     }
@@ -76,6 +76,22 @@ export async function flagged(key: string): Promise<boolean> {
 
 export async function flag(key: string, ttlSec: number) {
   await kv(["SET", P + key, 1, "EX", ttlSec]);
+}
+
+/** A JSON value kept for a while (a transaction parked for the wedgie). */
+export async function stash(key: string, v: unknown, ttlSec: number) {
+  await kv(["SET", P + key, JSON.stringify(v), "EX", ttlSec]);
+}
+export async function unstash<T>(key: string): Promise<T | null> {
+  const v = await kv(["GET", P + key]);
+  try {
+    return v === null ? null : (JSON.parse(v) as T);
+  } catch {
+    return null;
+  }
+}
+export async function drop(key: string) {
+  await kv(["DEL", P + key]);
 }
 
 export class RelayRefused extends Error {

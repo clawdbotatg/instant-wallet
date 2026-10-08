@@ -61,7 +61,7 @@ export function Keys({
         })
       : [];
   // a change the wedgie has to sign: connect it now, while this is still the tap (a port prompt needs one)
-  const wedgieFor = async (signers: Signer[]) => (signers.includes("wedgie") ? await Wedgie.connect() : null);
+  const wedgieFor = async (signers: Signer[]) => (signers.includes("wedgie") && wedgieSupported() ? await Wedgie.connect() : null);
 
   // two taps: the first gets everything ready (MetaMask / the wedgie connect, the fee, the nonce); the second signs.
   // Face ID has to start straight from a tap: after a MetaMask popup or a network call, Safari and Chrome refuse it.

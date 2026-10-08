@@ -10,7 +10,7 @@ import { type FeeToken, type Signer, type Stage, getQuote, ownerSigners, ownersS
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { POPULAR, type SwapRoute, type Token, swapCalls } from "@/lib/safe/swap";
 import { uniswapRoute } from "@/lib/safe/uniswap";
-import { Wedgie } from "@/lib/safe/wedgie";
+import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
 import { ChainChip, TokenIcon } from "../bits";
 import { type Opt, Select, SignerChoice, assetOpt } from "./Pick";
@@ -226,7 +226,7 @@ export function SafeSwap({
         setStage(s);
         if (h) setHash(h);
       };
-      if (signers.includes("wedgie")) wedgie = await Wedgie.connect();
+      if (signers.includes("wedgie") && wedgieSupported()) wedgie = await Wedgie.connect(); // a phone: it parks for the computer
       const h = await ownersSend({
         account,
         state: st,

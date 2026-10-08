@@ -9,6 +9,9 @@ import { type SafeTx, type Sig, encodeWebAuthn } from "./core";
  *    gasToken, refundReceiver, nonce}}                     -> {"type":"safe_sig", safeTxHash, x, y, r, s,
  *                                                             authenticatorData, clientDataFields} | {"type":"refused"}
  * The wedgie computes the hash itself, shows the transaction, and signs only on a real A press.
+ * A USB line is at most 6 KB: a bigger tx (a bridge swap) sends its data ahead in pieces, if the app says it takes
+ * them (hello's safe_chunk, wedgie-safe b4e86f8+):
+ *   {"type":"safe_data","at":<bytes so far>,"hex":"..."} -> {"type":"safe_data","have":n}, then safe_sign with data "@".
  */
 const RPI_VID = 0x2e8a;
 export const wedgieSupported = () => typeof navigator !== "undefined" && "serial" in navigator;
@@ -37,7 +40,8 @@ const arm = () => {
 };
 
 /** What a plugged-in wedgie said when asked hello (nothing signs, nothing shows on its screen). */
-export type WedgieHello = { version?: string; short?: string; running?: string | null; safe?: { x: Hex; y: Hex } | null };
+export type WedgieHello = { version?: string; short?: string; running?: string | null; safe?: { x: Hex; y: Hex } | null; safe_chunk?: number };
+const LINE_MAX = 5800; // the wedgie's USB line is 6 KB
 export type Peek =
   | { kind: "none" } // no wedgie this browser was allowed to see is plugged in
   | { kind: "busy" } // a signing connection has it open right now
@@ -197,8 +201,20 @@ export class Wedgie {
       refundReceiver: "0x0000000000000000000000000000000000000000",
       nonce: Number(t.nonce),
     };
-    if (JSON.stringify(tx).length > 6000) throw new Error("Too big for the wedgie to show (6 KB max). Split it up.");
-    const g = await this.request({ type: "safe_sign", tx }, 200_000);
+    let send: Record<string, unknown> = tx;
+    if (JSON.stringify({ id: 0, type: "safe_sign", tx }).length > LINE_MAX) {
+      const chunk = (await this.request({ type: "hello" }, 5000))?.safe_chunk;
+      if (!chunk) throw new Error("This one is too big for the wedgie's Safe app. Update it at wedgie.dev, then try again.");
+      const hex = t.data.slice(2);
+      let at = 0;
+      for (let i = 0; i < hex.length; i += chunk) {
+        const r = await this.request({ type: "safe_data", at, hex: hex.slice(i, i + chunk) }, 10_000);
+        if (r?.type !== "safe_data") throw new Error(`The wedgie didn't take the transaction (${r?.error || "no answer"}).`);
+        at = r.have;
+      }
+      send = { ...tx, data: "@" };
+    }
+    const g = await this.request({ type: "safe_sign", tx: send }, 300_000); // a big one takes the wedgie a while to hash
     if (g?.type === "refused") throw new Error("Refused on the wedgie.");
     if (g?.type !== "safe_sig") throw new Error("The wedgie said something unexpected.");
     if (String(g.safeTxHash).toLowerCase() !== expectHash.toLowerCase()) throw new Error("The wedgie signed a different transaction. Not sending.");

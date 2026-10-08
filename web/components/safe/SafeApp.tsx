@@ -18,6 +18,7 @@ import { SafeSend } from "./SafeSend";
 import { SafeSwap } from "./SafeSwap";
 import { SafeWelcome } from "./SafeWelcome";
 import { WedgieButton } from "./WedgieButton";
+import { PendingCards } from "./PendingCard";
 
 type View = { kind: "home" } | { kind: "send"; asset?: Asset } | { kind: "swap" } | { kind: "receive" } | { kind: "deposit" } | { kind: "keys" };
 
@@ -108,6 +109,7 @@ export function SafeApp() {
           </button>
         </div>
 
+        <PendingCards account={account} states={states} onDone={refresh} toast={setToast} />
         {states.map(s => s.recovery && <RecoveryAlert key={s.chainId} account={account} state={s} feeToken={feeTokenOn(s.chainId)} onDone={refresh} />)}
         {states.map(
           s =>

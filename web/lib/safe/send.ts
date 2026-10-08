@@ -15,6 +15,7 @@ import {
 } from "./core";
 import { type Quote, type SendKind } from "./fee";
 import { connectHot, hotAvailable, hotSign } from "./hot";
+import { Parked, type Pending, parkPending } from "./pending";
 import { passkeySign, passkeySignRaw } from "./sign";
 import { type ChainState, type SafeAccount, hotOf, salt, wedgieSigners } from "./state";
 import { Wedgie, wedgieSupported } from "./wedgie";
@@ -67,6 +68,7 @@ type OwnersOpts = {
   setup?: boolean; // a level change: bigger gas budget
   swapGas?: bigint; // a swap: its route's own gas, on top of the Safe tx
   quote?: Quote; // the one the user saw, if still fresh and for the same kind of send
+  label?: string; // what it does, in words: shown on the computer that finishes it with the wedgie
   onStage?: (s: Stage, hash?: Hash) => void;
 };
 export type Prepared = { opts: OwnersOpts; t: SafeTx; h: Hex; fee: Quote };
@@ -102,10 +104,14 @@ export async function finishOwners(p: Prepared): Promise<Hash> {
     if (who.toLowerCase() !== hot.toLowerCase()) throw new Error(`Switch your wallet to ${hot} (it's on ${who}).`);
   }
   const order = [...signers].sort((x, y) => (x === "burner" ? -1 : y === "burner" ? 1 : 0));
+  // the wedgie can't plug in here (a phone): sign the rest, park it, and the computer with the wedgie finishes it
+  const later = signers.includes("wedgie") && !p.opts.wedgie && !wedgieSupported();
+  if (later && p.opts.swapGas !== undefined) throw new Error("A swap with the wedgie has to start on your computer (prices move).");
   const sigs: Sig[] = [];
   let ownWedgie: Wedgie | null = null;
   try {
     for (const s of order) {
+      if (s === "wedgie" && later) continue;
       if (s === "burner") {
         stage("signing");
         sigs.push(await passkeySign(a.credentialId, a.burnerSigner, h));
@@ -124,6 +130,11 @@ export async function finishOwners(p: Prepared): Promise<Hash> {
   } finally {
     await ownWedgie?.close();
   }
+  if (later) {
+    stage("sending");
+    await parkPending({ chainId, safe: a.address, tx: t, hash: h, sigs, burner: { x: a.qx, y: a.qy }, label: p.opts.label });
+    throw new Parked();
+  }
   stage("sending");
   const hash = await post({
     chainId,
@@ -137,6 +148,19 @@ export async function finishOwners(p: Prepared): Promise<Hash> {
   stage("confirming", hash);
   await waitFor(chainId, hash);
   used.set(`${chainId}:${a.address}`, t.nonce);
+  return hash;
+}
+
+/** Finish a parked transaction on the computer: the wedgie signs (one A press), the relay sends. */
+export async function finishPending(pd: Pending, w: Wedgie, key: { x: Hex; y: Hex } | undefined, onStage?: (s: Stage, hash?: Hash) => void): Promise<Hash> {
+  const stage = onStage ?? (() => {});
+  const k = key ?? (await w.key());
+  stage("signing-wedgie");
+  const sigs = [...pd.sigs, ...(await w.sign(pd.chainId, pd.safe, pd.tx, pd.hash, wedgieSigners(k)))];
+  stage("sending");
+  const hash = await post({ chainId: pd.chainId, kind: "exec", safe: pd.safe, tx: pd.tx, signatures: encodeSignatures(sigs), burner: pd.burner, wedgie: true });
+  stage("confirming", hash);
+  await waitFor(pd.chainId, hash);
   return hash;
 }
 
@@ -203,7 +227,7 @@ export async function budgetSend(opts: {
 }
 
 /** One way to reach the threshold: which keys sign, how many signatures they make, and whether this device can. */
-export type SignerOption = { signers: Signer[]; weight: number; threshold: number; ready: boolean; why?: string };
+export type SignerOption = { signers: Signer[]; weight: number; threshold: number; ready: boolean; why?: string; later?: string };
 
 /**
  * Every set of keys that can sign an owners transaction on this chain, read from the owners and threshold on chain
@@ -223,10 +247,12 @@ export function signerOptions(st: ChainState, a: SafeAccount): SignerOption[] {
   for (let m = 1; m < 1 << keys.length; m++) {
     const ks = keys.filter((_, i) => m & (1 << i));
     if (sum(ks) < t || ks.some(k => sum(ks.filter(x => x !== k)) >= t)) continue;
-    const why = ks.includes("hot") && !hotAvailable() ? "needs your hot wallet (a browser with it)" : ks.includes("wedgie") && !wedgieSupported() ? "needs the wedgie (Chrome on a computer)" : undefined;
-    out.push({ signers: ks, weight: sum(ks), threshold: t, ready: !why, why });
+    const why = ks.includes("hot") && !hotAvailable() ? "needs your hot wallet (a browser with it)" : undefined;
+    // the wedgie on a phone: sign here, finish on the computer (a send parks for it)
+    const later = ks.includes("wedgie") && !wedgieSupported() ? "the wedgie signs after, on your computer" : undefined;
+    out.push({ signers: ks, weight: sum(ks), threshold: t, ready: !why, why, later });
   }
-  return out.sort((x, y) => Number(y.ready) - Number(x.ready) || x.signers.length - y.signers.length || Number(y.signers.includes("burner")) - Number(x.signers.includes("burner")));
+  return out.sort((x, y) => Number(y.ready) - Number(x.ready) || Number(!!x.later) - Number(!!y.later) || x.signers.length - y.signers.length || Number(y.signers.includes("burner")) - Number(x.signers.includes("burner")));
 }
 
 /** The keys to ask for by default: the first option this device can sign. */

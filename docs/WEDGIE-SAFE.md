@@ -43,7 +43,16 @@ and Safe's deployed passkey signer accepts it.** Only threshold 1 was tested (is
 hello -> also "safe": {"x","y"} (null before the key is made)
 ```
 
-A line is at most 6 KB (send only these fields). The browser talks to it over Web Serial; wedgie-dev
+A line is at most 6 KB (send only these fields). Bigger (a LI.FI bridge swap is ~3.5 KB of calldata, ~9 KB as a
+batch line): wedgie-safe b4e86f8+ says `"safe_chunk": 4000` in hello and takes the data ahead in pieces,
+`{"type":"safe_data","at":<bytes so far>,"hex":"..."}` → `{"type":"safe_data","have":n}`, then `safe_sign` with
+`"data":"@"` (`lib/safe/wedgie.ts`). An older app gets "Update it at wedgie.dev".
+
+Since b4e86f8 the wedgie also reads Instant Wallet's own transactions in plain words: the 7-day recovery module
+(add/drop guardian, cancel), the daily budget (Zodiac Roles: keys, what it may use, "up to 100 USDC a day"),
+modules on/off, exact approvals and their reset, Uniswap swaps (pay, at least back, "to this Safe" or red) and
+LI.FI swaps ("pays this Safe" when the calldata names it, else red). Check the app against the real wedgie code:
+`WEDGIE_SAFE=<checkout> npx tsx web/tools/wedgie-app-check.mts` (MicroPython, `tools/wedgie/serve.py`). The browser talks to it over Web Serial; wedgie-dev
 `src/serial/` has the port handling (a wedgie's port drops and comes back once after plug-in).
 
 What the wedgie shows: chain, nonce, Safe, and in plain words: ETH sends, known-token transfers (USDC on

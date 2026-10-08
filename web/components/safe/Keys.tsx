@@ -270,15 +270,21 @@ export function Keys({
   );
 }
 
-/** The daily limit on this network, now: what's left of it. */
+/** The daily limit on this network, now: what's left of it, and which keys can go over it. */
 function Rules({ st }: { st?: ChainState }) {
   if (!st) return <div className="card fine">Loading…</div>;
   // left / daily limit, short: 99.77/100 USDC · 0.04/0.04 ETH
   const n = (v: bigint, d: number, dp: number) => String(Math.floor((Number(v) / 10 ** d) * 10 ** dp) / 10 ** dp);
   const b = st.budget;
-  const rows: [string, string][] = [
-    ["Daily", st.threshold <= 1 ? "no limit" : b ? `${n(b.usdc, 6, 2)}/${n(b.usdcMax, 6, 2)} USDC · ${n(b.eth, 18, 4)}/${n(b.ethMax, 18, 4)} ETH` : "a budget"],
-  ];
+  // over the daily limit: the keys this wallet has that can sign together
+  const over = st.hasWedgie ? (st.hasHot ? "wedgie + Face ID or hot wallet" : "Face ID + wedgie") : "Face ID + hot wallet";
+  const rows: [string, string][] =
+    st.threshold <= 1
+      ? [["Daily", "no limit"]]
+      : [
+          ["Daily", b ? `${n(b.usdc, 6, 2)}/${n(b.usdcMax, 6, 2)} USDC · ${n(b.eth, 18, 4)}/${n(b.ethMax, 18, 4)} ETH` : "a budget"],
+          ["Over that", over],
+        ];
   return (
     <ul className="card rules">
       {rows.map(([who, what]) => (

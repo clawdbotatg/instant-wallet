@@ -102,6 +102,7 @@ input { font: inherit; color: inherit; }
 .balance .big { font-size: clamp(46px, 14vw, 64px); font-weight: 700; letter-spacing: -.035em; line-height: 1; cursor: pointer; }
 .balance .total { display: flex; align-items: center; justify-content: center; gap: 10px; }
 .balance .send-all { flex: none; padding: 6px; border: 0; background: none; color: #1fa641; cursor: pointer; display: grid; place-items: center; }
+.send-all-list { display: grid; gap: 8px; max-height: 210px; overflow-y: auto; overscroll-behavior: contain; }
 .balance .send-all:active { opacity: .6; }
 .balance .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 22px; }
 

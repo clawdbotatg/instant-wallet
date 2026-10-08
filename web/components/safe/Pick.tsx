@@ -2,11 +2,11 @@
 
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { isAddress } from "viem";
-import { chainById } from "@/lib/chains";
+import { CHAINS, chainById } from "@/lib/chains";
 import { amount as fmtAmount, usd } from "@/lib/format";
 import type { Signer, SignerOption } from "@/lib/safe/send";
 import type { Asset } from "@/lib/types";
-import { TokenIcon } from "../bits";
+import { ChainIcon, TokenIcon } from "../bits";
 
 /** A token you hold, as a select-box row: icon, symbol, and how much (in dollars too). */
 export const assetOpt = (a: Asset): Opt => ({
@@ -20,6 +20,19 @@ export const assetOpt = (a: Asset): Opt => ({
   ),
   search: `${a.symbol} ${a.name} ${chainById(a.chainId)?.name ?? ""}`,
 });
+
+/** A network as a select-box row: its logo and name. */
+export const chainOpt = (id: number): Opt => ({
+  key: String(id),
+  icon: <ChainIcon chainId={id} size={24} />,
+  label: chainById(id)?.name ?? String(id),
+  search: `${chainById(id)?.name ?? ""} ${chainById(id)?.short ?? ""} ${chainById(id)?.native.symbol ?? ""}`,
+});
+
+/** Which network: a select box of every enabled one (type to filter once there are more than a handful). */
+export function ChainSelect({ value, onChange, disabled }: { value: number; onChange: (chainId: number) => void; disabled?: boolean }) {
+  return <Select value={chainOpt(value)} options={CHAINS.map(c => chainOpt(c.id))} onPick={k => onChange(Number(k))} filter={CHAINS.length > 5} disabled={disabled} />;
+}
 
 export type Opt = { key: string; icon?: ReactNode; label: ReactNode; right?: ReactNode; search?: string };
 

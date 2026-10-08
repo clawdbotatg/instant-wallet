@@ -183,7 +183,7 @@ export function SafeApp() {
         <div className="card assets">
           {assets.length === 0 && (
             <p className="fine center" style={{ padding: 18 }}>
-              Empty. Tap Deposit, or tap your address and send USDC or ETH to your address on {CHAINS.map(c => c.name).join(" or ")}.
+              Empty. Tap Deposit, or tap your address and send crypto to your address on {CHAINS.length > 2 ? `Base, Ethereum, or ${CHAINS.length - 2} other networks` : CHAINS.map(c => c.name).join(" or ")}.
             </p>
           )}
           {assets.map(a => (

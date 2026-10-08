@@ -1,4 +1,5 @@
 import { type Address, type Hex, decodeFunctionData, encodeFunctionData, parseAbi, size, slice, zeroAddress } from "viem";
+import { CHAINS } from "../chains";
 import { type Call, abi } from "./core";
 
 /**
@@ -31,8 +32,18 @@ export const isSwapTarget = (a: Address) => TARGETS.has(a.toLowerCase());
 
 export type Token = { chainId: number; address: Address; symbol: string; decimals: number; logo?: string; priceUsd?: number };
 
-/** The "To" list: the well-known tokens on each chain (anything else: paste its address). */
+/** The "To" list: the well-known tokens on each chain (anything else: search, or paste its address). */
 export const POPULAR: Record<number, Omit<Token, "chainId">[]> = {
+  // every other chain: its native coin and its USDC
+  ...Object.fromEntries(
+    CHAINS.map(c => [
+      c.id,
+      [
+        ...(c.nativeIsUsdc ? [] : [{ address: zeroAddress, symbol: c.native.symbol, decimals: 18, logo: c.native.logo }]),
+        ...(c.usdc ? [{ address: c.usdc, symbol: "USDC", decimals: 6 }] : []),
+      ],
+    ]),
+  ),
   8453: [
     { address: zeroAddress, symbol: "ETH", decimals: 18 },
     { address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", symbol: "USDC", decimals: 6 },

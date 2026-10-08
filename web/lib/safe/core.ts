@@ -330,7 +330,7 @@ export const DEFAULT_BUDGET: Budget = { usdc: 100_000_000n, eth: 40_000_000_000_
  */
 export function budgetCalls(
   safe: Address,
-  usdc: Address,
+  usdc: Address | undefined, // none on this chain: the native coin's budget only
   burnerSigner: Address,
   budget: Budget,
   now: bigint,
@@ -368,9 +368,13 @@ export function budgetCalls(
     r("enableModule", [burnerSigner]),
     r("assignRoles", [burnerSigner, [ROLE_BURNER], [true]]),
     r("setTransactionUnwrapper", [MULTISEND_CALL_ONLY, "0x8d80ff0a", MULTISEND_UNWRAPPER]),
-    r("scopeTarget", [ROLE_BURNER, usdc]),
-    r("scopeFunction", [ROLE_BURNER, usdc, "0xa9059cbb", usdcConditions, 0]),
-    r("setAllowance", [KEY_USDC, budget.usdc, budget.usdc, budget.usdc, day, now]),
+    ...(usdc
+      ? [
+          r("scopeTarget", [ROLE_BURNER, usdc]),
+          r("scopeFunction", [ROLE_BURNER, usdc, "0xa9059cbb", usdcConditions, 0]),
+          r("setAllowance", [KEY_USDC, budget.usdc, budget.usdc, budget.usdc, day, now]),
+        ]
+      : []),
     r("scopeTarget", [ROLE_BURNER, MULTICALL3]),
     r("scopeFunction", [ROLE_BURNER, MULTICALL3, "0x174dea71", ethConditions, 1]),
     r("setAllowance", [KEY_ETH, budget.eth, budget.eth, budget.eth, day, now]),

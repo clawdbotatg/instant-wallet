@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { type Hash, formatUnits, getAddress, parseUnits, zeroAddress } from "viem";
-import { CHAINS, chainById, explorerAddress, explorerTx, publicClient } from "@/lib/chains";
+import { CHAINS, chainById, explorerAddress, explorerTx, publicClient, nativeSymbol } from "@/lib/chains";
 import { amount as fmtAmount, short, usd } from "@/lib/format";
 import { abi } from "@/lib/safe/core";
 import type { Quote } from "@/lib/safe/fee";
@@ -12,8 +12,8 @@ import { POPULAR, type SwapRoute, type Token, swapCalls } from "@/lib/safe/swap"
 import { uniswapRoute } from "@/lib/safe/uniswap";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { ChainChip, TokenIcon } from "../bits";
-import { type Opt, Select, SignerChoice, assetOpt } from "./Pick";
+import { TokenIcon } from "../bits";
+import { ChainSelect, type Opt, Select, SignerChoice, assetOpt } from "./Pick";
 import { friendly } from "../Welcome";
 
 const SLIPPAGE_BPS = 50;
@@ -34,7 +34,6 @@ const tokenOpt = (t: Token | Found): Opt => ({
     ) : undefined,
   search: `${t.symbol} ${"name" in t ? t.name : ""} ${t.address}`,
 });
-const chainOpt = (id: number): Opt => ({ key: String(id), label: <ChainChip chainId={id} />, search: chainById(id)?.name });
 const same = (x: { chainId: number; address: string }, y: { chainId: number; address: string }) =>
   x.chainId === y.chainId && x.address.toLowerCase() === y.address.toLowerCase();
 
@@ -239,7 +238,7 @@ export function SafeSwap({
     };
   }, [route?.tx.data, signers.join()]);
   const feeAmt = fee ? BigInt(feeToken === "usdc" ? fee.feeUsdc : fee.feeEth) : 0n;
-  const feeLabel = fee ? (feeToken === "usdc" ? `${fmtAmount(formatUnits(feeAmt, 6))} USDC` : `${fmtAmount(formatUnits(feeAmt, 18))} ETH`) : "…";
+  const feeLabel = fee ? (feeToken === "usdc" ? `${fmtAmount(formatUnits(feeAmt, 6))} USDC` : `${fmtAmount(formatUnits(feeAmt, 18))} ${nativeSymbol(chainId)}`) : "…";
   const feeBalance = BigInt((feeToken === "usdc" ? usdcHeld?.balance : ethHeld?.balance) ?? "0");
   const spentInFeeToken = (feeToken === "usdc" && fromUsdc) || (feeToken === "eth" && fromEth) ? (base ?? 0n) : 0n;
   const feeShort = !!fee && feeBalance < spentInFeeToken + feeAmt;
@@ -397,13 +396,7 @@ export function SafeSwap({
       <div className="field">
         <label>To</label>
         <div className="pair">
-          <Select
-            value={chainOpt(toChain)}
-            options={CHAINS.map(c => chainOpt(c.id))}
-            onPick={k => setToChain(Number(k))}
-            filter={false}
-            disabled={busy}
-          />
+          <ChainSelect value={toChain} onChange={setToChain} disabled={busy} />
           <Select
             value={to ? { ...tokenOpt(to), right: undefined } : null}
             options={toOptions.map(tokenOpt)}
@@ -502,7 +495,7 @@ export function SafeSwap({
       )}
 
       {needsComputer && <p className="err">Swaps at your level need your hot wallet too: open Instant Wallet on your computer.</p>}
-      {feeShort && <p className="err">Not enough {feeToken === "usdc" ? "USDC" : "ETH"} on {chainById(chainId)?.name} for this plus the fee.</p>}
+      {feeShort && <p className="err">Not enough {feeToken === "usdc" ? "USDC" : nativeSymbol(chainId)} on {chainById(chainId)?.name} for this plus the fee.</p>}
       {error && <p className="err">{error}</p>}
       <button className="btn btn-green wide go-swap" onClick={swap} disabled={busy || !ready}>
         {busy ? label[stage] ?? "…" : "Swap"}

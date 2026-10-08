@@ -6,7 +6,8 @@ import { CHAINS } from "@/lib/chains";
 import { requestUri } from "@/lib/parse";
 import { short } from "@/lib/format";
 import type { Account } from "@/lib/types";
-import { Blockie, ChainIcon, CopyIcon, Qr, copy } from "./bits";
+import { Blockie, CopyIcon, Qr, copy } from "./bits";
+import { ChainSelect } from "./safe/Pick";
 
 /**
  * One card: your address as a QR (blockie in the middle), the short address + a copy icon under it; a tap anywhere
@@ -75,13 +76,7 @@ export function Receive({ account }: { account: Account; toast?: (m: string) => 
               ))}
             </div>
           </div>
-          <div className="row" style={{ justifyContent: "center" }}>
-            {CHAINS.map(c => (
-              <button key={c.id} className={`pill ${c.id === chainId ? "on" : ""}`} onClick={() => setChainId(c.id)}>
-                <ChainIcon chainId={c.id} /> {c.name}
-              </button>
-            ))}
-          </div>
+          <ChainSelect value={chainId} onChange={setChainId} />
           <button className="btn wide" onClick={() => (setAsking(false), setAmount(""))}>
             Cancel
           </button>

@@ -15,7 +15,6 @@ export const dynamic = "force-dynamic";
  */
 type Found = { chainId: number; address: Address; symbol: string; name: string; decimals: number; logo?: string; priceUsd?: number; liquidityUsd?: number };
 
-const DEX_CHAIN: Record<number, string> = { 8453: "base", 1: "ethereum" };
 const MAX = 20;
 const MIN_LIQ = 1_000;
 
@@ -34,7 +33,7 @@ async function dexSearch(chainId: number, q: string): Promise<any[]> {
   const url = isAddress(q) ? `https://api.dexscreener.com/latest/dex/tokens/${q}` : `https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(q)}`;
   const r = await fetch(url, { signal: AbortSignal.timeout(6_000) });
   const j = r.ok ? await r.json() : {};
-  return (j.pairs ?? []).filter((p: any) => p.chainId === DEX_CHAIN[chainId]);
+  return (j.pairs ?? []).filter((p: any) => p.chainId === chainById(chainId)?.dex);
 }
 
 const erc20 = parseAbi(["function decimals() view returns (uint8)", "function symbol() view returns (string)", "function name() view returns (string)"]);

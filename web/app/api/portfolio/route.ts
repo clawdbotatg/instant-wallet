@@ -7,8 +7,8 @@ import type { Asset, Portfolio } from "@/lib/types";
 export const dynamic = "force-dynamic";
 
 /**
- * `GET /api/portfolio?address=0x…` — ETH + every ERC-20 with a balance, on every enabled chain, with USD.
- * Base / Ethereum: Alchemy token balances + metadata + Prices API; DexScreener fills the long tail Alchemy has no logo
+ * `GET /api/portfolio?address=0x…` — the native coin + every ERC-20 with a balance, on every enabled chain, with USD.
+ * Alchemy token balances + metadata + Prices API; DexScreener fills the long tail Alchemy has no logo
  * or price for (most small Base tokens). Local: ETH + LOCAL_TOKENS / NEXT_PUBLIC_LOCAL_TOKENS (also on a
  * fork of a real chain when LOCAL_TOKENS_ONLY is set, since Alchemy only sees the real chain).
  */
@@ -16,7 +16,9 @@ export async function GET(req: NextRequest) {
   const a = req.nextUrl.searchParams.get("address");
   if (!a || !isAddress(a)) return NextResponse.json({ error: "address required" }, { status: 400 });
   const wallet = getAddress(a);
-  const perChain = await Promise.all(CHAINS.map(c => chainAssets(c.id, wallet).catch(() => [] as Asset[])));
+  // a slow chain shows nothing this round rather than holding up the other thirteen
+  const late = () => new Promise<Asset[]>(r => setTimeout(() => r([]), 6_000));
+  const perChain = await Promise.all(CHAINS.map(c => Promise.race([chainAssets(c.id, wallet).catch(() => [] as Asset[]), late()])));
   const assets = perChain.flat();
   await price(assets);
   assets.sort((x, y) => (y.usd ?? -1) - (x.usd ?? -1) || Number(y.formatted) - Number(x.formatted));
@@ -48,8 +50,10 @@ function row(chainId: number, asset: Address, symbol: string, name: string, deci
 
 async function chainAssets(chainId: number, wallet: Address): Promise<Asset[]> {
   const client = createPublicClient({ chain: chainById(chainId)!.chain, transport: http(upstreamRpc(chainId)) });
+  const info = chainById(chainId)!;
   const eth = await client.getBalance({ address: wallet });
-  const out: Asset[] = [row(chainId, ETH, "ETH", "Ether", 18, eth)];
+  // Arc's native balance is its USDC token's balance again: list it once, as the token
+  const out: Asset[] = info.nativeIsUsdc ? [] : [row(chainId, ETH, info.native.symbol, info.native.name, 18, eth, info.native.logo)];
   if (!alchemyNetwork(chainId) || process.env.LOCAL_TOKENS_ONLY) {
     const local = (process.env.LOCAL_TOKENS || process.env.NEXT_PUBLIC_LOCAL_TOKENS || "").split(",").filter(x => isAddress(x)) as Address[];
     for (const t of local) {
@@ -103,7 +107,8 @@ async function price(assets: Asset[]) {
   const key = process.env.ALCHEMY_API_KEY;
   const todo: Asset[] = [];
   for (const a of assets) {
-    if (/^(USDC|USDT|DAI|USDBC|USDS|PYUSD)$/i.test(a.symbol)) a.price = 1;
+    // $1 only for the real USDC: on BNB or Polygon anyone can mint a token called USDT
+    if (a.asset.toLowerCase() === chainById(a.chainId)?.usdc?.toLowerCase() || (a.chainId === 8453 || a.chainId === 1) && /^(USDC|USDT|DAI|USDBC|USDS|PYUSD)$/i.test(a.symbol)) a.price = 1;
     else {
       const hit = priceCache.get(`${a.chainId}:${a.asset}`);
       if (hit && Date.now() - hit.at < PRICE_MS) a.price = hit.v;
@@ -112,11 +117,16 @@ async function price(assets: Asset[]) {
   }
   if (key && todo.length) {
     try {
-      const ethP = todo.some(a => a.asset === ETH)
-        ? await fetch(`https://api.g.alchemy.com/prices/v1/${key}/tokens/by-symbol?symbols=ETH`, { cache: "no-store" })
-            .then(r => r.json())
-            .then(j => Number(j?.data?.[0]?.prices?.find((p: any) => p.currency === "usd")?.value))
-        : NaN;
+      // native coins by symbol (ETH, POL, BNB, …)
+      const syms = [...new Set(todo.filter(a => a.asset === ETH).map(a => a.symbol))];
+      const nativeP = new Map<string, number>();
+      if (syms.length) {
+        const j = await fetch(`https://api.g.alchemy.com/prices/v1/${key}/tokens/by-symbol?${syms.map(s => `symbols=${s}`).join("&")}`, { cache: "no-store" }).then(r => r.json());
+        for (const d of j?.data ?? []) {
+          const v = Number(d?.prices?.find((p: any) => p.currency === "usd")?.value);
+          if (Number.isFinite(v)) nativeP.set(String(d.symbol).toUpperCase(), v);
+        }
+      }
       const toks = todo.filter(a => a.asset !== ETH && alchemyNetwork(a.chainId)).slice(0, 25);
       const byAddr = new Map<string, number>();
       if (toks.length) {
@@ -134,7 +144,7 @@ async function price(assets: Asset[]) {
       for (const a of todo) {
         const v =
           a.asset === ETH
-            ? Number.isFinite(ethP) ? ethP : null
+            ? nativeP.get(a.symbol.toUpperCase()) ?? null
             : byAddr.get(`${alchemyNetwork(a.chainId)}:${a.asset.toLowerCase()}`) ?? null;
         a.price = v;
         priceCache.set(`${a.chainId}:${a.asset}`, { at: Date.now(), v });
@@ -156,14 +166,13 @@ async function price(assets: Asset[]) {
   for (const a of assets) a.usd = a.price === null ? null : Number(a.formatted) * a.price;
 }
 
-const DEX_CHAIN: Record<number, string> = { 8453: "base", 1: "ethereum" };
 const DEX_MS = 5 * 60_000;
 const dexCache = new Map<string, { at: number; v: { image?: string; priceUsd: number | null } | null }>();
 
 /** DexScreener token info (logo + USD price of the most liquid pair), 30 tokens per request, cached 5 min. */
 async function dexscreener(chainId: number, tokens: Address[]): Promise<Map<string, { image?: string; priceUsd: number | null }>> {
   const out = new Map<string, { image?: string; priceUsd: number | null }>();
-  const slug = DEX_CHAIN[chainId];
+  const slug = chainById(chainId)?.dex;
   if (!slug) return out;
   const todo: string[] = [];
   for (const t of tokens.map(x => x.toLowerCase())) {

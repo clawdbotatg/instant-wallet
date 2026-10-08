@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { type Address, type Hash, formatUnits, getAddress, isAddress, parseUnits, zeroAddress } from "viem";
-import { chainById, explorerTx } from "@/lib/chains";
+import { chainById, explorerTx, nativeSymbol } from "@/lib/chains";
 import { amount as fmtAmount, short, usd } from "@/lib/format";
 import { isClaimLink } from "@/lib/claim";
 import { parse } from "@/lib/parse";
@@ -116,7 +116,7 @@ export function SafeSend({
   const sendingEth = asset?.asset === zeroAddress;
   const feeToken: FeeToken = sendingEth ? "eth" : sendingUsdc ? "usdc" : usdcHeld ? "usdc" : "eth";
   const fee = quote ? BigInt(feeToken === "usdc" ? quote.feeUsdc : quote.feeEth) : 0n;
-  const feeLabel = quote ? (feeToken === "usdc" ? `${fmtAmount(formatUnits(fee, 6))} USDC` : `${fmtAmount(formatUnits(fee, 18))} ETH`) : "…";
+  const feeLabel = quote ? (feeToken === "usdc" ? `${fmtAmount(formatUnits(fee, 6))} USDC` : `${fmtAmount(formatUnits(fee, 18))} ${nativeSymbol(chainId)}`) : "…";
   const p = st && asset && base !== null ? plan(st, account, asset.asset as Address, base, fee, sendingUsdc || sendingEth) : null;
   // which keys sign a big move: the first way this device can, unless the user picks another
   const options = st && p?.path === "owners" && st.threshold > 1 ? signerOptions(st, account) : [];
@@ -309,7 +309,7 @@ export function SafeSend({
             </div>
           )}
         </div>
-        {feeShort && <p className="err">Not enough {feeToken === "usdc" ? "USDC" : "ETH"} on {chainById(chainId)?.name} for this plus the fee.</p>}
+        {feeShort && <p className="err">Not enough {feeToken === "usdc" ? "USDC" : nativeSymbol(chainId)} on {chainById(chainId)?.name} for this plus the fee.</p>}
         {error && <p className="err">{error}</p>}
         <button className="btn btn-green wide" onClick={send} disabled={busy || !quote || feeShort}>
           {busy ? label[stage] ?? "…" : "Send"}
@@ -404,7 +404,7 @@ export function SafeSend({
                 </span>
                 <span className="fine">
                   {st?.budget && (sendingUsdc || sendingEth)
-                    ? `Daily budget left: ${sendingUsdc ? `${fmtAmount(formatUnits(st.budget.usdc, 6))} USDC` : `${fmtAmount(formatUnits(st.budget.eth, 18))} ETH`}`
+                    ? `Daily budget left: ${sendingUsdc ? `${fmtAmount(formatUnits(st.budget.usdc, 6))} USDC` : `${fmtAmount(formatUnits(st.budget.eth, 18))} ${nativeSymbol(chainId)}`}`
                     : `You have ${fmtAmount(asset.formatted)}`}
                 </span>
               </div>

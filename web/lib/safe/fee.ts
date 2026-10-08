@@ -43,7 +43,7 @@ export type Quote = {
   relayer: Address;
   kind: SendKind;
   gasPrice: string; // wei
-  ethUsd: number;
+  ethUsd: number; // the native coin in dollars (ETH, POL, BNB, …)
   feeEth: string; // wei
   feeUsdc: string; // 6 decimals
   until: number; // ms

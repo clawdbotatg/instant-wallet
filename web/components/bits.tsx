@@ -26,6 +26,7 @@ export function ChainChip({ chainId }: { chainId: number }) {
   const c = chainById(chainId);
   return (
     <span className="chip" style={{ background: c?.color ?? "#787b78" }}>
+      <ChainIcon chainId={chainId} size={14} />
       {c?.name ?? chainId}
     </span>
   );
@@ -205,12 +206,12 @@ export async function copy(text: string): Promise<boolean> {
   }
 }
 
-const CHAIN_ICON: Record<number, string> = { 8453: "/tokens/base.webp", 1: "/tokens/ethereum.webp" };
 /** A network's logo, round. */
 export function ChainIcon({ chainId, size = 20 }: { chainId: number; size?: number }) {
-  return CHAIN_ICON[chainId] ? <img src={CHAIN_ICON[chainId]} alt="" width={size} height={size} style={{ borderRadius: "50%", display: "block" }} /> : null;
+  const src = chainById(chainId)?.icon;
+  return src ? <img src={src} alt="" width={size} height={size} style={{ borderRadius: "50%", display: "block", flexShrink: 0 }} /> : null;
 }
-const TW_CHAIN: Record<number, string> = { 8453: "base", 1: "ethereum" };
+const TW_CHAIN: Record<number, string> = { 8453: "base", 1: "ethereum", 42161: "arbitrum", 10: "optimism", 137: "polygon", 43114: "avalanchec", 56: "smartchain", 100: "xdai", 42220: "celo", 146: "sonic" };
 const LOCAL_TOKEN: Record<string, string> = { ETH: "/tokens/eth.png", WETH: "/tokens/eth.png", USDC: "/tokens/usdc.png" };
 
 /**
@@ -249,9 +250,7 @@ export function TokenIcon({
           {symbol.slice(0, 1)}
         </span>
       )}
-      {CHAIN_ICON[chainId] && (
-        <img className="badge" src={CHAIN_ICON[chainId]} alt={chainById(chainId)?.name} width={badge} height={badge} />
-      )}
+      {chainById(chainId)?.icon && <img className="badge" src={chainById(chainId)!.icon} alt={chainById(chainId)?.name} width={badge} height={badge} />}
     </span>
   );
 }

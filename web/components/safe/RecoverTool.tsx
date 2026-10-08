@@ -7,6 +7,7 @@ import { short } from "@/lib/format";
 import { DAO, RECOVERY_7D, SAFE_FACTORY } from "@/lib/safe/config";
 import { abi, deploySafeCall, safeAddress } from "@/lib/safe/core";
 import { Band, copy } from "../bits";
+import { ChainSelect } from "./Pick";
 import { friendly } from "../Welcome";
 
 const eth = () => (typeof window === "undefined" ? undefined : (window as any).ethereum);
@@ -84,13 +85,7 @@ export function RecoverTool() {
       <h1>Recover a wallet</h1>
       <p className="fine">For a wallet&apos;s recovery address: the DAO, a paper seed opened in a wallet, a friend. You swap in the owner&apos;s new key; it lands after 7 days, and the owner can cancel it from any key they still have.</p>
       <Band />
-      <div className="row" style={{ flexWrap: "wrap" }}>
-        {CHAINS.map(c => (
-          <button key={c.id} className={`pill ${c.id === chainId ? "on" : ""}`} onClick={() => setChainId(c.id)}>
-            {c.name}
-          </button>
-        ))}
-      </div>
+      <ChainSelect value={chainId} onChange={setChainId} />
       <div className="field">
         <label>The wallet</label>
         <div className="input">

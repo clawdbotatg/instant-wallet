@@ -2,7 +2,7 @@
 
 import { type ReactNode, useState } from "react";
 import { type Address, encodeFunctionData, formatUnits, parseUnits, zeroAddress } from "viem";
-import { CHAINS, chainById, explorerAddress } from "@/lib/chains";
+import { CHAINS, chainById, explorerAddress, nativeSymbol } from "@/lib/chains";
 import { short } from "@/lib/format";
 import { DAO, FEE_ALLOWANCE, VERIFIERS, VERIFIERS_SLOT2 } from "@/lib/safe/config";
 import { type Call, DEFAULT_BUDGET, abi, budgetCalls, deploySignerCall, feeAllowanceCalls, selfCall, setBudgetCalls, setGuardianCalls } from "@/lib/safe/core";
@@ -11,7 +11,8 @@ import { type FeeToken, type Prepared, type Signer, finishOwners, getQuote, owne
 import { type ChainState, type SafeAccount, hotOf, wedgieSigners } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { AddressInput, Blockie, ChainIcon } from "../bits";
+import { AddressInput, Blockie } from "../bits";
+import { ChainSelect } from "./Pick";
 import { friendly } from "../Welcome";
 
 /**
@@ -59,12 +60,15 @@ export function Keys({
   // the budget comes with the first second key, whichever it is (the burner is still the only owner then)
   // (with the fee's own allowance, so the relay's USDC fee doesn't come off the limit)
   const now = () => BigInt(Math.floor(Date.now() / 1000));
-  const feeApart = async () =>
-    feeAllowanceCalls(account.address, chainById(chainId)!.usdc!, (await getQuote(chainId, "setup")).relayer, FEE_ALLOWANCE[chainId] ?? 1_000_000n, now());
+  // (no USDC on this chain: fees are in its native coin, there's no USDC fee to keep apart)
+  const feeApart = async () => {
+    const u = chainById(chainId)?.usdc;
+    return u ? feeAllowanceCalls(account.address, u, (await getQuote(chainId, "setup")).relayer, FEE_ALLOWANCE[chainId] ?? 1_000_000n, now()) : [];
+  };
   const budgetFirst = async (s: ChainState): Promise<Call[]> =>
     s.threshold <= 1
       ? [
-          ...budgetCalls(account.address, chainById(chainId)!.usdc!, account.burnerSigner, DEFAULT_BUDGET, now(), {
+          ...budgetCalls(account.address, chainById(chainId)?.usdc, account.burnerSigner, { usdc: DEFAULT_BUDGET.usdc, eth: chainById(chainId)?.nativeBudget ?? DEFAULT_BUDGET.eth }, now(), {
             rolesDeployed: s.rolesDeployed,
             rolesEnabled: !!s.roles,
           }),
@@ -169,7 +173,7 @@ export function Keys({
         const calls = [...setBudgetCalls(account.address, { usdc: usdcV, eth: ethV }, now()), ...(await feeApart())];
         const p = await prepareOwners({ account, state: st, calls, signers, feeToken, setup: true, wedgie: w, label: "Change the daily limit" });
         return {
-          label: `Daily limit: ${formatUnits(usdcV, 6)} USDC · ${formatUnits(ethV, 18)} ETH`,
+          label: `Daily limit: ${formatUnits(usdcV, 6)} USDC · ${formatUnits(ethV, 18)} ${nativeSymbol(chainId)}`,
           p,
           after: () => setEditLimit(null),
           close: async () => w?.close(),
@@ -210,7 +214,7 @@ export function Keys({
         <div className="stack" style={{ gap: 8 }}>
           <b>{pending.label}</b>
           <p className="fine">
-            Fee {pending.p.opts.feeToken === "usdc" ? `${(Number(pending.p.fee.feeUsdc) / 1e6).toFixed(4)} USDC` : `${(Number(pending.p.fee.feeEth) / 1e18).toFixed(6)} ETH`}. Signed by{" "}
+            Fee {pending.p.opts.feeToken === "usdc" ? `${(Number(pending.p.fee.feeUsdc) / 1e6).toFixed(4)} USDC` : `${(Number(pending.p.fee.feeEth) / 1e18).toFixed(6)} ${nativeSymbol(chainId)}`}. Signed by{" "}
             {signLabel(pending.p)}.
           </p>
           <button className="btn btn-green wide" onClick={sign} disabled={!!busy}>
@@ -242,18 +246,11 @@ export function Keys({
   return (
     <div className="stack">
       <h2>Keys &amp; safety</h2>
-      <div className="row" style={{ flexWrap: "wrap" }}>
-        {CHAINS.map(c => (
-          <button key={c.id} className={`pill ${c.id === chainId ? "on" : ""}`} onClick={() => setChainId(c.id)}>
-            <ChainIcon chainId={c.id} />
-            {c.name}
-          </button>
-        ))}
-      </div>
+      <ChainSelect value={chainId} onChange={setChainId} />
 
       {!st && <p className="fine">Loading…</p>}
       {st && !st.deployed && <p className="fine">Not deployed on {chainById(chainId)?.name} yet: the first send or change deploys it. Each network&apos;s wallet is set up on its own.</p>}
-      {!canPay && <p className="err">Changes cost a few cents of gas, paid from this wallet. Add a little USDC or ETH on {chainById(chainId)?.name} first.</p>}
+      {!canPay && <p className="err">Changes cost a few cents of gas, paid from this wallet. Add a little USDC or {nativeSymbol(chainId)} on {chainById(chainId)?.name} first.</p>}
 
       <h3>Your keys</h3>
       <KeyRow kind="Instant wallet" a={account.burnerSigner} chainId={chainId} />
@@ -289,7 +286,7 @@ export function Keys({
           {editLimit !== chainId ? (
             <div className="row" style={{ justifyContent: "space-between" }}>
               <b>
-                {cut(st.budget.usdc, 6, 2)}/{formatUnits(st.budget.usdcMax, 6)} USDC · {cut(st.budget.eth, 18, 4)}/{formatUnits(st.budget.ethMax, 18)} ETH
+                {cut(st.budget.usdc, 6, 2)}/{formatUnits(st.budget.usdcMax, 6)} USDC · {cut(st.budget.eth, 18, 4)}/{formatUnits(st.budget.ethMax, 18)} {nativeSymbol(chainId)}
               </b>
               <button
                 className="pill"
@@ -311,7 +308,7 @@ export function Keys({
               </div>
               <div className="input">
                 <input inputMode="decimal" value={limitEth} onChange={e => setLimitEth(e.target.value.replace(",", ".").replace(/[^0-9.]/g, ""))} />
-                <span className="unit">ETH</span>
+                <span className="unit">{nativeSymbol(chainId)}</span>
               </div>
               {action(
                 "limit",

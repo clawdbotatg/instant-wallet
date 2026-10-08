@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { type Address, type Hash, formatUnits, zeroAddress } from "viem";
-import { chainById, explorerTx } from "@/lib/chains";
+import { chainById, explorerTx, nativeSymbol } from "@/lib/chains";
 import { amount as fmtAmount, usd } from "@/lib/format";
 import { transfer } from "@/lib/safe/core";
 import {
@@ -82,7 +82,7 @@ export function SendAll({
             : null;
       if (!feeToken)
         throw new Error(
-          `Not enough USDC or ETH on ${chainById(chainId)?.name} for the fee.`,
+          `Not enough USDC or ${nativeSymbol(chainId)} on ${chainById(chainId)?.name} for the fee.`,
         );
       const feeAsset = feeToken === "usdc" ? usdcA! : ethA!;
       const net: Record<string, bigint> = {};
@@ -149,7 +149,7 @@ export function SendAll({
           r.prepared &&
           (r.prepared.opts.feeToken === "usdc"
             ? `${fmtAmount(formatUnits(BigInt(r.prepared.fee.feeUsdc), 6))} USDC`
-            : `${fmtAmount(formatUnits(BigInt(r.prepared.fee.feeEth), 18))} ETH`);
+            : `${fmtAmount(formatUnits(BigInt(r.prepared.fee.feeEth), 18))} ${nativeSymbol(chainId)}`);
         const url = r.hash && explorerTx(chainId, r.hash);
         return (
           <div key={chainId} className="card stack">

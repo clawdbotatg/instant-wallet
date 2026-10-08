@@ -32,6 +32,9 @@ the address.
 | BNB Chain, Plasma | BNB, XPL | none (BNB's USDC has 18 decimals) |
 | Arc | USDC is the gas coin; the native balance is hidden (it's the USDC token again) | yes |
 
+Swap's default "To" list on each network: its coin, USDC, and its most traded tokens (`MORE` in
+`web/lib/safe/swap.ts`, picked by pool size and checked on chain 2026-10-08). Search finds anything else.
+
 The burner's native daily limit is about $100 of the coin (`nativeBudget` in `chains.ts`).
 
 Not set up yet: the DAO recovery wallet (dao.buidlguidl.eth) only exists on Base, Ethereum, Arbitrum, Optimism,

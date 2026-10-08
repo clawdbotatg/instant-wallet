@@ -116,3 +116,13 @@ A plain passkey Safe send is ≈ 90K, so the hybrid adds ≈ 200K per send.
 2. Speed up if needed (WASM).
 3. Keys → "Experimental: post-quantum" switch, off by default. It deploys the hybrid and swaps the owner.
 4. The relay accepts `[approve, execTransaction]`, and `send.ts` uses `hybridSign` when the owner is a hybrid.
+
+## Sources (2026-10-08)
+
+- Drake's "bunker mode" post: https://x.com/drakefjustin/status/2107837081313505768 (AI math may break ECDSA
+  before quantum; move funds to unexposed keys; prefer hash-based crypto). Lindell (Coinbase) called it FUD;
+  Vitalik agreed the risk is real and warned lattices may fall too.
+- Native post-quantum passkeys: ML-DSA COSE ids exist (RFC 9882), but no Apple/Google support yet (Keycloak #50084,
+  webauthn4j PR #1337). ML-DSA is lattice-based and ≈1.2M gas to verify on-chain (Fireblocks).
+- SPHINCS-: github.com/nconsigny/SPHINCS- (reference + verifiers), github.com/lattice-safe/sphincsminus (byte spec +
+  test vectors), github.com/lvingsarcophagus/pq-evm-account (a 4337 hybrid, the same idea without rolling).

@@ -274,19 +274,12 @@ export function Keys({
       )}
 
       {st?.budget && st.threshold > 1 && (
-        <Step title="Daily limit" key={`limit${chainId}`}>
-          <p className="fine">What Face ID alone can send each day. Over that: {overLimit(st)}.</p>
+        <Step title={`Daily limit (1 of ${st.level} keys)`} key={`limit${chainId}`}>
           {editLimit !== chainId ? (
             <div className="row" style={{ justifyContent: "space-between" }}>
-              <span>
-                <b>
-                  {formatUnits(st.budget.usdcMax, 6)} USDC · {formatUnits(st.budget.ethMax, 18)} ETH
-                </b>
-                <br />
-                <span className="fine">
-                  left today: {cut(st.budget.usdc, 6, 2)} USDC · {cut(st.budget.eth, 18, 4)} ETH
-                </span>
-              </span>
+              <b>
+                {cut(st.budget.usdc, 6, 2)}/{formatUnits(st.budget.usdcMax, 6)} USDC · {cut(st.budget.eth, 18, 4)}/{formatUnits(st.budget.ethMax, 18)} ETH
+              </b>
               <button
                 className="pill"
                 disabled={!!busy || !!pending}
@@ -349,8 +342,6 @@ export function Keys({
 
 // a balance, cut (not rounded) to a few decimals: 99.77
 const cut = (v: bigint, d: number, dp: number) => String(Math.floor((Number(v) / 10 ** d) * 10 ** dp) / 10 ** dp);
-/** Over the daily limit: the keys this wallet has that can sign together. */
-const overLimit = (st: ChainState) => (st.hasWedgie ? (st.hasHot ? "the wedgie + Face ID or hot wallet" : "Face ID + the wedgie") : "Face ID + hot wallet");
 
 /** A key you have: what kind on the left, its address on the right. */
 function KeyRow({ kind, a, chainId }: { kind: string; a?: Address; chainId: number }) {

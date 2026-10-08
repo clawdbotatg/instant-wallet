@@ -165,8 +165,8 @@ export function SafeApp() {
               {portfolio ? (showUsd ? usd(portfolio.totalUsd ?? 0) : `${assets.length} assets`) : "…"}
             </div>
             {assets.length > 0 && (
-              <button className="btn btn-green send-all" aria-label="Send everything" onClick={() => setView({ kind: "sendAll" })}>
-                <SendIcon size={16} />
+              <button className="send-all" aria-label="Send everything" onClick={() => setView({ kind: "sendAll" })}>
+                <SendIcon size={26} />
               </button>
             )}
           </div>

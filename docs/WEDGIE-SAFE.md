@@ -93,6 +93,14 @@ Wanted:
    computer's card draw it too. Same picture on the phone and the wedgie = the computer didn't swap the
    transaction. Not a replacement for 1–4.
 
+## Later: a summary first, the joystick for more (Austin, 2026-10-08)
+
+- First page: one plain summary the wedgie writes itself from the decoded batch (never host text), e.g.
+  "Send 4 USDC to [blockie] 0x6a23..5a13 · fee 0.02 USDC". A signs, Y refuses.
+- **Down: more** (each action in full, full addresses, the tx picture). **Up: less**, back toward the summary.
+- Anything it can't read is red on the summary page itself, not only in the details.
+- Wait until Austin has used the clearer pages (wedgie-safe 319156a).
+
 ## Safe's Transaction Service
 
 `https://api.safe.global/tx-service/base/api/v1/...` works from a browser: no API key, CORS open.

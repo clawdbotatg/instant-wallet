@@ -220,6 +220,19 @@ them (3 wallet transactions: approve, splitERC20 of 25, transfer of 1), checks e
 paid exactly 26, downloads the PDF (3 pages), claims one card on a second phone, and sees `25 ready · 1 claimed`.
 **5/5 passed 2026-10-08.**
 
+`web/tools/claim-scan-e2e.mjs`, same setup + ffmpeg: a phone that already has a wallet. A: the camera opens
+`/pk#…` → straight to **Claim it** (no welcome) → the money is in that wallet. B: the wallet's own scan button reads
+a card printed by another host (a fake camera shows the QR) → the claim opens on this wallet's host → same wallet.
+**4/4 passed 2026-10-08.**
+
+The three ways in, all tested: phone camera with no wallet (claim-e2e), phone camera with a wallet (A), the wallet's
+scanner (B). Two catches:
+- **Home-screen app:** on an iPhone, a wallet added to the home screen keeps its own storage, apart from Safari. The
+  camera opens Safari, which doesn't see it: the claim page shows the welcome. Tap **I already have one** (Face ID)
+  and it's the same wallet. Or scan with the wallet's own scan button.
+- **Host:** the camera opens the host the card was made on. A wallet made on another host (instantwallet.io later)
+  is a different passkey there; the wallet's own scanner always claims on its own host.
+
 Not yet done: a real claim on mainnet with a real phone and a real NFC tag.
 
 ---

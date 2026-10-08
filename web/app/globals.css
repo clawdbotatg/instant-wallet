@@ -84,8 +84,16 @@ input { font: inherit; color: inherit; }
 
 /* app frame: one phone-width column */
 .app { max-width: 480px; margin: 0 auto; padding: max(14px, env(safe-area-inset-top)) 16px calc(110px + env(safe-area-inset-bottom)); display: grid; gap: 16px; }
-.top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 19px; letter-spacing: -.02em; }
+.top { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
+.brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 19px; letter-spacing: -.02em; min-width: 0; white-space: nowrap; }
+.brand img { flex: none; }
+.brand span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* the wallet's header: name and address pill shrink together on small phones (iPhone SE 320/375) instead of wrapping */
+.top:has(.me.big) .brand { font-size: clamp(15px, 4.9vw, 19px); gap: clamp(6px, 2vw, 8px); }
+.top:has(.me.big) .brand img { height: clamp(24px, 7.7vw, 30px); width: auto; }
+.me.big { height: clamp(40px, 12.3vw, 48px); gap: clamp(6px, 2.6vw, 10px); padding-right: clamp(10px, 4.1vw, 16px); }
+.me.big .blockie { width: clamp(30px, 9.7vw, 38px); height: auto; }
+.me.big .mono { font-size: clamp(13px, 4.1vw, 16px); }
 .me { display: flex; align-items: center; gap: 8px; padding: 4px; flex: none; white-space: nowrap; }
 .me .mono { word-break: normal; }
 .blockie { border-radius: 50%; display: block; image-rendering: pixelated; box-shadow: 0 0 0 2px #fff, 0 3px 8px -3px rgba(0,0,0,.4); }

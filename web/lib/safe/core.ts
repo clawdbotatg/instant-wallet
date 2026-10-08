@@ -376,6 +376,18 @@ export function budgetCalls(
   ];
 }
 
+/** A new daily limit for the burner (owners only): both allowances reset to the new amount, refilling daily from now. */
+export function setBudgetCalls(safe: Address, budget: Budget, now: bigint): Call[] {
+  const roles = rolesAddress(safe);
+  const day = 86_400n;
+  const r = (key: Hex, v: bigint): Call => ({
+    to: roles,
+    value: 0n,
+    data: encodeFunctionData({ abi: abi.roles, functionName: "setAllowance", args: [key, v, v, v, day, now] }),
+  });
+  return [r(KEY_USDC, budget.usdc), r(KEY_ETH, budget.eth)];
+}
+
 /** A burner spend through Roles: the calldata the burner signs (plus a salt), and what the relay submits. */
 export function rolesSpendCall(calls: Call[]): Hex {
   const eth = calls.filter(c => c.data === "0x");

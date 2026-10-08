@@ -199,6 +199,18 @@ await page.waitForTimeout(16000);
 ok(!(await page.getByText("Sign with your wedgie").count()), "the card is gone after it's sent");
 await page.screenshot({ path: `${OUT}/p5-computer-done.png` });
 
+// a smaller daily limit (owners: Face ID + the wedgie), then 5 USDC is over it
+const w1 = wedgieSigns;
+await page.locator(".fab-settings").tap();
+await page.getByPlaceholder("100").fill("2");
+await page.getByRole("button", { name: "Save", exact: true }).first().tap();
+await page.getByRole("button", { name: "Yes", exact: true }).tap();
+await page.waitForTimeout(20000);
+const errsL = await page.locator(".err").allTextContents();
+if (errsL.length) console.log("on screen:", errsL);
+await page.screenshot({ path: `${OUT}/p6-limit.png`, fullPage: true });
+ok(wedgieSigns === w1 + 1 && (await page.getByText(/\/2 USDC/).count()) > 0, "daily limit changed to 2 USDC (the wedgie signed)");
+
 await browser.close();
 console.log(fails ? `${fails} FAILED` : "ALL PASS");
 process.exit(fails ? 1 : 0);

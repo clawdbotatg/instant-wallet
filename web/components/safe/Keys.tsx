@@ -1,11 +1,11 @@
 "use client";
 
 import { type ReactNode, useState } from "react";
-import { type Address, encodeFunctionData, zeroAddress } from "viem";
+import { type Address, encodeFunctionData, formatUnits, parseUnits, zeroAddress } from "viem";
 import { CHAINS, chainById, explorerAddress } from "@/lib/chains";
 import { short } from "@/lib/format";
 import { DAO, VERIFIERS, VERIFIERS_SLOT2 } from "@/lib/safe/config";
-import { type Call, DEFAULT_BUDGET, abi, budgetCalls, deploySignerCall, selfCall, setGuardianCalls } from "@/lib/safe/core";
+import { type Call, DEFAULT_BUDGET, abi, budgetCalls, deploySignerCall, selfCall, setBudgetCalls, setGuardianCalls } from "@/lib/safe/core";
 import { connectHot, hotAvailable } from "@/lib/safe/hot";
 import { type FeeToken, type Prepared, type Signer, finishOwners, ownerSigners, prepareOwners } from "@/lib/safe/send";
 import { type ChainState, type SafeAccount, hotOf, wedgieSigners } from "@/lib/safe/state";
@@ -144,6 +144,33 @@ export function Keys({
       }
     });
 
+  const [limitUsdc, setLimitUsdc] = useState("");
+  const [limitEth, setLimitEth] = useState("");
+  const setLimit = () =>
+    prep("limit", async () => {
+      if (!st?.budget) throw new Error("Still loading");
+      const usdcV = limitUsdc ? parseUnits(limitUsdc, 6) : st.budget.usdcMax;
+      const ethV = limitEth ? parseUnits(limitEth, 18) : st.budget.ethMax;
+      const signers = ownerSigners(st, account);
+      const w = await wedgieFor(signers);
+      try {
+        const calls = setBudgetCalls(account.address, { usdc: usdcV, eth: ethV }, BigInt(Math.floor(Date.now() / 1000)));
+        const p = await prepareOwners({ account, state: st, calls, signers, feeToken, setup: true, wedgie: w, label: "Change the daily limit" });
+        return {
+          label: `Daily limit: ${formatUnits(usdcV, 6)} USDC · ${formatUnits(ethV, 18)} ETH`,
+          p,
+          after: () => {
+            setLimitUsdc("");
+            setLimitEth("");
+          },
+          close: async () => w?.close(),
+        };
+      } catch (e) {
+        await w?.close();
+        throw e;
+      }
+    });
+
   const addWedgie = () =>
     prep("wedgie", async () => {
       if (!st) throw new Error("Still loading");
@@ -243,6 +270,28 @@ export function Keys({
             "wedgie",
             <button className="btn btn-green wide" onClick={addWedgie} disabled={!!busy || !!pending || !canPay || !wedgieSupported()}>
               {busy === "wedgie" ? "Check the wedgie…" : !wedgieSupported() ? "Needs Chrome on a computer" : "Connect and add the wedgie"}
+            </button>,
+          )}
+        </Step>
+      )}
+
+      {st?.budget && st.threshold > 1 && (
+        <Step title="Daily limit">
+          <p className="fine">What Face ID alone can send each day. Over that needs two keys.</p>
+          <div className="row">
+            <div className="input grow">
+              <input inputMode="decimal" value={limitUsdc} onChange={e => setLimitUsdc(e.target.value.replace(",", ".").replace(/[^0-9.]/g, ""))} placeholder={formatUnits(st.budget.usdcMax, 6)} />
+              <span className="unit">USDC</span>
+            </div>
+            <div className="input grow">
+              <input inputMode="decimal" value={limitEth} onChange={e => setLimitEth(e.target.value.replace(",", ".").replace(/[^0-9.]/g, ""))} placeholder={formatUnits(st.budget.ethMax, 18)} />
+              <span className="unit">ETH</span>
+            </div>
+          </div>
+          {action(
+            "limit",
+            <button className="btn btn-green wide" onClick={setLimit} disabled={!!busy || !!pending || !canPay || (!limitUsdc && !limitEth)}>
+              {busy === "limit" ? "Working…" : "Save"}
             </button>,
           )}
         </Step>

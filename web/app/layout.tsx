@@ -5,13 +5,16 @@ import "./globals.css";
 const nunito = Nunito({ subsets: ["latin"], weight: ["500", "700", "800", "900"], variable: "--font-nunito" });
 const mono = DM_Mono({ subsets: ["latin"], weight: ["500"], variable: "--font-mono" });
 
-const description = "Your money, instantly. Face ID makes the key; a wedgie guards the big money.";
+const description =
+  "Instant Wallet: an Ethereum smart wallet you make in seconds with Face ID or your fingerprint. No seed phrase, no app to install. Send, receive, and swap on Base; a wedgie guards the big money.";
 
 export const metadata: Metadata = {
   // share cards need absolute image URLs
   metadataBase: new URL("https://instantwallet.io"),
-  title: "Instant Wallet",
+  title: "Instant Wallet — Ethereum wallet with Face ID, no seed phrase",
   description,
+  keywords: ["Instant Wallet", "Ethereum wallet", "passkey wallet", "smart wallet", "Face ID wallet", "Base", "Safe", "crypto wallet"],
+  alternates: { canonical: "/" },
   openGraph: { title: "Instant Wallet", description, url: "/", siteName: "Instant Wallet", images: [{ url: "/og.png", width: 1200, height: 630 }] },
   twitter: { card: "summary_large_image", title: "Instant Wallet", description, images: ["/og.png"] },
   appleWebApp: { capable: true, title: "Instant", statusBarStyle: "default" },

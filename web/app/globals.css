@@ -164,6 +164,8 @@ div.asset:active { background: none; }
 .sheet > *, .stack > *, .field > * { min-width: 0; }
 .sheet { overflow-x: hidden; }
 .picker .pill { width: 100%; }
+/* the open select's list floats over what's below it */
+.picker.drop { position: absolute; top: 56px; left: 0; right: 0; z-index: 30; max-height: 264px; padding: 8px; border-radius: 20px; background: var(--shell); box-shadow: 0 18px 40px -12px rgba(20,20,20,.45), 0 0 0 1px rgba(0,0,0,.05); }
 .pill.select { width: 100%; justify-content: space-between; height: 50px; }
 .pair { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; align-items: start; }
 

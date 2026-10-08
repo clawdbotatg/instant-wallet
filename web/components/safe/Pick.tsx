@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { isAddress } from "viem";
 import { chainById } from "@/lib/chains";
 import { amount as fmtAmount, usd } from "@/lib/format";
@@ -24,7 +24,8 @@ export const assetOpt = (a: Asset): Opt => ({
 export type Opt = { key: string; icon?: ReactNode; label: ReactNode; right?: ReactNode; search?: string };
 
 /**
- * A select box: closed, it shows the choice; open, a filter takes its place and the list below scrolls. `custom`
+ * A select box: closed, it shows the choice; open, you type in its place to filter and a short list floats over
+ * the page below it (↑↓ + Enter, Escape or a tap outside closes). `custom`
  * adds a last row that turns into a paste box (a token's contract address); `onCustom` answers an error or null.
  */
 export function Select({
@@ -60,6 +61,27 @@ export function Select({
     onPick(k);
     close();
   };
+  const [hi, setHi] = useState(0);
+  useEffect(() => setHi(0), [f]);
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const out = (e: PointerEvent) => box.current && !box.current.contains(e.target as Node) && close();
+    document.addEventListener("pointerdown", out);
+    return () => document.removeEventListener("pointerdown", out);
+  }, [open]);
+  const keys = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape") {
+      e.stopPropagation(); // the select closes, not the sheet
+      close();
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHi(i => Math.min(i + 1, shown.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHi(i => Math.max(i - 1, 0));
+    } else if (e.key === "Enter" && shown[hi]) pick(shown[hi].key);
+  };
 
   if (!open)
     return (
@@ -82,7 +104,7 @@ export function Select({
     );
 
   return (
-    <div className="stack" style={{ gap: 6 }}>
+    <div ref={box} className="stack" style={{ gap: 6, position: "relative" }}>
       {pasting ? (
         <div className="input" style={{ minHeight: 50 }}>
           <input
@@ -110,7 +132,7 @@ export function Select({
         </div>
       ) : filter ? (
         <div className="input" style={{ minHeight: 50 }}>
-          <input key="filter" autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Filter" autoCapitalize="none" autoCorrect="off" spellCheck={false} style={{ fontSize: 16, padding: "10px 0" }} />
+          <input key="filter" autoFocus value={q} onChange={e => setQ(e.target.value)} onKeyDown={keys} placeholder="Type to filter" autoCapitalize="none" autoCorrect="off" spellCheck={false} style={{ fontSize: 16, padding: "10px 0" }} />
           <button className="pill" aria-label="Close" onClick={close}>
             ▴
           </button>
@@ -118,10 +140,16 @@ export function Select({
       ) : null}
       {err && <span className="err">{err}</span>}
       {!pasting && (
-        <div className="picker">
+        <div className="picker drop" style={filter ? undefined : { top: 0 }}>
           {shown.length === 0 && <p className="fine center">Nothing matches “{q}”</p>}
-          {shown.map(o => (
-            <button key={o.key} className={`pill ${o.key === value?.key ? "on" : ""}`} style={{ justifyContent: "space-between", height: 46 }} onClick={() => pick(o.key)}>
+          {shown.map((o, i) => (
+            <button
+              key={o.key}
+              className={`pill ${o.key === value?.key ? "on" : ""}`}
+              style={{ justifyContent: "space-between", height: 46, outline: i === hi && f ? "2px solid var(--ink)" : undefined }}
+              onMouseEnter={() => setHi(i)}
+              onClick={() => pick(o.key)}
+            >
               <span className="row">
                 {o.icon} <b>{o.label}</b>
               </span>

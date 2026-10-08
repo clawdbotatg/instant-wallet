@@ -22,11 +22,10 @@ export function PendingCards({ account, states, onDone, toast }: { account: Safe
     setList(got.filter((p): p is Pending => !!p));
   }, [key, account.address]);
 
+  // with every wallet refresh (every 12 s, and when a sheet closes)
   useEffect(() => {
     load();
-    const t = setInterval(load, 15_000);
-    return () => clearInterval(t);
-  }, [load]);
+  }, [load, states]);
 
   return (
     <>

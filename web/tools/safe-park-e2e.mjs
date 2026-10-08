@@ -98,7 +98,10 @@ await ctx.addInitScript(hotAddr => {
     },
   };
   // fake wedgie on Web Serial (not on the "phone": localStorage test.phone)
-  if (localStorage.getItem("test.phone") === "1") return;
+  if (localStorage.getItem("test.phone") === "1") {
+    delete Navigator.prototype.serial; // desktop Chrome has Web Serial; a phone doesn't
+    return;
+  }
   const enc = new TextEncoder();
   const port = {
     getInfo: () => ({ usbVendorId: 0x2e8a }),

@@ -16,12 +16,13 @@ import { Deposit } from "./Deposit";
 import { Keys } from "./Keys";
 import { RecoveryAlert } from "./RecoveryAlert";
 import { SafeSend } from "./SafeSend";
+import { SendAll } from "./SendAll";
 import { SafeSwap } from "./SafeSwap";
 import { SafeWelcome } from "./SafeWelcome";
 import { WedgieButton } from "./WedgieButton";
 import { PendingCards } from "./PendingCard";
 
-type View = { kind: "home" } | { kind: "send"; asset?: Asset; to?: Address } | { kind: "swap" } | { kind: "receive" } | { kind: "deposit" } | { kind: "keys" };
+type View = { kind: "home" } | { kind: "send"; asset?: Asset; to?: Address } | { kind: "swap" } | { kind: "receive" } | { kind: "deposit" } | { kind: "keys" } | { kind: "sendAll" };
 
 /** Instant Wallet on a Safe: a big balance, Deposit / Swap, the address pill opens Receive, settings bottom middle (keys needed / keys you have), a send button on each asset, a scan button and the wedgie (bottom left). */
 export function SafeApp() {
@@ -159,8 +160,15 @@ export function SafeApp() {
         )}
 
         <div className="card balance">
-          <div className="big" onClick={() => setShowUsd(!showUsd)}>
-            {portfolio ? (showUsd ? usd(portfolio.totalUsd ?? 0) : `${assets.length} assets`) : "…"}
+          <div className="total">
+            <div className="big" onClick={() => setShowUsd(!showUsd)}>
+              {portfolio ? (showUsd ? usd(portfolio.totalUsd ?? 0) : `${assets.length} assets`) : "…"}
+            </div>
+            {assets.length > 0 && (
+              <button className="btn btn-green send-all" aria-label="Send everything" onClick={() => setView({ kind: "sendAll" })}>
+                <SendIcon size={16} />
+              </button>
+            )}
           </div>
           <div className="actions">
             <button className="btn" onClick={() => setView({ kind: "deposit" })}>
@@ -212,6 +220,7 @@ export function SafeApp() {
       {view.kind !== "home" && (
         <Sheet onClose={close}>
           {view.kind === "send" && <SafeSend account={account} assets={assets} states={states} start={view.asset} to={view.to} onDone={close} />}
+          {view.kind === "sendAll" && <SendAll account={account} assets={assets} states={states} onDone={close} />}
           {view.kind === "swap" && <SafeSwap account={account} assets={assets} states={states} onDone={close} />}
           {view.kind === "deposit" && <Deposit address={account.address} />}
           {view.kind === "receive" && <Receive account={{ address: account.address } as any} toast={setToast} />}

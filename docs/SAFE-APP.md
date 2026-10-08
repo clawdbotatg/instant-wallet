@@ -24,6 +24,8 @@ onto a new key there, like a lost phone).
   for the DAO it copies the calldata for Safe{Wallet}). Afterwards the app offers to turn off the old phone's budget.
 - **Each chain is its own Safe** (same address): level up per chain (Keys has a chain picker).
 
+- **Claim cards:** money on a QR / NFC tag / link; scan, make a wallet, claim. `/claim/new` makes them. `docs/CLAIM.md`.
+
 ## How it's built
 
 - Contracts: all deployed and audited, nothing of ours on chain. Safe 1.5 (SafeL2), Safe passkey signer 0.2.1,

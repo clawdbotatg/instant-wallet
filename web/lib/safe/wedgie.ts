@@ -40,7 +40,7 @@ const arm = () => {
 };
 
 /** What a plugged-in wedgie said when asked hello (nothing signs, nothing shows on its screen). */
-export type WedgieHello = { version?: string; short?: string; running?: string | null; safe?: { x: Hex; y: Hex } | null; safe_chunk?: number };
+export type WedgieHello = { version?: string; short?: string; running?: string | null; carts?: { mod: string; v?: string | null }[]; safe?: { x: Hex; y: Hex } | null; safe_chunk?: number };
 const LINE_MAX = 5800; // the wedgie's USB line is 6 KB
 export type Peek =
   | { kind: "none" } // no wedgie this browser was allowed to see is plugged in
@@ -293,11 +293,32 @@ const b64 = (u8: Uint8Array) => {
 };
 const twin = (n: string) => (n.endsWith(".mpy") ? n.slice(0, -4) + ".py" : null);
 const withTwins = (ns: string[]) => [...new Set([...ns, ...ns.map(twin).filter((n): n is string => !!n)])];
-const older = (a: string, b: string) => {
+export const older = (a: string, b: string) => {
   const x = a.split(".").map(Number), y = b.split(".").map(Number);
   for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) < (y[i] || 0);
   return false;
 };
+
+/** What wedgie.dev ships now: its firmware version and the Safe signer's commit. Fetched at most every 10 minutes. */
+export type Latest = { version: string; safe?: string };
+let latest: { at: number; p: Promise<Latest | null> } | null = null;
+export function latestWedgie(): Promise<Latest | null> {
+  if (latest && Date.now() - latest.at < 600_000) return latest.p;
+  const p = fetch(FW + "manifest.json", { cache: "no-cache" })
+    .then(r => r.json() as Promise<Manifest>)
+    .then(m => (m.signed && m.version ? { version: m.version, safe: m.carts.find(c => c.mod === SAFE_MOD)?.v } : null))
+    .catch(() => null);
+  latest = { at: Date.now(), p };
+  p.then(v => v === null && (latest = null)); // a failed look tries again next time
+  return p;
+}
+
+/** Is the plugged-in wedgie behind wedgie.dev? firmware: its core is older. app: its Safe signer isn't wedgie.dev's. */
+export function behind(h: WedgieHello, l: Latest | null): { firmware?: boolean; app?: boolean } {
+  if (!l) return {};
+  const v = h.carts?.find(c => c.mod === SAFE_MOD)?.v;
+  return { firmware: !!h.version && older(h.version, l.version), app: "safe" in h && !!l.safe && !!v && v !== l.safe };
+}
 
 /** Put the Safe signer on the plugged-in wedgie. step: what to say ("Press A on the wedgie", "Installing", p 0..1). */
 export async function installSafeApp(step: (what: string, p?: number) => void): Promise<void> {

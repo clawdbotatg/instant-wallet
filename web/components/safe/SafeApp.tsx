@@ -5,7 +5,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { CHAINS, chainById } from "@/lib/chains";
 import { amount, short, usd } from "@/lib/format";
 import { type ChainState, type SafeAccount, loadAccount, readAll, saveAccount } from "@/lib/safe/state";
-import type { Address } from "viem";
 import type { Asset, Portfolio } from "@/lib/types";
 import { loadHidden, saveHidden } from "@/lib/store";
 import { dropOtherBudgetsCalls } from "@/lib/safe/core";
@@ -23,7 +22,7 @@ import { SafeWelcome } from "./SafeWelcome";
 import { WedgieButton } from "./WedgieButton";
 import { PendingCards } from "./PendingCard";
 
-type View = { kind: "home" } | { kind: "send"; asset?: Asset; to?: Address } | { kind: "swap"; fund?: number } | { kind: "receive" } | { kind: "deposit" } | { kind: "keys" } | { kind: "sendAll" };
+type View = { kind: "home" } | { kind: "send"; asset?: Asset } | { kind: "swap"; fund?: number } | { kind: "receive" } | { kind: "deposit" } | { kind: "keys" } | { kind: "sendAll" };
 
 /** Instant Wallet on a Safe: a big balance, Deposit / Swap, the address pill opens Receive, settings bottom middle (keys needed / keys you have), a send button on each asset, a scan button and the wedgie (bottom left). */
 export function SafeApp() {
@@ -240,7 +239,7 @@ export function SafeApp() {
 
       {view.kind !== "home" && (
         <Sheet onClose={close}>
-          {view.kind === "send" && <SafeSend account={account} assets={assets} states={states} start={view.asset} to={view.to} onDone={close} />}
+          {view.kind === "send" && <SafeSend account={account} assets={assets} states={states} start={view.asset} onDone={close} />}
           {view.kind === "sendAll" && <SendAll account={account} assets={assets} states={states} onDone={close} />}
           {view.kind === "swap" && <SafeSwap account={account} assets={assets} states={states} fund={view.fund} onDone={close} />}
           {view.kind === "deposit" && <Deposit address={account.address} />}
@@ -253,11 +252,9 @@ export function SafeApp() {
               toast={setToast}
               onAccount={a => setAccount(a)}
               onRefresh={refresh}
-              // Withdraw: Send, to the saved cash-out address, USDC on Base picked if there is any
               hiddenAssets={hiddenAssets}
               onUnhide={a => setHidden(hidden.filter(k => k !== keyOf(a)))}
               onFund={chainId => setView({ kind: "swap", fund: chainId })}
-              onWithdraw={to => setView({ kind: "send", to, asset: assets.find(a => a.chainId === 8453 && a.asset.toLowerCase() === chainById(8453)?.usdc?.toLowerCase()) })}
               onSignOut={() => {
                 setAccount(null);
                 setPortfolio(null);

@@ -48,7 +48,7 @@ export function SendAll({
   states: ChainState[];
   onDone: () => void;
 }) {
-  const [to, setTo] = useState<Address | null>(account.offramp ?? null);
+  const [to, setTo] = useState<Address | null>(null);
   const [rows, setRows] = useState<Record<number, Row>>({});
   const set = (chainId: number, r: Row) =>
     setRows((x) => ({ ...x, [chainId]: r }));
@@ -136,7 +136,6 @@ export function SendAll({
       <div className="field">
         <label>To</label>
         <AddressInput
-          initial={account.offramp}
           onChange={(a) => (setTo(a), setRows({}))}
         />
         {self && <span className="err">That&apos;s this wallet.</span>}

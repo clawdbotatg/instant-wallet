@@ -31,7 +31,6 @@ export function Keys({
   onAccount,
   onRefresh,
   onSignOut,
-  onWithdraw,
   onFund,
   hiddenAssets,
   onUnhide,
@@ -43,7 +42,6 @@ export function Keys({
   onAccount: (a: SafeAccount) => void;
   onRefresh: () => Promise<void> | void;
   onSignOut: () => void;
-  onWithdraw: (to: Address) => void;
   onFund: (chainId: number) => void;
   hiddenAssets: Asset[];
   onUnhide: (a: Asset) => void;
@@ -53,8 +51,6 @@ export function Keys({
   // an error shows in the step whose button caused it, next to where you tapped
   const [error, setErrorRaw] = useState<{ what: string; msg: string } | null>(null);
   const [guardianIn, setGuardianIn] = useState<Address | null>(null);
-  const [offrampIn, setOfframpIn] = useState<Address | null>(null);
-  const [editOfframp, setEditOfframp] = useState(false);
   const [showHidden, setShowHidden] = useState(false);
   const st = states.find(s => s.chainId === chainId);
   const usdc = chainById(chainId)?.usdc?.toLowerCase();
@@ -406,47 +402,6 @@ export function Keys({
         )}
       </Step>
 
-      <Step title="Withdraw" done={!!account.offramp}>
-        {account.offramp && !editOfframp ? (
-          <>
-            <div className="row" style={{ justifyContent: "space-between" }}>
-              <span className="fine">To your cash-out address</span>
-              <Addr a={account.offramp} chainId={8453} />
-            </div>
-            <div className="row">
-              <button className="btn grow" onClick={() => setEditOfframp(true)}>
-                Change
-              </button>
-              <button className="btn btn-green grow" onClick={() => onWithdraw(account.offramp!)}>
-                Withdraw
-              </button>
-            </div>
-          </>
-        ) : (
-          <>
-            <p className="fine">Your cash-out address, saved on this device. In Coinbase: Receive → USDC → network Base → copy the address.</p>
-            <AddressInput initial={account.offramp} onChange={setOfframpIn} />
-            <div className="row">
-              {account.offramp && (
-                <button className="btn grow" onClick={() => setEditOfframp(false)}>
-                  Cancel
-                </button>
-              )}
-              <button
-                className="btn btn-green grow"
-                disabled={!offrampIn || offrampIn.toLowerCase() === account.address.toLowerCase()}
-                onClick={() => {
-                  onAccount({ ...account, offramp: offrampIn! });
-                  setEditOfframp(false);
-                  toast("Cash-out address saved");
-                }}
-              >
-                Save
-              </button>
-            </div>
-          </>
-        )}
-      </Step>
 
       {hiddenAssets.length > 0 && (
         <div className="card stack" style={{ gap: 8 }}>

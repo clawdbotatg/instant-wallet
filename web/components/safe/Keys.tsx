@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { type Address, encodeFunctionData, formatUnits, parseUnits, zeroAddress } from "viem";
 import { CHAINS, chainById, explorerAddress, nativeSymbol } from "@/lib/chains";
 import { short } from "@/lib/format";
@@ -38,7 +38,7 @@ export function Keys({
   assets: Asset[];
   toast: (m: string) => void;
   onAccount: (a: SafeAccount) => void;
-  onRefresh: () => void;
+  onRefresh: () => Promise<void> | void;
   onSignOut: () => void;
   onWithdraw: (to: Address) => void;
 }) {
@@ -81,9 +81,27 @@ export function Keys({
   // two taps: the first gets everything ready (MetaMask / the wedgie connect, the fee, the nonce); the second signs.
   // Face ID has to start straight from a tap: after a MetaMask popup or a network call, Safari and Chrome refuse it.
   // The confirm replaces the step's own button, in place.
-  const [pending, setPending] = useState<{ what: string; label: ReactNode; p: Prepared; after?: () => void; close?: () => Promise<void> } | null>(null);
+  type Ready = { label: ReactNode; p: Prepared; after?: () => void; close?: () => Promise<void>; settled?: (s: ChainState) => boolean };
+  const [pending, setPending] = useState<({ what: string } & Ready) | null>(null);
+  // once it's sent: a progress bar in the step until the chain read shows the change (block time + RPC lag, ~5-30 s)
+  const [wait, setWait] = useState<{ what: string; chainId: number; since: number; ms: number; settled: (s: ChainState) => boolean } | null>(null);
+  const waitSt = wait && states.find(s => s.chainId === wait.chainId);
+  const waitDone = !!wait && !!waitSt && wait.settled(waitSt);
+  useEffect(() => {
+    if (!wait || busy) return;
+    if (waitDone) {
+      setWait(null);
+      toast("Done");
+      return;
+    }
+    const t = setInterval(() => {
+      if (Date.now() - wait.since > wait.ms + 45_000) setWait(null);
+      else onRefresh();
+    }, 2_000);
+    return () => clearInterval(t);
+  }, [wait, waitDone, busy, onRefresh, toast]);
 
-  async function prep(what: string, fn: () => Promise<{ label: ReactNode; p: Prepared; after?: () => void; close?: () => Promise<void> }>) {
+  async function prep(what: string, fn: () => Promise<Ready>) {
     setBusy(what);
     setErrorRaw(null);
     try {
@@ -99,13 +117,16 @@ export function Keys({
     if (!pending) return;
     setBusy(pending.what);
     setErrorRaw(null);
+    const bt = chainById(chainId)?.chain.blockTime ?? 2_000;
+    const w = { what: pending.what, chainId, since: 0, ms: 2 * bt + 5_000, settled: pending.settled ?? (() => true) };
+    pending.p.opts.onStage = s => s === "sending" && setWait({ ...w, since: Date.now() });
     try {
       await finishOwners(pending.p);
       pending.after?.();
-      toast("Done");
       setPending(null);
       onRefresh();
     } catch (e: any) {
+      setWait(null);
       setErrorRaw({ what: pending.what, msg: friendly(e) });
     } finally {
       await pending.close?.();
@@ -127,7 +148,7 @@ export function Keys({
       const w = await wedgieFor(signers);
       try {
         const p = await prepareOwners({ account, state: st, calls, signers, feeToken, setup: true, wedgie: w });
-        return { label: <>Add <Addr a={h} chainId={chainId} inline /> as your hot wallet</>, p, after: () => onAccount({ ...account, hot: h }), close: async () => w?.close() };
+        return { label: <>Add <Addr a={h} chainId={chainId} inline /> as your hot wallet</>, p, after: () => onAccount({ ...account, hot: h }), settled: s => s.hasHot, close: async () => w?.close() };
       } catch (e) {
         await w?.close();
         throw e;
@@ -152,6 +173,7 @@ export function Keys({
             onAccount({ ...account, paper });
           },
           close: async () => w?.close(),
+          settled: s => s.guardians?.[0]?.toLowerCase() === paper.toLowerCase(),
         };
       } catch (e) {
         await w?.close();
@@ -176,6 +198,7 @@ export function Keys({
           label: `Daily limit: ${formatUnits(usdcV, 6)} USDC · ${formatUnits(ethV, 18)} ${nativeSymbol(chainId)}`,
           p,
           after: () => setEditLimit(null),
+          settled: s => s.budget?.usdcMax === usdcV && s.budget.ethMax === ethV,
           close: async () => w?.close(),
         };
       } catch (e) {
@@ -200,7 +223,7 @@ export function Keys({
           selfCall(account.address, encodeFunctionData({ abi: abi.safe, functionName: "addOwnerWithThreshold", args: [w2, 3n] })),
         ];
         const p = await prepareOwners({ account, state: st, calls, signers: ownerSigners(st, account), feeToken, setup: true, wedgie: w });
-        return { label: "Add your wedgie (it counts twice)", p, after: () => onAccount({ ...account, wedgie: key }), close: () => w.close() };
+        return { label: "Add your wedgie (it counts twice)", p, after: () => onAccount({ ...account, wedgie: key }), settled: s => s.hasWedgie, close: () => w.close() };
       } catch (e) {
         await w.close();
         throw e;
@@ -210,7 +233,12 @@ export function Keys({
   // what === the step's own action: its button, or the confirm that replaces it, plus that step's error
   const action = (what: string, button: ReactNode) => (
     <>
-      {pending?.what === what ? (
+      {wait?.what === what && wait.chainId === chainId ? (
+        <div className="stack" style={{ gap: 8 }}>
+          <p className="fine">{busy ? "Sending…" : `Waiting for ${chainById(chainId)?.name}…`}</p>
+          <Progress ms={wait.ms} />
+        </div>
+      ) : pending?.what === what ? (
         <div className="stack" style={{ gap: 8 }}>
           <b>{pending.label}</b>
           <p className="fine">
@@ -261,7 +289,7 @@ export function Keys({
           <p className="fine">Any wallet extension on a computer, or a wallet app on your phone. Open this page in it, then add it.</p>
           {action(
             "hot",
-            <button className="btn btn-green wide" onClick={addHot} disabled={!!busy || !!pending || !canPay || !hotAvailable()}>
+            <button className="btn btn-green wide" onClick={addHot} disabled={!!busy || !!pending || !!wait || !canPay || !hotAvailable()}>
               {busy === "hot" ? "Connecting…" : hotAvailable() ? "Connect and add" : "No browser wallet here"}
             </button>,
           )}
@@ -274,7 +302,7 @@ export function Keys({
           <p className="fine">Plug it into a computer (Chrome), open its Safe signer app, then add it.</p>
           {action(
             "wedgie",
-            <button className="btn btn-green wide" onClick={addWedgie} disabled={!!busy || !!pending || !canPay || !wedgieSupported()}>
+            <button className="btn btn-green wide" onClick={addWedgie} disabled={!!busy || !!pending || !!wait || !canPay || !wedgieSupported()}>
               {busy === "wedgie" ? "Check the wedgie…" : !wedgieSupported() ? "Needs Chrome on a computer" : "Connect and add the wedgie"}
             </button>,
           )}
@@ -290,7 +318,7 @@ export function Keys({
               </b>
               <button
                 className="pill"
-                disabled={!!busy || !!pending}
+                disabled={!!busy || !!pending || !!wait}
                 onClick={() => {
                   setLimitUsdc(formatUnits(st.budget!.usdcMax, 6));
                   setLimitEth(formatUnits(st.budget!.ethMax, 18));
@@ -316,7 +344,7 @@ export function Keys({
                   <button className="btn grow" onClick={() => setEditLimit(null)} disabled={!!busy}>
                     Cancel
                   </button>
-                  <button className="btn btn-green grow" onClick={setLimit} disabled={!!busy || !!pending || !canPay || !limitUsdc || !limitEth}>
+                  <button className="btn btn-green grow" onClick={setLimit} disabled={!!busy || !!pending || !!wait || !canPay || !limitUsdc || !limitEth}>
                     {busy === "limit" ? "Working…" : "Save"}
                   </button>
                 </div>,
@@ -335,7 +363,7 @@ export function Keys({
         </div>
         {action(
           "paper",
-          <button className="btn btn-green wide" onClick={setPaper} disabled={!!busy || !!pending || !canPay || !changed}>
+          <button className="btn btn-green wide" onClick={setPaper} disabled={!!busy || !!pending || !!wait || !canPay || !changed}>
             {busy === "paper" ? "Working…" : "Save"}
           </button>,
         )}
@@ -399,6 +427,20 @@ function KeyRow({ kind, a, chainId }: { kind: string; a?: Address; chainId: numb
     <div className="card keyrow">
       <b>{kind}</b>
       {a ? <Addr a={a} chainId={chainId} /> : <span className="fine">…</span>}
+    </div>
+  );
+}
+
+/** Fills toward the end over about `ms`, then creeps; the step replaces it when the change shows up. */
+function Progress({ ms }: { ms: number }) {
+  const [go, setGo] = useState(false);
+  useEffect(() => {
+    const t = requestAnimationFrame(() => setGo(true));
+    return () => cancelAnimationFrame(t);
+  }, []);
+  return (
+    <div className="progress">
+      <div style={{ width: go ? "95%" : "2%", transitionDuration: `${ms}ms` }} />
     </div>
   );
 }

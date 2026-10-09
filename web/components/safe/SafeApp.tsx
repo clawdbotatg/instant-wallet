@@ -6,7 +6,7 @@ import { CHAINS, chainById } from "@/lib/chains";
 import { amount, short, usd } from "@/lib/format";
 import { type ChainState, type SafeAccount, loadAccount, readAll, saveAccount } from "@/lib/safe/state";
 import type { Asset, Portfolio } from "@/lib/types";
-import { loadHidden, saveHidden } from "@/lib/store";
+import { loadHidden, loadShown, saveHidden, saveShown } from "@/lib/store";
 import { dropOtherBudgetsCalls } from "@/lib/safe/core";
 import { type Prepared, finishOwners, ownerSigners, prepareOwners, signerOptions } from "@/lib/safe/send";
 import { friendly } from "../Welcome";
@@ -34,14 +34,20 @@ export function SafeApp() {
   const [toast, setToast] = useToast();
   const [dropReady, setDropReady] = useState<Prepared | null>(null);
   const [hidden, setHiddenState] = useState<string[]>([]);
+  const [shown, setShownState] = useState<string[]>([]);
 
   useEffect(() => {
     setAccountState(loadAccount());
     setHiddenState(loadHidden());
+    setShownState(loadShown());
   }, []);
   const setHidden = (h: string[]) => {
     saveHidden(h);
     setHiddenState(h);
+  };
+  const setShown = (h: string[]) => {
+    saveShown(h);
+    setShownState(h);
   };
   const setAccount = (a: SafeAccount | null) => {
     saveAccount(a);
@@ -83,11 +89,13 @@ export function SafeApp() {
 
   const keyOf = (a: Asset) => `${a.chainId}:${a.asset}`.toLowerCase();
   const held = (portfolio?.assets ?? []).filter(a => BigInt(a.balance) > 0n);
-  const assets: Asset[] = held.filter(a => !hidden.includes(keyOf(a)));
-  const hiddenAssets = held.filter(a => hidden.includes(keyOf(a)));
+  const isCore = (a: Asset) => a.asset === "0x0000000000000000000000000000000000000000" || a.asset.toLowerCase() === chainById(a.chainId)?.usdc?.toLowerCase();
   // under 2¢ (or no price) and not the coin or USDC: almost always airdropped spam, so the send button becomes a trash can that hides it
-  const isDust = (a: Asset) =>
-    (a.usd ?? 0) < 0.02 && a.asset !== "0x0000000000000000000000000000000000000000" && a.asset.toLowerCase() !== chainById(a.chainId)?.usdc?.toLowerCase();
+  const isDust = (a: Asset) => (a.usd ?? 0) < 0.02 && !isCore(a);
+  // under a penny (or no price): hidden on its own, unless the user tapped Show for it in settings
+  const isHidden = (a: Asset) => hidden.includes(keyOf(a)) || ((a.usd ?? 0) < 0.01 && !isCore(a) && !shown.includes(keyOf(a)));
+  const assets: Asset[] = held.filter(a => !isHidden(a));
+  const hiddenAssets = held.filter(isHidden);
   const close = () => {
     setView({ kind: "home" });
     refresh();
@@ -215,7 +223,10 @@ export function SafeApp() {
                 <div className="fine">{showUsd ? `${amount(a.formatted)} ${a.symbol}` : usd(a.usd)}</div>
               </div>
               {isDust(a) ? (
-                <button className="btn btn-red send-one" aria-label={`Hide ${a.symbol}`} onClick={() => setHidden([...hidden, keyOf(a)])}>
+                <button className="btn btn-red send-one" aria-label={`Hide ${a.symbol}`} onClick={() => {
+                    setHidden([...hidden, keyOf(a)]);
+                    setShown(shown.filter(k => k !== keyOf(a)));
+                  }}>
                   <TrashIcon />
                 </button>
               ) : (
@@ -253,7 +264,10 @@ export function SafeApp() {
               onAccount={a => setAccount(a)}
               onRefresh={refresh}
               hiddenAssets={hiddenAssets}
-              onUnhide={a => setHidden(hidden.filter(k => k !== keyOf(a)))}
+              onUnhide={a => {
+                setHidden(hidden.filter(k => k !== keyOf(a)));
+                setShown([...shown, keyOf(a)]);
+              }}
               onFund={chainId => setView({ kind: "swap", fund: chainId })}
               onSignOut={() => {
                 setAccount(null);

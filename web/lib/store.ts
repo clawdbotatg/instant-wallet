@@ -30,3 +30,6 @@ export const saveAccount = (a: Account | null) => set("iw3.account", a);
 /** Coins the user trashed off the home list (spam dust), as "chainId:address" lowercase. */
 export const loadHidden = (): string[] => get<string[]>("iw3.hidden") ?? [];
 export const saveHidden = (h: string[]) => set("iw3.hidden", h.length ? h : null);
+/** Coins under a penny the user tapped Show for (they're hidden on their own otherwise). */
+export const loadShown = (): string[] => get<string[]>("iw3.shown") ?? [];
+export const saveShown = (h: string[]) => set("iw3.shown", h.length ? h : null);

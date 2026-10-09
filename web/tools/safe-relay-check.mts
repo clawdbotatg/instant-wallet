@@ -1,5 +1,5 @@
 // The relay's defences, against a local dev server on a fork (see safe-e2e.mjs for the setup):
-//   a valid first send works; the same signed body again is refused; a batch with an arbitrary call is refused;
+//   a valid first send works; the same signed body again is refused; a call into the wallet itself is refused;
 //   a Roles call that could fail silently (shouldRevert = false), a wrong role, or ETH that doesn't add up is refused;
 //   a swap batch must pay this wallet and leave no approval behind.
 //   APP=http://localhost:3100 RPC=http://127.0.0.1:8545 CHAIN=8453 FUNDER_KEY=<anvil #1> npx tsx tools/safe-relay-check.mts
@@ -90,10 +90,11 @@ const post = (body: unknown) =>
     body: JSON.stringify(body, (_, v) => (typeof v === "bigint" ? v.toString() : v)),
   }).then(async r => ({ status: r.status, j: await r.json() }));
 
-// an arbitrary call (an approval) in the batch: refused before anything is spent
-const t0 = batch([{ to: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", value: 0n, data: encodeFunctionData({ abi: abi.erc20 as any, functionName: "transfer", args: [funder.address, 0n] }).replace("a9059cbb", "095ea7b3") as Hex }, transfer(zeroAddress, q.relayer, BigInt(q.feeEth))], 0n);
+// a site's call into the wallet itself (setGuard: could brick it): refused before anything is spent. Other arbitrary
+// calls are a site's (WalletConnect), owner-signed, and allowed: safe-wc-e2e.mjs sends one
+const t0 = batch([{ to: safe, value: 0n, data: ("0xe19a9dd9" + "0".repeat(24) + funder.address.slice(2)) as Hex }, transfer(zeroAddress, q.relayer, BigInt(q.feeEth))], 0n);
 const r0 = await post({ chainId: CHAIN, kind: "exec", safe, tx: t0, signatures: sign(t0), burner: { x, y } });
-ok(r0.status === 400 && /only sends transfers/.test(r0.j.error), `an arbitrary call is refused (${r0.status} ${r0.j.error})`);
+ok(r0.status === 400 && /only sends transfers/.test(r0.j.error), `a call into the wallet itself is refused (${r0.status} ${r0.j.error})`);
 
 // a swap that pays someone else: refused before anything is spent
 const tw = batch([{ to: LIFI_DIAMOND, value: 1000n, data: ("0x12345678" + "0".repeat(24) + funder.address.slice(2)) as Hex }, transfer(zeroAddress, q.relayer, BigInt(q.feeEth))], 0n);

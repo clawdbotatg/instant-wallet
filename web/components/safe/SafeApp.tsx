@@ -21,10 +21,11 @@ import { SafeSwap } from "./SafeSwap";
 import { SafeWelcome } from "./SafeWelcome";
 import { WedgieButton } from "./WedgieButton";
 import { PendingCards } from "./PendingCard";
+import { SafeConnectLayer } from "./SafeConnect";
 
 type View = { kind: "home" } | { kind: "send"; asset?: Asset } | { kind: "swap"; fund?: number } | { kind: "receive" } | { kind: "deposit" } | { kind: "keys" } | { kind: "sendAll" };
 
-/** Instant Wallet on a Safe: a big balance, Deposit / Swap, the address pill opens Receive, settings bottom middle (keys needed / keys you have), a send button on each asset, a scan button and the wedgie (bottom left). */
+/** Instant Wallet on a Safe: a big balance, Deposit / Swap, the address pill opens Receive, settings bottom middle (keys needed / keys you have), a send button on each asset, a scan button (addresses, claim cards, WalletConnect QRs) and the wedgie (bottom left). */
 export function SafeApp() {
   const [account, setAccountState] = useState<SafeAccount | null | undefined>(undefined);
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
@@ -279,6 +280,7 @@ export function SafeApp() {
           )}
         </Sheet>
       )}
+      <SafeConnectLayer account={account} states={states} feeTokenOn={feeTokenOn} onSent={refresh} />
       {toast && <div className="toast">{toast}</div>}
     </>
   );

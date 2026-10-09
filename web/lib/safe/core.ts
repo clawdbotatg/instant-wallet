@@ -259,6 +259,30 @@ export function safeTxTypedData(chainId: number, safe: Address, t: SafeTx) {
   };
 }
 
+/**
+ * What the owners sign for a site's message (ERC-1271 through the CompatibilityFallbackHandler): the Safe's own
+ * EIP-712 SafeMessage over abi.encode(hash), which for a bytes32 is the hash itself.
+ */
+export function safeMessageTypedData(chainId: number, safe: Address, hash: Hex) {
+  return {
+    domain: { chainId, verifyingContract: safe },
+    types: {
+      EIP712Domain: [
+        { name: "chainId", type: "uint256" },
+        { name: "verifyingContract", type: "address" },
+      ],
+      SafeMessage: [{ name: "message", type: "bytes" }],
+    },
+    primaryType: "SafeMessage" as const,
+    message: { message: hash },
+  };
+}
+
+export function safeMessageHash(chainId: number, safe: Address, hash: Hex): Hex {
+  const { EIP712Domain: _, ...types } = safeMessageTypedData(chainId, safe, hash).types;
+  return hashTypedData({ domain: { chainId, verifyingContract: safe }, types, primaryType: "SafeMessage", message: { message: hash } });
+}
+
 export function execData(t: SafeTx, signatures: Hex): Hex {
   return encodeFunctionData({
     abi: abi.safe,

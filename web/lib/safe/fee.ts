@@ -9,7 +9,7 @@ import { type Call, abi } from "./core";
  * Gas budgets are upper bounds per kind of send (Base: P-256 precompile; the wedgie's second slot verifies in
  * Solidity, ~350k). The quote = budget × gas price × 1.25, plus a cent; the relay re-checks with the real estimate.
  */
-export type SendKind = "first" | "exec" | "roles" | "exec-wedgie" | "setup" | "first-setup" | "swap" | "first-swap" | "swap-wedgie" | "claim";
+export type SendKind = "first" | "exec" | "roles" | "exec-wedgie" | "setup" | "first-setup" | "swap" | "first-swap" | "swap-wedgie" | "claim" | "dapp" | "first-dapp" | "dapp-wedgie";
 export const GAS_BUDGET: Record<SendKind, bigint> = {
   first: 900_000n, // deploy signer + Safe (setup with Candide) + the first tx
   exec: 350_000n,
@@ -21,6 +21,9 @@ export const GAS_BUDGET: Record<SendKind, bigint> = {
   "first-swap": 2_100_000n,
   "swap-wedgie": 2_100_000n,
   claim: 250_000n, // a claim card: two USDC transferWithAuthorization in one Multicall3 call
+  dapp: 1_500_000n, // a site's calls (WalletConnect): the Safe tx + whatever the site asked
+  "first-dapp": 2_100_000n,
+  "dapp-wedgie": 2_100_000n,
 };
 
 /** Gas a send of each kind really uses (measured on Base forks and mainnet); the fee is this × gas price × 1.5. */
@@ -36,6 +39,10 @@ export const GAS_TYPICAL: Record<SendKind, bigint> = {
   "first-swap": 650_000n,
   "swap-wedgie": 700_000n,
   claim: 130_000n,
+  // a site's calls: their own estimate comes on top, like a swap's
+  dapp: 250_000n,
+  "first-dapp": 650_000n,
+  "dapp-wedgie": 700_000n,
 };
 
 export type Quote = {

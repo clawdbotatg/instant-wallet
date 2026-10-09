@@ -52,7 +52,6 @@ const METHODS = [
 const EVENTS = ["chainChanged", "accountsChanged"];
 /** Chains sites may use: the ones we can actually send on (Base today). */
 const WC_CHAINS = CHAINS.filter(c => SENDABLE.has(c.id));
-const wcChain = (id: number) => WC_CHAINS.find(c => c.id === id);
 
 const ERC6492_MAGIC: Hex = "0x6492649264926492649264926492649264926492649264926492649264926492";
 
@@ -79,9 +78,10 @@ export async function pair(uri: string) {
   await k.pair({ uri });
 }
 
-export async function approveProposal(p: WalletKitTypes.SessionProposal, account: Account) {
+/** `chainIds`: the chains sites may use (the v3 wallet: the sendable ones; the Safe: every chain it's on). */
+export async function approveProposal(p: WalletKitTypes.SessionProposal, account: { address: string }, chainIds = WC_CHAINS.map(c => c.id)) {
   const k = await getKit();
-  const chains = WC_CHAINS.map(c => `eip155:${c.id}`);
+  const chains = chainIds.map(id => `eip155:${id}`);
   const namespaces = buildApprovedNamespaces({
     proposal: p.params,
     supportedNamespaces: {
@@ -117,7 +117,7 @@ export function dappOf(k: Kit, topic: string): Dapp {
   return { name: m?.name || "A site", url: m?.url || "", icon: m?.icons?.[0] };
 }
 
-async function respond(topic: string, id: number, result: unknown) {
+export async function respond(topic: string, id: number, result: unknown) {
   const k = await getKit();
   await k.respondSessionRequest({ topic, response: { id, jsonrpc: "2.0", result } });
 }
@@ -136,8 +136,9 @@ const toCall = (c: { to?: string; value?: string; data?: string }): Call => {
  * Sort an incoming request: answer the ones that need nobody (capabilities, status, chain switch) and return
  * `Pending` for the ones that need a Face ID. Throws → the caller answers with an error.
  */
-export async function triage(e: WalletKitTypes.SessionRequest, account: Account): Promise<Pending | null> {
+export async function triage(e: WalletKitTypes.SessionRequest, chainIds = WC_CHAINS.map(c => c.id)): Promise<Pending | null> {
   const k = await getKit();
+  const wcChain = (id: number) => chainIds.includes(id);
   const { topic, id } = e;
   const { method, params } = e.params.request;
   const chainId = chainOf(e.params.chainId);
@@ -147,7 +148,7 @@ export async function triage(e: WalletKitTypes.SessionRequest, account: Account)
   switch (method) {
     case "wallet_getCapabilities": {
       const caps: Record<string, unknown> = {};
-      for (const c of WC_CHAINS) caps[numberToHex(c.id)] = { atomic: { status: "supported" }, atomicBatch: { supported: true } };
+      for (const id of chainIds) caps[numberToHex(id)] = { atomic: { status: "supported" }, atomicBatch: { supported: true } };
       await respond(topic, id, caps);
       return null;
     }
@@ -244,7 +245,7 @@ export async function sign1271(chainId: number, account: Account, hash: Hex): Pr
 // ---------------------------------------------------------------- EIP-5792 status
 
 const STATUS_KEY = "iw3.wc.calls";
-function remember(hash: Hash, chainId: number) {
+export function remember(hash: Hash, chainId: number) {
   try {
     const m = JSON.parse(localStorage.getItem(STATUS_KEY) || "{}");
     m[hash] = chainId;

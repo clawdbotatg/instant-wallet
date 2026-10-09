@@ -25,6 +25,12 @@ onto a new key there, like a lost phone).
 - **Each chain is its own Safe** (same address): level up per chain (Keys has a chain picker).
 
 - **Claim cards:** money on a QR / NFC tag / link; scan, make a wallet, claim. `/claim/new` makes them. `docs/CLAIM.md`.
+- **WalletConnect:** the scan button also reads a site's `wc:` QR (Settings → Connected sites to paste a link or
+  disconnect). A site's calls are one owner-signed batch + the relay's fee (the same keys as a big send, never the
+  budget path); messages (`personal_sign`, typed data) are ERC-1271 SafeMessage signatures, ERC-6492-wrapped until
+  the Safe and this phone's signer exist on that chain. The wedgie can't sign a site's message, and a wedgie
+  transaction can't park from a phone (the site waits). Calls into the wallet itself are refused.
+  `web/lib/safe/connect.ts`, `web/components/safe/SafeConnect.tsx` (the connection is shared with v3).
 
 ## How it's built
 
@@ -35,7 +41,8 @@ onto a new key there, like a lost phone).
   `web/components/safe/`, `web/app/safe/`.
 - Relay: `web/app/api/safe/relay/route.ts`, key `RELAYER_PRIVATE_KEY` (the facilitator 0x4cFa…8A2f). It only relays
   Instant Wallet shapes (ERC-20 transfers; ETH to accounts, 7702 accounts and real Safes; the wallet's own owner/module
-  changes, Roles, Candide, createSigner, deployModule of Roles), Roles calls only with shouldRevert, one submission per
+  changes, Roles, Candide, createSigner, deployModule of Roles; and in an owner-signed batch, a site's arbitrary
+  calls, never into the wallet itself, whose reverts count like a swap's), Roles calls only with shouldRevert, one submission per
   signed tx, estimates at the real fee with a gas cap per kind of send, rate limits, refuses the wallet and the IP for a
   day after a revert (Upstash, `RELAY_KV_*`; fails closed without it in production), waits for the receipt. Two
   independent reviews' findings are fixed. Fees today: first send ≈ $0.04 on Base, ≈ $0.55 on Ethereum.
@@ -48,6 +55,7 @@ onto a new key there, like a lost phone).
 | TS address math = chain | `cd web && npx tsx tools/safe-check.mts <base rpc>` | ok |
 | Full UI journey, fork (virtual passkey, fake MetaMask, fake wedgie) | `tools/safe-e2e.mjs` (setup in its header) | 27/27 on Base and on Ethereum forks |
 | Relay defences, fork | `tools/safe-relay-check.mts` | 10/10 on both forks and against the live relay (Base) |
+| WalletConnect, fork (scan a site's QR, 6492/1271 signatures, a 2-call batch, a call into the wallet refused) | `tools/safe-wc-e2e.mjs` | 12/12 on Base |
 | Live first send through the live relay (raw P-256 key) | `tools/safe-live.mts` | passed on Base and Ethereum mainnet |
 
 ## Not built yet (PLAN.md phases)

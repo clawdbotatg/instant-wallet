@@ -6,6 +6,7 @@ import { chainById, explorerTx, nativeSymbol } from "@/lib/chains";
 import { amount as fmtAmount, short, usd } from "@/lib/format";
 import { isClaimLink } from "@/lib/claim";
 import { parse } from "@/lib/parse";
+import { openWalletConnect } from "@/lib/walletconnect";
 import { transfer } from "@/lib/safe/core";
 import type { Quote } from "@/lib/safe/fee";
 import { type FeeToken, type Signer, type Stage, budgetSend, getQuote, ownersSend, plan, sendKind, signerOptions } from "@/lib/safe/send";
@@ -190,6 +191,7 @@ export function SafeSend({
     setScanning(false);
     if (isClaimLink(text)) return void (window.location.href = `/claim${new URL(text.trim()).hash}`); // a claim card (any host): claim it into this wallet
     const r = parse(text);
+    if (r.kind === "wc") return void (onDone(), openWalletConnect(r.uri)); // a site's WalletConnect QR: connect to it
     if (r.kind !== "pay") return setError("That QR isn't an address.");
     setToInput(r.to);
     const m = r.chainId || r.asset ? assets.find(a => (!r.chainId || a.chainId === r.chainId) && (!r.asset || a.asset.toLowerCase() === r.asset.toLowerCase())) : undefined;

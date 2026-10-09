@@ -31,6 +31,30 @@ type Session = { topic: string; name: string; url: string; icon?: string };
  * (paste or scan a wc: link, see and drop connected sites). Opened with openWalletConnect(uri?).
  */
 export function WalletConnectLayer({ account, pairUri }: { account: Account; pairUri?: string }) {
+  return (
+    <ConnectLayer
+      address={account.address}
+      pairUri={pairUri}
+      request={(pending, onDone, onNo) => <Request pending={pending} account={account} onDone={onDone} onNo={onNo} />}
+    />
+  );
+}
+
+/**
+ * The same layer for any wallet: `chainIds` = the chains sites may use (default: the sendable ones), `request`
+ * draws the card for one pending request (calls or a message) and answers the site.
+ */
+export function ConnectLayer({
+  address,
+  pairUri,
+  chainIds,
+  request,
+}: {
+  address: string;
+  pairUri?: string;
+  chainIds?: number[];
+  request: (pending: Pending, onDone: () => void, onNo: () => void) => React.ReactNode;
+}) {
   const [kit, setKit] = useState<Kit | null>(null);
   const [sheet, setSheet] = useState(false);
   const [proposal, setProposal] = useState<WalletKitTypes.SessionProposal | null>(null);
@@ -55,7 +79,7 @@ export function WalletConnectLayer({ account, pairUri }: { account: Account; pai
     const onProposal = (p: WalletKitTypes.SessionProposal) => setProposal(p);
     const onRequest = async (e: WalletKitTypes.SessionRequest) => {
       try {
-        const p = await triage(e, account);
+        const p = await triage(e, chainIds);
         if (p) setQueue(q => [...q, p]);
       } catch (err: any) {
         respondError(e.topic, e.id, err?.message || "Not supported", err?.code ?? 4200).catch(() => {});
@@ -81,7 +105,7 @@ export function WalletConnectLayer({ account, pairUri }: { account: Account; pai
         k.off("session_delete", onDelete);
       }
     };
-  }, [account, refreshSessions]);
+  }, [address, chainIds?.join(), refreshSessions]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // openWalletConnect(uri?) from the scan button or a link
   useEffect(() => {
@@ -139,7 +163,7 @@ export function WalletConnectLayer({ account, pairUri }: { account: Account; pai
           <Connect
             proposal={proposal}
             onYes={async () => {
-              await approveProposal(proposal, account);
+              await approveProposal(proposal, { address }, chainIds);
               setProposal(null);
               setSheet(false);
               if (kit) refreshSessions(kit);
@@ -150,20 +174,16 @@ export function WalletConnectLayer({ account, pairUri }: { account: Account; pai
       )}
       {!proposal && current && (
         <Sheet onClose={() => (respondError(current.topic, current.id).catch(() => {}), done())}>
-          <Request
-            key={`${current.topic}:${current.id}`}
-            pending={current}
-            account={account}
-            onDone={done}
-            onNo={() => (respondError(current.topic, current.id).catch(() => {}), done())}
-          />
+          <div key={`${current.topic}:${current.id}`}>
+            {request(current, done, () => (respondError(current.topic, current.id).catch(() => {}), done()))}
+          </div>
         </Sheet>
       )}
     </>
   );
 }
 
-function DappHead({ name, url, icon }: { name: string; url: string; icon?: string }) {
+export function DappHead({ name, url, icon }: { name: string; url: string; icon?: string }) {
   return (
     <div className="row">
       {icon ? <img src={icon} alt="" width={44} height={44} style={{ borderRadius: 12 }} /> : <div className="logo" />}
@@ -269,7 +289,7 @@ function Connect({ proposal, onYes, onNo }: { proposal: WalletKitTypes.SessionPr
 }
 
 /** What one call does, in words: ERC-20 approve / transfer decoded, ETH value shown, anything else by address. */
-function CallLine({ call, chainId }: { call: { target: `0x${string}`; value: bigint; data: Hex }; chainId: number }) {
+export function CallLine({ call, chainId }: { call: { target: `0x${string}`; value: bigint; data: Hex }; chainId: number }) {
   const [token, setToken] = useState<{ symbol: string; decimals: number } | null>(null);
   let decoded: { functionName: string; args: readonly unknown[] } | null = null;
   try {

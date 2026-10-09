@@ -67,6 +67,7 @@ type OwnersOpts = {
   wedgie?: Wedgie | null;
   setup?: boolean; // a level change: bigger gas budget
   swapGas?: bigint; // a swap: its route's own gas, on top of the Safe tx
+  dappGas?: bigint; // a site's calls (WalletConnect): their own gas, on top of the Safe tx
   quote?: Quote; // the one the user saw, if still fresh and for the same kind of send
   label?: string; // what it does, in words: shown on the computer that finishes it with the wedgie
   onStage?: (s: Stage, hash?: Hash) => void;
@@ -83,7 +84,7 @@ export async function prepareOwners(opts: OwnersOpts): Promise<Prepared> {
   const signerCode = signers.includes("burner") ? await publicClient(chainId).getCode({ address: a.burnerSigner }).catch(() => undefined) : "0x01";
   const fresh = !st.deployed || !signerCode || signerCode === "0x"; // the relay deploys the Safe and/or the burner's signer too
   const kind = ownersKind(fresh, signers, opts);
-  const q = opts.quote && opts.quote.kind === kind && opts.quote.until > Date.now() + 30_000 ? opts.quote : await getQuote(chainId, kind, opts.swapGas);
+  const q = opts.quote && opts.quote.kind === kind && opts.quote.until > Date.now() + 30_000 ? opts.quote : await getQuote(chainId, kind, opts.swapGas ?? opts.dappGas);
   const t: SafeTx = batch([...opts.calls, feeCall(q, opts.feeToken)], await freshNonce(chainId, a.address, st));
   return { opts, t, h: safeTxHash(chainId, a.address, t), fee: q };
 }
@@ -107,6 +108,7 @@ export async function finishOwners(p: Prepared): Promise<Hash> {
   // the wedgie can't plug in here (a phone): sign the rest, park it, and the computer with the wedgie finishes it
   const later = signers.includes("wedgie") && !p.opts.wedgie && !wedgieSupported();
   if (later && p.opts.swapGas !== undefined) throw new Error("A swap with the wedgie has to start on your computer (prices move).");
+  if (later && p.opts.dappGas !== undefined) throw new Error("With the wedgie, connect the site on your computer (the site waits for the answer).");
   const sigs: Sig[] = [];
   let ownWedgie: Wedgie | null = null;
   try {
@@ -173,8 +175,9 @@ export async function ownersSend(opts: OwnersOpts): Promise<Hash> {
   return finishOwners(await prepareOwners(opts));
 }
 
-function ownersKind(fresh: boolean, signers: Signer[], o: { setup?: boolean; swapGas?: bigint }): SendKind {
+function ownersKind(fresh: boolean, signers: Signer[], o: { setup?: boolean; swapGas?: bigint; dappGas?: bigint }): SendKind {
   if (o.setup) return fresh ? "first-setup" : "setup";
+  if (o.dappGas !== undefined) return fresh ? "first-dapp" : signers.includes("wedgie") ? "dapp-wedgie" : "dapp";
   if (o.swapGas !== undefined) return fresh ? "first-swap" : signers.includes("wedgie") ? "swap-wedgie" : "swap";
   return fresh ? "first" : signers.includes("wedgie") ? "exec-wedgie" : "exec";
 }
@@ -185,7 +188,7 @@ export async function sendKind(
   st: ChainState,
   path: "owners" | "budget",
   signers: Signer[],
-  o: { swapGas?: bigint } = {},
+  o: { swapGas?: bigint; dappGas?: bigint } = {},
 ): Promise<SendKind> {
   if (path === "budget") return "roles";
   const code = signers.includes("burner") ? await publicClient(st.chainId).getCode({ address: a.burnerSigner }).catch(() => undefined) : "0x01";

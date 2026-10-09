@@ -7,7 +7,8 @@ import { approvesRouter, checkSwap, isSwapTarget } from "./swap";
 /**
  * The relay's defences (review 2026-10-06): it pays gas up front, so it must not be made to pay for nothing.
  *   - only Instant Wallet shapes: token transfers, plain ETH sends, the wallet's own changes, and swaps through a
- *     known router that pay this wallet with no approval left behind (no arbitrary calls)
+ *     known router that pay this wallet with no approval left behind; arbitrary calls only in an owner-signed
+ *     batch from a site (WalletConnect), never into the wallet itself, and its reverts count like a swap's
  *   - one submission per signed tx (a reverted Safe tx keeps its nonce, so a signed body could be replayed)
  *   - rate limits per IP and per wallet; a wallet whose relayed tx reverted is refused for a day; many reverts pause
  *     the relay for an hour
@@ -111,8 +112,8 @@ export async function admit(ip: string, safe: Address) {
 
 /**
  * A relayed tx reverted: refuse that wallet and that IP for a day (no global pause: it would be a free outage).
- * A swap can revert honestly (the price moved past the slippage between the estimate and the block): the third
- * one in a day counts.
+ * A swap or a site's call can revert honestly (the price moved past the slippage between the estimate and the
+ * block): the third one in a day counts.
  */
 export async function reverted(safe: Address, ip: string, swap = false) {
   if (swap && (await bump(`swaprev:${safe}`, 86_400)) < 3) return;
@@ -153,9 +154,15 @@ const SAFE_SELF = new Set([
  * Every call in a relayed batch must be one of the shapes Instant Wallet makes (review 2: anything that can run
  * attacker code could pass the estimate and revert on chain). The owners still sign every one of them.
  */
-export async function checkCalls(safe: Address, calls: Call[], plainRecipient: (a: Address) => Promise<boolean>): Promise<{ swap: boolean }> {
+export async function checkCalls(
+  safe: Address,
+  calls: Call[],
+  plainRecipient: (a: Address) => Promise<boolean>,
+  allowDapp = false,
+): Promise<{ swap: boolean; dapp: boolean }> {
   const roles = rolesAddress(safe).toLowerCase();
   let swap = false;
+  let dapp = false;
   try {
     swap = checkSwap(safe, calls);
   } catch (e: any) {
@@ -178,6 +185,11 @@ export async function checkCalls(safe: Address, calls: Call[], plainRecipient: (
     if (c.data === "0x" && (await plainRecipient(c.to))) continue; // ETH to an account, a 7702 account, or a Safe
     if (c.value === 0n && size(c.data) === 68 && s === TRANSFER) continue; // an ERC-20 transfer
     if (isSwapTarget(c.to) || approvesRouter(c)) continue; // a swap: checked above (receiver, approvals)
+    // a site's call (WalletConnect), owner-signed: anything but the wallet's own guts (its guard, fallback, modules)
+    if (allowDapp && to !== safe.toLowerCase() && to !== roles && to !== RECOVERY_7D.toLowerCase()) {
+      dapp = true;
+      continue;
+    }
     throw new RelayRefused(
       c.data === "0x"
         ? "The relay doesn't send ETH to contracts. Send this one from a wallet that pays its own gas."
@@ -185,7 +197,7 @@ export async function checkCalls(safe: Address, calls: Call[], plainRecipient: (
       400,
     );
   }
-  return { swap };
+  return { swap, dapp };
 }
 
 /** Runtime code hashes of SafeProxy 1.3.0 and 1.5.0, and the singletons a real Safe points at. */

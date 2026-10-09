@@ -152,10 +152,12 @@ export async function POST(req: NextRequest) {
       const tx: SafeTx = { to: getAddress(t.to), value: BigInt(t.value), data: t.data, operation: Number(t.operation) as 0 | 1, nonce: BigInt(t.nonce) };
       if (tx.to !== MULTISEND_CALL_ONLY || tx.operation !== 1 || tx.value !== 0n) throw new Error("only Instant Wallet batches");
       const inner = unpackMultiSend(tx.data);
-      swap = (await checkCalls(safe, inner, plain)).swap;
+      const checked = await checkCalls(safe, inner, plain, true);
+      swap = checked.swap;
+      const dapp = checked.dapp;
       paid = feePaid(inner, me, info.usdc);
       // a level change (deploys Roles or the wedgie's signers) gets the bigger gas budget
-      const setup = !swap && inner.some(c => c.data !== "0x" && !c.data.toLowerCase().startsWith("0xa9059cbb")); // any wallet change
+      const setup = !swap && !dapp && inner.some(c => c.data !== "0x" && !c.data.toLowerCase().startsWith("0xa9059cbb")); // any wallet change
       const exec = execData(tx, body.signatures);
       // the burner's signer contract must exist before Safe checks its signature: deploy it in the same transaction
       // (a new phone after a recovery, or the very first send)
@@ -181,12 +183,19 @@ export async function POST(req: NextRequest) {
           functionName: "aggregate3",
           args: [calls.map(c => ({ target: c.to, allowFailure: false, callData: c.data }))],
         });
-        kind = setup ? "first-setup" : swap ? "first-swap" : "first";
+        kind = setup ? "first-setup" : swap ? "first-swap" : dapp ? "first-dapp" : "first";
       } else {
         to = safe;
         data = exec;
-        kind = setup ? "setup" : swap ? (body.wedgie ? "swap-wedgie" : "swap") : body.wedgie ? "exec-wedgie" : "exec";
+        kind = setup
+          ? "setup"
+          : swap
+            ? body.wedgie ? "swap-wedgie" : "swap"
+            : dapp
+              ? body.wedgie ? "dapp-wedgie" : "dapp"
+              : body.wedgie ? "exec-wedgie" : "exec";
       }
+      if (dapp) swap = true; // from here `swap` only means "a revert may be honest": a site's price can move too
     } else if (body.kind === "roles") {
       if (!hex(body.call) || !hex(body.signature) || !hex(body.salt) || !isAddress(body.signer)) throw new Error("role call?");
       const inner = rolesCalls(body.call, ROLE_BURNER);

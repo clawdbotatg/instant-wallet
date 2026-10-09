@@ -159,6 +159,14 @@ export function WedgieButton({ account, states, onKeys }: { account: SafeAccount
               {checking && !peek ? "Looking for your wedgie…" : st.title}
             </h2>
             <p className="fine">{st.detail}</p>
+            {!plugged && !onWallet && !account.wedgie && (
+              <p className="fine">
+                Don&apos;t have one?{" "}
+                <a href="https://wedgie.dev" target="_blank" rel="noreferrer">
+                  Get one at wedgie.dev
+                </a>
+              </p>
+            )}
           </div>
 
           {(hello || onWallet || account.wedgie) && (

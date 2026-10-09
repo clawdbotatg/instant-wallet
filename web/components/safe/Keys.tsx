@@ -309,6 +309,25 @@ export function Keys({
 
       <h3>Your keys</h3>
       <KeyRow kind="Instant wallet" a={account.burnerSigner} chainId={chainId} />
+      {st?.hasWedgie ? (
+        <KeyRow kind="Wedgie" a={st.wedgie} chainId={chainId} />
+      ) : (
+        <Step title="Wedgie (cold)">
+          <p className="fine">
+            Plug it into a computer (Chrome), open its Safe signer app, then add it. Don&apos;t have one?{" "}
+            <a href="https://wedgie.dev" target="_blank" rel="noreferrer">
+              Get one at wedgie.dev
+            </a>
+          </p>
+          {action(
+            "wedgie",
+            <button className="btn btn-green wide" onClick={addWedgie} disabled={!!busy || !!pending || !!wait || !canPay || !wedgieSupported()}>
+              {busy === "wedgie" ? "Check the wedgie…" : !wedgieSupported() ? "Needs Chrome on a computer" : "Connect and add the wedgie"}
+            </button>,
+          )}
+        </Step>
+      )}
+
       {st?.hasHot ? (
         <KeyRow kind="Hot wallet" a={hot} chainId={chainId} />
       ) : (
@@ -322,20 +341,6 @@ export function Keys({
           )}
         </Step>
       )}
-      {st?.hasWedgie ? (
-        <KeyRow kind="Wedgie" a={st.wedgie} chainId={chainId} />
-      ) : (
-        <Step title="Wedgie (cold)">
-          <p className="fine">Plug it into a computer (Chrome), open its Safe signer app, then add it.</p>
-          {action(
-            "wedgie",
-            <button className="btn btn-green wide" onClick={addWedgie} disabled={!!busy || !!pending || !!wait || !canPay || !wedgieSupported()}>
-              {busy === "wedgie" ? "Check the wedgie…" : !wedgieSupported() ? "Needs Chrome on a computer" : "Connect and add the wedgie"}
-            </button>,
-          )}
-        </Step>
-      )}
-
       {st?.budget && st.threshold > 1 && (
         <Step title={`Daily limit (1 of ${st.level} keys)`} key={`limit${chainId}`}>
           {editLimit !== chainId ? (

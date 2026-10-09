@@ -72,13 +72,16 @@ export function useSheetBack(back: (() => void) | null) {
 }
 
 /**
- * A bottom sheet. Closes on Escape, a tap outside, or a swipe down (grab anywhere while it's scrolled to the
- * top and pull it down, like an iOS sheet). A screen inside can make those go one step back (useSheetBack).
+ * A bottom sheet. Closes on Escape, a click outside (only if the press started outside too, so a text-select
+ * drag that ends past the edge doesn't close it), or a pull down (touch: grab anywhere while it's scrolled to
+ * the top, like an iOS sheet; mouse: drag the grab bar). A screen inside can make those go one step back
+ * (useSheetBack).
  */
 export function Sheet({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   const drag = useRef<{ y0: number; t0: number; dy: number; on: boolean } | null>(null);
   const back = useRef<(() => void) | null>(null);
+  const downOnBg = useRef(false);
   const dismissRef = useRef(onClose);
   dismissRef.current = () => (back.current ? back.current() : onClose());
   const dismiss = () => dismissRef.current();
@@ -87,6 +90,40 @@ export function Sheet({ onClose, children }: { onClose: () => void; children: Re
     window.addEventListener("keydown", k);
     return () => window.removeEventListener("keydown", k);
   }, []);
+  const pull = (y: number, e?: Event) => {
+    const d = drag.current;
+    const el = ref.current;
+    if (!d || !el) return;
+    const dy = y - d.y0;
+    if (!d.on && dy < 6) return; // a scroll up, or a tap
+    d.on = true;
+    d.dy = Math.max(0, dy);
+    e?.preventDefault(); // the sheet moves, not the page
+    el.style.transition = "none";
+    el.style.transform = `translateY(${d.dy}px)`;
+  };
+  const release = () => {
+    const d = drag.current;
+    const el = ref.current;
+    drag.current = null;
+    if (!d?.on || !el) return;
+    const fast = d.dy / Math.max(1, Date.now() - d.t0) > 0.6; // a flick
+    el.style.transition = "transform .2s ease-out";
+    if (d.dy > el.offsetHeight * 0.25 || (fast && d.dy > 40)) {
+      if (back.current) {
+        // one step back: the sheet springs up again on the screen before
+        el.style.transform = "translateY(0)";
+        dismissRef.current();
+      } else {
+        el.style.transform = "translateY(100%)";
+        setTimeout(() => dismissRef.current(), 180);
+      }
+    } else el.style.transform = "translateY(0)";
+  };
+  const pullRef = useRef(pull);
+  pullRef.current = pull;
+  const releaseRef = useRef(release);
+  releaseRef.current = release;
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -94,34 +131,8 @@ export function Sheet({ onClose, children }: { onClose: () => void; children: Re
       // only when the sheet is at its top, so scrolling its content still works
       drag.current = el.scrollTop <= 0 ? { y0: e.touches[0].clientY, t0: Date.now(), dy: 0, on: false } : null;
     };
-    const move = (e: TouchEvent) => {
-      const d = drag.current;
-      if (!d) return;
-      const dy = e.touches[0].clientY - d.y0;
-      if (!d.on && dy < 6) return; // a scroll up, or a tap
-      d.on = true;
-      d.dy = Math.max(0, dy);
-      e.preventDefault(); // the sheet moves, not the page
-      el.style.transition = "none";
-      el.style.transform = `translateY(${d.dy}px)`;
-    };
-    const end = () => {
-      const d = drag.current;
-      drag.current = null;
-      if (!d?.on) return;
-      const fast = d.dy / Math.max(1, Date.now() - d.t0) > 0.6; // a flick
-      el.style.transition = "transform .2s ease-out";
-      if (d.dy > el.offsetHeight * 0.25 || (fast && d.dy > 40)) {
-        if (back.current) {
-          // one step back: the sheet springs up again on the screen before
-          el.style.transform = "translateY(0)";
-          dismissRef.current();
-        } else {
-          el.style.transform = "translateY(100%)";
-          setTimeout(() => dismissRef.current(), 180);
-        }
-      } else el.style.transform = "translateY(0)";
-    };
+    const move = (e: TouchEvent) => pullRef.current(e.touches[0].clientY, e);
+    const end = () => releaseRef.current();
     el.addEventListener("touchstart", start, { passive: true });
     el.addEventListener("touchmove", move, { passive: false });
     el.addEventListener("touchend", end);
@@ -133,11 +144,31 @@ export function Sheet({ onClose, children }: { onClose: () => void; children: Re
       el.removeEventListener("touchcancel", end);
     };
   }, []);
+  // mouse/pen drag on the grab bar (touch is handled above, anywhere on the sheet)
+  const grabDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === "touch" || e.button !== 0) return;
+    e.preventDefault(); // no text selection while pulling
+    e.currentTarget.setPointerCapture(e.pointerId);
+    drag.current = { y0: e.clientY, t0: Date.now(), dy: 0, on: false };
+  };
+  const grabMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType !== "touch") pull(e.clientY);
+  };
+  const grabUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType !== "touch") release();
+  };
   return (
     <SheetBack.Provider value={back}>
-      <div className="sheet-bg" onClick={dismiss}>
-        <div className="sheet" ref={ref} onClick={e => e.stopPropagation()}>
-          <div className="grab" />
+      <div
+        className="sheet-bg"
+        onPointerDown={e => (downOnBg.current = e.target === e.currentTarget)}
+        onClick={e => {
+          if (e.target === e.currentTarget && downOnBg.current) dismiss();
+          downOnBg.current = false;
+        }}
+      >
+        <div className="sheet" ref={ref}>
+          <div className="grab" onPointerDown={grabDown} onPointerMove={grabMove} onPointerUp={grabUp} onPointerCancel={grabUp} />
           {children}
         </div>
       </div>

@@ -253,7 +253,7 @@ export function SafeApp() {
           {view.kind === "send" && <SafeSend account={account} assets={assets} states={states} start={view.asset} onDone={close} />}
           {view.kind === "sendAll" && <SendAll account={account} assets={assets} states={states} onDone={close} />}
           {view.kind === "swap" && <SafeSwap account={account} assets={assets} states={states} fund={view.fund} onDone={close} />}
-          {view.kind === "deposit" && <Deposit address={account.address} />}
+          {view.kind === "deposit" && <Deposit account={account} />}
           {view.kind === "receive" && <Receive account={{ address: account.address } as any} toast={setToast} />}
           {view.kind === "keys" && (
             <Keys

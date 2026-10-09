@@ -58,7 +58,10 @@ export async function createPasskey(label = "Instant Wallet"): Promise<NewPasske
       pubKeyCredParams: [{ type: "public-key", alg: -7 }],
       authenticatorSelection: { residentKey: "required", userVerification: "required" },
       attestation: "none",
-      timeout: 60_000,
+      // Windows: first-time Hello/PIN setup and the "where to save" picker can take over a minute; 60 s timed out
+      // mid-setup and read as "Cancelled.". client-device steers Chrome/Edge to Windows Hello before the phone QR.
+      timeout: 300_000,
+      ...({ hints: ["client-device"] } as object),
       extensions: { prf: { eval: { first: PRF_SALT } } } as any,
     },
   })) as PublicKeyCredential | null;
@@ -95,7 +98,7 @@ async function assert(challenge: Uint8Array<ArrayBuffer>, credentialId?: string,
       rpId: rpId(),
       userVerification: "required",
       allowCredentials: credentialId ? [{ type: "public-key", id: base64urlToBytes(credentialId) as Uint8Array<ArrayBuffer> }] : undefined,
-      timeout: 60_000,
+      timeout: 300_000,
       extensions: { prf: { eval: salts } } as any,
     },
   })) as PublicKeyCredential | null;

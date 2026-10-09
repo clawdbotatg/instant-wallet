@@ -7,10 +7,11 @@ import { amount, short, usd } from "@/lib/format";
 import { type ChainState, type SafeAccount, loadAccount, readAll, saveAccount } from "@/lib/safe/state";
 import type { Address } from "viem";
 import type { Asset, Portfolio } from "@/lib/types";
+import { loadHidden, saveHidden } from "@/lib/store";
 import { dropOtherBudgetsCalls } from "@/lib/safe/core";
 import { type Prepared, finishOwners, ownerSigners, prepareOwners, signerOptions } from "@/lib/safe/send";
 import { friendly } from "../Welcome";
-import { Blockie, DepositIcon, GearIcon, ScanIcon, SendIcon, Sheet, SwapIcon, TokenIcon, copy, useToast } from "../bits";
+import { Blockie, DepositIcon, GearIcon, ScanIcon, SendIcon, Sheet, SwapIcon, TokenIcon, TrashIcon, copy, useToast } from "../bits";
 import { Receive } from "../Receive";
 import { Deposit } from "./Deposit";
 import { Keys } from "./Keys";
@@ -33,8 +34,16 @@ export function SafeApp() {
   const [showUsd, setShowUsd] = useState(true);
   const [toast, setToast] = useToast();
   const [dropReady, setDropReady] = useState<Prepared | null>(null);
+  const [hidden, setHiddenState] = useState<string[]>([]);
 
-  useEffect(() => setAccountState(loadAccount()), []);
+  useEffect(() => {
+    setAccountState(loadAccount());
+    setHiddenState(loadHidden());
+  }, []);
+  const setHidden = (h: string[]) => {
+    saveHidden(h);
+    setHiddenState(h);
+  };
   const setAccount = (a: SafeAccount | null) => {
     saveAccount(a);
     setAccountState(a);
@@ -73,7 +82,13 @@ export function SafeApp() {
   if (account === undefined) return null;
   if (!account) return <SafeWelcome onReady={setAccount} />;
 
-  const assets: Asset[] = (portfolio?.assets ?? []).filter(a => BigInt(a.balance) > 0n);
+  const keyOf = (a: Asset) => `${a.chainId}:${a.asset}`.toLowerCase();
+  const held = (portfolio?.assets ?? []).filter(a => BigInt(a.balance) > 0n);
+  const assets: Asset[] = held.filter(a => !hidden.includes(keyOf(a)));
+  const hiddenCount = held.length - assets.length;
+  // under 2¢ (or no price) and not the coin or USDC: almost always airdropped spam, so the send button becomes a trash can that hides it
+  const isDust = (a: Asset) =>
+    (a.usd ?? 0) < 0.02 && a.asset !== "0x0000000000000000000000000000000000000000" && a.asset.toLowerCase() !== chainById(a.chainId)?.usdc?.toLowerCase();
   const close = () => {
     setView({ kind: "home" });
     refresh();
@@ -200,11 +215,22 @@ export function SafeApp() {
                 <div className="sym">{showUsd ? usd(a.usd) : amount(a.formatted)}</div>
                 <div className="fine">{showUsd ? `${amount(a.formatted)} ${a.symbol}` : usd(a.usd)}</div>
               </div>
-              <button className="btn btn-green send-one" aria-label={`Send ${a.symbol}`} onClick={() => setView({ kind: "send", asset: a })}>
-                <SendIcon />
-              </button>
+              {isDust(a) ? (
+                <button className="btn btn-red send-one" aria-label={`Hide ${a.symbol}`} onClick={() => setHidden([...hidden, keyOf(a)])}>
+                  <TrashIcon />
+                </button>
+              ) : (
+                <button className="btn btn-green send-one" aria-label={`Send ${a.symbol}`} onClick={() => setView({ kind: "send", asset: a })}>
+                  <SendIcon />
+                </button>
+              )}
             </div>
           ))}
+          {hiddenCount > 0 && (
+            <button className="fine center unhide" onClick={() => setHidden([])}>
+              {hiddenCount} hidden · show
+            </button>
+          )}
         </div>
       </div>
 

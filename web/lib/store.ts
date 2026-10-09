@@ -26,3 +26,7 @@ export const loadAccount = (): Account | null => {
 };
 export const saveAccount = (a: Account | null) => set("iw3.account", a);
 
+
+/** Coins the user trashed off the home list (spam dust), as "chainId:address" lowercase. */
+export const loadHidden = (): string[] => get<string[]>("iw3.hidden") ?? [];
+export const saveHidden = (h: string[]) => set("iw3.hidden", h.length ? h : null);

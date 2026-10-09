@@ -118,6 +118,7 @@ div.asset:active { background: none; }
 .asset .sym { font-weight: 600; }
 .asset .right { text-align: right; }
 .asset .send-one { flex: none; width: 44px; height: 44px; padding: 0; border-radius: 14px; display: grid; place-items: center; }
+.unhide { border: 0; background: none; color: var(--muted); padding: 10px; cursor: pointer; }
 
 .fab { position: fixed; right: max(18px, calc(50vw - 222px)); bottom: calc(22px + env(safe-area-inset-bottom)); width: 74px; height: 74px; border-radius: 50%; border: 0;
   display: grid; place-items: center; color: #fff; background: var(--green-fill); cursor: pointer; z-index: 30;

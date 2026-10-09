@@ -4,7 +4,7 @@
 //
 //   npx tsx tools/fund-relay.mts            # dry run: balances and what it would send
 //   npx tsx tools/fund-relay.mts --go       # send
-//   TARGET_USD=5 FUNDER_KEY_FILE=~/.instant-wallet-funder.key RELAYER=0x… (default: the live relay's)
+//   TARGET_USD=5 FUNDER_KEY_FILE=~/.instant-wallet-funder.key RELAYER=0x… (default: the live relay's) ONLY=43114,56 (just these networks)
 //
 // The funder is a plain key in a file outside the repo (never commit it). Fund it with ETH on Base.
 import fs from "node:fs";
@@ -48,8 +48,9 @@ const ethUsd = px.get("ETH")!;
 console.log(`funder ${funder.address}: ${formatEther(await basePc.getBalance({ address: funder.address }))} ETH on Base`);
 console.log(`relay  ${relayer}, target $${TARGET} per network${GO ? "" : " (dry run: --go to send)"}\n`);
 
+const only = process.env.ONLY?.split(",").map(Number);
 for (const c of CHAINS) {
-  if (!c.alchemy) continue;
+  if (!c.alchemy || (only && !only.includes(c.id))) continue;
   const bal = await createPublicClient({ chain: c.chain, transport: http(rpc(c.id)) }).getBalance({ address: relayer });
   const price = c.nativeIsUsdc ? 1 : px.get(c.native.symbol.toUpperCase()) ?? 0;
   const have = Number(formatEther(bal)) * price;

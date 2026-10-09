@@ -49,26 +49,37 @@ function forcedVia(): string | null {
 /**
  * Swap any asset you hold for any token, here or on another chain (docs/SWAP.md). Uniswap (on chain) and LI.FI
  * are both asked; the one that lands more wins. Signed like a big send: by the owners (Face ID alone at level 1).
+ * fund: "Add gas on X" from Keys: from what you hold elsewhere to X's own coin, enough for a few changes there
+ * (the Safe has the same address on every network, so it lands in this wallet).
  */
 export function SafeSwap({
   account,
   assets,
   states,
   start,
+  fund,
   onDone,
 }: {
   account: SafeAccount;
   assets: Asset[];
   states: ChainState[];
   start?: Asset;
+  fund?: number;
   onDone: () => void;
 }) {
   const key = (a: { chainId: number; asset: string }) => `${a.chainId}:${a.asset.toLowerCase()}`;
-  const [fromKey, setFromKey] = useState<string | null>(start ? key(start) : assets[0] ? key(assets[0]) : null);
+  // funding: the biggest USDC or coin you hold on another network (the cheapest to bridge), else the biggest anything
+  const fundFrom = () => {
+    const elsewhere = assets.filter(a => a.chainId !== fund).sort((a, b) => (b.usd ?? 0) - (a.usd ?? 0));
+    const plain = (a: Asset) => a.asset === zeroAddress || a.asset.toLowerCase() === chainById(a.chainId)?.usdc?.toLowerCase();
+    return elsewhere.find(plain) ?? elsewhere[0];
+  };
+  const first = start ?? (fund ? fundFrom() : undefined) ?? assets[0];
+  const [fromKey, setFromKey] = useState<string | null>(first ? key(first) : null);
   const [amountIn, setAmountIn] = useState("");
   const from = useMemo(() => assets.find(a => key(a) === fromKey) ?? null, [assets, fromKey]);
   const chainId = from?.chainId ?? CHAINS[0].id;
-  const [toChain, setToChain] = useState(chainId);
+  const [toChain, setToChain] = useState(fund ?? chainId);
   const [to, setTo] = useState<Token | null>(null);
   const [routes, setRoutes] = useState<{ uni: SwapRoute | null; lifi: SwapRoute | null; lifiErr?: string } | null>(null);
   const [quoting, setQuoting] = useState(false);
@@ -83,7 +94,24 @@ export function SafeSwap({
     if (!fromKey && assets.length) setFromKey(key(assets[0]));
   }, [assets, fromKey]);
   // a new "From" chain: swap on that chain unless the user picks another
-  useEffect(() => setToChain(chainId), [chainId]);
+  useEffect(() => {
+    if (!fund) setToChain(chainId);
+  }, [chainId, fund]);
+
+  // funding: about three wallet changes' worth of gas there (at least $0.50), in the "From" token
+  useEffect(() => {
+    if (!fund || !from?.price) return;
+    let gone = false;
+    getQuote(fund, "first-setup")
+      .then(q => {
+        const usdNeed = Math.max(0.5, Math.ceil((Number(q.feeUsdc) / 1e6) * 3 * 2) / 2);
+        if (!gone) setAmountIn(a => a || String(Number((usdNeed / from.price!).toPrecision(3))));
+      })
+      .catch(() => {});
+    return () => {
+      gone = true;
+    };
+  }, [fund, from]);
 
   // the "To" choices on the chosen chain: well-known tokens + what you hold there, never the "From" token itself
   const choices = useMemo(() => {
@@ -125,7 +153,7 @@ export function SafeSwap({
   useEffect(() => {
     if (to && to.chainId === toChain && (!from || !same(to, tokenOf(from)))) return;
     const usdc = chainById(toChain)?.usdc;
-    const pick = from && usdc && same(tokenOf(from), { chainId: toChain, address: usdc }) ? zeroAddress : usdc;
+    const pick = fund ? zeroAddress : from && usdc && same(tokenOf(from), { chainId: toChain, address: usdc }) ? zeroAddress : usdc;
     setTo(choices.find(t => t.address.toLowerCase() === pick?.toLowerCase()) ?? choices[0] ?? null);
   }, [toChain, from, choices, to]);
 
@@ -352,7 +380,8 @@ export function SafeSwap({
 
   return (
     <div className="stack swap">
-      <h2>Swap</h2>
+      <h2>{fund ? `Add gas on ${chainById(fund)?.name}` : "Swap"}</h2>
+      {fund && <p className="fine">Your wallet has the same address on every network. This moves a little to {chainById(fund)?.name} so it can pay for changes there.</p>}
 
       <div className="field">
         <label>From</label>

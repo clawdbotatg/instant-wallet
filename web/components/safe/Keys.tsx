@@ -32,6 +32,7 @@ export function Keys({
   onRefresh,
   onSignOut,
   onWithdraw,
+  onFund,
 }: {
   account: SafeAccount;
   states: ChainState[];
@@ -41,6 +42,7 @@ export function Keys({
   onRefresh: () => Promise<void> | void;
   onSignOut: () => void;
   onWithdraw: (to: Address) => void;
+  onFund: (chainId: number) => void;
 }) {
   const [chainId, setChainId] = useState(CHAINS[0].id);
   const [busy, setBusy] = useState<string | null>(null);
@@ -290,8 +292,20 @@ export function Keys({
       <ChainSelect value={chainId} onChange={setChainId} />
 
       {!st && <p className="fine">Loading…</p>}
-      {st && !st.deployed && <p className="fine">Not deployed on {chainById(chainId)?.name} yet: the first send or change deploys it. Each network&apos;s wallet is set up on its own.</p>}
-      {!canPay && <p className="err">Changes cost a few cents of gas, paid from this wallet. Add a little USDC or {nativeSymbol(chainId)} on {chainById(chainId)?.name} first.</p>}
+      {!canPay ? (
+        <div className="card stack" style={{ gap: 8 }}>
+          <p className="fine">Changes on {chainById(chainId)?.name} need a little gas there, and this wallet has none on it yet.</p>
+          {assets.some(a => a.chainId !== chainId && (a.usd ?? 0) >= 0.5) ? (
+            <button className="btn btn-green wide" onClick={() => onFund(chainId)}>
+              Add gas on {chainById(chainId)?.name}
+            </button>
+          ) : (
+            <p className="fine">Add a little USDC or {nativeSymbol(chainId)} on {chainById(chainId)?.name} first.</p>
+          )}
+        </div>
+      ) : (
+        st && !st.deployed && <p className="fine">The first change on {chainById(chainId)?.name} also sets up the wallet there.</p>
+      )}
 
       <h3>Your keys</h3>
       <KeyRow kind="Instant wallet" a={account.burnerSigner} chainId={chainId} />

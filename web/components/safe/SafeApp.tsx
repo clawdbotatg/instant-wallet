@@ -22,7 +22,7 @@ import { SafeWelcome } from "./SafeWelcome";
 import { WedgieButton } from "./WedgieButton";
 import { PendingCards } from "./PendingCard";
 
-type View = { kind: "home" } | { kind: "send"; asset?: Asset; to?: Address } | { kind: "swap" } | { kind: "receive" } | { kind: "deposit" } | { kind: "keys" } | { kind: "sendAll" };
+type View = { kind: "home" } | { kind: "send"; asset?: Asset; to?: Address } | { kind: "swap"; fund?: number } | { kind: "receive" } | { kind: "deposit" } | { kind: "keys" } | { kind: "sendAll" };
 
 /** Instant Wallet on a Safe: a big balance, Deposit / Swap, the address pill opens Receive, settings bottom middle (keys needed / keys you have), a send button on each asset, a scan button and the wedgie (bottom left). */
 export function SafeApp() {
@@ -221,7 +221,7 @@ export function SafeApp() {
         <Sheet onClose={close}>
           {view.kind === "send" && <SafeSend account={account} assets={assets} states={states} start={view.asset} to={view.to} onDone={close} />}
           {view.kind === "sendAll" && <SendAll account={account} assets={assets} states={states} onDone={close} />}
-          {view.kind === "swap" && <SafeSwap account={account} assets={assets} states={states} onDone={close} />}
+          {view.kind === "swap" && <SafeSwap account={account} assets={assets} states={states} fund={view.fund} onDone={close} />}
           {view.kind === "deposit" && <Deposit address={account.address} />}
           {view.kind === "receive" && <Receive account={{ address: account.address } as any} toast={setToast} />}
           {view.kind === "keys" && (
@@ -233,6 +233,7 @@ export function SafeApp() {
               onAccount={a => setAccount(a)}
               onRefresh={refresh}
               // Withdraw: Send, to the saved cash-out address, USDC on Base picked if there is any
+              onFund={chainId => setView({ kind: "swap", fund: chainId })}
               onWithdraw={to => setView({ kind: "send", to, asset: assets.find(a => a.chainId === 8453 && a.asset.toLowerCase() === chainById(8453)?.usdc?.toLowerCase()) })}
               onSignOut={() => {
                 setAccount(null);

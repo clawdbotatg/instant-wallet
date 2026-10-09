@@ -8,7 +8,7 @@ import { DAO, FEE_ALLOWANCE, VERIFIERS, VERIFIERS_SLOT2 } from "@/lib/safe/confi
 import { type Call, DEFAULT_BUDGET, abi, budgetCalls, deploySignerCall, feeAllowanceCalls, selfCall, setBudgetCalls, setGuardianCalls } from "@/lib/safe/core";
 import { connectHot, hotAvailable } from "@/lib/safe/hot";
 import { type FeeToken, type Prepared, type Signer, finishOwners, getQuote, ownerSigners, prepareOwners } from "@/lib/safe/send";
-import { type ChainState, type SafeAccount, hotOf, wedgieSigners } from "@/lib/safe/state";
+import { type ChainState, type SafeAccount, hotOf, readChain, wedgieSigners } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
 import { AddressInput, Blockie } from "../bits";
@@ -101,6 +101,15 @@ export function Keys({
     return () => clearInterval(t);
   }, [wait, waitDone, busy, onRefresh, toast]);
 
+  // read the chain again before building a change: the page can be a block or a poll behind (a key that just
+  // landed), and a tx built for the old threshold fails on chain (GS021)
+  const fresh = async () => {
+    if (!st) throw new Error("Still loading");
+    const s = await readChain(chainId, account);
+    onRefresh();
+    return s;
+  };
+
   async function prep(what: string, fn: () => Promise<Ready>) {
     setBusy(what);
     setErrorRaw(null);
@@ -139,7 +148,8 @@ export function Keys({
 
   const addHot = () =>
     prep("hot", async () => {
-      if (!st) throw new Error("Still loading");
+      const st = await fresh();
+      if (st.hasHot) throw new Error("A hot wallet is already on this wallet here.");
       const h = await connectHot();
       if (h.toLowerCase() === account.address.toLowerCase()) throw new Error("That's this wallet itself.");
       // Instant alone: 2 of 2. With the wedgie (3 of 3): 3 of 4, so the wedgie + any one.
@@ -157,7 +167,7 @@ export function Keys({
 
   const setPaper = () =>
     prep("paper", async () => {
-      if (!st) throw new Error("Still loading");
+      const st = await fresh();
       if (!guardianIn) throw new Error("Enter an address (0x…) or an ENS name.");
       const paper = guardianIn;
       if (st.owners.some(o => o.toLowerCase() === paper.toLowerCase())) throw new Error("That address is already one of your keys. The guardian must be separate.");
@@ -186,7 +196,8 @@ export function Keys({
   const [editLimit, setEditLimit] = useState<number | null>(null); // the chain whose limit is open for editing
   const setLimit = () =>
     prep("limit", async () => {
-      if (!st?.budget) throw new Error("Still loading");
+      const st = await fresh();
+      if (!st.budget) throw new Error("Still loading");
       const usdcV = parseUnits(limitUsdc, 6);
       const ethV = parseUnits(limitEth, 18);
       const signers = ownerSigners(st, account);
@@ -210,8 +221,10 @@ export function Keys({
   const addWedgie = () =>
     prep("wedgie", async () => {
       if (!st) throw new Error("Still loading");
-      const w = await Wedgie.connect();
+      const w = await Wedgie.connect(); // first, while it's still the tap (the port prompt needs one)
       try {
+        const st = await fresh();
+        if (st.hasWedgie) throw new Error("The wedgie is already on this wallet here.");
         const key = await w.key();
         const [w1, w2] = wedgieSigners(key);
         // Instant alone (1 of 1) → 3 of 3; Instant + hot (2 of 2) → 3 of 4. Either way the wedgie + one more.

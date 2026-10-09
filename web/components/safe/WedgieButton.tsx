@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { type ChainState, type SafeAccount, wedgieSigners } from "@/lib/safe/state";
-import { type Peek, Wedgie, wedgieArmed, wedgieSupported } from "@/lib/safe/wedgie";
+import { OldFirmware, type Peek, Wedgie, installSafeApp, wedgieArmed, wedgieSupported } from "@/lib/safe/wedgie";
 import { Blockie, Sheet } from "../bits";
 
 /** The wedgie, drawn after the device render (design/brand/device-mark.png): white shell, a bill and a card behind, knob, screen, four buttons. */
@@ -42,7 +42,8 @@ export function TxPicture({ hash }: { hash: string }) {
 }
 
 type Tone = "ok" | "warn" | "bad" | "off";
-type Status = { tone: Tone; title: string; detail: string; key?: { x: `0x${string}`; y: `0x${string}` } };
+// install: the main button puts the Safe signer on it (wrong app, or not answering)
+type Status = { tone: Tone; title: string; detail: string; key?: { x: `0x${string}`; y: `0x${string}` }; install?: boolean; get?: boolean };
 
 const same = (a?: { x: string; y: string }, b?: { x: string; y: string }) =>
   !!a && !!b && a.x.toLowerCase() === b.x.toLowerCase() && a.y.toLowerCase() === b.y.toLowerCase();
@@ -56,22 +57,26 @@ function statusOf(peek: Peek | null, account: SafeAccount, states: ChainState[])
       detail: "A wedgie plugs into Chrome or Edge on a computer over USB. Open this wallet there to use it.",
     };
   if (!peek || peek.kind === "none")
-    return {
-      tone: "off",
-      title: "No wedgie plugged in",
-      detail: wedgieArmed()
-        ? "Plug your wedgie into this computer. It shows up here by itself."
-        : "Plug your wedgie into this computer and tap Find my wedgie (once per browser).",
-    };
+    return !onWallet && !account.wedgie && !wedgieArmed()
+      ? { tone: "off", title: "No wedgie yet", detail: "A wedgie is a small signing device. Add one and big moves need it.", get: true }
+      : {
+          tone: "off",
+          title: "No wedgie plugged in",
+          detail: wedgieArmed()
+            ? "Plug your wedgie into this computer. It shows up here by itself."
+            : "Plug your wedgie into this computer and tap Find my wedgie (once per browser).",
+        };
   if (peek.kind === "busy") return { tone: "ok", title: "Wedgie connected", detail: "It's signing a transaction now." };
+  if (peek.kind === "taken") return { tone: "bad", title: "Wedgie is open in another tab", detail: "Close wedgie.dev or any other tab using it, then check again." };
   if (peek.kind === "silent")
-    return { tone: "bad", title: "Wedgie isn't answering", detail: `${peek.error} If it just booted, give it a second and check again; otherwise update its firmware at wedgie.dev.` };
+    return { tone: "bad", title: "Wedgie isn't answering", detail: "Unplug it, hold X while you plug it back in (that skips its app), then install the Safe signer.", install: true };
   const h = peek.hello;
   if (!("safe" in h))
     return {
       tone: "bad",
       title: "Wrong app on the wedgie",
-      detail: `It's running ${h.running ? `“${h.running}”` : "no app"}. Install the Safe signer app at wedgie.dev.`,
+      detail: `It's running ${h.running ? `“${h.running}”` : "no app"}. This wallet needs the Safe signer.`,
+      install: true,
     };
   if (!h.safe) return { tone: "warn", title: "Wedgie has no key yet", detail: "Press A on its screen to make its Safe key. It never leaves the chip." };
   const mine = account.wedgie;
@@ -90,6 +95,24 @@ export function WedgieButton({ account, states, onKeys }: { account: SafeAccount
   const [open, setOpen] = useState(false);
   const [checking, setChecking] = useState(false);
   const [armed, setArmed] = useState(false);
+  const [installing, setInstalling] = useState<{ what: string; p?: number } | null>(null);
+  const [installErr, setInstallErr] = useState<{ msg: string; old?: boolean } | null>(null);
+
+  async function install() {
+    setInstallErr(null);
+    setInstalling({ what: "Connecting…" });
+    try {
+      await installSafeApp((what, p) => setInstalling({ what, p }));
+      setArmed(true);
+      // it restarts into the new app: look again once it's back
+      await new Promise(r => setTimeout(r, 4000));
+      await check();
+    } catch (e: any) {
+      setInstallErr({ msg: e?.message || String(e), old: e instanceof OldFirmware });
+    } finally {
+      setInstalling(null);
+    }
+  }
 
   const check = useCallback(async () => {
     setChecking(true);
@@ -159,7 +182,7 @@ export function WedgieButton({ account, states, onKeys }: { account: SafeAccount
               {checking && !peek ? "Looking for your wedgie…" : st.title}
             </h2>
             <p className="fine">{st.detail}</p>
-            {!plugged && !onWallet && !account.wedgie && (
+            {!plugged && !onWallet && !account.wedgie && !st.get && (
               <p className="fine">
                 Don&apos;t have one?{" "}
                 <a href="https://wedgie.dev" target="_blank" rel="noreferrer">
@@ -171,18 +194,6 @@ export function WedgieButton({ account, states, onKeys }: { account: SafeAccount
 
           {(hello || onWallet || account.wedgie) && (
             <div className="card kv">
-              {hello?.short && (
-                <div>
-                  <span>Device</span>
-                  <b className="mono">{hello.short}</b>
-                </div>
-              )}
-              {hello?.version && (
-                <div>
-                  <span>Firmware</span>
-                  <b>{hello.version}</b>
-                </div>
-              )}
               {hello && (
                 <div>
                   <span>App</span>
@@ -203,9 +214,37 @@ export function WedgieButton({ account, states, onKeys }: { account: SafeAccount
           )}
 
           <div className="stack">
-            {wedgieSupported() && !plugged && (
+            {installing && (
+              <div className="stack" style={{ gap: 8 }}>
+                <p className="fine">{installing.what}</p>
+                <div className="progress">
+                  <div style={{ width: `${Math.max(3, (installing.p ?? 0) * 100)}%`, transitionDuration: "300ms" }} />
+                </div>
+              </div>
+            )}
+            {installErr && (
+              <p className="err">
+                {installErr.msg}{" "}
+                {installErr.old && (
+                  <a href="https://wedgie.dev/connect" target="_blank" rel="noreferrer">
+                    Open wedgie.dev
+                  </a>
+                )}
+              </p>
+            )}
+            {st.install && wedgieSupported() && !installing && (
+              <button className="btn btn-green wide" onClick={install}>
+                Install Safe signer on wedgie
+              </button>
+            )}
+            {st.get && (
+              <a className="btn btn-green wide" href="https://wedgie.dev" target="_blank" rel="noreferrer">
+                Get one at wedgie.dev
+              </a>
+            )}
+            {wedgieSupported() && !plugged && !st.install && (
               <button
-                className="btn btn-green wide"
+                className={`btn wide ${st.get ? "" : "btn-green"}`}
                 onClick={async () => {
                   if (await Wedgie.pick()) {
                     setArmed(true);
@@ -227,7 +266,7 @@ export function WedgieButton({ account, states, onKeys }: { account: SafeAccount
                 Add it to this wallet
               </button>
             )}
-            {wedgieSupported() && armed && (
+            {wedgieSupported() && armed && !installing && (
               <button className="btn wide" onClick={check} disabled={checking}>
                 {checking ? "Checking…" : "Check again"}
               </button>

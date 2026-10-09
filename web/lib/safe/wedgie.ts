@@ -45,6 +45,7 @@ const LINE_MAX = 5800; // the wedgie's USB line is 6 KB
 export type Peek =
   | { kind: "none" } // no wedgie this browser was allowed to see is plugged in
   | { kind: "busy" } // a signing connection has it open right now
+  | { kind: "taken" } // plugged in, but something else has the port open (a wedgie.dev tab, Thonny)
   | { kind: "silent"; error: string } // plugged in, but it didn't answer (still booting, or not running wedgie firmware)
   | { kind: "hello"; hello: WedgieHello };
 
@@ -53,6 +54,7 @@ export class Wedgie {
   private writer?: WritableStreamDefaultWriter<Uint8Array>;
   private reader?: ReadableStreamDefaultReader<Uint8Array>;
   private line = "";
+  alive = true;
   private next = 100;
   private pending = new Map<number, Pending>();
 
@@ -99,7 +101,8 @@ export class Wedgie {
       try {
         await w.port.open({ baudRate: 115200 });
       } catch (e: any) {
-        return { kind: "silent", error: `Couldn't open it (${e?.message || "in use by another tab?"})` };
+        if (/failed to open|busy|access denied|already open/i.test(e?.message || "")) return { kind: "taken" };
+        return { kind: "silent", error: "Couldn't open it." };
       }
       w.writer = w.port.writable.getWriter();
       w.reader = w.port.readable.getReader();
@@ -132,6 +135,29 @@ export class Wedgie {
     };
   }
 
+  /** The wedgie again after a checked install's restart (same device, maybe a new port), within ~25 s. */
+  static async reopen(since: number): Promise<Wedgie> {
+    const serial = (navigator as any).serial;
+    while (Date.now() - since < 25_000) {
+      await new Promise(r => setTimeout(r, 400));
+      const port = (await serial.getPorts()).find((p: any) => p.getInfo().usbVendorId === RPI_VID);
+      if (!port) continue;
+      try {
+        await port.open({ baudRate: 115200 });
+      } catch {
+        continue;
+      }
+      const w = new Wedgie();
+      w.port = port;
+      w.writer = port.writable.getWriter();
+      w.reader = port.readable.getReader();
+      w.read();
+      holder = w;
+      return w;
+    }
+    throw new Error("The wedgie restarted and didn't come back. Unplug it and plug it in again.");
+  }
+
   /** Stop letting this browser see the wedgie (it asks again next time). */
   static async forget() {
     if (!wedgieSupported()) return;
@@ -162,6 +188,7 @@ export class Wedgie {
         }
       }
     } catch {}
+    this.alive = false;
     if (holder === this) holder = null;
     for (const [, p] of this.pending) p.rej(new Error("wedgie unplugged"));
     this.pending.clear();
@@ -176,6 +203,21 @@ export class Wedgie {
       }, ms);
       this.pending.set(id, { res, rej, t });
       this.writer!.write(new TextEncoder().encode(JSON.stringify({ ...msg, id }) + "\n")).catch(rej);
+    });
+  }
+
+  /** A short JSON line, then `raw` bytes right after it (a checked install's put, firmware 0.3.16+). */
+  requestRaw(msg: Record<string, unknown>, raw: Uint8Array, ms = 15000): Promise<any> {
+    const id = this.next++;
+    return new Promise((res, rej) => {
+      const t = window.setTimeout(() => {
+        this.pending.delete(id);
+        rej(new Error("The wedgie stopped answering."));
+      }, ms);
+      this.pending.set(id, { res, rej, t });
+      this.writer!.write(new TextEncoder().encode(JSON.stringify({ ...msg, n: raw.length, id }) + "\n"))
+        .then(() => this.writer!.write(raw))
+        .catch(rej);
     });
   }
 
@@ -229,5 +271,113 @@ export class Wedgie {
       this.writer?.releaseLock();
       await this.port?.close();
     } catch {}
+  }
+}
+
+// ---------------------------------------------------------------- installing the Safe signer
+// The same checked install wedgie.dev uses (wedgie-dev src/serial/install.ts, firmware/job.py): the wedgie asks
+// its person ("Install Safe signer?"), then checks wedgie.dev's signed list (release.txt + sig, our release key)
+// and every file's sha256 against it before anything goes in place. So this page can't put anything on it
+// that wedgie.dev didn't sign. Needs firmware 0.3.12+ (hello "jobs"); older ones update at wedgie.dev first.
+
+const FW = "https://wedgie.dev/fw/";
+const SAFE_MOD = "safe";
+export class OldFirmware extends Error {}
+type Manifest = { version: string; signed?: boolean; files: { name: string; size: number; sha256: string }[]; core: string[]; carts: { mod: string; name: string; entry?: string; usb?: boolean; about?: string; files: string[]; v: string; repo?: string }[] };
+
+const sha256hex = async (b: Uint8Array) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", b as BufferSource))].map(x => x.toString(16).padStart(2, "0")).join("");
+const b64 = (u8: Uint8Array) => {
+  let s = "";
+  for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode(...u8.subarray(i, i + 0x8000));
+  return btoa(s);
+};
+const twin = (n: string) => (n.endsWith(".mpy") ? n.slice(0, -4) + ".py" : null);
+const withTwins = (ns: string[]) => [...new Set([...ns, ...ns.map(twin).filter((n): n is string => !!n)])];
+const older = (a: string, b: string) => {
+  const x = a.split(".").map(Number), y = b.split(".").map(Number);
+  for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) < (y[i] || 0);
+  return false;
+};
+
+/** Put the Safe signer on the plugged-in wedgie. step: what to say ("Press A on the wedgie", "Installing", p 0..1). */
+export async function installSafeApp(step: (what: string, p?: number) => void): Promise<void> {
+  let w = await Wedgie.connect();
+  try {
+    const h = await w.request({ type: "hello" }, 2500).catch(() => null);
+    if (!h) throw new Error("The wedgie didn't answer. Unplug it, hold X while you plug it back in, then try again.");
+    if (!h.jobs || !h.version || older(h.version, "0.3.12")) throw new OldFirmware("Its firmware is too old for this. Update it at wedgie.dev first.");
+    const [m, rel] = await Promise.all([
+      fetch(FW + "manifest.json", { cache: "no-cache" }).then(r => r.json() as Promise<Manifest>),
+      Promise.all(["release.txt", "release.sig"].map(n => fetch(FW + n, { cache: "no-cache" }).then(r => r.text()))),
+    ]);
+    const cart = m.carts.find(c => c.mod === SAFE_MOD);
+    if (!m.signed || !cart) throw new Error("wedgie.dev doesn't have the Safe signer right now. Try again later.");
+    const info = (n: string) => m.files.find(f => f.name === n)!;
+    // what's on it: every app file wedgie.dev knows, plus any an app on it listed itself (a repo app)
+    const all = withTwins([...m.core, ...m.carts.flatMap(c => c.files)]);
+    const v = await w.request({ type: "sums", names: [], exists: all }, 30000);
+    if (!v?.sums) throw new Error("The wedgie didn't say what's on it.");
+    const listed: string[] = withTwins((v.apps || []).flatMap((a: any) => (Array.isArray(a?.files) ? a.files : [])));
+    const extra = listed.filter(n => !(n in v.sums));
+    if (extra.length) Object.assign(v.sums, (await w.request({ type: "sums", names: [], exists: extra }, 30000))?.sums || {});
+    const keep = new Set(withTwins([...m.core, ...cart.files]));
+    const del = withTwins([...m.carts.flatMap(c => c.files), ...listed]).filter(n => !keep.has(n) && v.sums[n]);
+    const write = cart.files;
+    const apps = [{ mod: cart.mod, name: cart.name, ...(cart.entry ? { entry: cart.entry } : {}), ...(cart.usb ? { usb: true } : {}), about: cart.about, v: cart.v, ...(cart.repo ? { repo: cart.repo, files: cart.files } : {}) }];
+    // the files download while the wedgie asks
+    const files = Promise.all(
+      write.map(async n => {
+        const buf = new Uint8Array(await (await fetch(FW + n, { cache: "no-cache" })).arrayBuffer());
+        if ((await sha256hex(buf)) !== info(n).sha256) throw new Error("wedgie.dev changed just now. Try again.");
+        return { n, buf };
+      }),
+    );
+    files.catch(() => {});
+
+    step("Press A on the wedgie to install");
+    let bin = h.bin as number | undefined;
+    const sent = Date.now();
+    const go = await w
+      .request({ type: "job", job: `Install ${cart.name}`, version: m.version, write, delete: del, apps: JSON.stringify(apps), bytes: write.reduce((t, n) => t + info(n).size, 0), ...(bin ? { raw: true } : {}) }, 120_000)
+      .catch(e => (w.alive ? Promise.reject(e) : null));
+    if (go === null) {
+      // a yes restarts it into install mode, and the first restart since it was plugged in drops the port: find it again
+      step("Restarting into the install");
+      await w.close();
+      w = await Wedgie.reopen(sent);
+      const h2 = await w.request({ type: "hello" }, 1500).catch(() => null);
+      if (!h2?.job) throw new Error("The wedgie restarted without the install (Y on its screen?).");
+      bin = h2.bin;
+    } else if (go.type === "refused") throw new Error("You said no on the wedgie.");
+    else if (go.type === "busy") throw new Error("The wedgie is busy signing. Try again after.");
+    else if (go.type !== "go") throw new Error(`The wedgie said ${go.error || go.type}.`);
+
+    let got = await files.catch(async e => {
+      await w.request({ type: "abort" }, 5000).catch(() => {});
+      throw e;
+    });
+    step("Checking wedgie.dev's signature", 0);
+    const a = await w.request({ type: "release", release: rel[0], sig: rel[1].trim() }, 60_000);
+    if (a?.type !== "ok") throw new Error(`The wedgie stopped: ${a?.error || a?.type}`);
+    const s = await w.request({ type: "sums", names: write }, 30_000);
+    if (s?.type !== "sums") throw new Error(`The wedgie stopped: ${s?.error || s?.type}`);
+    got = got.filter(({ n }) => s.sums[n] !== info(n).sha256);
+    const total = got.reduce((t, f) => t + f.buf.length, 0) || 1;
+    const size = bin ? Math.min(bin, 4096) : 1024;
+    let done = 0;
+    for (const { n, buf } of got)
+      for (let o = 0; o < Math.max(buf.length, 1); o += size) {
+        const part = buf.subarray(o, o + size);
+        const end = o + size >= buf.length;
+        const r = bin ? await w.requestRaw({ type: "put", name: n, end }, part) : await w.request({ type: "put", name: n, data: b64(part), end }, 15_000);
+        if (r?.type !== "ok") throw new Error(`The wedgie stopped: ${r?.error || r?.type}`);
+        done += part.length;
+        step("Installing", done / total);
+      }
+    const d = await w.request({ type: "commit" }, 30_000);
+    if (d?.type !== "done") throw new Error(`The wedgie stopped: ${d?.error || d?.type}`);
+    step("Done. The wedgie is restarting", 1);
+  } finally {
+    await w.close();
   }
 }

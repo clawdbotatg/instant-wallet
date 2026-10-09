@@ -33,6 +33,8 @@ export function Keys({
   onSignOut,
   onWithdraw,
   onFund,
+  hiddenAssets,
+  onUnhide,
 }: {
   account: SafeAccount;
   states: ChainState[];
@@ -43,6 +45,8 @@ export function Keys({
   onSignOut: () => void;
   onWithdraw: (to: Address) => void;
   onFund: (chainId: number) => void;
+  hiddenAssets: Asset[];
+  onUnhide: (a: Asset) => void;
 }) {
   const [chainId, setChainId] = useState(CHAINS[0].id);
   const [busy, setBusy] = useState<string | null>(null);
@@ -51,6 +55,7 @@ export function Keys({
   const [guardianIn, setGuardianIn] = useState<Address | null>(null);
   const [offrampIn, setOfframpIn] = useState<Address | null>(null);
   const [editOfframp, setEditOfframp] = useState(false);
+  const [showHidden, setShowHidden] = useState(false);
   const st = states.find(s => s.chainId === chainId);
   const usdc = chainById(chainId)?.usdc?.toLowerCase();
   const haveUsdc = assets.some(a => a.chainId === chainId && a.asset.toLowerCase() === usdc && BigInt(a.balance) >= (chainId === 1 ? 10_000_000n : 1_000_000n));
@@ -442,6 +447,28 @@ export function Keys({
           </>
         )}
       </Step>
+
+      {hiddenAssets.length > 0 && (
+        <div className="card stack" style={{ gap: 8 }}>
+          <button className="row unhide" style={{ justifyContent: "space-between" }} onClick={() => setShowHidden(!showHidden)}>
+            <b>
+              {hiddenAssets.length} token{hiddenAssets.length === 1 ? "" : "s"} hidden
+            </b>
+            <span className="fine">{showHidden ? "Close" : "See"}</span>
+          </button>
+          {showHidden &&
+            hiddenAssets.map(a => (
+              <div key={`${a.chainId}:${a.asset}`} className="row" style={{ justifyContent: "space-between" }}>
+                <span>
+                  {a.symbol} <span className="fine">· {chainById(a.chainId)?.name}</span>
+                </span>
+                <button className="pill" onClick={() => onUnhide(a)}>
+                  Show
+                </button>
+              </div>
+            ))}
+        </div>
+      )}
 
       <button className="btn wide" onClick={onSignOut}>
         Sign out of this device

@@ -85,7 +85,7 @@ export function SafeApp() {
   const keyOf = (a: Asset) => `${a.chainId}:${a.asset}`.toLowerCase();
   const held = (portfolio?.assets ?? []).filter(a => BigInt(a.balance) > 0n);
   const assets: Asset[] = held.filter(a => !hidden.includes(keyOf(a)));
-  const hiddenCount = held.length - assets.length;
+  const hiddenAssets = held.filter(a => hidden.includes(keyOf(a)));
   // under 2¢ (or no price) and not the coin or USDC: almost always airdropped spam, so the send button becomes a trash can that hides it
   const isDust = (a: Asset) =>
     (a.usd ?? 0) < 0.02 && a.asset !== "0x0000000000000000000000000000000000000000" && a.asset.toLowerCase() !== chainById(a.chainId)?.usdc?.toLowerCase();
@@ -226,11 +226,6 @@ export function SafeApp() {
               )}
             </div>
           ))}
-          {hiddenCount > 0 && (
-            <button className="fine center unhide" onClick={() => setHidden([])}>
-              {hiddenCount} hidden · show
-            </button>
-          )}
         </div>
       </div>
 
@@ -259,6 +254,8 @@ export function SafeApp() {
               onAccount={a => setAccount(a)}
               onRefresh={refresh}
               // Withdraw: Send, to the saved cash-out address, USDC on Base picked if there is any
+              hiddenAssets={hiddenAssets}
+              onUnhide={a => setHidden(hidden.filter(k => k !== keyOf(a)))}
               onFund={chainId => setView({ kind: "swap", fund: chainId })}
               onWithdraw={to => setView({ kind: "send", to, asset: assets.find(a => a.chainId === 8453 && a.asset.toLowerCase() === chainById(8453)?.usdc?.toLowerCase()) })}
               onSignOut={() => {

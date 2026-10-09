@@ -19,7 +19,7 @@ import {
   respondError,
   triage,
 } from "@/lib/walletconnect";
-import { Blockie, ChainChip, Sheet } from "./bits";
+import { Blockie, ChainChip, Sheet, useToast } from "./bits";
 import { Scanner } from "./Scanner";
 import { friendly } from "./Welcome";
 
@@ -61,6 +61,7 @@ export function ConnectLayer({
   const [queue, setQueue] = useState<Pending[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useToast();
 
   const refreshSessions = useCallback((k: Kit) => {
     setSessions(
@@ -76,7 +77,20 @@ export function ConnectLayer({
   useEffect(() => {
     let live = true;
     let k: Kit;
-    const onProposal = (p: WalletKitTypes.SessionProposal) => setProposal(p);
+    // a proposal only comes from a pairing the user started (a scan, a paste, a link): that was the yes, so connect
+    // at once. Only a site WalletConnect flags (known scam, or not the domain it claims) still asks.
+    const onProposal = async (p: WalletKitTypes.SessionProposal) => {
+      const v = p.verifyContext?.verified;
+      if (v?.isScam || v?.validation === "INVALID") return setProposal(p);
+      try {
+        await approveProposal(p, { address }, chainIds);
+        setSheet(false);
+        refreshSessions(k);
+        setToast(`Connected to ${p.params.proposer.metadata.name || "the site"}`);
+      } catch {
+        setProposal(p); // couldn't (no shared chain, …): show the question and its error
+      }
+    };
     const onRequest = async (e: WalletKitTypes.SessionRequest) => {
       try {
         const p = await triage(e, chainIds);
@@ -172,6 +186,7 @@ export function ConnectLayer({
           />
         </Sheet>
       )}
+      {toast && <div className="toast">{toast}</div>}
       {!proposal && current && (
         <Sheet onClose={() => (respondError(current.topic, current.id).catch(() => {}), done())}>
           <div key={`${current.topic}:${current.id}`}>

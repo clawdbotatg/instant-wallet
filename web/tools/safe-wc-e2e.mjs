@@ -1,5 +1,5 @@
 // WalletConnect on the Safe wallet, on a Base fork: the wallet's own scan button reads a site's wc: QR (a fake
-// camera shows it), the site (sign-client, the real WalletConnect relay) connects and asks:
+// camera shows it), the site (sign-client, the real WalletConnect relay) connects at once (the scan was the yes) and asks:
 //   personal_sign before the Safe exists   → ERC-6492, checked on the fork
 //   wallet_sendCalls: approve + transfer   → one card, Face ID, the relay sends it; checked on chain
 //   personal_sign / signTypedData after    → plain ERC-1271, checked on the fork
@@ -71,11 +71,10 @@ await page.waitForTimeout(3000); // the connect layer starts listening
 
 // scan the site's QR with the wallet's own scan button
 await page.getByLabel("Scan to send").click();
-await page.getByText("Connect?").waitFor({ timeout: 40000 });
-await page.screenshot({ path: `${OUT}/wc-1-connect.png` });
-await page.getByRole("button", { name: "Connect", exact: true }).click();
-const session = await approval();
-ok(session.namespaces.eip155.accounts.some(a => a.toLowerCase() === `eip155:8453:${safe.toLowerCase()}`), "scan → connect: the site sees the Safe on Base");
+const session = await approval(); // the scan was the yes: no question
+await page.getByText("Connected to WC probe").waitFor({ timeout: 10000 });
+await page.screenshot({ path: `${OUT}/wc-1-connected.png` });
+ok(session.namespaces.eip155.accounts.some(a => a.toLowerCase() === `eip155:8453:${safe.toLowerCase()}`), "scan → connected at once: the site sees the Safe on Base");
 const ask = (method, params) => dapp.request({ topic: session.topic, chainId: "eip155:8453", request: { method, params } });
 
 const caps = await ask("wallet_getCapabilities", [safe, ["0x2105"]]);

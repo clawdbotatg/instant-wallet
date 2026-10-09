@@ -25,7 +25,7 @@ onto a new key there, like a lost phone).
 - **Each chain is its own Safe** (same address): level up per chain (Keys has a chain picker).
 
 - **Claim cards:** money on a QR / NFC tag / link; scan, make a wallet, claim. `/claim/new` makes them. `docs/CLAIM.md`.
-- **WalletConnect:** the scan button also reads a site's `wc:` QR (Settings → Connected sites to paste a link or
+- **WalletConnect:** the scan button also reads a site's `wc:` QR and connects at once, no question (the scan was the yes; a site WalletConnect flags as a scam or impostor still asks) (Settings → Connected sites to paste a link or
   disconnect). A site's calls are one owner-signed batch + the relay's fee (the same keys as a big send, never the
   budget path); messages (`personal_sign`, typed data) are ERC-1271 SafeMessage signatures, ERC-6492-wrapped until
   the Safe and this phone's signer exist on that chain. The wedgie can't sign a site's message, and a wedgie

@@ -57,6 +57,8 @@ export function Qr({ value, center, children }: { value: string; center?: string
   );
 }
 
+let sheetsOpen = 0;
+
 const SheetBack = createContext<React.MutableRefObject<(() => void) | null> | null>(null);
 
 /** While `back` is set, dismissing the sheet (swipe down, Escape, tap outside) runs it instead: one step back, not all the way out. */
@@ -85,6 +87,15 @@ export function Sheet({ onClose, children }: { onClose: () => void; children: Re
   const dismissRef = useRef(onClose);
   dismissRef.current = () => (back.current ? back.current() : onClose());
   const dismiss = () => dismissRef.current();
+  useEffect(() => {
+    // the page behind can't scroll while a sheet is up: on iOS a swipe past the sheet's end would latch onto
+    // the hidden page, and the sheet stops scrolling back up
+    const h = document.documentElement;
+    if (sheetsOpen++ === 0) h.style.overflow = "hidden";
+    return () => {
+      if (--sheetsOpen === 0) h.style.overflow = "";
+    };
+  }, []);
   useEffect(() => {
     const k = (e: KeyboardEvent) => e.key === "Escape" && dismissRef.current();
     window.addEventListener("keydown", k);

@@ -18,6 +18,7 @@ import { Scanner } from "../Scanner";
 import { Select, assetOpt } from "./Pick";
 import { friendly } from "../Welcome";
 import { SignerChoice } from "./Pick";
+import { Progress } from "./Progress";
 import { TxPicture, WedgieIcon } from "./WedgieButton";
 import { Parked } from "@/lib/safe/pending";
 
@@ -342,6 +343,7 @@ export function SafeSend({
         <button className="btn btn-green wide" onClick={send} disabled={busy || !quote || feeShort}>
           {busy ? label[stage] ?? "…" : "Send"}
         </button>
+        <Progress stage={stage} chainId={chainId} hash={hash} />
         {!busy && (
           <button className="btn wide" onClick={() => setStage("form")}>
             Back

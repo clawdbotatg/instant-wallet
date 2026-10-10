@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import {
   type Address,
   type Hex,
@@ -31,7 +31,7 @@ import { authCall, validAuth } from "@/lib/claim";
 import { RelayRefused, admit, checkCalls, once, plainRecipientCheck, reverted, withChainLock } from "@/lib/safe/relayGuard";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60; // waits for the receipt (Ethereum ~12 s) so a revert is caught and the wallet refused
+export const maxDuration = 60; // after the answer, waits for the receipt (Ethereum ~12 s) so a revert is caught and the wallet refused
 
 /**
  * The relay: it submits a user's signed Safe transaction (or the burner's signed Roles spend) and pays the gas;
@@ -65,6 +65,11 @@ function clients(chainId: number) {
 
 const L1_ALLOWANCE = 200_000_000_000n; // 0.0000002 ETH
 
+// Ethereum: the RPC suggests a 0 tip when blocks aren't full, and a 0-tip tx can sit for minutes (10-10: 3 min for a
+// swap). Pay at least ~the median tip so it lands in the next block or two.
+const TIP_FLOOR: Record<number, bigint> = { 1: 100_000_000n }; // 0.1 gwei
+const tipFloor = (chainId: number) => TIP_FLOOR[chainId] ?? 0n;
+
 const prices = new Map<string, { v: number; at: number }>();
 /** The chain's native coin in dollars (ETH, POL, BNB, …): Coinbase for ETH as before, Alchemy's prices for the rest. */
 async function nativeUsd(chainId: number): Promise<number> {
@@ -89,7 +94,7 @@ async function nativeUsd(chainId: number): Promise<number> {
 
 async function quote(chainId: number, kind: SendKind, extra = 0n): Promise<Quote> {
   const { pc } = clients(chainId);
-  const gasPrice = await pc.getGasPrice(); // what a tx pays now (base fee + tip), not the 2× max fee cap
+  const gasPrice = (await pc.getGasPrice()) + tipFloor(chainId); // what a tx pays now (base fee + tip), not the 2× max fee cap
   const usd = await nativeUsd(chainId);
   // typical gas × 1.5, + the L1 data fee on an L2 (~$0.0002 on Base today; this allows ~2.5×)
   const gas = GAS_TYPICAL[kind] + (extra > 0n ? (extra < GAS_BUDGET[kind] ? extra : GAS_BUDGET[kind]) : 0n);
@@ -245,12 +250,19 @@ export async function POST(req: NextRequest) {
 
     // one submission per signed tx: a reverted Safe tx keeps its nonce, so the same body could be replayed forever
     if (!(await once(`tx:${chainId}:${keccak256(data)}`, 3600))) throw new RelayRefused("Already sent.", 409);
-    const hash = await withChainLock(chainId, () => wc.sendTransaction({ to, data, gas: (gas * 13n) / 10n, chain: info.chain }));
-    const rc = await pc.waitForTransactionReceipt({ hash, timeout: 45_000 }).catch(() => null);
-    if (rc && rc.status !== "success") {
-      await reverted(safe, ip, swap);
-      return NextResponse.json({ error: "it failed on chain", hash }, { status: 400 });
-    }
+    const floor = tipFloor(chainId);
+    const fees = floor
+      ? await pc.estimateFeesPerGas().then(f => {
+          const tip = f.maxPriorityFeePerGas > floor ? f.maxPriorityFeePerGas : floor;
+          return { maxPriorityFeePerGas: tip, maxFeePerGas: f.maxFeePerGas - f.maxPriorityFeePerGas + tip };
+        })
+      : {};
+    const hash = await withChainLock(chainId, () => wc.sendTransaction({ to, data, gas: (gas * 13n) / 10n, chain: info.chain, ...fees }));
+    // answer with the hash now (the wallet shows progress, a site gets its answer); the revert check runs after
+    after(async () => {
+      const rc = await pc.waitForTransactionReceipt({ hash, timeout: 55_000 }).catch(() => null);
+      if (rc && rc.status !== "success") await reverted(safe, ip, swap);
+    });
     return NextResponse.json({ hash });
   } catch (e: any) {
     return NextResponse.json({ error: e?.shortMessage || e?.message || String(e) }, { status: e instanceof RelayRefused ? e.status : 400 });

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { type Hash } from "viem";
 import { chainById } from "@/lib/chains";
 import { type Pending, cancelPending, getPending } from "@/lib/safe/pending";
 import { type Stage, finishPending } from "@/lib/safe/send";
@@ -8,6 +9,7 @@ import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import { friendly } from "../Welcome";
 import { TxPicture, WedgieIcon } from "./WedgieButton";
+import { Progress } from "./Progress";
 
 const STAGE: Partial<Record<Stage, string>> = { "signing-wedgie": "Check the wedgie, press A…", sending: "Sending…", confirming: "Confirming…" };
 
@@ -47,6 +49,7 @@ export function PendingCards({ account, states, onDone, toast }: { account: Safe
 
 function One({ p, account, onGone, toast }: { p: Pending; account: SafeAccount; onGone: () => void; toast: (m: string) => void }) {
   const [stage, setStage] = useState<Stage | null>(null);
+  const [hash, setHash] = useState<Hash | null>(null);
   const [error, setError] = useState<string | null>(null);
   const here = wedgieSupported();
   const what = p.label || `A transaction on ${chainById(p.chainId)?.name}`;
@@ -56,13 +59,17 @@ function One({ p, account, onGone, toast }: { p: Pending; account: SafeAccount; 
     let w: Wedgie | null = null;
     try {
       w = await Wedgie.connect(); // first, straight from the tap (the port picker needs one)
-      await finishPending(p, w, account.wedgie, s => setStage(s));
+      await finishPending(p, w, account.wedgie, (s, h) => {
+        setStage(s);
+        if (h) setHash(h);
+      });
       toast("Sent");
       onGone();
     } catch (e: any) {
       setError(/fee too low|Gas went up/i.test(e?.message || "") ? "Gas went up while it waited. Cancel it and send it again." : friendly(e));
     } finally {
       setStage(null);
+      setHash(null);
       await w?.close();
     }
   }
@@ -97,6 +104,7 @@ function One({ p, account, onGone, toast }: { p: Pending; account: SafeAccount; 
           Cancel
         </button>
       </div>
+      <Progress stage={stage} chainId={p.chainId} hash={hash} />
     </div>
   );
 }

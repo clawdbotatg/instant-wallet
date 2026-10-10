@@ -14,6 +14,7 @@ import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
 import { TokenIcon } from "../bits";
 import { ChainSelect, type Opt, Select, SignerChoice, assetOpt } from "./Pick";
+import { Progress } from "./Progress";
 import { friendly } from "../Welcome";
 
 const SLIPPAGE_BPS = 50;
@@ -529,6 +530,7 @@ export function SafeSwap({
       <button className="btn btn-green wide go-swap" onClick={swap} disabled={busy || !ready}>
         {busy ? label[stage] ?? "…" : "Swap"}
       </button>
+      <Progress stage={stage} chainId={chainId} hash={hash} />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { formatUnits } from "viem";
+import { type Hash, formatUnits } from "viem";
 import { CHAINS, chainById } from "@/lib/chains";
 import { amount as fmtAmount, short } from "@/lib/format";
 import { siteCalls, siteGas, signForSite } from "@/lib/safe/connect";
@@ -12,6 +12,7 @@ import { ChainChip } from "../bits";
 import { CallLine, ConnectLayer, DappHead } from "../WalletConnect";
 import { friendly } from "../Welcome";
 import { SignerChoice } from "./Pick";
+import { Progress } from "./Progress";
 
 /** WalletConnect for the Safe wallet: the shared connect layer, with a card that signs the Safe way. */
 export function SafeConnectLayer({
@@ -60,6 +61,7 @@ function SafeRequest({
   onNo: () => void;
 }) {
   const [stage, setStage] = useState<Stage | null>(null);
+  const [hash, setHash] = useState<Hash | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [prepared, setPrepared] = useState<Prepared | null>(null);
   const [tick, setTick] = useState(0);
@@ -101,9 +103,25 @@ function SafeRequest({
       if (pending.kind === "calls") {
         if (!prepared) return;
         if (prepared.fee.until < Date.now() + 30_000) return setTick(t => t + 1); // stale quote: a fresh one, then tap again
-        const hash = await finishOwners({ ...prepared, opts: { ...prepared.opts, onStage: s => setStage(s) } });
-        remember(hash, pending.chainId);
-        await respond(pending.topic, pending.id, pending.method === "wallet_sendCalls" ? { id: hash } : hash);
+        // answer the site the moment the relay has the hash, as any wallet does: the site watches the chain itself
+        // (10-10: answering only after the receipt left Uniswap on "Confirm in wallet" for the whole wait)
+        let answered: Promise<void> | null = null;
+        const answer = (hash: Hash) => {
+          remember(hash, pending.chainId);
+          return (answered ??= respond(pending.topic, pending.id, pending.method === "wallet_sendCalls" ? { id: hash } : hash));
+        };
+        const hash = await finishOwners({
+          ...prepared,
+          opts: {
+            ...prepared.opts,
+            onStage: (s, h) => {
+              setStage(s);
+              if (h) setHash(h);
+              if (s === "confirming" && h) answer(h).catch(() => {}); // a dropped socket shows again below
+            },
+          },
+        });
+        await answer(hash);
       } else {
         const sig = await signForSite(account, st, signers, pending.hash, s => setStage(s));
         await respond(pending.topic, pending.id, sig);
@@ -112,6 +130,7 @@ function SafeRequest({
     } catch (e) {
       setError(friendly(e));
       setStage(null);
+      setHash(null);
     }
   }
 
@@ -172,6 +191,7 @@ function SafeRequest({
           {busy ? label[stage!] ?? "…" : pending.kind === "calls" ? (prepared ? "Approve" : "Getting the fee…") : "Sign"}
         </button>
       )}
+      <Progress stage={stage} chainId={pending.chainId} hash={hash} />
       {!busy && (
         <button className="btn wide" onClick={onNo}>
           Reject

@@ -85,6 +85,11 @@ export function SafeApp() {
     };
   }, [account, refresh, loadBalance, loadStates]);
 
+  // the iOS app holds its logo until the balance is on screen (or there's no wallet yet); in a browser this does nothing
+  useEffect(() => {
+    if (account === null || portfolio) (window as any).webkit?.messageHandlers?.ready?.postMessage(true);
+  }, [account, portfolio]);
+
   if (account === undefined) return null;
   if (!account) return <SafeWelcome onReady={setAccount} />;
 

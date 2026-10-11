@@ -57,6 +57,21 @@ export function TxPicture({ hash }: { hash: string }) {
   );
 }
 
+/** A bar that creeps on time (never looks stuck), for a wait of about `ms`. */
+function Creep({ ms = 6000 }: { ms?: number }) {
+  const [p, setP] = useState(0);
+  useEffect(() => {
+    const t0 = Date.now();
+    const t = window.setInterval(() => setP(0.95 * (1 - Math.exp(-(Date.now() - t0) / ms))), 300);
+    return () => clearInterval(t);
+  }, [ms]);
+  return (
+    <div className="progress">
+      <div style={{ width: `${Math.max(4, p * 100)}%`, transitionDuration: "300ms" }} />
+    </div>
+  );
+}
+
 /** A bar stuck to the bottom of the screen while the wedgie works: what it's doing, a bar that creeps between
  * real steps (never looks stuck), and "press the green button" when it waits for the person. */
 export function WedgieProgress() {
@@ -133,6 +148,8 @@ function baseStatus(peek: Peek | null, account: SafeAccount, states: ChainState[
         };
   if (peek.kind === "busy") return { tone: "ok", title: "Wedgie connected", detail: "It's signing a transaction now." };
   if (peek.kind === "taken") return { tone: "bad", title: "Wedgie is open in another tab", detail: "Close wedgie.dev or any other tab using it, then check again." };
+  if (peek.kind === "silent" && wedgieDrive()) // the drive is up but no answer yet: it keeps asking (no install advice)
+    return { tone: "warn", title: "Waiting for your wedgie to answer", detail: "" };
   if (peek.kind === "silent")
     return { tone: "bad", title: "Wedgie isn't answering", detail: "Unplug it, hold X while you plug it back in (that skips its app), then install the Safe signer.", install: true };
   const h = peek.hello;
@@ -218,6 +235,13 @@ export function WedgieButton({ account, states, onKeys }: { account: SafeAccount
     };
   }, [armed, check]);
 
+  // on the phone, a wedgie that didn't answer is asked again every 3 s while this sheet is open
+  useEffect(() => {
+    if (!open || !wedgieDrive() || peek?.kind !== "silent") return;
+    const t = window.setTimeout(() => check(true), 3000);
+    return () => clearTimeout(t);
+  }, [open, peek, check]);
+
   const st = statusOf(peek, account, states, latest);
   const plugged = peek?.kind === "hello" || peek?.kind === "busy";
   const hello = peek?.kind === "hello" ? peek.hello : null;
@@ -250,6 +274,7 @@ export function WedgieButton({ account, states, onKeys }: { account: SafeAccount
               {checking && !peek ? "Looking for your wedgie…" : st.title}
             </h2>
             {st.detail && <p className="fine">{st.detail}</p>}
+            {wedgieDrive() && peek?.kind === "silent" && <Creep />}
             {st.update === "firmware" && hello && latest && (
               <p className="warn-note">
                 Its firmware is {hello.version}. wedgie.dev has {latest.version}. Update it there, then come back.

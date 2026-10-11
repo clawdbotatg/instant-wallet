@@ -84,7 +84,7 @@ function baseStatus(peek: Peek | null, account: SafeAccount, states: ChainState[
     };
   if (peek?.kind === "phone") {
     if (peek.state === "readonly")
-      return { tone: "warn", title: "Allow this phone", detail: "Your wedgie is plugged in. It asks before this phone can send it transactions: tap below, then press green on it.", drive: "in" };
+      return { tone: "warn", title: "Connect wedgie", detail: "", drive: "in" };
     if (peek.state === "away") return { tone: "off", title: "No wedgie plugged in", detail: "Plug your wedgie into this iPhone. It shows up here by itself." };
     return !onWallet && !account.wedgie
       ? { tone: "off", title: "No wedgie yet", detail: "A wedgie is a small signing device. Add one and big moves need it.", get: true, drive: "find" }
@@ -217,7 +217,7 @@ export function WedgieButton({ account, states, onKeys }: { account: SafeAccount
               <span className={`dot ${st.tone}`} />
               {checking && !peek ? "Looking for your wedgie…" : st.title}
             </h2>
-            <p className="fine">{st.detail}</p>
+            {st.detail && <p className="fine">{st.detail}</p>}
             {st.update === "firmware" && hello && latest && (
               <p className="warn-note">
                 Its firmware is {hello.version}. wedgie.dev has {latest.version}. Update it there, then come back.
@@ -282,7 +282,7 @@ export function WedgieButton({ account, states, onKeys }: { account: SafeAccount
             {st.install && wedgieDrive() && <p className="fine">Install the Safe signer from Chrome or Edge on a computer.</p>}
             {st.drive === "in" && (
               <button className="btn btn-green wide" onClick={() => letPhoneIn()}>
-                Allow phone to send txns
+                Connect wedgie
               </button>
             )}
             {st.drive === "find" && (

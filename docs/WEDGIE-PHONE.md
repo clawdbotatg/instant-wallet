@@ -22,25 +22,33 @@ Anything that moves money still needs the green button on the wedgie, exactly as
 1. **Pick the drive, once.** Apple's folder picker (`UIDocumentPickerViewController(forOpeningContentTypes:
    [.folder])`). Keep a security-scoped bookmark (`url.bookmarkData()`) in UserDefaults. It survives unplug
    and replug: never ask again.
-2. **Let the phone in.** The drive is read-only until then (below). The app "knocks"; the wedgie asks
-   "Let in phone?"; the person presses green; the wedgie drops off USB for 2 s and comes back writable.
+2. **Knock.** The drive is read-only until then (below). The app knocks by itself (no tap, no question on
+   firmware 0.3.41+); the wedgie drops off USB for 2 s and comes back writable.
 3. **Send and read.** Write `REQ-<n>.TXT`, read `ANSWER.TXT` until an answer with your `id` is there
    (about 1-3 s; up to a minute while the wedgie waits for a press).
 
 Writable lasts until unplug. Next plug-in: the bookmark still works, knock again.
 
-## Read-only by default, and the knock (firmware 0.3.37+)
+## Read-only by default, and the knock (firmware 0.3.41+; wedgie.dev/skill.md is the reference)
 
-- A writable drive made **every Mac** say "Disk Not Ejected Properly" at unplug. So the drive is
-  read-only, and almost nobody needs it writable.
-- A read-only drive can't take a request, but the wedgie sees every read. **The knock:** read the hidden
-  `PHONE.TXT` twice, 0.7-10 s apart, not in the first 8 s after plug-in (a Mac reads the whole drive when it
-  mounts it). Uncached reads (below). The wedgie then asks on its screen.
-- After the yes, the wedgie turns the drive writable and **turns USB off for 2 s**, then on. The phone
-  remounts it writable. What didn't work: a SCSI media change (NOT READY, then UNIT ATTENTION) and a
-  0.4 s USB drop. The iPhone kept its read-only mount both times. A Mac remounted fine either way.
+- A writable drive made **every Mac** say "Disk Not Ejected Properly" at unplug. So the drive is read-only
+  until something knocks.
+- **The knock:** read the hidden `KNOCKB.TXT`, then `KNOCKA.TXT`, then `KNOCKB.TXT` again, uncached, each read
+  0.3-3 s after the last (the app: 0.5 s). A repeat of the same file within 0.3 s counts as one read. Works any
+  time, right after plug-in too. A scan (Mac mount, Windows Defender) reads A then B milliseconds apart, so it
+  never knocks; a desktop never turns writable by itself, so no warning.
+- **No question on the wedgie:** files can't do more than USB serial, which never asks. Signing still needs the
+  green button.
+- After the knock the wedgie turns the drive writable and **turns USB off for 2 s**, then on, so the phone
+  remounts it writable; a phone shows in its corner until unplug. What didn't work: a SCSI media change (NOT
+  READY, then UNIT ATTENTION) and a 0.4 s USB drop: the iPhone kept its read-only mount both times.
 - Detect it in the app: `url.resourceValues(forKeys: [.volumeIsReadOnlyKey]).volumeIsReadOnly`.
-- A no restarts the wedgie, like every other no.
+- The app knocks every round (~2.5 s) until writable; extra knocks are ignored. It also reads `PHONE.TXT`
+  each round for 0.3.37-0.3.40, which knocked by reading it twice 1-10 s apart (not in its first 8 s) and
+  then asked "Allow phone txns?" (a no restarts it). One knock inside those 8 s did nothing: never knock just
+  once.
+- 0.3.41 also gives a request's RAM back as soon as it has read the file (an iPhone holds its deletes, so a big
+  transaction's third piece once had no room). Pieces can go back to back.
 
 ## Apple's folder picker (the hard part of the UX)
 
@@ -89,7 +97,8 @@ Writable lasts until unplug. Next plug-in: the bookmark still works, knock again
   Instant Wallet: `web/lib/safe/wedgie.ts` is Web Serial only today. Add this as a second transport.
   Then test the serial path again: adding the drive to `/safe` left `ask()` calling itself for a serial
   wedgie ("Maximum call stack size exceeded" at "Reading its key", fixed in wedgie-dev 875322e).
-- Poll `status()` every 1.5 s. "readonly" → a button "Let this phone in" (opens the panel; it knocks).
+- Poll `status()` every 0.5 s. "readonly" → the app is already knocking: show a bar ("Connecting your
+  wedgie"), no button.
 
 ## WalletConnect / RainbowKit in a WKWebView (execute needs a wallet; the phone has none injected)
 
@@ -128,8 +137,9 @@ Writable lasts until unplug. Next plug-in: the bookmark still works, knock again
   (`DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer`).
 - Build and install: `ios/WedgieDrive/README.md`. `-panel` as a launch argument opens on the drive screen
   (simulator screenshots).
-- On a Mac, knock by reading `/Volumes/WEDGIE/PHONE.TXT` twice with `F_NOCACHE` (fcntl 48); `mount` then shows
-  the drive without `read-only` after the yes.
+- On a Mac, knock by reading `/Volumes/WEDGIE/KNOCKB.TXT`, `KNOCKA.TXT`, `KNOCKB.TXT` with `F_NOCACHE` (fcntl
+  48), 0.5 s apart; `mount` then shows the drive without `read-only`. (Eject before unplugging, or the Mac warns.)
+- The app's log has the page's side too: `page: hello <id>: answered hello in 963 ms` (window.wedgieDrive.log).
 
 ## Porting checklist for Instant Wallet
 

@@ -43,9 +43,13 @@ export const wedgieSerial = () => !wedgieDrive() && serialOK();
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 // The wedgie keeps what the phone writes in 12 sectors of RAM (6 KB, FAT and folder writes included), and frees a
-// request's sectors a few seconds after the app deletes it. So over the drive: shorter lines, smaller pieces.
-const DRIVE_LINE_MAX = 2400;
-const DRIVE_CHUNK = 2000; // hex chars per safe_data piece
+// deleted request's sectors only 2 s after they were written. The app deletes the last request before each write,
+// so over the drive: lines of at most 3-4 sectors, and 2.2 s from one write to the next (a big tx's pieces filled
+// the RAM at 2000 hex a piece, sent back to back, 10-10).
+const DRIVE_LINE_MAX = 1600;
+const DRIVE_CHUNK = 1400; // hex chars per safe_data piece
+const DRIVE_GAP = 2200; // ms from one write to the next
+let driveSent = 0;
 // ANSWER.TXT keeps the last few answers across requests (and pages): ids that won't repeat
 let driveId = (Date.now() % 1e6) * 100;
 let driveLock: Promise<unknown> = Promise.resolve();
@@ -60,13 +64,15 @@ function driveRequest(msg: Record<string, unknown>, ms: number): Promise<any> {
       const id = ++driveId;
       const line = JSON.stringify({ ...msg, id });
       for (let tries = 0; ; tries++) {
+        await sleep(Math.max(0, driveSent + DRIVE_GAP - Date.now()));
         try {
+          driveSent = Date.now();
           await d.send(line);
           break;
         } catch (e) {
           // a full drive frees what's been read in a few seconds; unplugged doesn't come back
-          if (tries >= 3 || (await driveState()) !== "here") throw new Error("Couldn't reach the wedgie. Is it plugged in?");
-          await sleep(2500);
+          if (tries >= 5 || (await driveState()) !== "here") throw new Error("Couldn't reach the wedgie. Is it plugged in?");
+          await sleep(1000);
         }
       }
       for (const end = Date.now() + ms; Date.now() < end; ) {

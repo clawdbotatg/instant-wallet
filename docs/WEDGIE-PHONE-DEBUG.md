@@ -1,5 +1,22 @@
 # Wedgie on the iPhone: open bugs (2026-10-11)
 
+## Status, 17:08: fixes built, waiting for hardware
+
+- Wedgie 0.3.45 (wedgie-dev 335ef45 / ebcdeef, signed): ANSWER.TXT's first line ends with ` t<ms>`, the
+  wedgie's clock, stamped at every read that reaches it. Also a `{"type":"remount"}` request (USB off 2 s, back
+  writable).
+- App (instant-wallet-app 45b2271):
+  - Reads the stamp every second while writable. The same stamp 3 reads running means iOS's cached copy, so it
+    sends remount and waits for the drive to come back (bug 1, any cause).
+  - Holds one security scope, and if iOS refuses for 5 s it forgets and shows the panel (bug 2).
+  - Soak test: launch with `-soak` (`-soakcache` also does a cached read every 5th round, to try to cause
+    bug 1 without the picker).
+- Page (1e51f27): waits out a remount instead of failing. Tested with a fake bridge (a 3 s remount mid-request;
+  answered).
+- Not yet run on hardware. Needs, once: wedgie on 0.3.45 (wedgie.dev/connect from the Mac), plugged into the
+  phone, app open, phone unlocked. Then I run the soak from the Mac
+  (`devicectl device process launch ... io.instantwallet -soak -soakcache`) and read the log.
+
 For checking before the next try. Each claim is marked **proven** (from a log line) or **guess**.
 
 ## Goal

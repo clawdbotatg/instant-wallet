@@ -64,7 +64,7 @@ export function WedgieProgress() {
   const [p, setP] = useState(0);
   useEffect(() => onWedgieActivity(next => {
     setA(next);
-    setP(q => (next ? Math.max(q, next.p ?? 0) : 0));
+    setP(q => (next ? Math.min(1, Math.max(q, next.p ?? 0)) : 0));
   }), []);
   useEffect(() => {
     if (!a) return;

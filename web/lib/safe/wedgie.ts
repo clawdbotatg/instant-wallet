@@ -173,7 +173,8 @@ export class Wedgie {
   /** In the iPhone app. Returns at once, so a Face ID asked right after still has the tap; the first request
    * waits until the drive is ready (driveIn). */
   private static async viaDrive(): Promise<Wedgie> {
-    await peeking?.catch(() => {});
+    // no waiting for a status peek in flight (a slow hello would cost the Face ID its tap): driveRequest's lock
+    // puts this connection's requests after it anyway
     if (holder) throw new Error("The wedgie is busy with another transaction.");
     const w = new Wedgie();
     w.drive = true;
@@ -435,7 +436,7 @@ export class Wedgie {
         const r = await this.request({ type: "safe_data", at, hex: hex.slice(i, i + chunk) }, 10_000);
         if (r?.type !== "safe_data") throw new Error(`The wedgie didn't take the transaction (${r?.error || "no answer"}).`);
         at = r.have;
-        activity({ what: "Sending it to your wedgie", p: 0.05 + (0.85 * (i + chunk)) / hex.length });
+        activity({ what: "Sending it to your wedgie", p: 0.05 + (0.85 * Math.min(i + chunk, hex.length)) / hex.length });
       }
       send = { ...tx, data: "@" };
     }

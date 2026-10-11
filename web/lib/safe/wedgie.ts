@@ -185,7 +185,7 @@ export class Wedgie {
         await sleep(700);
         const s = await d.status().catch(() => null);
         if (s?.state === "here") return;
-        if (!s?.panel || Date.now() > end) throw new Error("No wedgie connected. Plug it in and let this phone in, then try again.");
+        if (!s?.panel || Date.now() > end) throw new Error("No wedgie connected. Plug it in and allow this phone to send txns, then try again.");
       }
     })();
     this.driveIn.catch(() => (this.driveIn = undefined)); // closed the panel: the next request asks again

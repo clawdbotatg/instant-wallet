@@ -21,8 +21,11 @@ const RPI_VID = 0x2e8a;
 const serialOK = () => typeof navigator !== "undefined" && "serial" in navigator;
 
 export type DriveState = "unpicked" | "away" | "readonly" | "here";
+// connecting: the app is knocking or the drive is remounting; press: its firmware (0.3.37-0.3.40) asks for a
+// green press before it turns writable (0.3.41+ doesn't ask)
+type DriveStatus = { state: DriveState; name: string; panel?: boolean; connecting?: boolean; press?: boolean };
 type DriveBridge = {
-  status(): Promise<{ state: DriveState; name: string; panel?: boolean }>;
+  status(): Promise<DriveStatus>;
   send(line: string): Promise<string>;
   read(name: string): Promise<string | null>;
   panel(mode?: string): Promise<boolean>;
@@ -33,8 +36,6 @@ export const wedgieDrive = () => !!bridge();
 export const driveState = async (): Promise<DriveState> => (await bridge()?.status().catch(() => null))?.state ?? "unpicked";
 /** The app's wedgie panel: find the drive, let this phone in. */
 export const openDrivePanel = () => bridge()?.panel();
-/** The app's panel in "connect" mode: it asks the wedgie to let this phone in now and closes once it's in. */
-export const letPhoneIn = () => bridge()?.panel("connect");
 
 /** This browser can reach a wedgie: Web Serial (Chrome / Edge on a computer) or the iPhone app's drive. */
 export const wedgieSupported = () => wedgieDrive() || serialOK();
@@ -51,7 +52,34 @@ export function onWedgieActivity(fn: (a: WedgieActivity) => void): () => void {
   watchers.add(fn);
   return () => void watchers.delete(fn);
 }
-const activity = (a: WedgieActivity) => watchers.forEach(f => f(a));
+let current: WedgieActivity = null;
+const activity = (a: WedgieActivity) => {
+  current = a;
+  watchers.forEach(f => f(a));
+};
+
+/** The bar while the iPhone app connects the wedgie (it knocks by itself; about 4-8 s): from the first look at
+ * a read-only drive until it's writable. Creeps on time so it runs about as long as the wait. */
+export function watchDriveConnect(): () => void {
+  if (!wedgieDrive()) return () => {};
+  let since = 0;
+  let mine: WedgieActivity = null;
+  const t = window.setInterval(async () => {
+    const s = await bridge()?.status().catch(() => null);
+    const on = !!s && (s.state === "readonly" || (s.state === "away" && !!s.connecting));
+    if (on) {
+      since ||= Date.now();
+      const p = 0.95 * (1 - Math.exp(-(Date.now() - since) / 4000));
+      mine = s!.press ? { what: "Press the green button on your wedgie", p, press: true } : { what: "Connecting your wedgie", p };
+      activity(mine);
+    } else if (since) {
+      since = 0;
+      if (current === mine) activity(null); // never clear a signing's bar
+      mine = null;
+    }
+  }, 500);
+  return () => clearInterval(t);
+}
 // The wedgie keeps what the phone writes in 12 sectors of RAM (6 KB, FAT and folder writes included), and frees a
 // deleted request's sectors only 2 s after they were written. The app deletes the last request before each write,
 // so over the drive: lines of at most 3-4 sectors, and 2.2 s from one write to the next (a big tx's pieces filled
@@ -60,6 +88,8 @@ const DRIVE_LINE_MAX = 1600;
 const DRIVE_CHUNK = 1400; // hex chars per safe_data piece
 const DRIVE_GAP = 2200; // ms from one write to the next
 let driveSent = 0;
+let driveFw = ""; // the wedgie's firmware, from a hello over the drive: 0.3.41+ frees a request's RAM on read
+const driveGap = () => (driveFw && !older(driveFw, "0.3.41") ? 300 : DRIVE_GAP);
 // ANSWER.TXT keeps the last few answers across requests (and pages): ids that won't repeat
 let driveId = (Date.now() % 1e6) * 100;
 let driveLock: Promise<unknown> = Promise.resolve();
@@ -74,7 +104,7 @@ function driveRequest(msg: Record<string, unknown>, ms: number): Promise<any> {
       const id = ++driveId;
       const line = JSON.stringify({ ...msg, id });
       for (let tries = 0; ; tries++) {
-        await sleep(Math.max(0, driveSent + DRIVE_GAP - Date.now()));
+        await sleep(Math.max(0, driveSent + driveGap() - Date.now()));
         try {
           driveSent = Date.now();
           await d.send(line);
@@ -96,7 +126,10 @@ function driveRequest(msg: Record<string, unknown>, ms: number): Promise<any> {
           if (!l.startsWith("{")) continue;
           try {
             const a = JSON.parse(l);
-            if (a.id === id) return a;
+            if (a.id === id) {
+              if (a.type === "hello" && a.version) driveFw = a.version;
+              return a;
+            }
           } catch {}
         }
       }
@@ -138,7 +171,7 @@ export type Peek =
   | { kind: "busy" } // a signing connection has it open right now
   | { kind: "taken" } // plugged in, but something else has the port open (a wedgie.dev tab, Thonny)
   | { kind: "silent"; error: string } // plugged in, but it didn't answer (still booting, or not running wedgie firmware)
-  | { kind: "phone"; state: Exclude<DriveState, "here"> } // iPhone app: drive not picked, unplugged, or not let in yet
+  | { kind: "phone"; state: Exclude<DriveState, "here">; press?: boolean } // iPhone app: drive not picked, unplugged, or not writable yet
   | { kind: "hello"; hello: WedgieHello };
 
 export class Wedgie {
@@ -182,21 +215,23 @@ export class Wedgie {
     return w;
   }
 
-  /** The wedgie must be plugged in and have let this phone in (the drive writable). If it isn't, the app's panel
-   * walks the person through it (pick the drive, Let this phone in, green on the wedgie) and closes by itself once
-   * it's in. Closing the panel first = no wedgie. */
+  /** The wedgie must be plugged in with its drive writable. Read-only: the app is already knocking by itself,
+   * so just wait (the bottom bar shows it). Not picked or not plugged in: the app's panel walks the person through
+   * it and closes by itself once writable; closing it first = no wedgie. */
   private driveIn?: Promise<void>;
   private waitDrive(): Promise<void> {
     this.driveIn ??= (async () => {
       const d = bridge();
       if (!d) throw new Error("wedgie unplugged");
-      if ((await driveState()) === "here") return;
-      await d.panel("connect");
+      const first = await driveState();
+      if (first === "here") return;
+      if (first !== "readonly") await d.panel("connect");
       for (const end = Date.now() + 300_000; ; ) {
         await sleep(300);
         const s = await d.status().catch(() => null);
         if (s?.state === "here") return;
-        if (!s?.panel || Date.now() > end) throw new Error("No wedgie connected. Plug it in, tap Allow phone txns and press green on it, then try again.");
+        const waiting = s?.panel || s?.state === "readonly" || (s?.state === "away" && s.connecting);
+        if (!waiting || Date.now() > end) throw new Error("No wedgie connected. Plug it into this iPhone, then try again.");
       }
     })();
     this.driveIn.catch(() => (this.driveIn = undefined)); // closed the panel: the next request asks again
@@ -257,10 +292,11 @@ export class Wedgie {
 
   private static async peekDrive(): Promise<Peek> {
     if (holder) return { kind: "busy" };
-    const s = await driveState();
+    const st = await bridge()?.status().catch(() => null);
+    const s = st?.state ?? "unpicked";
     if (s !== "here") {
       Wedgie.driveHello = null;
-      return { kind: "phone", state: s };
+      return { kind: "phone", state: s, press: st?.press };
     }
     const c = Wedgie.driveHello;
     if (c && Date.now() - c.at < 20_000) return { kind: "hello", hello: c.hello };

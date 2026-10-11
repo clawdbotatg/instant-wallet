@@ -10,8 +10,8 @@ import {
   behind,
   installSafeApp,
   latestWedgie,
-  letPhoneIn,
   onWedgieActivity,
+  watchDriveConnect,
   type WedgieActivity,
   openDrivePanel,
   wedgieArmed,
@@ -62,6 +62,7 @@ export function TxPicture({ hash }: { hash: string }) {
 export function WedgieProgress() {
   const [a, setA] = useState<WedgieActivity>(null);
   const [p, setP] = useState(0);
+  useEffect(() => watchDriveConnect(), []);
   useEffect(() => onWedgieActivity(next => {
     setA(next);
     setP(q => (next ? Math.min(1, Math.max(q, next.p ?? 0)) : 0));
@@ -88,8 +89,8 @@ export function WedgieProgress() {
 type Tone = "ok" | "warn" | "bad" | "off";
 // install: the main button puts the Safe signer on it (wrong app, not answering, or an older Safe signer)
 // update: it's behind wedgie.dev (firmware: update at wedgie.dev; app: the install button updates it here)
-// drive (iPhone app): find = pick the WEDGIE drive in the app's panel; in = ask the wedgie to let this phone in
-type Status = { tone: Tone; title: string; detail: string; key?: { x: `0x${string}`; y: `0x${string}` }; install?: boolean; get?: boolean; update?: "firmware" | "app"; drive?: "find" | "in" };
+// drive (iPhone app): find = pick the WEDGIE drive in the app's panel
+type Status = { tone: Tone; title: string; detail: string; key?: { x: `0x${string}`; y: `0x${string}` }; install?: boolean; get?: boolean; update?: "firmware" | "app"; drive?: "find" };
 
 const same = (a?: { x: string; y: string }, b?: { x: string; y: string }) =>
   !!a && !!b && a.x.toLowerCase() === b.x.toLowerCase() && a.y.toLowerCase() === b.y.toLowerCase();
@@ -113,8 +114,8 @@ function baseStatus(peek: Peek | null, account: SafeAccount, states: ChainState[
       detail: "A wedgie plugs into Chrome or Edge on a computer over USB, or into an iPhone with the Instant Wallet app. Open this wallet there to use it.",
     };
   if (peek?.kind === "phone") {
-    if (peek.state === "readonly")
-      return { tone: "warn", title: "Connect wedgie", detail: "", drive: "in" };
+    if (peek.state === "readonly") // the app connects it by itself (the bottom bar shows it)
+      return { tone: "warn", title: peek.press ? "Press the green button on your wedgie" : "Connecting your wedgie", detail: "" };
     if (peek.state === "away") return { tone: "off", title: "No wedgie plugged in", detail: "Plug your wedgie into this iPhone. It shows up here by itself." };
     return !onWallet && !account.wedgie
       ? { tone: "off", title: "No wedgie yet", detail: "A wedgie is a small signing device. Add one and big moves need it.", get: true, drive: "find" }
@@ -311,11 +312,6 @@ export function WedgieButton({ account, states, onKeys }: { account: SafeAccount
               </a>
             )}
             {st.install && wedgieDrive() && <p className="fine">Install the Safe signer from Chrome or Edge on a computer.</p>}
-            {st.drive === "in" && (
-              <button className="btn btn-green wide" onClick={() => letPhoneIn()}>
-                Connect wedgie
-              </button>
-            )}
             {st.drive === "find" && (
               <button className={`btn wide ${st.get ? "" : "btn-green"}`} onClick={() => openDrivePanel()}>
                 Find my wedgie

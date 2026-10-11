@@ -1,7 +1,7 @@
 "use client";
 
 import { openWalletConnect } from "@/lib/walletconnect";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { type Address, encodeFunctionData, formatUnits, parseUnits, zeroAddress } from "viem";
 import { CHAINS, chainById, explorerAddress, nativeSymbol } from "@/lib/chains";
 import { short } from "@/lib/format";
@@ -87,6 +87,11 @@ export function Keys({
   // The confirm replaces the step's own button, in place.
   type Ready = { label: ReactNode; p: Prepared; after?: () => void; close?: () => Promise<void>; settled?: (s: ChainState) => boolean };
   const [pending, setPending] = useState<({ what: string } & Ready) | null>(null);
+  // the confirm can land below the fold (Austin: you couldn't tell there was a Yes to tap): scroll it to the middle
+  const confirmRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (pending) confirmRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [pending?.what]); // eslint-disable-line react-hooks/exhaustive-deps
   // once it's sent: a progress bar in the step until the chain read shows the change (block time + RPC lag, ~5-30 s)
   const [wait, setWait] = useState<{ what: string; chainId: number; since: number; ms: number; settled: (s: ChainState) => boolean } | null>(null);
   const waitSt = wait && states.find(s => s.chainId === wait.chainId);
@@ -256,7 +261,7 @@ export function Keys({
           <Progress ms={wait.ms} />
         </div>
       ) : pending?.what === what ? (
-        <div className="stack" style={{ gap: 8 }}>
+        <div className="stack" style={{ gap: 8 }} ref={confirmRef}>
           <b>{pending.label}</b>
           <p className="fine">
             Fee {pending.p.opts.feeToken === "usdc" ? `${(Number(pending.p.fee.feeUsdc) / 1e6).toFixed(4)} USDC` : `${(Number(pending.p.fee.feeEth) / 1e18).toFixed(6)} ${nativeSymbol(chainId)}`}. Signed by{" "}

@@ -143,3 +143,16 @@ Writable lasts until unplug. Next plug-in: the bookmark still works, knock again
    add the late deep link.
 6. Test: plug in, pick the drive (first time: back, Locations, WEDGIE, Open), Let this phone in, green,
    then sign on the wedgie.
+
+## Done in Instant Wallet (2026-10-10)
+
+- App (`instant-wallet-app`): `Drive.swift` (bookmark, poll, knock, send/read), `DrivePanel.swift` (find /
+  plug in / let this phone in / connected, picker hint, wait bar, Details), bridge `DriveBridge` in
+  `WebView.swift`. `panel("connect")` knocks at once (after the wedgie's first 8 s) and closes the panel 0.9 s
+  after the phone is in. Old REQ files go after 3 s, not 5 (the page sends one at a time).
+- Site: `web/lib/safe/wedgie.ts` picks the drive when `window.wedgieDrive` exists. `Wedgie.connect()` returns
+  at once (so Face ID right after still has the tap); the first request opens the panel if the drive isn't
+  writable and waits; closing the panel = "No wedgie connected". Lines over the drive ≤ 2400 chars, big-tx
+  pieces ≤ 2000 hex (12-sector RAM), a send that hits a full drive retries after 2.5 s. Installing the Safe
+  signer stays computer-only. The wedgie sheet shows Find my wedgie / Let this phone in.
+- So on the phone, a wedgie send now signs right there instead of parking for the computer.

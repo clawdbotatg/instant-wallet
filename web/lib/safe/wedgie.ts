@@ -12,9 +12,83 @@ import { type SafeTx, type Sig, encodeWebAuthn } from "./core";
  * A USB line is at most 6 KB: a bigger tx (a bridge swap) sends its data ahead in pieces, if the app says it takes
  * them (hello's safe_chunk, wedgie-safe b4e86f8+):
  *   {"type":"safe_data","at":<bytes so far>,"hex":"..."} -> {"type":"safe_data","have":n}, then safe_sign with data "@".
+ *
+ * In the Instant Wallet iPhone app there's no serial port: the app gives the page window.wedgieDrive, and the same
+ * requests go as files on the wedgie's WEDGIE drive (docs/WEDGIE-PHONE.md, the app's WebView.swift). The drive
+ * is read-only until the wedgie lets the phone in; connect() opens the app's wedgie panel for that.
  */
 const RPI_VID = 0x2e8a;
-export const wedgieSupported = () => typeof navigator !== "undefined" && "serial" in navigator;
+const serialOK = () => typeof navigator !== "undefined" && "serial" in navigator;
+
+export type DriveState = "unpicked" | "away" | "readonly" | "here";
+type DriveBridge = {
+  status(): Promise<{ state: DriveState; name: string; panel?: boolean }>;
+  send(line: string): Promise<string>;
+  read(name: string): Promise<string | null>;
+  panel(mode?: string): Promise<boolean>;
+};
+const bridge = (): DriveBridge | undefined => (typeof window !== "undefined" ? (window as any).wedgieDrive : undefined);
+/** In the iPhone app: the wedgie is reached through its WEDGIE drive, not Web Serial. */
+export const wedgieDrive = () => !!bridge();
+export const driveState = async (): Promise<DriveState> => (await bridge()?.status().catch(() => null))?.state ?? "unpicked";
+/** The app's wedgie panel: find the drive, let this phone in. */
+export const openDrivePanel = () => bridge()?.panel();
+/** The app's panel in "connect" mode: it asks the wedgie to let this phone in now and closes once it's in. */
+export const letPhoneIn = () => bridge()?.panel("connect");
+
+/** This browser can reach a wedgie: Web Serial (Chrome / Edge on a computer) or the iPhone app's drive. */
+export const wedgieSupported = () => wedgieDrive() || serialOK();
+/** Web Serial only: picking, forgetting and installing apps on the wedgie need it. */
+export const wedgieSerial = () => !wedgieDrive() && serialOK();
+
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+// The wedgie keeps what the phone writes in 12 sectors of RAM (6 KB, FAT and folder writes included), and frees a
+// request's sectors a few seconds after the app deletes it. So over the drive: shorter lines, smaller pieces.
+const DRIVE_LINE_MAX = 2400;
+const DRIVE_CHUNK = 2000; // hex chars per safe_data piece
+// ANSWER.TXT keeps the last few answers across requests (and pages): ids that won't repeat
+let driveId = (Date.now() % 1e6) * 100;
+let driveLock: Promise<unknown> = Promise.resolve();
+
+/** One request over the drive: write it, then read ANSWER.TXT until an answer with its id is there. One at a time. */
+function driveRequest(msg: Record<string, unknown>, ms: number): Promise<any> {
+  const run = driveLock
+    .catch(() => {})
+    .then(async () => {
+      const d = bridge();
+      if (!d) throw new Error("wedgie unplugged");
+      const id = ++driveId;
+      const line = JSON.stringify({ ...msg, id });
+      for (let tries = 0; ; tries++) {
+        try {
+          await d.send(line);
+          break;
+        } catch (e) {
+          // a full drive frees what's been read in a few seconds; unplugged doesn't come back
+          if (tries >= 3 || (await driveState()) !== "here") throw new Error("Couldn't reach the wedgie. Is it plugged in?");
+          await sleep(2500);
+        }
+      }
+      for (const end = Date.now() + ms; Date.now() < end; ) {
+        await sleep(700);
+        const t = await d.read("ANSWER.TXT").catch(() => null);
+        if (t === null) {
+          if ((await driveState()) !== "here") throw new Error("wedgie unplugged");
+          continue;
+        }
+        for (const l of t.split("\n")) {
+          if (!l.startsWith("{")) continue;
+          try {
+            const a = JSON.parse(l);
+            if (a.id === id) return a;
+          } catch {}
+        }
+      }
+      throw new Error("The wedgie didn't answer. Is it running the Safe signer app?");
+    });
+  driveLock = run;
+  return run;
+}
 
 type Pending = { res: (v: any) => void; rej: (e: Error) => void; t: number };
 
@@ -27,6 +101,7 @@ let peeking: Promise<unknown> | null = null;
 // asks "Chrome would like to use Bluetooth". So nothing peeks until this browser has asked for a wedgie once.
 const ARMED = "iws.wedgie-armed";
 export const wedgieArmed = () => {
+  if (!serialOK()) return false;
   try {
     return localStorage.getItem(ARMED) === "1";
   } catch {
@@ -47,6 +122,7 @@ export type Peek =
   | { kind: "busy" } // a signing connection has it open right now
   | { kind: "taken" } // plugged in, but something else has the port open (a wedgie.dev tab, Thonny)
   | { kind: "silent"; error: string } // plugged in, but it didn't answer (still booting, or not running wedgie firmware)
+  | { kind: "phone"; state: Exclude<DriveState, "here"> } // iPhone app: drive not picked, unplugged, or not let in yet
   | { kind: "hello"; hello: WedgieHello };
 
 export class Wedgie {
@@ -55,10 +131,12 @@ export class Wedgie {
   private reader?: ReadableStreamDefaultReader<Uint8Array>;
   private line = "";
   alive = true;
+  private drive = false; // through the iPhone app's WEDGIE drive, not a serial port
   private next = 100;
   private pending = new Map<number, Pending>();
 
   static async connect(): Promise<Wedgie> {
+    if (wedgieDrive()) return Wedgie.viaDrive();
     if (!wedgieSupported()) throw new Error("This browser can't talk to a wedgie. Use Chrome or Edge on a computer.");
     const serial = (navigator as any).serial;
     const known = (await serial.getPorts()).filter((p: any) => p.getInfo().usbVendorId === RPI_VID);
@@ -76,9 +154,41 @@ export class Wedgie {
     return w;
   }
 
+  /** In the iPhone app. Returns at once, so a Face ID asked right after still has the tap; the first request
+   * waits until the drive is ready (driveIn). */
+  private static async viaDrive(): Promise<Wedgie> {
+    await peeking?.catch(() => {});
+    if (holder) throw new Error("The wedgie is busy with another transaction.");
+    const w = new Wedgie();
+    w.drive = true;
+    holder = w;
+    return w;
+  }
+
+  /** The wedgie must be plugged in and have let this phone in (the drive writable). If it isn't, the app's panel
+   * walks the person through it (pick the drive, Let this phone in, green on the wedgie) and closes by itself once
+   * it's in. Closing the panel first = no wedgie. */
+  private driveIn?: Promise<void>;
+  private waitDrive(): Promise<void> {
+    this.driveIn ??= (async () => {
+      const d = bridge();
+      if (!d) throw new Error("wedgie unplugged");
+      if ((await driveState()) === "here") return;
+      await d.panel("connect");
+      for (const end = Date.now() + 300_000; ; ) {
+        await sleep(700);
+        const s = await d.status().catch(() => null);
+        if (s?.state === "here") return;
+        if (!s?.panel || Date.now() > end) throw new Error("No wedgie connected. Plug it in and let this phone in, then try again.");
+      }
+    })();
+    this.driveIn.catch(() => (this.driveIn = undefined)); // closed the panel: the next request asks again
+    return this.driveIn;
+  }
+
   /** Let this browser see a wedgie (the port picker; needs a tap). False if the person cancelled. */
   static async pick(): Promise<boolean> {
-    if (!wedgieSupported()) return false;
+    if (!wedgieSerial()) return false;
     try {
       await (navigator as any).serial.requestPort({ filters: [{ usbVendorId: RPI_VID }] });
       arm();
@@ -89,7 +199,9 @@ export class Wedgie {
   }
 
   /** Is a wedgie plugged in, and what is it running? Opens the port for a hello and closes it again. */
-  static async peek(): Promise<Peek> {
+  static async peek(fresh = false): Promise<Peek> {
+    if (fresh) Wedgie.driveHello = null;
+    if (wedgieDrive()) return Wedgie.peekDrive();
     if (!wedgieSupported() || !wedgieArmed()) return { kind: "none" };
     if (holder) return { kind: "busy" };
     if (peeking) return (await peeking.catch(() => ({ kind: "none" }))) as Peek;
@@ -123,8 +235,49 @@ export class Wedgie {
     }
   }
 
+  // a hello over the drive writes a file and takes a second or two: reuse it while the drive stays put
+  private static driveHello: { at: number; hello: WedgieHello } | null = null;
+
+  private static async peekDrive(): Promise<Peek> {
+    if (holder) return { kind: "busy" };
+    const s = await driveState();
+    if (s !== "here") {
+      Wedgie.driveHello = null;
+      return { kind: "phone", state: s };
+    }
+    const c = Wedgie.driveHello;
+    if (c && Date.now() - c.at < 20_000) return { kind: "hello", hello: c.hello };
+    if (peeking) return (await peeking.catch(() => ({ kind: "none" }))) as Peek;
+    const run = driveRequest({ type: "hello" }, 6000).then(
+      (hello): Peek => {
+        Wedgie.driveHello = { at: Date.now(), hello };
+        return { kind: "hello", hello };
+      },
+      (): Peek => ({ kind: "silent", error: "It didn't answer." }),
+    );
+    peeking = run;
+    try {
+      return await run;
+    } finally {
+      peeking = null;
+    }
+  }
+
   /** Plugged in / unplugged (only for wedgies this browser may see). Returns the unsubscribe. */
   static watch(fn: () => void): () => void {
+    if (wedgieDrive()) {
+      // the app has no plug-in event for the page: look at the drive's state every 1.5 s
+      let last: DriveState | null = null;
+      const t = window.setInterval(async () => {
+        const s = await driveState();
+        if (last !== null && s !== last) {
+          Wedgie.driveHello = null;
+          fn();
+        }
+        last = s;
+      }, 1500);
+      return () => clearInterval(t);
+    }
     if (!wedgieSupported() || !wedgieArmed()) return () => {};
     const serial = (navigator as any).serial;
     serial.addEventListener("connect", fn);
@@ -160,7 +313,7 @@ export class Wedgie {
 
   /** Stop letting this browser see the wedgie (it asks again next time). */
   static async forget() {
-    if (!wedgieSupported()) return;
+    if (!wedgieSerial()) return;
     for (const p of await (navigator as any).serial.getPorts()) if (p.getInfo().usbVendorId === RPI_VID) await p.forget?.().catch(() => {});
   }
 
@@ -195,6 +348,7 @@ export class Wedgie {
   }
 
   request(msg: Record<string, unknown>, ms = 5000): Promise<any> {
+    if (this.drive) return this.waitDrive().then(() => driveRequest(msg, ms));
     const id = this.next++;
     return new Promise((res, rej) => {
       const t = window.setTimeout(() => {
@@ -208,6 +362,7 @@ export class Wedgie {
 
   /** A short JSON line, then `raw` bytes right after it (a checked install's put, firmware 0.3.16+). */
   requestRaw(msg: Record<string, unknown>, raw: Uint8Array, ms = 15000): Promise<any> {
+    if (this.drive) return Promise.reject(new Error("Installing needs a computer."));
     const id = this.next++;
     return new Promise((res, rej) => {
       const t = window.setTimeout(() => {
@@ -244,8 +399,9 @@ export class Wedgie {
       nonce: Number(t.nonce),
     };
     let send: Record<string, unknown> = tx;
-    if (JSON.stringify({ id: 0, type: "safe_sign", tx }).length > LINE_MAX) {
-      const chunk = (await this.request({ type: "hello" }, 5000))?.safe_chunk;
+    if (JSON.stringify({ id: 0, type: "safe_sign", tx }).length > (this.drive ? DRIVE_LINE_MAX : LINE_MAX)) {
+      let chunk = (await this.request({ type: "hello" }, 5000))?.safe_chunk;
+      if (chunk && this.drive) chunk = Math.min(chunk, DRIVE_CHUNK);
       if (!chunk) throw new Error("This one is too big for the wedgie's Safe app. Update it at wedgie.dev, then try again.");
       const hex = t.data.slice(2);
       let at = 0;
@@ -322,6 +478,7 @@ export function behind(h: WedgieHello, l: Latest | null): { firmware?: boolean; 
 
 /** Put the Safe signer on the plugged-in wedgie. step: what to say ("Press A on the wedgie", "Installing", p 0..1). */
 export async function installSafeApp(step: (what: string, p?: number) => void): Promise<void> {
+  if (!wedgieSerial()) throw new Error("Install the Safe signer from Chrome or Edge on a computer.");
   let w = await Wedgie.connect();
   try {
     const h = await w.request({ type: "hello" }, 2500).catch(() => null);

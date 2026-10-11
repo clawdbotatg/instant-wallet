@@ -10,7 +10,7 @@ import { type Call, DEFAULT_BUDGET, abi, budgetCalls, deploySignerCall, feeAllow
 import { connectHot, hotAvailable } from "@/lib/safe/hot";
 import { type FeeToken, type Prepared, type Signer, finishOwners, getQuote, ownerSigners, prepareOwners } from "@/lib/safe/send";
 import { type ChainState, type SafeAccount, hotOf, readChain, wedgieSigners } from "@/lib/safe/state";
-import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
+import { Wedgie, wedgieDrive, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
 import { AddressInput, Blockie } from "../bits";
 import { ChainSelect } from "./Pick";
@@ -316,7 +316,7 @@ export function Keys({
       ) : (
         <Step title="Wedgie (cold)">
           <p className="fine">
-            Plug it into a computer (Chrome), open its Safe signer app, then add it. Don&apos;t have one?{" "}
+            {wedgieDrive() ? "Plug it into this iPhone" : "Plug it into a computer (Chrome)"}, open its Safe signer app, then add it. Don&apos;t have one?{" "}
             <a href="https://wedgie.dev" target="_blank" rel="noreferrer">
               Get one at wedgie.dev
             </a>

@@ -2,7 +2,21 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { type ChainState, type SafeAccount, wedgieSigners } from "@/lib/safe/state";
-import { type Latest, OldFirmware, type Peek, Wedgie, behind, installSafeApp, latestWedgie, wedgieArmed, wedgieSupported } from "@/lib/safe/wedgie";
+import {
+  type Latest,
+  OldFirmware,
+  type Peek,
+  Wedgie,
+  behind,
+  installSafeApp,
+  latestWedgie,
+  letPhoneIn,
+  openDrivePanel,
+  wedgieArmed,
+  wedgieDrive,
+  wedgieSerial,
+  wedgieSupported,
+} from "@/lib/safe/wedgie";
 import { Blockie, Sheet } from "../bits";
 
 /** The wedgie, drawn after the device render (design/brand/device-mark.png): white shell, a bill and a card behind, knob, screen, four buttons. */
@@ -44,7 +58,8 @@ export function TxPicture({ hash }: { hash: string }) {
 type Tone = "ok" | "warn" | "bad" | "off";
 // install: the main button puts the Safe signer on it (wrong app, not answering, or an older Safe signer)
 // update: it's behind wedgie.dev (firmware: update at wedgie.dev; app: the install button updates it here)
-type Status = { tone: Tone; title: string; detail: string; key?: { x: `0x${string}`; y: `0x${string}` }; install?: boolean; get?: boolean; update?: "firmware" | "app" };
+// drive (iPhone app): find = pick the WEDGIE drive in the app's panel; in = ask the wedgie to let this phone in
+type Status = { tone: Tone; title: string; detail: string; key?: { x: `0x${string}`; y: `0x${string}` }; install?: boolean; get?: boolean; update?: "firmware" | "app"; drive?: "find" | "in" };
 
 const same = (a?: { x: string; y: string }, b?: { x: string; y: string }) =>
   !!a && !!b && a.x.toLowerCase() === b.x.toLowerCase() && a.y.toLowerCase() === b.y.toLowerCase();
@@ -65,8 +80,16 @@ function baseStatus(peek: Peek | null, account: SafeAccount, states: ChainState[
     return {
       tone: "off",
       title: "Wedgie: computer only",
-      detail: "A wedgie plugs into Chrome or Edge on a computer over USB. Open this wallet there to use it.",
+      detail: "A wedgie plugs into Chrome or Edge on a computer over USB, or into an iPhone with the Instant Wallet app. Open this wallet there to use it.",
     };
+  if (peek?.kind === "phone") {
+    if (peek.state === "readonly")
+      return { tone: "warn", title: "Let this phone in", detail: "Your wedgie is plugged in. It asks first: tap below, then press green on it.", drive: "in" };
+    if (peek.state === "away") return { tone: "off", title: "No wedgie plugged in", detail: "Plug your wedgie into this iPhone. It shows up here by itself." };
+    return !onWallet && !account.wedgie
+      ? { tone: "off", title: "No wedgie yet", detail: "A wedgie is a small signing device. Add one and big moves need it.", get: true, drive: "find" }
+      : { tone: "off", title: "Connect your wedgie", detail: "Plug it into this iPhone and tap Find my wedgie. You only do this once.", drive: "find" };
+  }
   if (!peek || peek.kind === "none")
     return !onWallet && !account.wedgie && !wedgieArmed()
       ? { tone: "off", title: "No wedgie yet", detail: "A wedgie is a small signing device. Add one and big moves need it.", get: true }
@@ -126,10 +149,10 @@ export function WedgieButton({ account, states, onKeys }: { account: SafeAccount
     }
   }
 
-  const check = useCallback(async () => {
+  const check = useCallback(async (fresh = false) => {
     setChecking(true);
     try {
-      const p = await Wedgie.peek();
+      const p = await Wedgie.peek(fresh);
       if (p.kind !== "busy") setPeek(p); // busy: keep what we last saw
       if (p.kind === "hello") setLatest(await latestWedgie());
     } finally {
@@ -150,7 +173,7 @@ export function WedgieButton({ account, states, onKeys }: { account: SafeAccount
   }, [check]);
 
   useEffect(() => {
-    if (!armed) return;
+    if (!armed && !wedgieDrive()) return;
     // a wedgie's port drops and comes back once after plug-in: wait it out before asking
     let t: number | undefined;
     const off = Wedgie.watch(() => {
@@ -256,7 +279,18 @@ export function WedgieButton({ account, states, onKeys }: { account: SafeAccount
                 Update firmware at wedgie.dev
               </a>
             )}
-            {st.install && wedgieSupported() && !installing && (
+            {st.install && wedgieDrive() && <p className="fine">Install the Safe signer from Chrome or Edge on a computer.</p>}
+            {st.drive === "in" && (
+              <button className="btn btn-green wide" onClick={() => letPhoneIn()}>
+                Let this phone in
+              </button>
+            )}
+            {st.drive === "find" && (
+              <button className={`btn wide ${st.get ? "" : "btn-green"}`} onClick={() => openDrivePanel()}>
+                Find my wedgie
+              </button>
+            )}
+            {st.install && wedgieSerial() && !installing && (
               <button className="btn btn-green wide" onClick={install}>
                 {st.update === "app" ? "Update Safe signer" : "Install Safe signer on wedgie"}
               </button>
@@ -266,7 +300,7 @@ export function WedgieButton({ account, states, onKeys }: { account: SafeAccount
                 Get one at wedgie.dev
               </a>
             )}
-            {wedgieSupported() && !plugged && !st.install && (
+            {wedgieSerial() && !plugged && !st.install && (
               <button
                 className={`btn wide ${st.get ? "" : "btn-green"}`}
                 onClick={async () => {
@@ -290,12 +324,17 @@ export function WedgieButton({ account, states, onKeys }: { account: SafeAccount
                 Add it to this wallet
               </button>
             )}
-            {wedgieSupported() && armed && !installing && (
-              <button className="btn wide" onClick={check} disabled={checking}>
+            {((wedgieSerial() && armed) || (wedgieDrive() && plugged)) && !installing && (
+              <button className="btn wide" onClick={() => check(true)} disabled={checking}>
                 {checking ? "Checking…" : "Check again"}
               </button>
             )}
-            {wedgieSupported() && armed && (
+            {wedgieDrive() && !st.drive && (
+              <button className="pill" style={{ justifySelf: "center" }} onClick={() => openDrivePanel()}>
+                Wedgie connection
+              </button>
+            )}
+            {wedgieSerial() && armed && (
               <button
                 className="pill"
                 style={{ justifySelf: "center" }}

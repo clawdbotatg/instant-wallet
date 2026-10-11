@@ -131,7 +131,9 @@ Cost: about 5 s, only when stuck. Worst case it remounts once for nothing.
   failure. Done in `DriveIO.with` / `held`.
 - **Make the bookmark again each time access opens**, so it always points at the current mount. Done in
   `with`.
-- Forget and a new pick drop the held access and swap the bookmark on the drive's thread (`io.rebind`).
+- Forget and a new pick save the bookmark right away (never through the drive's queue, which turns calls away
+  while stuck: codex found a new pick could be lost). The next drive call sees a different bookmark and
+  reopens access from it.
 - To do:
   - log every new error, not just state changes;
   - if refused for more than 5 s, open the panel at "Find my wedgie". iOS needs a tap to show the picker.

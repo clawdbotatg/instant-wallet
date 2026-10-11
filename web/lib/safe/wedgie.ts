@@ -23,7 +23,14 @@ const serialOK = () => typeof navigator !== "undefined" && "serial" in navigator
 export type DriveState = "unpicked" | "away" | "readonly" | "here";
 // connecting: the app is knocking or the drive is remounting; press: its firmware (0.3.37-0.3.40) asks for a
 // green press before it turns writable (0.3.41+ doesn't ask)
-type DriveStatus = { state: DriveState; name: string; panel?: boolean; connecting?: boolean; press?: boolean };
+type DriveStatus = {
+  state: DriveState;
+  name: string;
+  panel?: boolean;
+  connecting?: boolean;
+  press?: boolean;
+  healing?: boolean; // the app saw a cached (stale) drive and asked the wedgie to remount: about 5 s, then it's back
+};
 type DriveBridge = {
   status(): Promise<DriveStatus>;
   send(line: string): Promise<string>;
@@ -67,12 +74,12 @@ export function watchDriveConnect(): () => void {
   let mine: WedgieActivity = null;
   const t = window.setInterval(async () => {
     const s = await bridge()?.status().catch(() => null);
-    const on = !!s && (s.state === "readonly" || (s.state === "away" && !!s.connecting));
+    const on = !!s && (s.state === "readonly" || (s.state === "away" && !!s.connecting) || !!s.healing);
     if (on) {
       since ||= Date.now();
       const p = 0.95 * (1 - Math.exp(-(Date.now() - since) / 4000));
-      mine = s!.press ? { what: "Press the green button on your wedgie", p, press: true } : { what: "Connecting your wedgie", p };
-      activity(mine);
+      mine = s!.press ? { what: "Press the green button on your wedgie", p, press: true } : { what: s!.healing ? "Reconnecting your wedgie" : "Connecting your wedgie", p };
+      if (!current || current === mine || current.what === mine.what || !s!.healing) activity(mine); // a signing's bar stays
     } else if (since) {
       since = 0;
       if (current === mine) activity(null); // never clear a signing's bar
@@ -98,6 +105,17 @@ let driveLock: Promise<unknown> = Promise.resolve();
 /** A line in the app's log, beside its own drive lines: proof of what the page saw. */
 const dlog = (text: string) => void bridge()?.log?.(text)?.catch?.(() => {});
 
+/** The app is remounting a stale drive (about 5 s): wait until it's back. Returns how long it took. */
+async function waitHeal(): Promise<number> {
+  const w0 = Date.now();
+  while (Date.now() - w0 < 20000) {
+    await sleep(300);
+    const n = await bridge()?.status().catch(() => null);
+    if (n && !n.healing && n.state === "here") break;
+  }
+  return Date.now() - w0;
+}
+
 /** One request over the drive: write it, then read ANSWER.TXT until an answer with its id is there. One at a time. */
 function driveRequest(msg: Record<string, unknown>, ms: number): Promise<any> {
   const run = driveLock
@@ -114,6 +132,10 @@ function driveRequest(msg: Record<string, unknown>, ms: number): Promise<any> {
           await d.send(line);
           break;
         } catch (e) {
+          if ((await bridge()?.status().catch(() => null))?.healing) {
+            dlog(`${msg.type} ${id}: send waited ${await waitHeal()} ms for a remount`);
+            continue;
+          }
           // a full drive frees what's been read in a few seconds; unplugged doesn't come back
           if (tries >= 5 || (await driveState()) !== "here") {
             dlog(`${msg.type} ${id}: send failed ${tries + 1}x (${(e as Error)?.message})`);
@@ -124,13 +146,20 @@ function driveRequest(msg: Record<string, unknown>, ms: number): Promise<any> {
       }
       const t0 = Date.now();
       let reads = 0, fails = 0;
-      for (const end = Date.now() + ms; Date.now() < end; ) {
+      for (let end = Date.now() + ms; Date.now() < end; ) {
         await sleep(300); // a bridge call, cheap: the wedgie reads a request 0.7 s after it lands
         reads++;
         const t = await d.read("ANSWER.TXT").catch(() => null);
         if (t === null) {
           fails++;
-          const s = await driveState();
+          const st = await bridge()?.status().catch(() => null);
+          if (st?.healing) {
+            // the app is remounting a stale drive (2 s off USB): the wedgie keeps its answers, so wait, then read on
+            dlog(`${msg.type} ${id}: waited ${await waitHeal()} ms for a remount`);
+            end = Date.now() + ms;
+            continue;
+          }
+          const s = st?.state ?? "unpicked";
           if (s !== "here") {
             dlog(`${msg.type} ${id}: drive ${s} while waiting (${Date.now() - t0} ms)`);
             throw new Error("wedgie unplugged");

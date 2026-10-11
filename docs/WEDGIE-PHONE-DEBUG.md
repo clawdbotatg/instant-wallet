@@ -20,8 +20,9 @@ the wedgie's USB serial port).
 3. To send, the page writes `REQ-<n>.TXT` (one JSON line). The wedgie answers in `ANSWER.TXT` (2048 bytes,
    served from its RAM). The page reads it uncached every 300 ms until its id shows up.
 4. The first line of `ANSWER.TXT` is the wedgie's live state, refreshed every 0.5 s:
-   `#count w<writes> a<ms since last write> ...`. The `a` value changes on every refresh. So if that line stays
-   the same between two reads, the phone is not seeing the real drive.
+   `#count w<writes> a<ms since last write> ...`. `a` changes on every refresh, but it stops at 99999, so after
+   about 100 s with no writes the line stays the same on a healthy drive too (codex). An unchanged line means a
+   stale view only within 100 s of a write, for example right after a send.
 
 Code:
 - `instant-wallet-app/InstantWallet/Drive.swift` (the app)
@@ -75,8 +76,11 @@ never been tested. If the guess is wrong, it does nothing.
 
 Works whatever the cause turns out to be.
 
-1. **Detect.** The app already reads the head line every 5 s. Read it every 1 s while writable. If it is
-   identical twice in a row (the wedgie changes `a` every 0.5 s), the phone's view is stale.
+1. **Detect.** Only right after a send: the request's own write makes the wedgie's `a` small, so `w`, or at
+   least `a`, must change within a second or two. If the line is still the one from before the send 2 s later,
+   the phone's view is stale. Simpler and always valid: add a heartbeat to the head line in firmware (a count of
+   refreshes, every 0.5 s) and treat no change over 2 s as stale. `a` alone isn't enough: it stops at 99999
+   (codex).
 2. **Heal.** Have the wedgie drop USB for 2 s and come back writable. A fresh mount has an empty cache.
    - **Proven:** every knock remount gave fresh reads.
    - Trigger it with a new request written as a file, `{"type":"remount"}`. During the stall, writes are

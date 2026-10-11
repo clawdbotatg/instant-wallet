@@ -47,14 +47,19 @@ Writable lasts until unplug. Next plug-in: the bookmark still works, knock again
 - It's Apple's screen. We can't change it. It opens **wherever the person last was** (often iCloud Drive).
   The first time they must tap back, find **WEDGIE** under Locations, and tap **Open**. Show them a picture of
   that first: the picker's top bar, WEDGIE, and its blue Open with an arrow at it (`PickerHint` in
-  `DrivePanel.swift`).
+  `DrivePanel.swift`). Draw it as a small phone labeled "NEXT SCREEN": a plain bar with a blue Open looked
+  like a button to tap right there (Austin). Say it in words too: "Tap Find my wedgie, go back to
+  Locations, pick WEDGIE, tap Open. Only once."
 - `directoryURL` starts the picker at a folder, but iOS only honors a URL it gave the app (a resolved
   bookmark). A plain path is ignored. So it helps only from the second pick on.
 - People pick the wrong folder (iCloud). Check the pick: the WEDGIE drive has `README.txt` and `SKILL.md` at
-  its top. If not: "That's not your wedgie", and don't keep the bookmark.
-- Every wedgie's drive mounts at the same path
-  (`/private/var/mobile/Library/LiveFiles/com.apple.filesystems.userfsd/F5842556-5B7B-36D1-96CA-F5201A446FCD`,
-  from the FAT volume ID in drive.bin), but iOS still won't open the picker there without a bookmark.
+  its top. If not: "That's not your wedgie", and don't keep the bookmark **or its path** (a wrong pick saved
+  as the start folder sent every later picker to iCloud). Check on every poll too: a bookmark kept before
+  the check existed that isn't the drive gets forgotten, and the person picks again.
+- The drive mounted at
+  `/private/var/mobile/Library/LiveFiles/com.apple.filesystems.userfsd/F5842556-5B7B-36D1-96CA-F5201A446FCD`
+  on Austin's iPhone. The id is probably the FAT volume ID in drive.bin (the same on every wedgie), but that's
+  seen on one phone only. Setting `directoryURL` to that path did nothing (tested): it opened iCloud.
 
 ## Reading and writing the drive (Swift)
 
@@ -82,6 +87,8 @@ Writable lasts until unplug. Next plug-in: the bookmark still works, knock again
   reads `ANSWER.TXT` every 700 ms until that id answers. One request at a time. It has the same shape as the
   serial `Repl.request`, so the rest of the page didn't change (`/safe`: `ask()` picks drive or serial).
   Instant Wallet: `web/lib/safe/wedgie.ts` is Web Serial only today. Add this as a second transport.
+  Then test the serial path again: adding the drive to `/safe` left `ask()` calling itself for a serial
+  wedgie ("Maximum call stack size exceeded" at "Reading its key", fixed in wedgie-dev 875322e).
 - Poll `status()` every 1.5 s. "readonly" → a button "Let this phone in" (opens the panel; it knocks).
 
 ## WalletConnect / RainbowKit in a WKWebView (execute needs a wallet; the phone has none injected)

@@ -11,7 +11,7 @@ import { friendly } from "../Welcome";
 import { TxPicture, WedgieIcon } from "./WedgieButton";
 import { Progress } from "./Progress";
 
-const STAGE: Partial<Record<Stage, string>> = { "signing-wedgie": "Check the wedgie, press A…", sending: "Sending…", confirming: "Confirming…" };
+const STAGE: Partial<Record<Stage, string>> = { "signing-wedgie": "Press green on the wedgie…", sending: "Sending…", confirming: "Confirming…" };
 
 /** A big move signed on the phone, waiting for the wedgie: on the phone it says so; on a computer, one tap + A sends it. */
 export function PendingCards({ account, states, onDone, toast }: { account: SafeAccount; states: ChainState[]; onDone: () => void; toast: (m: string) => void }) {

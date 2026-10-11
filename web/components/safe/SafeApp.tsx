@@ -19,7 +19,7 @@ import { SafeSend } from "./SafeSend";
 import { SendAll } from "./SendAll";
 import { SafeSwap } from "./SafeSwap";
 import { SafeWelcome } from "./SafeWelcome";
-import { WedgieButton } from "./WedgieButton";
+import { WedgieButton, WedgieProgress } from "./WedgieButton";
 import { PendingCards } from "./PendingCard";
 import { SafeConnectLayer } from "./SafeConnect";
 
@@ -287,6 +287,7 @@ export function SafeApp() {
       )}
       <SafeConnectLayer account={account} states={states} feeTokenOn={feeTokenOn} onSent={refresh} />
       {toast && <div className="toast">{toast}</div>}
+      <WedgieProgress />
     </>
   );
 }

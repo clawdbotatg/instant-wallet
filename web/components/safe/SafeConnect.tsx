@@ -140,7 +140,7 @@ function SafeRequest({
     quote: "Getting the fee…",
     signing: "Face ID…",
     "signing-hot": "Sign in your hot wallet…",
-    "signing-wedgie": "Check the wedgie, press A…",
+    "signing-wedgie": "Press green on the wedgie…",
     sending: "Sending…",
     confirming: "Confirming…",
   };

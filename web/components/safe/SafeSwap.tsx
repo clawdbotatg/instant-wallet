@@ -369,7 +369,7 @@ export function SafeSwap({
     quote: "Getting the fee…",
     signing: "Signing…",
     "signing-hot": "Sign in your hot wallet…",
-    "signing-wedgie": "Check the wedgie, press A…",
+    "signing-wedgie": "Press green on the wedgie…",
     sending: "Swapping…",
     confirming: "Confirming…",
   };

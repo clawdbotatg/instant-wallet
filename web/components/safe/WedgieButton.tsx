@@ -11,6 +11,8 @@ import {
   installSafeApp,
   latestWedgie,
   letPhoneIn,
+  onWedgieActivity,
+  type WedgieActivity,
   openDrivePanel,
   wedgieArmed,
   wedgieDrive,
@@ -51,6 +53,34 @@ export function TxPicture({ hash }: { hash: string }) {
         <br />
         <span className="mono">tx {hash.slice(0, 6)}..{hash.slice(-4)}</span>
       </span>
+    </div>
+  );
+}
+
+/** A bar stuck to the bottom of the screen while the wedgie works: what it's doing, a bar that creeps between
+ * real steps (never looks stuck), and "press the green button" when it waits for the person. */
+export function WedgieProgress() {
+  const [a, setA] = useState<WedgieActivity>(null);
+  const [p, setP] = useState(0);
+  useEffect(() => onWedgieActivity(next => {
+    setA(next);
+    setP(q => (next ? Math.max(q, next.p ?? 0) : 0));
+  }), []);
+  useEffect(() => {
+    if (!a) return;
+    const t = window.setInterval(() => setP(q => Math.min(q + (0.01 + Math.random() * 0.01) * (1 - q), 0.98)), 500);
+    return () => clearInterval(t);
+  }, [a]);
+  if (!a) return null;
+  return (
+    <div className={`wedgie-progress ${a.press ? "press" : ""}`} role="status">
+      <WedgieIcon size={40} />
+      <div className="grow stack" style={{ gap: 8 }}>
+        <b>{a.what}</b>
+        <div className="progress">
+          <div style={{ width: `${Math.max(4, p * 100)}%`, transitionDuration: "500ms" }} />
+        </div>
+      </div>
     </div>
   );
 }

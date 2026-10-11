@@ -42,6 +42,16 @@ export const wedgieSupported = () => wedgieDrive() || serialOK();
 export const wedgieSerial = () => !wedgieDrive() && serialOK();
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+/** What the wedgie is doing right now, for the bar at the bottom of the screen (WedgieProgress): p is real
+ * progress 0..1 when known; press = waiting for the person's green button. null = nothing. */
+export type WedgieActivity = { what: string; p?: number; press?: boolean } | null;
+const watchers = new Set<(a: WedgieActivity) => void>();
+export function onWedgieActivity(fn: (a: WedgieActivity) => void): () => void {
+  watchers.add(fn);
+  return () => void watchers.delete(fn);
+}
+const activity = (a: WedgieActivity) => watchers.forEach(f => f(a));
 // The wedgie keeps what the phone writes in 12 sectors of RAM (6 KB, FAT and folder writes included), and frees a
 // deleted request's sectors only 2 s after they were written. The app deletes the last request before each write,
 // so over the drive: lines of at most 3-4 sectors, and 2.2 s from one write to the next (a big tx's pieces filled
@@ -383,8 +393,9 @@ export class Wedgie {
   }
 
   async key(): Promise<{ x: Hex; y: Hex }> {
-    const h = await this.request({ type: "hello" }, 5000);
-    if (!h?.safe) throw new Error("The wedgie has no Safe key yet: press A on it to make one, then try again.");
+    activity({ what: "Talking to your wedgie", p: 0.1 });
+    const h = await this.request({ type: "hello" }, 5000).finally(() => activity(null));
+    if (!h?.safe) throw new Error("The wedgie has no Safe key yet: press green on it to make one, then try again.");
     return { x: h.safe.x, y: h.safe.y };
   }
 
@@ -404,7 +415,16 @@ export class Wedgie {
       refundReceiver: "0x0000000000000000000000000000000000000000",
       nonce: Number(t.nonce),
     };
+    try {
+      return await this.signing(tx, t, expectHash, slots);
+    } finally {
+      activity(null);
+    }
+  }
+
+  private async signing(tx: Record<string, any>, t: SafeTx, expectHash: Hex, slots: [Address, Address]): Promise<Sig[]> {
     let send: Record<string, unknown> = tx;
+    activity({ what: "Sending it to your wedgie", p: 0.05 });
     if (JSON.stringify({ id: 0, type: "safe_sign", tx }).length > (this.drive ? DRIVE_LINE_MAX : LINE_MAX)) {
       let chunk = (await this.request({ type: "hello" }, 5000))?.safe_chunk;
       if (chunk && this.drive) chunk = Math.min(chunk, DRIVE_CHUNK);
@@ -415,9 +435,11 @@ export class Wedgie {
         const r = await this.request({ type: "safe_data", at, hex: hex.slice(i, i + chunk) }, 10_000);
         if (r?.type !== "safe_data") throw new Error(`The wedgie didn't take the transaction (${r?.error || "no answer"}).`);
         at = r.have;
+        activity({ what: "Sending it to your wedgie", p: 0.05 + (0.85 * (i + chunk)) / hex.length });
       }
       send = { ...tx, data: "@" };
     }
+    activity({ what: "Press the green button on your wedgie", p: 0.92, press: true });
     const g = await this.request({ type: "safe_sign", tx: send }, 300_000); // a big one takes the wedgie a while to hash
     if (g?.type === "refused") throw new Error("Refused on the wedgie.");
     if (g?.type !== "safe_sig") throw new Error("The wedgie said something unexpected.");

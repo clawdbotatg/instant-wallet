@@ -86,7 +86,7 @@ function driveRequest(msg: Record<string, unknown>, ms: number): Promise<any> {
         }
       }
       for (const end = Date.now() + ms; Date.now() < end; ) {
-        await sleep(700);
+        await sleep(300); // a bridge call, cheap: the wedgie reads a request 0.7 s after it lands
         const t = await d.read("ANSWER.TXT").catch(() => null);
         if (t === null) {
           if ((await driveState()) !== "here") throw new Error("wedgie unplugged");
@@ -192,7 +192,7 @@ export class Wedgie {
       if ((await driveState()) === "here") return;
       await d.panel("connect");
       for (const end = Date.now() + 300_000; ; ) {
-        await sleep(700);
+        await sleep(300);
         const s = await d.status().catch(() => null);
         if (s?.state === "here") return;
         if (!s?.panel || Date.now() > end) throw new Error("No wedgie connected. Plug it in, tap Allow phone txns and press green on it, then try again.");
@@ -282,7 +282,7 @@ export class Wedgie {
   /** Plugged in / unplugged (only for wedgies this browser may see). Returns the unsubscribe. */
   static watch(fn: () => void): () => void {
     if (wedgieDrive()) {
-      // the app has no plug-in event for the page: look at the drive's state every 1.5 s
+      // the app has no plug-in event for the page: look at the drive's state every 0.5 s (a cheap bridge call)
       let last: DriveState | null = null;
       const t = window.setInterval(async () => {
         const s = await driveState();
@@ -291,7 +291,7 @@ export class Wedgie {
           fn();
         }
         last = s;
-      }, 1500);
+      }, 500);
       return () => clearInterval(t);
     }
     if (!wedgieSupported() || !wedgieArmed()) return () => {};

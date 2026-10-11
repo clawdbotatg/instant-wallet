@@ -204,11 +204,12 @@ export function WedgieButton({ account, states, onKeys }: { account: SafeAccount
 
   useEffect(() => {
     if (!armed && !wedgieDrive()) return;
-    // a wedgie's port drops and comes back once after plug-in: wait it out before asking
+    // a wedgie's serial port drops and comes back once after plug-in: wait it out before asking (the iPhone
+    // app's drive has no such drop: look at once)
     let t: number | undefined;
     const off = Wedgie.watch(() => {
       clearTimeout(t);
-      t = window.setTimeout(check, 1500);
+      t = window.setTimeout(check, wedgieDrive() ? 0 : 1500);
     });
     return () => {
       clearTimeout(t);

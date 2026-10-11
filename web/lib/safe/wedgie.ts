@@ -29,6 +29,7 @@ type DriveBridge = {
   send(line: string): Promise<string>;
   read(name: string): Promise<string | null>;
   panel(mode?: string): Promise<boolean>;
+  log?(text: string): Promise<boolean>; // a line in the app's log (newer app builds)
 };
 const bridge = (): DriveBridge | undefined => (typeof window !== "undefined" ? (window as any).wedgieDrive : undefined);
 /** In the iPhone app: the wedgie is reached through its WEDGIE drive, not Web Serial. */
@@ -94,6 +95,9 @@ const driveGap = () => (driveFw && !older(driveFw, "0.3.41") ? 300 : DRIVE_GAP);
 let driveId = (Date.now() % 1e6) * 100;
 let driveLock: Promise<unknown> = Promise.resolve();
 
+/** A line in the app's log, beside its own drive lines: proof of what the page saw. */
+const dlog = (text: string) => void bridge()?.log?.(text)?.catch?.(() => {});
+
 /** One request over the drive: write it, then read ANSWER.TXT until an answer with its id is there. One at a time. */
 function driveRequest(msg: Record<string, unknown>, ms: number): Promise<any> {
   const run = driveLock
@@ -111,15 +115,26 @@ function driveRequest(msg: Record<string, unknown>, ms: number): Promise<any> {
           break;
         } catch (e) {
           // a full drive frees what's been read in a few seconds; unplugged doesn't come back
-          if (tries >= 5 || (await driveState()) !== "here") throw new Error("Couldn't reach the wedgie. Is it plugged in?");
+          if (tries >= 5 || (await driveState()) !== "here") {
+            dlog(`${msg.type} ${id}: send failed ${tries + 1}x (${(e as Error)?.message})`);
+            throw new Error("Couldn't reach the wedgie. Is it plugged in?");
+          }
           await sleep(1000);
         }
       }
+      const t0 = Date.now();
+      let reads = 0, fails = 0;
       for (const end = Date.now() + ms; Date.now() < end; ) {
         await sleep(300); // a bridge call, cheap: the wedgie reads a request 0.7 s after it lands
+        reads++;
         const t = await d.read("ANSWER.TXT").catch(() => null);
         if (t === null) {
-          if ((await driveState()) !== "here") throw new Error("wedgie unplugged");
+          fails++;
+          const s = await driveState();
+          if (s !== "here") {
+            dlog(`${msg.type} ${id}: drive ${s} while waiting (${Date.now() - t0} ms)`);
+            throw new Error("wedgie unplugged");
+          }
           continue;
         }
         for (const l of t.split("\n")) {
@@ -128,11 +143,13 @@ function driveRequest(msg: Record<string, unknown>, ms: number): Promise<any> {
             const a = JSON.parse(l);
             if (a.id === id) {
               if (a.type === "hello" && a.version) driveFw = a.version;
+              dlog(`${msg.type} ${id}: answered ${a.type} in ${Date.now() - t0} ms`);
               return a;
             }
           } catch {}
         }
       }
+      dlog(`${msg.type} ${id}: no answer in ${ms} ms (${reads} reads, ${fails} failed)`);
       throw new Error("The wedgie didn't answer. Is it running the Safe signer app?");
     });
   driveLock = run;

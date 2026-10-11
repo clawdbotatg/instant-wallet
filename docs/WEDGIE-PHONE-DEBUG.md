@@ -125,14 +125,14 @@ Cost: about 5 s, only when stuck. Worst case it remounts once for nothing.
    (r.102995804, forum 797469).
    - Against: it kept working for 26 s after that remount.
 
-### Proposed fix (half written in Drive.swift, not committed, not built)
+### Proposed fix (partly written in Drive.swift; builds, not committed, not run on the phone)
 
 - **Keep one open access while the drive answers**, as Apple recommends. Drop it and reopen it after any
   failure. Done in `DriveIO.with` / `held`.
 - **Make the bookmark again each time access opens**, so it always points at the current mount. Done in
   `with`.
+- Forget and a new pick drop the held access and swap the bookmark on the drive's thread (`io.rebind`).
 - To do:
-  - drop the held access on Forget and on a new pick (`io.release()`);
   - log every new error, not just state changes;
   - if refused for more than 5 s, open the panel at "Find my wedgie". iOS needs a tap to show the picker.
 

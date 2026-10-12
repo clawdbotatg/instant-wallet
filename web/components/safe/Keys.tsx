@@ -212,7 +212,8 @@ export function Keys({
       const signers = ownerSigners(st, account);
       const w = await wedgieFor(signers);
       try {
-        const calls = [...setBudgetCalls(account.address, { usdc: usdcV, eth: ethV }, now()), ...(await feeApart())];
+        // the fee rule is set once (with the budget): re-send it only on a wallet from before it existed
+        const calls = [...setBudgetCalls(account.address, { usdc: usdcV, eth: ethV }, now()), ...(st.budget.feeUsdc === null ? await feeApart() : [])];
         const p = await prepareOwners({ account, state: st, calls, signers, feeToken, setup: true, wedgie: w, label: "Change the daily limit" });
         return {
           label: `Daily limit: ${formatUnits(usdcV, 6)} USDC · ${formatUnits(ethV, 18)} ${nativeSymbol(chainId)}`,

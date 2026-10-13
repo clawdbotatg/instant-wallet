@@ -7,6 +7,7 @@ import {
   abi,
   batch,
   encodeSignatures,
+  execData,
   moduleTxHash,
   rolesAddress,
   rolesSpendCall,
@@ -14,7 +15,7 @@ import {
   transfer,
 } from "./core";
 import { type Quote, type SendKind } from "./fee";
-import { connectHot, hotAvailable, hotSign } from "./hot";
+import { connectHot, hotAvailable, hotSend, hotSign } from "./hot";
 import { Parked, type Pending, parkPending } from "./pending";
 import { passkeySign, passkeySignRaw } from "./sign";
 import { type ChainState, type SafeAccount, hotOf, salt, wedgieSigners } from "./state";
@@ -70,6 +71,7 @@ type OwnersOpts = {
   dappGas?: bigint; // a site's calls (WalletConnect): their own gas, on top of the Safe tx
   quote?: Quote; // the one the user saw, if still fresh and for the same kind of send
   label?: string; // what it does, in words: shown on the computer that finishes it with the wedgie
+  self?: boolean; // your own browser wallet sends it and pays the gas: no relay, no fee
   onStage?: (s: Stage, hash?: Hash) => void;
 };
 export type Prepared = { opts: OwnersOpts; t: SafeTx; h: Hex; fee: Quote };
@@ -84,6 +86,13 @@ export async function prepareOwners(opts: OwnersOpts): Promise<Prepared> {
   const signerCode = signers.includes("burner") ? await publicClient(chainId).getCode({ address: a.burnerSigner }).catch(() => undefined) : "0x01";
   const fresh = !st.deployed || !signerCode || signerCode === "0x"; // the relay deploys the Safe and/or the burner's signer too
   const kind = ownersKind(fresh, signers, opts);
+  if (opts.self) {
+    // anyone can send a signed Safe transaction; the relay only adds deploying the wallet on a new network
+    if (fresh) throw new Error("Send one through the relay first on this network (it sets the wallet up there).");
+    if (!hotAvailable()) throw new Error("No browser wallet here to send it.");
+    const t: SafeTx = batch(opts.calls, await freshNonce(chainId, a.address, st));
+    return { opts, t, h: safeTxHash(chainId, a.address, t), fee: selfQuote(chainId, kind) };
+  }
   const q = opts.quote && opts.quote.kind === kind && opts.quote.until > Date.now() + 30_000 ? opts.quote : await getQuote(chainId, kind, opts.swapGas ?? opts.dappGas);
   const t: SafeTx = batch([...opts.calls, feeCall(q, opts.feeToken)], await freshNonce(chainId, a.address, st));
   return { opts, t, h: safeTxHash(chainId, a.address, t), fee: q };
@@ -107,6 +116,7 @@ export async function finishOwners(p: Prepared): Promise<Hash> {
   const order = [...signers].sort((x, y) => (x === "burner" ? -1 : y === "burner" ? 1 : 0));
   // the wedgie can't plug in here (a phone): sign the rest, park it, and the computer with the wedgie finishes it
   const later = signers.includes("wedgie") && !p.opts.wedgie && !wedgieSupported();
+  if (later && p.opts.self) throw new Error("With the wedgie, send it yourself from your computer.");
   if (later && p.opts.swapGas !== undefined) throw new Error("A swap with the wedgie has to start on your computer (prices move).");
   if (later && p.opts.dappGas !== undefined) throw new Error("With the wedgie, connect the site on your computer (the site waits for the answer).");
   const sigs: Sig[] = [];
@@ -138,20 +148,19 @@ export async function finishOwners(p: Prepared): Promise<Hash> {
     throw new Parked(h);
   }
   stage("sending");
-  const hash = await post({
-    chainId,
-    kind: "exec",
-    safe: a.address,
-    tx: t,
-    signatures: encodeSignatures(sigs),
-    burner: { x: a.qx, y: a.qy },
-    wedgie: signers.includes("wedgie"),
-  });
+  const signatures = encodeSignatures(sigs);
+  const hash = p.opts.self
+    ? await hotSend(chainId, a.address, execData(t, signatures))
+    : await post({ chainId, kind: "exec", safe: a.address, tx: t, signatures, burner: { x: a.qx, y: a.qy }, wedgie: signers.includes("wedgie") });
   stage("confirming", hash);
   await waitFor(chainId, hash);
   used.set(`${chainId}:${a.address}`, t.nonce);
   return hash;
 }
+
+/** No relay, no fee: a quote of zero, so the UI can keep reading `fee`. */
+const selfQuote = (chainId: number, kind: SendKind): Quote =>
+  ({ chainId, relayer: zeroAddress, kind, gasPrice: "0", ethUsd: 0, feeEth: "0", feeUsdc: "0", until: Date.now() + 5 * 60_000 });
 
 /** Finish a parked transaction on the computer: the wedgie signs (one A press), the relay sends. */
 export async function finishPending(pd: Pending, w: Wedgie, key: { x: Hex; y: Hex } | undefined, onStage?: (s: Stage, hash?: Hash) => void): Promise<Hash> {

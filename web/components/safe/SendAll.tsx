@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { type Address, type Hash, formatUnits, zeroAddress } from "viem";
 import { chainById, explorerTx, nativeSymbol } from "@/lib/chains";
 import { amount as fmtAmount, usd } from "@/lib/format";
 import { transfer } from "@/lib/safe/core";
+import { hotAvailable } from "@/lib/safe/hot";
 import {
   type FeeToken,
   type Prepared,
@@ -50,6 +51,9 @@ export function SendAll({
 }) {
   const [to, setTo] = useState<Address | null>(null);
   const [rows, setRows] = useState<Record<number, Row>>({});
+  const [mine, setMine] = useState(false); // your own browser wallet sends it, not our relay
+  const [canMine, setCanMine] = useState(false);
+  useEffect(() => setCanMine(hotAvailable()), []);
   const set = (chainId: number, r: Row) =>
     setRows((x) => ({ ...x, [chainId]: r }));
   const chains = [...new Set(assets.map((a) => a.chainId))];
@@ -67,6 +71,14 @@ export function SendAll({
       const usdcA = held.find((a) => a.asset.toLowerCase() === usdcAddr);
       const ethA = held.find((a) => a.asset === zeroAddress);
       const signers = ownerSigners(st, account);
+      if (mine) {
+        // no fee: every token goes out whole, the wallet that sends pays the gas
+        const calls = held.map((a) => transfer(a.asset as Address, to, BigInt(a.balance)));
+        const net = Object.fromEntries(held.map((a) => [a.asset, BigInt(a.balance)]));
+        const prepared = await prepareOwners({ account, state: st, calls, signers, feeToken: "usdc", self: true, label: `Send everything on ${chainById(chainId)?.name}` });
+        set(chainId, { stage: "ready", prepared, net });
+        return;
+      }
       const kind = await sendKind(account, st, "owners", signers);
       const q = await getQuote(
         chainId,
@@ -140,12 +152,23 @@ export function SendAll({
         />
         {self && <span className="err">That&apos;s this wallet.</span>}
       </div>
+      <p className="fine">
+        Our relay sends it and pays the gas (you pay it back in the fee). It can&apos;t change what you signed. Anyone
+        can send a signed transaction, so you can send it yourself instead.
+      </p>
+      {canMine && (
+        <label className="row" style={{ gap: 8 }}>
+          <input type="checkbox" checked={mine} onChange={(e) => (setMine(e.target.checked), setRows({}))} />
+          Send it myself from my browser wallet (MetaMask, Rainbow…). No fee, my wallet pays the gas.
+        </label>
+      )}
       {chains.length === 0 && <p className="fine">Nothing to send.</p>}
       {chains.map((chainId) => {
         const r = rows[chainId] ?? { stage: "idle" };
         const held = assets.filter((a) => a.chainId === chainId);
         const fee =
           r.prepared &&
+          !r.prepared.opts.self &&
           (r.prepared.opts.feeToken === "usdc"
             ? `${fmtAmount(formatUnits(BigInt(r.prepared.fee.feeUsdc), 6))} USDC`
             : `${fmtAmount(formatUnits(BigInt(r.prepared.fee.feeEth), 18))} ${nativeSymbol(chainId)}`);
@@ -186,6 +209,7 @@ export function SendAll({
               </span>
             )}
             {fee && <span className="fine">Fee {fee}</span>}
+            {r.prepared?.opts.self && <span className="fine">No fee. Your browser wallet sends it and pays the gas.</span>}
             {r.error && <p className="err">{r.error}</p>}
             {r.stage === "done" ? (
               <p className="fine">

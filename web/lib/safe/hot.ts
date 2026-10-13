@@ -3,7 +3,7 @@ import { type SafeTx, type Sig, ecdsaSig, safeMessageTypedData, safeTxTypedData 
 
 /**
  * The hot wallet: MetaMask, Rainbow, any browser wallet (EIP-1193 `window.ethereum`). It only ever signs Safe
- * transactions and Safe messages as typed data; it never needs gas here (the relay sends).
+ * transactions and Safe messages as typed data; it needs no gas unless you send a transaction yourself (`hotSend`).
  */
 const eth = () => (typeof window === "undefined" ? undefined : (window as any).ethereum);
 export const hotAvailable = () => !!eth();
@@ -12,6 +12,15 @@ export async function connectHot(): Promise<Address> {
   if (!eth()) throw new Error("No browser wallet here. Open this page in a browser with a wallet extension, or in your wallet app's browser.");
   const [a] = await eth().request({ method: "eth_requestAccounts" });
   return getAddress(a);
+}
+
+/** Send a transaction from the browser wallet itself (it pays the gas): no relay. */
+export async function hotSend(chainId: number, to: Address, data: Hex): Promise<Hex> {
+  const from = await connectHot();
+  const want = "0x" + chainId.toString(16);
+  const on = await eth().request({ method: "eth_chainId" }).catch(() => want);
+  if (on !== want) await eth().request({ method: "wallet_switchEthereumChain", params: [{ chainId: want }] });
+  return (await eth().request({ method: "eth_sendTransaction", params: [{ from, to, data }] })) as Hex;
 }
 
 export async function hotSign(chainId: number, safe: Address, t: SafeTx, expect: Address): Promise<Sig> {

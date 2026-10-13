@@ -55,6 +55,17 @@ export function walletAppBrowser(): string | null {
   return eth ? "this wallet app" : null;
 }
 
+/** Runs a ceremony; a NotAllowedError in under 0.5 s gets `blocked` (no prompt was shown, so no one cancelled). */
+async function ceremony<T>(run: () => Promise<T>): Promise<T> {
+  const t0 = performance.now();
+  try {
+    return await run();
+  } catch (e: any) {
+    if (e?.name === "NotAllowedError" && performance.now() - t0 < 500) e.blocked = true;
+    throw e;
+  }
+}
+
 const rpId = () => window.location.hostname;
 const random32 = () => crypto.getRandomValues(new Uint8Array(32));
 
@@ -68,7 +79,7 @@ function prfOf(cred: PublicKeyCredential, which: "first" | "second" = "first"): 
 }
 
 export async function createPasskey(label = "Instant Wallet"): Promise<NewPasskey> {
-  const cred = (await navigator.credentials.create({
+  const cred = (await ceremony(() => navigator.credentials.create({
     publicKey: {
       challenge: random32(),
       rp: { name: RP_NAME, id: rpId() },
@@ -82,7 +93,7 @@ export async function createPasskey(label = "Instant Wallet"): Promise<NewPasske
       ...({ hints: ["client-device"] } as object),
       extensions: { prf: { eval: { first: PRF_SALT } } } as any,
     },
-  })) as PublicKeyCredential | null;
+  }))) as PublicKeyCredential | null;
   if (!cred) throw new Error("No passkey was created");
   const res = cred.response as AuthenticatorAttestationResponse;
   const spki = res.getPublicKey?.();
@@ -110,7 +121,7 @@ type Assertion = {
 type Salts = { first: Uint8Array; second?: Uint8Array };
 
 async function assert(challenge: Uint8Array<ArrayBuffer>, credentialId?: string, salts: Salts = { first: PRF_SALT }): Promise<Assertion> {
-  const cred = (await navigator.credentials.get({
+  const cred = (await ceremony(() => navigator.credentials.get({
     publicKey: {
       challenge,
       rpId: rpId(),
@@ -119,7 +130,7 @@ async function assert(challenge: Uint8Array<ArrayBuffer>, credentialId?: string,
       timeout: 300_000,
       extensions: { prf: { eval: salts } } as any,
     },
-  })) as PublicKeyCredential | null;
+  }))) as PublicKeyCredential | null;
   if (!cred) throw new Error("No passkey signature");
   const r = cred.response as AuthenticatorAssertionResponse;
   return {

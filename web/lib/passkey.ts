@@ -37,6 +37,24 @@ export function webauthnAvailable(): boolean {
   return typeof window !== "undefined" && !!window.PublicKeyCredential && !!navigator.credentials;
 }
 
+/**
+ * The browser inside a wallet app (Rainbow, MetaMask, Coinbase Wallet…), or null. On a phone only those inject
+ * `window.ethereum`. Their web views can't use passkeys: iOS only lets an app run WebAuthn for its own domains,
+ * so every ceremony fails at once with NotAllowedError, which reads like the user cancelled.
+ */
+export function walletAppBrowser(): string | null {
+  if (typeof window === "undefined") return null;
+  const eth = (window as any).ethereum;
+  const ua = navigator.userAgent;
+  const phone = /iPhone|iPad|iPod|Android/i.test(ua) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(ua));
+  if (!phone) return null; // a desktop extension also injects window.ethereum, and passkeys work there
+  if (eth?.isRainbow || /Rainbow/i.test(ua)) return "Rainbow";
+  if (eth?.isCoinbaseWallet || /CoinbaseWallet/i.test(ua)) return "Coinbase Wallet";
+  if (eth?.isTrust || /Trust/i.test(ua)) return "Trust Wallet";
+  if (eth?.isMetaMask || /MetaMaskMobile/i.test(ua)) return "MetaMask";
+  return eth ? "this wallet app" : null;
+}
+
 const rpId = () => window.location.hostname;
 const random32 = () => crypto.getRandomValues(new Uint8Array(32));
 

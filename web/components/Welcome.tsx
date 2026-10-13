@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { walletAddress, KIND_WEBAUTHN, signerIdOf } from "@/lib/address";
 import { CHAINS, publicClient } from "@/lib/chains";
-import { type Candidate, confirmKey, createPasskey, credentialIdHash, recoverKeys, webauthnAvailable } from "@/lib/passkey";
+import { type Candidate, confirmKey, createPasskey, credentialIdHash, recoverKeys, walletAppBrowser, webauthnAvailable } from "@/lib/passkey";
 import type { Account } from "@/lib/types";
 import { Band } from "./bits";
 
@@ -107,7 +107,11 @@ export function Welcome({ onReady }: { onReady: (a: Account) => void }) {
 
 export function friendly(e: any): string {
   const m = String(e?.shortMessage || e?.message || e);
-  if (/NotAllowedError|cancel|abort|timed out/i.test(m + (e?.name ?? ""))) return "Cancelled.";
+  if (/NotAllowedError|cancel|abort|timed out/i.test(m + (e?.name ?? ""))) {
+    const app = walletAppBrowser();
+    if (app) return `Passkeys don't work inside ${app}'s browser. Open this page in Safari or Chrome.`;
+    return "Cancelled.";
+  }
   if (/insufficient funds/i.test(m)) return "Your gas key needs a little more ETH.";
   return m.length > 220 ? `${m.slice(0, 220)}…` : m;
 }

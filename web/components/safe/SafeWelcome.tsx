@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { type Address, getAddress, isAddress } from "viem";
 import { CHAINS, publicClient } from "@/lib/chains";
-import { type Candidate, confirmKey, createPasskey, recoverKeys, webauthnAvailable } from "@/lib/passkey";
+import { type Candidate, confirmKey, createPasskey, recoverKeys, walletAppBrowser, webauthnAvailable } from "@/lib/passkey";
 import { RECOVERY_7D } from "@/lib/safe/config";
 import { abi, rolesAddress } from "@/lib/safe/core";
 import { type SafeAccount, accountFor } from "@/lib/safe/state";
@@ -209,6 +209,11 @@ export function SafeWelcome({ onReady }: { onReady: (a: SafeAccount) => void }) 
           <p className="err">This browser can&apos;t use passkeys. Open this page in Safari or Chrome.</p>
         )}
         {error && <p className="err">{error}</p>}
+        {error && walletAppBrowser() && (
+          <button className="pill" style={{ justifySelf: "center" }} onClick={() => navigator.clipboard?.writeText(location.href).then(() => setError("Link copied. Paste it into Safari or Chrome."))}>
+            Copy link
+          </button>
+        )}
         <p className="fine">
           Passkey signer · DIY hardware wallet · Powered by Safe
         </p>

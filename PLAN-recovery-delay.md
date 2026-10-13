@@ -1,4 +1,6 @@
-# Plan: recovery delay 7 days → 14 days (later)
+# Plan: recovery delay 7 days → 14 days (DROPPED)
+
+**Austin, 10-13 (later): leave recovery at 7 days. Not doing this.** Kept for reference.
 
 Austin, 10-13: go to 14 days eventually; stay on 7 for now.
 

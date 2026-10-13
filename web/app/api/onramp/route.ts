@@ -25,9 +25,10 @@ export async function POST(req: NextRequest) {
   const b = await req.json().catch(() => ({}));
   const asset = b.asset === "ETH" ? "ETH" : "USDC";
   const ts = Number(b.ts);
+  if (![b.qx, b.qy, b.r, b.s, b.authenticatorData].every(v => isHex(v)) || typeof b.clientDataJSON !== "string")
+    return NextResponse.json({ error: "Passkey signature required" }, { status: 401 });
   if (!isAddress(b.address || "")) return bad("address?");
   if (!Number.isFinite(ts) || Math.abs(Date.now() / 1000 - ts) > MAX_AGE_S) return bad("Signature expired. Try again.");
-  if (![b.qx, b.qy, b.r, b.s, b.authenticatorData].every(v => isHex(v)) || typeof b.clientDataJSON !== "string") return bad("signature?");
   const address = getAddress(b.address);
 
   // the passkey signed this exact request, on this site

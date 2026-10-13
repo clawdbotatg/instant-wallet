@@ -7,6 +7,7 @@ import { base } from "viem/chains";
 import { upstreamRpc } from "@/lib/rpcServer";
 import { abi, safeAddress, signerAddress } from "@/lib/safe/core";
 import { onrampChallenge } from "@/lib/onramp";
+import { once } from "@/lib/safe/relayGuard";
 import { P256_N, base64urlToBytes, hexToBytes } from "@/lib/webauthn";
 
 export const dynamic = "force-dynamic";
@@ -45,6 +46,12 @@ export async function POST(req: NextRequest) {
   if (!(authData[32] & 0x04)) return bad("Face ID required");
   const msg = sha256(concatBytes(authData, sha256(new TextEncoder().encode(b.clientDataJSON))));
   if (!verifyP256(b.qx, b.qy, b.r, b.s, msg)) return bad("Bad signature");
+  // one link per signature: r is fresh for every signature (s alone can be flipped)
+  try {
+    if (!(await once(`onramp:${b.r.toLowerCase()}`, MAX_AGE_S * 2))) return NextResponse.json({ error: "Signature already used" }, { status: 409 });
+  } catch {
+    return NextResponse.json({ error: "Try again" }, { status: 503 });
+  }
 
   // ...and that passkey is this wallet's owner
   const signer = signerAddress(b.qx, b.qy);

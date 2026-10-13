@@ -13,7 +13,7 @@ import { privateKeyToAccount } from "viem/accounts";
 const APP = process.env.APP || "http://localhost:3100";
 const RPC = process.env.RPC || "http://127.0.0.1:8545";
 const USDC = process.env.USDC || "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; // Base; Ethereum: 0xA0b8…eB48
-const RECOVERY = "0x088f6cfD8BB1dDb1BB069CCb3fc1A98927D233f2";
+const RECOVERY = "0x9BacD92F4687Db306D7ded5d4513a51EA05df25b";
 const DAO = "0xeF899e80aA814ab8D8e232f9Ed6403A633C727ec";
 const OUT = process.argv[2] || "/tmp";
 const cast = a => execSync(`cast ${a} --rpc-url ${RPC}`, { encoding: "utf8" }).trim();

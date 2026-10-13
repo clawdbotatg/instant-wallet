@@ -51,7 +51,7 @@ export function Settings({ account, toast, onSignOut }: { account: Account; toas
             </span>
           </div>
           <div className="fine">
-            Recovery: {r.deployed ? (r.guardians.length ? r.guardians.map(short).join(", ") : "off") : "dao.buidlguidl.eth (default)"}, 7 days to cancel
+            Recovery: {r.deployed ? (r.guardians.length ? r.guardians.map(short).join(", ") : "off") : "dao.buidlguidl.eth (default)"}, 14 days to cancel
           </div>
           {explorerAddress(r.chainId, account.address) && (
             <a className="fine" href={explorerAddress(r.chainId, account.address)} target="_blank" rel="noreferrer">

@@ -13,7 +13,7 @@
 You open instantwallet.io, Face ID, and you have a wallet: a **Gnosis Safe** controlled by a passkey on your
 phone. Later you add MetaMask, a 24-word seed sharded on paper (your recovery), then a wedgie. Each step makes it
 harder to steal. Big moves need two keys and wait 24 h (all three: instant); the phone keeps a daily limit. If you lose keys, your recovery address gives you new ones
-after 7 days. If you die, a death switch hands it to your heir after 6 months. Almost every contract is audited
+after 14 days. If you die, a death switch hands it to your heir after 6 months. Almost every contract is audited
 code that already exists; one contract is ours (24 h wait with cancel, travel lock), audited before
 real money. The same wallet works on many chains at one address, can co-own group Safes with
 friends, and you can talk to it through any AI. Built in phases (bottom of this doc); planned in full here.
@@ -25,7 +25,7 @@ friends, and you can talk to it through any AI. Built in phases (bottom of this 
 | Safe 1.5 | the wallet: holds the money, list of owners, how many must sign | Safe (many). The wedgie was tested on 1.4.1; Roles, Candide and the passkey signer still need testing on 1.5 |
 | Safe passkey signer v0.2.1 | lets a passkey or a wedgie be a Safe owner | Certora, Nethermind, Hats |
 | Zodiac Roles v2.1 | gives a key limited powers without making it an owner (daily budgets) | G0, Omniscia |
-| Candide Social Recovery (×2) | recovery (7 days) and death switch (6 months) | Ackee, Nethermind, Certora |
+| Candide Social Recovery (×2) | recovery (14 days) and death switch (6 months) | Ackee, Nethermind, Certora |
 | Safe4337Module | optional: send through public 4337 bundlers | Ackee, Certora, Nethermind |
 | ours (phase 4) | wedgie + one waits 24 h, cancels, travel lock (Safe 1.5 module + guard + fallback handler) | needs a full audit: it checks signatures and executes as the Safe, so it has full power over every wallet |
 
@@ -42,7 +42,7 @@ What is ours (not contracts, still must be reviewed): the app, the relay, the al
 | **Burner** | passkey made on your phone by Face ID | WebAuthn, through Safe's passkey signer |
 | **Hot** | MetaMask / Rainbow / any wallet you already have, usually by ENS | normal Ethereum signature |
 | **Cold** | wedgie. Trust M chip makes the key; it never leaves the chip | press A; firmware wraps it as a passkey signature (tested on Base) |
-| **Recovery** | an address that can replace your keys after 7 days | starts as dao.buidlguidl.eth (4 of 8), you swap in your own |
+| **Recovery** | an address that can replace your keys after 14 days | starts as dao.buidlguidl.eth (4 of 8), you swap in your own |
 | **Death switch** | an address that can hand the wallet to your heir after 6 months | dao.buidlguidl.eth; optional |
 
 ## Levels: progressive decentralization (how the Safe is set up at each one)
@@ -69,7 +69,7 @@ Level 1 is only for spending money. The burner's default daily limit is 100 USDC
 ### Level 3: the paper seed (Austin 10-05)
 
 You make a new 24-word seed phrase and learn to keep it safe. It becomes **your recovery address**, replacing
-the DAO's 7-day recovery. The DAO keeps its death switch (it can still replace your keys after a 6-month wait,
+the DAO's 14-day recovery. The DAO keeps its death switch (it can still replace your keys after a 6-month wait,
 with an alert) until you remove it at level 5. It's a good fit: recovery is rarely used and should be offline.
 - Made on the wedgie (hardware random numbers) or with dice, never by the web app: a hacked site could hand
   out a seed it already knows. Shown once, never stored.
@@ -191,7 +191,7 @@ ExtensibleFallbackHandler routing 4337 calls + our signature check) is later, wi
 | turn on the travel lock | any one key, instant |
 | replace a stolen wedgie | burner + hot + paper seed, instant; or recovery, 7 d |
 | replace burner or hot | wedgie + the other, 24 h; if it objects, 7 d, or the paper approves now (paper can't reject) |
-| replace keys (any) | recovery, after 7 days (any two keys can cancel) |
+| replace keys (any) | recovery, after 14 days (any two keys can cancel) |
 | hand everything to your heir | death switch, after 6 months; owners can cancel |
 
 The "protect" role: a Zodiac Roles permission that lets one key do exactly one thing, switch off the burner's
@@ -337,7 +337,7 @@ Goal: the wallet on lots of chains, added as you go, at the same address. Some c
      before anyone sends to a chain where it isn't.
 - **The DAO's recovery comes back on unused chains (follow-up review #4).** DAO recovery is in the first setup,
   and anyone can deploy the first setup on a chain you never used. So removing the DAO on Base doesn't remove
-  it from a chain where your wallet isn't deployed yet: money that lands there is under the DAO's 7-day
+  it from a chain where your wallet isn't deployed yet: money that lands there is under the DAO's 14-day
   recovery until you deploy there and remove it. So:
   - **Levels are per chain.** The app shows each chain's level and who can recover it. Level 5 ("DAO gone")
     is only claimed on chains where that's true.
@@ -447,10 +447,10 @@ over to it and checks it works. The same skill.md helps your own AI walk you thr
 2. **Two of three keys can do anything; one can't** (level 2+). We plan for one key stolen or lost at a time;
    two stolen = out of luck. From level 4, two keys (one the wedgie) wait 24 h (to catch tricks, not thieves), any two cancel, all three are instant.
 3. **Protecting is one key and instant; weakening is two keys and a wait, or all three.**
-4. **Recovery is slow and loud.** 7 days, an alert the moment it starts, and your owners can cancel.
+4. **Recovery is slow and loud.** 14 days, an alert the moment it starts, and your owners can cancel.
 5. **The DAO is trusted until you replace it.** At levels 1–2 the DAO could reset your keys if you ignore
-   the alert for 7 days. That's the deal for a free backup on spending money. Level 3 (paper) removes the
-   7-day recovery. The DAO's death switch can still reset your keys after a 6-month wait until level 5.
+   the alert for 14 days. That's the deal for a free backup on spending money. Level 3 (paper) removes the
+   14-day recovery. The DAO's death switch can still reset your keys after a 6-month wait until level 5.
 6. **Alerts are required.** A wait you don't hear about protects nothing. Push, email, Telegram, and the
    watcher is open source so you can run your own. **The watcher is separate from the app** (review C1): it
    reads the queued move straight from the chain and decodes it itself, because a hacked app could lie about
@@ -615,7 +615,7 @@ Off by default; prototype + tests in `PQ-HYBRID.md`.
 ## Decide before the first user
 
 A Safe's address is fixed by its first setup, forever, on every chain. So before anyone gets a wallet:
-- **First setup = burner owner + DAO recovery (decided, Austin 10-05).** The setup turns on Candide's 7-day
+- **First setup = burner owner + DAO recovery (decided, Austin 10-05).** The setup turns on Candide's 14-day
   recovery module with dao.buidlguidl.eth as guardian. So a wallet that was never deployed can still be
   recovered: the DAO deploys it (anyone can, with that setup) and starts recovery. That needs the setup data
   (the burner's public key + our fixed settings + salt), and an undeployed Safe isn't in any index. So the app

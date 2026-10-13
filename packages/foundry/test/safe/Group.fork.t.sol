@@ -78,9 +78,9 @@ contract GroupTest is SafeBase {
         address[] memory o = new address[](1);
         o[0] = s2;
         vm.prank(DAO);
-        ISocialRecovery(RECOVERY_7D).confirmRecovery(address(members[0]), o, 1, true);
-        vm.warp(block.timestamp + 7 days);
-        ISocialRecovery(RECOVERY_7D).finalizeRecovery(address(members[0]));
+        ISocialRecovery(RECOVERY_14D).confirmRecovery(address(members[0]), o, 1, true);
+        vm.warp(block.timestamp + 14 days);
+        ISocialRecovery(RECOVERY_14D).finalizeRecovery(address(members[0]));
         keys[0] = newPhone;
         SafeTx memory t = _batch(_usdcTransfer(bob, 1e6));
         bytes32 h = _hash(group, t);

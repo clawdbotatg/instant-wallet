@@ -36,7 +36,7 @@ export default function Paper() {
               </div>
             ))}
           </div>
-          <p className="fine">Any 2 cards = the whole seed. Recovery waits 7 days and your keys can cancel it.</p>
+          <p className="fine">Any 2 cards = the whole seed. Recovery waits 14 days and your keys can cancel it.</p>
         </div>
       ))}
       <p className="fine noprint center">Print with ⌘P / Ctrl+P.</p>

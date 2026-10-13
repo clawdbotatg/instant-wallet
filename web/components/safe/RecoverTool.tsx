@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { type Address, type Hex, encodeFunctionData, getAddress, isAddress } from "viem";
 import { CHAINS, chainById, explorerTx, publicClient } from "@/lib/chains";
 import { short } from "@/lib/format";
-import { DAO, RECOVERY_7D, SAFE_FACTORY } from "@/lib/safe/config";
+import { DAO, RECOVERY_14D, SAFE_FACTORY } from "@/lib/safe/config";
 import { abi, deploySafeCall, safeAddress } from "@/lib/safe/core";
 import { Band, copy } from "../bits";
 import { ChainSelect } from "./Pick";
@@ -24,8 +24,8 @@ async function sendFromWallet(chainId: number, to: Address, data: Hex): Promise<
 /**
  * The recovery address's tool. Three steps, each one transaction from the recovery address's own wallet:
  *   0. (only if the wallet was never deployed on this chain) deploy it from its first setup: needs the wallet card's burner signer
- *   1. start: confirmRecovery(wallet, [new key], 1, true) — the 7-day wait starts; the owner gets an alert and can cancel
- *   2. after 7 days, anyone: finalizeRecovery(wallet)
+ *   1. start: confirmRecovery(wallet, [new key], 1, true) — the 14-day wait starts; the owner gets an alert and can cancel
+ *   2. after 14 days, anyone: finalizeRecovery(wallet)
  * The DAO is a Safe: it pastes the calldata shown here into Safe{Wallet}'s transaction builder.
  */
 export function RecoverTool() {
@@ -50,8 +50,8 @@ export function RecoverTool() {
       const deployed = !!code && code !== "0x";
       if (!deployed) return live && setInfo({ deployed, guardians: [DAO], executeAfter: 0, newOwners: [] });
       const [g, r] = await Promise.all([
-        pc.readContract({ address: RECOVERY_7D, abi: abi.recovery, functionName: "getGuardians", args: [w] }).catch(() => []),
-        pc.readContract({ address: RECOVERY_7D, abi: abi.recovery, functionName: "getRecoveryRequest", args: [w] }).catch(() => null),
+        pc.readContract({ address: RECOVERY_14D, abi: abi.recovery, functionName: "getGuardians", args: [w] }).catch(() => []),
+        pc.readContract({ address: RECOVERY_14D, abi: abi.recovery, functionName: "getRecoveryRequest", args: [w] }).catch(() => null),
       ]);
       if (live) setInfo({ deployed, guardians: [...(g as Address[])], executeAfter: r ? Number((r as any).executeAfter) * 1000 : 0, newOwners: r ? [...(r as any).newOwners] : [] });
     })();
@@ -83,7 +83,7 @@ export function RecoverTool() {
   return (
     <div className="app">
       <h1>Recover a wallet</h1>
-      <p className="fine">For a wallet&apos;s recovery address: the DAO, a paper seed opened in a wallet, a friend. You swap in the owner&apos;s new key; it lands after 7 days, and the owner can cancel it from any key they still have.</p>
+      <p className="fine">For a wallet&apos;s recovery address: the DAO, a paper seed opened in a wallet, a friend. You swap in the owner&apos;s new key; it lands after 14 days, and the owner can cancel it from any key they still have.</p>
       <Band />
       <ChainSelect value={chainId} onChange={setChainId} />
       <div className="field">
@@ -123,19 +123,19 @@ export function RecoverTool() {
         <div className="input">
           <input value={newKey} onChange={e => setNewKey(e.target.value)} placeholder="0x… the owner's new key (from their new phone)" autoCapitalize="none" spellCheck={false} />
         </div>
-        <button className="btn btn-green wide" disabled={!startData || !info?.deployed} onClick={() => startData && run(RECOVERY_7D, startData, "Start")}>
+        <button className="btn btn-green wide" disabled={!startData || !info?.deployed} onClick={() => startData && run(RECOVERY_14D, startData, "Start")}>
           Start (from the recovery address)
         </button>
         {startData && (
-          <button className="pill" onClick={() => copy(`chain ${chainById(chainId)?.name} (${chainId})\nto ${RECOVERY_7D}\nvalue 0\ndata ${startData}`)}>
+          <button className="pill" onClick={() => copy(`chain ${chainById(chainId)?.name} (${chainId})\nto ${RECOVERY_14D}\nvalue 0\ndata ${startData}`)}>
             Copy as a Safe transaction (for the DAO)
           </button>
         )}
       </div>
 
       <div className="card stack">
-        <b>2. Finish, after 7 days</b>
-        <button className="btn wide" disabled={!ready || !finalizeData} onClick={() => finalizeData && run(RECOVERY_7D, finalizeData, "Finish")}>
+        <b>2. Finish, after 14 days</b>
+        <button className="btn wide" disabled={!ready || !finalizeData} onClick={() => finalizeData && run(RECOVERY_14D, finalizeData, "Finish")}>
           {info?.executeAfter ? (ready ? "Finish the recovery" : `Ready ${new Date(info.executeAfter).toLocaleString()}`) : "Nothing pending"}
         </button>
       </div>

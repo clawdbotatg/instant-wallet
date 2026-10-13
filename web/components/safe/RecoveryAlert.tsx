@@ -4,7 +4,7 @@ import { useState } from "react";
 import { encodeFunctionData } from "viem";
 import { chainById } from "@/lib/chains";
 import { short } from "@/lib/format";
-import { RECOVERY_7D } from "@/lib/safe/config";
+import { RECOVERY_14D } from "@/lib/safe/config";
 import { abi } from "@/lib/safe/core";
 import { type Prepared, finishOwners, ownerSigners, prepareOwners } from "@/lib/safe/send";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
@@ -38,7 +38,7 @@ export function RecoveryAlert({
         await prepareOwners({
           account,
           state,
-          calls: [{ to: RECOVERY_7D, value: 0n, data: encodeFunctionData({ abi: abi.recovery, functionName: "cancelRecovery" }) }],
+          calls: [{ to: RECOVERY_14D, value: 0n, data: encodeFunctionData({ abi: abi.recovery, functionName: "cancelRecovery" }) }],
           signers: ownerSigners(state, account),
           feeToken,
         }),

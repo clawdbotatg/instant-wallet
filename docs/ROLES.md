@@ -47,13 +47,13 @@ Exception: the burner can't cancel a recovery — otherwise a thief with your ph
 | | recovery | death switch |
 |---|---|---|
 | does | resets a key (burner, hot or cold) to a new address | moves everything / sets a new owner |
-| delay | 7 days | 1 year |
+| delay | 14 days | 1 year |
 | canceled by | hot or cold (any one) | any key (burner, hot, cold) |
 | default holder | dao.buidlguidl.eth, until you set your own | dao.buidlguidl.eth, kept even after you set your own recovery |
 | example | lost wedgie → new wedgie | you died → DAO sends it to your spouse |
 
 **Trust:** while the DAO is your recovery, the DAO could in theory reset your key to its own address,
-and it lands if you don't cancel in 7 days. Fine for a new wallet with spending money; the app pushes you
+and it lands if you don't cancel in 14 days. Fine for a new wallet with spending money; the app pushes you
 to set your own recovery once the balance grows. The death switch has the same power with a 1-year wait,
 so it only lands if no key cancels it during that year. Using the wallet does not reset it; the alert
 when it starts is what tells you to cancel. Open: should the user name the death-switch destination in

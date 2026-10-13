@@ -26,7 +26,7 @@ import {
   MULTISEND_UNWRAPPER,
   PASSKEY_FACTORY,
   PASSKEY_SINGLETON,
-  RECOVERY_7D,
+  RECOVERY_14D,
   ROLES_MASTERCOPY,
   ROLE_BURNER,
   SAFE_FACTORY,
@@ -136,12 +136,12 @@ export function multiSendData(calls: Call[]): Hex {
 
 /**
  * The first setup, fixed into the address forever (docs/PLAN.md "Decide before the first user"): the burner's
- * signer is the only owner; Candide's 7-day recovery is on with the DAO as guardian. Inner `to = 0` = the Safe.
+ * signer is the only owner; Candide's 14-day recovery is on with the DAO as guardian. Inner `to = 0` = the Safe.
  */
 export function initializer(burnerSigner: Address): Hex {
   const setupCalls = multiSendData([
-    { to: zeroAddress, value: 0n, data: encodeFunctionData({ abi: abi.safe, functionName: "enableModule", args: [RECOVERY_7D] }) },
-    { to: RECOVERY_7D, value: 0n, data: encodeFunctionData({ abi: abi.recovery, functionName: "addGuardianWithThreshold", args: [DAO, 1n] }) },
+    { to: zeroAddress, value: 0n, data: encodeFunctionData({ abi: abi.safe, functionName: "enableModule", args: [RECOVERY_14D] }) },
+    { to: RECOVERY_14D, value: 0n, data: encodeFunctionData({ abi: abi.recovery, functionName: "addGuardianWithThreshold", args: [DAO, 1n] }) },
   ]);
   return encodeFunctionData({
     abi: abi.safe,
@@ -485,13 +485,13 @@ export function setGuardianCalls(current: Address[], next: Address): Call[] {
   const calls: Call[] = [];
   const list = [...current];
   if (!list.some(a => a.toLowerCase() === next.toLowerCase())) {
-    calls.push({ to: RECOVERY_7D, value: 0n, data: encodeFunctionData({ abi: abi.recovery, functionName: "addGuardianWithThreshold", args: [next, 1n] }) });
+    calls.push({ to: RECOVERY_14D, value: 0n, data: encodeFunctionData({ abi: abi.recovery, functionName: "addGuardianWithThreshold", args: [next, 1n] }) });
     list.unshift(next);
   }
   for (let i = list.length - 1; i >= 0; i--) {
     if (list[i].toLowerCase() === next.toLowerCase()) continue;
     const prev = i === 0 ? SENTINEL : list[i - 1];
-    calls.push({ to: RECOVERY_7D, value: 0n, data: encodeFunctionData({ abi: abi.recovery, functionName: "revokeGuardianWithThreshold", args: [prev, list[i], 1n] }) });
+    calls.push({ to: RECOVERY_14D, value: 0n, data: encodeFunctionData({ abi: abi.recovery, functionName: "revokeGuardianWithThreshold", args: [prev, list[i], 1n] }) });
     list.splice(i, 1);
   }
   return calls;

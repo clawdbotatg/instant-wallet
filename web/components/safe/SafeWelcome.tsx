@@ -5,7 +5,7 @@ import { useState } from "react";
 import { type Address, getAddress, isAddress } from "viem";
 import { CHAINS, publicClient } from "@/lib/chains";
 import { type Candidate, confirmKey, createPasskey, recoverKeys, webauthnAvailable } from "@/lib/passkey";
-import { RECOVERY_7D } from "@/lib/safe/config";
+import { RECOVERY_14D } from "@/lib/safe/config";
 import { abi, rolesAddress } from "@/lib/safe/core";
 import { type SafeAccount, accountFor } from "@/lib/safe/state";
 import { Band } from "../bits";
@@ -48,16 +48,16 @@ async function ownedBy(signer: Address): Promise<{ wallet: Address; guardians: A
         r("getOwners"),
         r("getThreshold"),
         r("getModulesPaginated", ["0x0000000000000000000000000000000000000001", 10n]),
-        r("getGuardians", [w], RECOVERY_7D, abi.recovery),
+        r("getGuardians", [w], RECOVERY_14D, abi.recovery),
       ]);
       // exactly what a just-recovered Instant Wallet looks like: this key alone, Candide (+ its own Roles), nothing else
-      const allowed = [RECOVERY_7D, rolesAddress(w)].map(x => x.toLowerCase());
+      const allowed = [RECOVERY_14D, rolesAddress(w)].map(x => x.toLowerCase());
       if (
         owners?.length === 1 &&
         owners[0].toLowerCase() === signer.toLowerCase() &&
         Number(threshold) === 1 &&
         mods &&
-        (mods[0] as string[]).some(m => m.toLowerCase() === RECOVERY_7D.toLowerCase()) &&
+        (mods[0] as string[]).some(m => m.toLowerCase() === RECOVERY_14D.toLowerCase()) &&
         (mods[0] as string[]).every(m => allowed.includes(m.toLowerCase()))
       )
         return { wallet: w, guardians: (guardians ?? []).map((g: string) => getAddress(g)) };
@@ -169,7 +169,7 @@ export function SafeWelcome({ onReady }: { onReady: (a: SafeAccount) => void }) 
         <div className="welcome">
           <div className="stack">
             <h1>Recover a wallet</h1>
-            <p>Lost your phone? This makes a new key on this device. Your recovery address (the DAO, or your paper seed) then swaps it in; it takes 7 days, and you can cancel it from any key you still have.</p>
+            <p>Lost your phone? This makes a new key on this device. Your recovery address (the DAO, or your paper seed) then swaps it in; it takes 14 days, and you can cancel it from any key you still have.</p>
           </div>
           <div className="input">
             <input value={wallet} onChange={e => setWallet(e.target.value)} placeholder="0x… your wallet's address" autoCapitalize="none" spellCheck={false} />

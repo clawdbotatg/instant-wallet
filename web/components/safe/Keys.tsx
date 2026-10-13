@@ -18,7 +18,7 @@ import { friendly } from "../Welcome";
 
 /**
  * Keys & safety, per chain (each chain's Safe is its own). The burner (Face ID) starts alone, the DAO can recover it
- * (7 days, you can cancel). Then, in any order:
+ * (14 days, you can cancel). Then, in any order:
  *   Hot wallet  an owner; big moves need it + the burner (2 of 2), or with the wedgie, the wedgie + one more (3 of 4).
  *   Wedgie      counts twice; big moves need the wedgie + one more (Instant + wedgie = 3 of 3).
  *   Paper       your own 24-word seed replaces the DAO as the recovery address (not a signer).
@@ -396,7 +396,7 @@ export function Keys({
 
       <Step title="Guardian" done={ownRecovery}>
         <p className="fine">
-          Replaces lost keys in 7 days. Best: <a href="/paper" target="_blank">a paper seed</a>.
+          Replaces lost keys in 14 days. Best: <a href="/paper" target="_blank">a paper seed</a>.
         </p>
         <div className="guardian">
           <AddressInput key={chainId} initial={current} onChange={setGuardianIn} />

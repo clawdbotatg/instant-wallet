@@ -1,6 +1,6 @@
 import "server-only";
 import { type Address, type Hex, keccak256, size, slice } from "viem";
-import { MODULE_FACTORY, MULTICALL3, PASSKEY_FACTORY, RECOVERY_7D, ROLES_MASTERCOPY } from "./config";
+import { MODULE_FACTORY, MULTICALL3, PASSKEY_FACTORY, RECOVERY_14D, ROLES_MASTERCOPY } from "./config";
 import { type Call, rolesAddress } from "./core";
 import { approvesRouter, checkSwap, isSwapTarget } from "./swap";
 
@@ -172,7 +172,7 @@ export async function checkCalls(
     const to = c.to.toLowerCase();
     const s = sel(c.data);
     if (to === safe.toLowerCase() && c.value === 0n && SAFE_SELF.has(s)) continue;
-    if (to === RECOVERY_7D.toLowerCase() && c.value === 0n) continue; // Candide: guardians, cancel
+    if (to === RECOVERY_14D.toLowerCase() && c.value === 0n) continue; // Candide: guardians, cancel
     if (to === roles && c.value === 0n) continue; // Roles admin (only the Safe, its owner, may call it)
     if (to === PASSKEY_FACTORY.toLowerCase() && c.value === 0n && s === "0x0d2f0489") continue; // createSigner
     if (
@@ -186,7 +186,7 @@ export async function checkCalls(
     if (c.value === 0n && size(c.data) === 68 && s === TRANSFER) continue; // an ERC-20 transfer
     if (isSwapTarget(c.to) || approvesRouter(c)) continue; // a swap: checked above (receiver, approvals)
     // a site's call (WalletConnect), owner-signed: anything but the wallet's own guts (its guard, fallback, modules)
-    if (allowDapp && to !== safe.toLowerCase() && to !== roles && to !== RECOVERY_7D.toLowerCase()) {
+    if (allowDapp && to !== safe.toLowerCase() && to !== roles && to !== RECOVERY_14D.toLowerCase()) {
       dapp = true;
       continue;
     }

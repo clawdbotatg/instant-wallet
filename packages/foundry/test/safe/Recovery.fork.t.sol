@@ -3,7 +3,7 @@ pragma solidity ^0.8.20;
 
 import "./SafeBase.sol";
 
-/// Recovery (Candide, 7 days, DAO guardian from the first setup). Includes a wallet that was never deployed.
+/// Recovery (Candide, 14 days, DAO guardian from the first setup). Includes a wallet that was never deployed.
 contract RecoveryTest is SafeBase {
     Passkey burner;
     Passkey newBurner;
@@ -35,7 +35,7 @@ contract RecoveryTest is SafeBase {
     }
 
     function _startRecovery(address[] memory owners, uint256 threshold) internal {
-        _dao(RECOVERY_7D, abi.encodeCall(ISocialRecovery.confirmRecovery, (wallet, owners, threshold, true)));
+        _dao(RECOVERY_14D, abi.encodeCall(ISocialRecovery.confirmRecovery, (wallet, owners, threshold, true)));
     }
 
     function test_recoverAWalletThatWasNeverDeployed() public {
@@ -50,12 +50,12 @@ contract RecoveryTest is SafeBase {
         address newSigner = _deploySigner(newBurner);
         _startRecovery(_owners1(newSigner), 1);
 
-        vm.warp(block.timestamp + 7 days - 1);
+        vm.warp(block.timestamp + 14 days - 1);
         vm.expectRevert();
-        ISocialRecovery(RECOVERY_7D).finalizeRecovery(wallet);
+        ISocialRecovery(RECOVERY_14D).finalizeRecovery(wallet);
 
         vm.warp(block.timestamp + 1);
-        ISocialRecovery(RECOVERY_7D).finalizeRecovery(wallet); // anyone can finalize
+        ISocialRecovery(RECOVERY_14D).finalizeRecovery(wallet); // anyone can finalize
 
         ISafe safe = ISafe(wallet);
         assertEq(safe.getOwners().length, 1);
@@ -81,12 +81,12 @@ contract RecoveryTest is SafeBase {
         _startRecovery(_owners1(evilSigner), 1);
 
         // the alert fires; the owner cancels (the wallet itself calls cancelRecovery)
-        SafeTx memory t = SafeTx(RECOVERY_7D, 0, abi.encodeCall(ISocialRecovery.cancelRecovery, ()), Operation.Call);
+        SafeTx memory t = SafeTx(RECOVERY_14D, 0, abi.encodeCall(ISocialRecovery.cancelRecovery, ()), Operation.Call);
         assertTrue(_exec(safe, t, _encodeSigs(_one(_passkeySig(burner, _hash(safe, t))))));
 
-        vm.warp(block.timestamp + 8 days);
+        vm.warp(block.timestamp + 15 days);
         vm.expectRevert();
-        ISocialRecovery(RECOVERY_7D).finalizeRecovery(wallet);
+        ISocialRecovery(RECOVERY_14D).finalizeRecovery(wallet);
         assertEq(safe.getOwners()[0], burnerSigner);
     }
 
@@ -95,7 +95,7 @@ contract RecoveryTest is SafeBase {
         address[] memory o = _owners1(makeAddr("thief"));
         vm.prank(makeAddr("thief"));
         vm.expectRevert();
-        ISocialRecovery(RECOVERY_7D).confirmRecovery(wallet, o, 1, true);
+        ISocialRecovery(RECOVERY_14D).confirmRecovery(wallet, o, 1, true);
     }
 
     function test_ownerReplacesTheDaoWithItsOwnRecoveryAddress() public {
@@ -105,28 +105,28 @@ contract RecoveryTest is SafeBase {
         address paper = vm.addr(uint256(keccak256("paper seed")));
         SafeTx memory t = _batch(
             abi.encodePacked(
-                _call(RECOVERY_7D, 0, abi.encodeCall(ISocialRecovery.addGuardianWithThreshold, (paper, 1))),
+                _call(RECOVERY_14D, 0, abi.encodeCall(ISocialRecovery.addGuardianWithThreshold, (paper, 1))),
                 // guardians are a linked list; the newest is first, so the DAO's previous entry is `paper`
-                _call(RECOVERY_7D, 0, abi.encodeCall(ISocialRecovery.revokeGuardianWithThreshold, (paper, DAO, 1)))
+                _call(RECOVERY_14D, 0, abi.encodeCall(ISocialRecovery.revokeGuardianWithThreshold, (paper, DAO, 1)))
             )
         );
         assertTrue(_exec(safe, t, _encodeSigs(_one(_passkeySig(burner, _hash(safe, t))))));
-        assertTrue(ISocialRecovery(RECOVERY_7D).isGuardian(wallet, paper));
-        assertFalse(ISocialRecovery(RECOVERY_7D).isGuardian(wallet, DAO));
+        assertTrue(ISocialRecovery(RECOVERY_14D).isGuardian(wallet, paper));
+        assertFalse(ISocialRecovery(RECOVERY_14D).isGuardian(wallet, DAO));
 
         // the DAO can no longer start a recovery
         address[] memory o = _owners1(makeAddr("x"));
         vm.prank(DAO);
         vm.expectRevert();
-        ISocialRecovery(RECOVERY_7D).confirmRecovery(wallet, o, 1, true);
+        ISocialRecovery(RECOVERY_14D).confirmRecovery(wallet, o, 1, true);
 
         // the paper can
         Passkey memory phone2 = _passkey("phone 2");
         address s2 = _deploySigner(phone2);
         vm.prank(paper);
-        ISocialRecovery(RECOVERY_7D).confirmRecovery(wallet, _owners1(s2), 1, true);
-        vm.warp(block.timestamp + 7 days);
-        ISocialRecovery(RECOVERY_7D).finalizeRecovery(wallet);
+        ISocialRecovery(RECOVERY_14D).confirmRecovery(wallet, _owners1(s2), 1, true);
+        vm.warp(block.timestamp + 14 days);
+        ISocialRecovery(RECOVERY_14D).finalizeRecovery(wallet);
         assertEq(safe.getOwners()[0], s2);
     }
 
@@ -137,8 +137,8 @@ contract RecoveryTest is SafeBase {
         o[1] = makeAddr("hot");
         o[2] = makeAddr("cold");
         _startRecovery(o, 2);
-        vm.warp(block.timestamp + 7 days);
-        ISocialRecovery(RECOVERY_7D).finalizeRecovery(wallet);
+        vm.warp(block.timestamp + 14 days);
+        ISocialRecovery(RECOVERY_14D).finalizeRecovery(wallet);
         assertEq(ISafe(wallet).getOwners().length, 3);
         assertEq(ISafe(wallet).getThreshold(), 2);
     }

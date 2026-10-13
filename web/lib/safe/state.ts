@@ -1,6 +1,6 @@
 import { type Address, type Hex, getAddress, keccak256, size, toBytes, zeroAddress } from "viem";
 import { CHAINS, publicClient } from "../chains";
-import { DAO, KEY_ETH, KEY_FEE_USDC, KEY_USDC, RECOVERY_7D } from "./config";
+import { DAO, KEY_ETH, KEY_FEE_USDC, KEY_USDC, RECOVERY_14D } from "./config";
 import { abi, rolesAddress, safeAddress, signerAddress } from "./core";
 import { VERIFIERS_SLOT2 } from "./config";
 
@@ -100,8 +100,8 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
     read("getThreshold"),
     read("nonce"),
     read("isModuleEnabled", [roles]),
-    read("getGuardians", [safe], RECOVERY_7D, abi.recovery).catch(() => null),
-    read("getRecoveryRequest", [safe], RECOVERY_7D, abi.recovery).catch(() => null),
+    read("getGuardians", [safe], RECOVERY_14D, abi.recovery).catch(() => null),
+    read("getRecoveryRequest", [safe], RECOVERY_14D, abi.recovery).catch(() => null),
   ]);
   let budget: ChainState["budget"] = null;
   const rolesCode = await pc.getCode({ address: roles }).catch(() => undefined);

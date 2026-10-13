@@ -238,7 +238,7 @@ contract Level2Test is SafeBase {
         assertTrue(safe.isOwner(hot));
         assertTrue(safe.isOwner(burnerSigner));
         assertTrue(safe.isModuleEnabled(address(roles)));
-        assertTrue(safe.isModuleEnabled(RECOVERY_7D));
+        assertTrue(safe.isModuleEnabled(RECOVERY_14D));
     }
 
     function test_burnerSpendsWithinItsBudgetAndPaysTheRelay() public {

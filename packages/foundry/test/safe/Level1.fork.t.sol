@@ -68,9 +68,9 @@ contract Level1Test is SafeBase {
         assertEq(safe.getThreshold(), 1);
         assertEq(safe.getOwners().length, 1);
         assertEq(safe.getOwners()[0], burnerSigner);
-        assertTrue(safe.isModuleEnabled(RECOVERY_7D));
-        assertTrue(ISocialRecovery(RECOVERY_7D).isGuardian(predicted, DAO));
-        assertEq(ISocialRecovery(RECOVERY_7D).threshold(predicted), 1);
+        assertTrue(safe.isModuleEnabled(RECOVERY_14D));
+        assertTrue(ISocialRecovery(RECOVERY_14D).isGuardian(predicted, DAO));
+        assertEq(ISocialRecovery(RECOVERY_14D).threshold(predicted), 1);
         assertEq(safe.nonce(), 1);
     }
 

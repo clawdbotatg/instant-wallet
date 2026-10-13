@@ -123,7 +123,7 @@ abstract contract SafeBase is Test {
     address constant FALLBACK_HANDLER = 0x3EfCBb83A4A7AfcB4F68D501E2c2203a38be77f4; // CompatibilityFallbackHandler 1.5.0
     address constant PASSKEY_FACTORY = 0x1d31F259eE307358a26dFb23EB365939E8641195; // safe-modules passkey 0.2.1
     address constant DAIMO_VERIFIER = 0xc2b78104907F722DABAc4C69f826a522B2754De4; // P-256 fallback verifier
-    address constant RECOVERY_7D = 0x088f6cfD8BB1dDb1BB069CCb3fc1A98927D233f2; // Candide SocialRecoveryModule, 7 days
+    address constant RECOVERY_14D = 0x9BacD92F4687Db306D7ded5d4513a51EA05df25b; // Candide SocialRecoveryModule, 14 days
     address constant DAO = 0xeF899e80aA814ab8D8e232f9Ed6403A633C727ec; // dao.buidlguidl.eth, same Safe on both chains
     address constant MULTICALL3 = 0xcA11bde05977b3631167028862bE2a173976CA11;
     address constant USDC = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913; // Base
@@ -256,13 +256,13 @@ abstract contract SafeBase is Test {
     // ---------------------------------------------------------------- the first setup
 
     /// Level 1's first setup (fixed into the address forever): the burner's signer is the only owner, and
-    /// Candide's 7-day recovery is on with the DAO as guardian. Inner call `to = 0` = the Safe itself.
+    /// Candide's 14-day recovery is on with the DAO as guardian. Inner call `to = 0` = the Safe itself.
     function _initializer(address burnerSigner) internal pure returns (bytes memory) {
         address[] memory owners = new address[](1);
         owners[0] = burnerSigner;
         bytes memory setupCalls = abi.encodePacked(
-            _call(address(0), 0, abi.encodeCall(ISafe.enableModule, (RECOVERY_7D))),
-            _call(RECOVERY_7D, 0, abi.encodeCall(ISocialRecovery.addGuardianWithThreshold, (DAO, 1)))
+            _call(address(0), 0, abi.encodeCall(ISafe.enableModule, (RECOVERY_14D))),
+            _call(RECOVERY_14D, 0, abi.encodeCall(ISocialRecovery.addGuardianWithThreshold, (DAO, 1)))
         );
         return abi.encodeCall(
             ISafe.setup,

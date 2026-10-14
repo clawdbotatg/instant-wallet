@@ -25,7 +25,7 @@ import { Parked } from "@/lib/safe/pending";
 
 /**
  * Send: who → what → how much → review (which keys, the fee) → sign → the relay sends. The burner alone covers
- * level 1, and its daily budget after that; bigger moves ask for the other keys (hot wallet, wedgie).
+ * level 1, and its daily budget after that; bigger moves ask for the other keys (the wedgie).
  */
 export function SafeSend({
   account,

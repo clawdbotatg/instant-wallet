@@ -524,7 +524,7 @@ export function SafeSwap({
         </div>
       )}
 
-      {needsComputer && <p className="err">Swaps at your level need your hot wallet too: open Instant Wallet on your computer.</p>}
+      {needsComputer && <p className="err">Swaps on this wallet need a key that isn&apos;t here: open Instant Wallet on your computer.</p>}
       {feeShort && <p className="err">Not enough {feeToken === "usdc" ? "USDC" : nativeSymbol(chainId)} on {chainById(chainId)?.name} for this plus the fee.</p>}
       {error && <p className="err">{error}</p>}
       <button className="btn btn-green wide go-swap" onClick={swap} disabled={busy || !ready}>

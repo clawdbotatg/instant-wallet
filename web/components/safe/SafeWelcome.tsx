@@ -169,7 +169,7 @@ export function SafeWelcome({ onReady }: { onReady: (a: SafeAccount) => void }) 
         <div className="welcome">
           <div className="stack">
             <h1>Recover a wallet</h1>
-            <p>Lost your phone? This makes a new key on this device. Your recovery address (the DAO, or your paper seed) then swaps it in; it takes 7 days, and you can cancel it from any key you still have.</p>
+            <p>Lost your phone? This makes a new key on this device. Your recovery address (the DAO, or your own recovery wallet) then swaps it in; it takes 7 days, and you can cancel it from any key you still have.</p>
           </div>
           <div className="input">
             <input value={wallet} onChange={e => setWallet(e.target.value)} placeholder="0x… your wallet's address" autoCapitalize="none" spellCheck={false} />

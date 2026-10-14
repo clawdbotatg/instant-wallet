@@ -1,5 +1,5 @@
 // End to end for the Safe build (/safe) on a Base fork, through the real UI with a virtual passkey, a fake
-// MetaMask (window.ethereum, signs with a test key) and a fake wedgie (navigator.serial, signs with a test P-256 key
+// MetaMask (window.ethereum: only "send it myself" uses it now, no hot wallet since 10-14) and a fake wedgie (navigator.serial, signs with a test P-256 key
 // exactly like the wedgie-safe app). Every send goes through /api/safe/relay, which pays gas and is paid in the batch.
 //
 //   anvil --fork-url <base rpc> --network optimism --port 8545 &
@@ -93,7 +93,7 @@ const fakeWedgie = async msg => {
   return { id: msg.id, type: "error" };
 };
 await page.exposeFunction("__fakeWedgie", fakeWedgie);
-await ctx.addInitScript(hotAddr => {
+const fakeKeys = hotAddr => {
   // fake MetaMask
   window.ethereum = {
     request: async ({ method, params }) => {
@@ -125,7 +125,8 @@ await ctx.addInitScript(hotAddr => {
     configurable: true,
     value: { getPorts: async () => [port], requestPort: async () => port, addEventListener() {}, removeEventListener() {} },
   });
-}, hot.address);
+};
+await ctx.addInitScript(fakeKeys, hot.address);
 
 const cdp = await ctx.newCDPSession(page);
 await cdp.send("WebAuthn.enable");
@@ -188,7 +189,7 @@ ok(fee1 > 0n && fee1 < 5_000_000n, `relay fee paid in USDC: ${Number(fee1) / 1e6
 ok(cast(`call ${RECOVERY} "isGuardian(address,address)(bool)" ${acct.address} ${DAO}`) === "true", "DAO recovery is on from the first setup");
 
 await send(BOB, "ETH", "0.001", "s4");
-ok(cast(`balance ${BOB}`) === "1000000000000000", "ETH send arrived (fee in ETH)");
+ok(BigInt(cast(`balance ${BOB}`)) > 0n, "ETH send arrived (fee in ETH)"); // the amount box is in dollars now: "0.001" is $0.001
 
 // ---------------------------------------------------------------- swaps (level 1: Face ID alone)
 async function swap(fromSym, amount, toSym, via, shot) {
@@ -198,7 +199,7 @@ async function swap(fromSym, amount, toSym, via, shot) {
   const fromSel = page.locator(".swap .field").first().locator(".pill.select");
   if (!((await fromSel.textContent()) || "").includes(fromSym)) {
     await fromSel.tap();
-    await page.getByPlaceholder("Filter").fill(fromSym.toLowerCase());
+    await page.getByPlaceholder(/Type to filter|Search any token/).fill(fromSym.toLowerCase());
     await page.screenshot({ path: `${OUT}/${shot}-from.png` });
     await page.locator(".swap .picker .pill", { has: page.locator("b", { hasText: new RegExp(`^${fromSym}$`) }) }).first().tap();
   }
@@ -210,7 +211,7 @@ async function swap(fromSym, amount, toSym, via, shot) {
     await page.getByText("Custom: paste a contract address").tap();
     await page.getByPlaceholder(/Token contract on/).fill(toSym);
   } else {
-    await page.getByPlaceholder("Filter").fill(toSym.toLowerCase());
+    await page.getByPlaceholder(/Type to filter|Search any token/).fill(toSym.toLowerCase());
     await page.locator(".swap .picker .pill", { has: page.locator("b", { hasText: new RegExp(`^${toSym}$`) }) }).first().tap();
   }
   await page.screenshot({ path: `${OUT}/${shot}-to.png` });
@@ -244,25 +245,26 @@ async function swap(fromSym, amount, toSym, via, shot) {
   ok(cast(`call ${USDC} "allowance(address,address)(uint256)" ${acct.address} 0x2626664c2603336E57B271c5C0b26F421741e481`) === "0", "no allowance left behind");
 }
 
-// ---------------------------------------------------------------- level 2: add MetaMask
+// ---------------------------------------------------------------- level 2: the wedgie (no hot wallet since 10-14)
 await page.locator(".fab-settings").tap();
-await page.getByText("Connect and add").first().tap();
+ok((await page.getByText("Connect and add", { exact: true }).count()) === 0, "Keys offers no hot wallet");
+await page.getByText("Connect and add the wedgie").tap();
 await page.getByRole("button", { name: "Yes", exact: true }).tap();
 await page.getByText("Done").waitFor({ timeout: 90000 }).catch(() => {});
 await page.waitForTimeout(14000);
 await page.screenshot({ path: `${OUT}/s5-level2.png`, fullPage: true });
-const owners2 = cast(`call ${acct.address} "getOwners()(address[])"`);
-ok(owners2.toLowerCase().includes(hot.address.toLowerCase().slice(2)), "hot wallet is an owner");
-ok(cast(`call ${acct.address} "getThreshold()(uint256)"`) === "2", "threshold 2");
+ok(cast(`call ${acct.address} "getThreshold()(uint256)"`) === "3", "threshold 3 with the wedgie");
+ok(cast(`call ${acct.address} "getOwners()(address[])"`).split(",").length === 3, "3 owners: Instant + the wedgie's two slots");
 await page.keyboard.press("Escape");
 await page.waitForTimeout(1000);
 
+let w1 = wedgieSigns;
 const CAROL = rand();
 const by1 = await send(CAROL, "USDC", "40", "s6");
-ok(usdcOf(CAROL) === 40_000_000n && /Instant/.test(by1) && !/Hot/.test(by1), "within the budget: Face ID alone (Roles)");
+ok(usdcOf(CAROL) === 40_000_000n && /Instant/.test(by1) && !/Wedgie/.test(by1) && wedgieSigns === w1, "within the budget: Face ID alone (Roles)");
 const DAVE = rand();
 const by2 = await send(DAVE, "USDC", "300", "s7");
-ok(usdcOf(DAVE) === 300_000_000n && /Instant \+ Hot wallet/.test(by2), "over the budget: Face ID + hot wallet");
+ok(usdcOf(DAVE) === 300_000_000n && /Instant \+ Wedgie/.test(by2) && wedgieSigns === w1 + 1, "over the budget: Face ID + wedgie");
 
 // ---------------------------------------------------------------- level 3: paper becomes the recovery
 const paper = privateKeyToAccount("0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a").address; // anvil #2
@@ -277,20 +279,8 @@ await page.getByRole("button", { name: "Yes", exact: true }).tap();
 await page.waitForTimeout(20000);
 ok(cast(`call ${RECOVERY} "isGuardian(address,address)(bool)" ${acct.address} ${paper}`) === "true", "paper is the recovery address");
 ok(cast(`call ${RECOVERY} "isGuardian(address,address)(bool)" ${acct.address} ${DAO}`) === "false", "the DAO is no longer the recovery address");
-
-// ---------------------------------------------------------------- level 4: the wedgie
-await page.getByText("Connect and add the wedgie").tap();
-await page.getByRole("button", { name: "Yes", exact: true }).tap();
-await page.waitForTimeout(25000);
-await page.screenshot({ path: `${OUT}/s8-level4.png`, fullPage: true });
-ok(cast(`call ${acct.address} "getThreshold()(uint256)"`) === "3", "threshold 3 with the wedgie");
-ok(cast(`call ${acct.address} "getOwners()(address[])"`).split(",").length === 4, "4 owners (wedgie counts twice)");
 await page.keyboard.press("Escape");
 await page.waitForTimeout(1000);
-const before = wedgieSigns;
-const ERIN = rand();
-const by3 = await send(ERIN, "USDC", "500", "s9", "Wedgie + Hot wallet");
-ok(usdcOf(ERIN) === 500_000_000n && /^Wedgie \+ Hot wallet/.test(by3) && wedgieSigns === before + 1, `big move with all three keys, picked: wedgie (one press) + hot wallet (${by3})`);
 
 // ---------------------------------------------------------------- a recovery someone else starts: alert + cancel
 const thief = rand();
@@ -317,21 +307,14 @@ await page.screenshot({ path: `${OUT}/s11-relogin.png` });
 
 // ---------------------------------------------------------------- the phone is lost: a new device recovers the wallet
 const ctx2 = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
-await ctx2.addInitScript(hotAddr => {
-  window.ethereum = {
-    request: async ({ method, params }) => {
-      if (method === "eth_requestAccounts" || method === "eth_accounts") return [hotAddr];
-      if (method === "eth_signTypedData_v4") return window.__hotSign(params[1]);
-      throw new Error("fake wallet: " + method);
-    },
-  };
-}, hot.address);
+await ctx2.addInitScript(fakeKeys, hot.address);
 const page2 = await ctx2.newPage();
 await page2.exposeFunction("__hotSign", async json => {
   const t = JSON.parse(json);
   delete t.types.EIP712Domain;
   return hot.signTypedData(t);
 });
+await page2.exposeFunction("__fakeWedgie", fakeWedgie);
 page2.on("pageerror", e => console.log("pageerror2", e.message));
 const cdp2 = await ctx2.newCDPSession(page2);
 await cdp2.send("WebAuthn.enable");
@@ -379,20 +362,21 @@ const rolesOf = rolesAddr.match(/0x[0-9a-fA-F]{40}/g).find(m => m.toLowerCase() 
 const members = cast(`call ${rolesOf} "getModulesPaginated(address,uint256)(address[],address)" 0x0000000000000000000000000000000000000001 10`);
 ok(!members.toLowerCase().includes(acct.burnerSigner.toLowerCase().slice(2)), `the lost phone is out of the budget (${members.slice(0, 50)})`);
 ok(modsAfter === rolesAddr, "Roles stays on, ready for this phone");
-// and the recovered phone can level up again (Roles exists: no second deploy)
+// and the recovered phone can level up again (Roles exists: no second deploy), with a new wedgie
+newWedgie();
 await page2.locator(".fab-settings").tap();
-await page2.getByText("Connect and add").first().tap();
+await page2.getByText("Connect and add the wedgie").tap();
 await page2.getByRole("button", { name: "Yes", exact: true }).tap();
 await page2.waitForTimeout(25000);
 const errs2 = await page2.locator(".err").allTextContents();
 if (errs2.length) console.log("on screen:", errs2);
 await page2.screenshot({ path: `${OUT}/s14-recovered-levelup.png`, fullPage: true });
-ok(cast(`call ${acct.address} "getThreshold()(uint256)"`) === "2", "the recovered wallet adds its hot wallet again");
+ok(cast(`call ${acct.address} "getThreshold()(uint256)"`) === "3", "the recovered wallet adds a wedgie again");
 const members2 = cast(`call ${rolesOf} "getModulesPaginated(address,uint256)(address[],address)" 0x0000000000000000000000000000000000000001 10`);
 ok(members2.toLowerCase().includes(acct2.burnerSigner.toLowerCase().slice(2)), "the new phone has the budget now");
 await page2.screenshot({ path: `${OUT}/s13-recovered-sent.png` });
 
-// ---------------------------------------------------------------- any order: a new wallet adds the wedgie first
+// ---------------------------------------------------------------- any order: a new wallet sets its own recovery first, then the wedgie
 await page.close();
 newWedgie();
 page = await ctx.newPage();
@@ -416,43 +400,30 @@ await page.waitForTimeout(13000);
 const lvl = async () => (await page.locator(".fab-settings .lvl").textContent()).replace(/\s/g, "");
 ok((await lvl()) === "1/1", "a new wallet: 1/1");
 await page.locator(".fab-settings").tap();
-await page.getByText("Connect and add the wedgie", { exact: true }).tap();
-await page.getByRole("button", { name: "Yes", exact: true }).tap();
-await page.waitForTimeout(25000);
-const errs3 = await page.locator(".err").allTextContents();
-if (errs3.length) console.log("on screen:", errs3);
-await page.screenshot({ path: `${OUT}/s15-wedgie-first.png`, fullPage: true });
-ok(cast(`call ${acct3.address} "getThreshold()(uint256)"`) === "3", "wedgie first (deploys the wallet too): threshold 3");
-ok(cast(`call ${acct3.address} "getOwners()(address[])"`).split(",").length === 3, "3 owners: Instant + the wedgie's two slots");
-await page.keyboard.press("Escape");
-await page.waitForTimeout(1000);
-ok((await lvl()) === "2/2", "Instant + wedgie: 2/2");
-let w0 = wedgieSigns;
-const GUS = rand();
-const by4 = await send(GUS, "USDC", "30", "s16");
-ok(usdcOf(GUS) === 30_000_000n && !/Wedgie/.test(by4) && wedgieSigns === w0, "Instant + wedgie, within the budget: Face ID alone");
-const HAL = rand();
-const by5 = await send(HAL, "USDC", "300", "s17");
-ok(usdcOf(HAL) === 300_000_000n && /^Instant \+ Wedgie/.test(by5) && wedgieSigns === w0 + 1, "Instant + wedgie, over the budget: Face ID + wedgie");
-// then the hot wallet: the wedgie signs it, 3 of 4 after
-w0 = wedgieSigns;
-await page.locator(".fab-settings").tap();
-await page.getByText("Connect and add", { exact: true }).tap();
-await page.getByRole("button", { name: "Yes", exact: true }).tap();
-await page.waitForTimeout(25000);
-ok(cast(`call ${acct3.address} "getOwners()(address[])"`).toLowerCase().includes(hot.address.toLowerCase().slice(2)), "hot wallet added after the wedgie");
-ok(cast(`call ${acct3.address} "getThreshold()(uint256)"`) === "3" && wedgieSigns === w0 + 1, "still threshold 3 (now 3 of 4); the wedgie signed it");
-// and paper last
 await page.locator(".guardian input").tap();
 await page.waitForTimeout(300);
 await page.locator(".guardian input").fill(paper);
 await page.getByRole("button", { name: "Save", exact: true }).tap();
 await page.getByRole("button", { name: "Yes", exact: true }).tap();
 await page.waitForTimeout(25000);
-ok(cast(`call ${RECOVERY} "isGuardian(address,address)(bool)" ${acct3.address} ${paper}`) === "true", "paper after the wedgie: it's the recovery address");
+ok(cast(`call ${RECOVERY} "isGuardian(address,address)(bool)" ${acct3.address} ${paper}`) === "true", "recovery first (Face ID alone, deploys the wallet too)");
+let w0 = wedgieSigns;
+await page.getByText("Connect and add the wedgie", { exact: true }).tap();
+await page.getByRole("button", { name: "Yes", exact: true }).tap();
+await page.waitForTimeout(25000);
+const errs3 = await page.locator(".err").allTextContents();
+if (errs3.length) console.log("on screen:", errs3);
+await page.screenshot({ path: `${OUT}/s15-recovery-then-wedgie.png`, fullPage: true });
+ok(cast(`call ${acct3.address} "getThreshold()(uint256)"`) === "3" && wedgieSigns === w0, "then the wedgie: threshold 3, Face ID alone signed it");
 await page.keyboard.press("Escape");
 await page.waitForTimeout(1000);
-ok((await lvl()) === "2/3", "Instant + hot + wedgie: 2/3");
+ok((await lvl()) === "2/2", "Instant + wedgie: 2/2");
+const GUS = rand();
+const by4 = await send(GUS, "USDC", "30", "s16");
+ok(usdcOf(GUS) === 30_000_000n && !/Wedgie/.test(by4) && wedgieSigns === w0, "within the budget: Face ID alone");
+const HAL = rand();
+const by5 = await send(HAL, "USDC", "300", "s17");
+ok(usdcOf(HAL) === 300_000_000n && /^Instant \+ Wedgie/.test(by5) && wedgieSigns === w0 + 1, "over the budget: Face ID + wedgie");
 await page.screenshot({ path: `${OUT}/s18-any-order-done.png` });
 
 await browser.close();

@@ -7,7 +7,6 @@ import { CHAINS, chainById, explorerAddress, nativeSymbol } from "@/lib/chains";
 import { short } from "@/lib/format";
 import { DAO, FEE_ALLOWANCE, VERIFIERS, VERIFIERS_SLOT2 } from "@/lib/safe/config";
 import { type Call, DEFAULT_BUDGET, abi, budgetCalls, deploySignerCall, feeAllowanceCalls, selfCall, setBudgetCalls, setGuardianCalls } from "@/lib/safe/core";
-import { connectHot, hotAvailable } from "@/lib/safe/hot";
 import { type FeeToken, type Prepared, type Signer, finishOwners, getQuote, ownerSigners, prepareOwners } from "@/lib/safe/send";
 import { type ChainState, type SafeAccount, hotOf, readChain, wedgieSigners } from "@/lib/safe/state";
 import { Wedgie, wedgieDrive, wedgieSupported } from "@/lib/safe/wedgie";
@@ -17,12 +16,13 @@ import { ChainSelect } from "./Pick";
 import { friendly } from "../Welcome";
 
 /**
- * Keys & safety, per chain (each chain's Safe is its own). The burner (Face ID) starts alone, the DAO can recover it
- * (7 days, you can cancel). Then, in any order:
- *   Hot wallet  an owner; big moves need it + the burner (2 of 2), or with the wedgie, the wedgie + one more (3 of 4).
- *   Wedgie      counts twice; big moves need the wedgie + one more (Instant + wedgie = 3 of 3).
- *   Paper       your own 24-word seed replaces the DAO as the recovery address (not a signer).
- * The first second key also gives the burner its daily budget (Zodiac Roles). LVL = how many signing keys (1–3).
+ * Keys & safety, per chain (each chain's Safe is its own). Three things (Austin 10-14: no hot wallet any more):
+ *   Instant     the passkey (Face ID). Alone at first; once the wedgie is on, it spends a daily limit.
+ *   Wedgie      the hardware key, counts twice: big moves and settings need the wedgie + Instant (3 of 3).
+ *   Recovery    starts as the DAO; set it to any address you control (MetaMask, Ledger, ENS, a paper seed). It can
+ *               only replace lost keys, after 7 days, and you can cancel. Not a signer.
+ * Pairing the wedgie also gives the burner its daily budget (Zodiac Roles). A wallet that already has a hot wallet
+ * (added before 10-14) keeps it: it's still an owner, so it's shown and can still sign.
  */
 export function Keys({
   account,
@@ -61,7 +61,7 @@ export function Keys({
   const canPay = haveUsdc || haveEth || assets.some(a => a.chainId === chainId && a.asset.toLowerCase() === usdc && BigInt(a.balance) > 0n);
   const hot = st ? hotOf(account, st) : account.hot;
 
-  // the budget comes with the first second key, whichever it is (the burner is still the only owner then)
+  // the budget comes with the first second key (the wedgie; on older wallets maybe a hot wallet)
   // (with the fee's own allowance, so the relay's USDC fee doesn't come off the limit)
   const now = () => BigInt(Math.floor(Date.now() / 1000));
   // (no USDC on this chain: fees are in its native coin, there's no USDC fee to keep apart)
@@ -155,38 +155,19 @@ export function Keys({
   const signLabel = (p: Prepared) =>
     p.opts.signers.map(x => (x === "burner" ? "your Instant wallet" : x === "hot" ? "your hot wallet" : "the wedgie")).join(" + ");
 
-  const addHot = () =>
-    prep("hot", async () => {
-      const st = await fresh();
-      if (st.hasHot) throw new Error("A hot wallet is already on this wallet here.");
-      const h = await connectHot();
-      if (h.toLowerCase() === account.address.toLowerCase()) throw new Error("That's this wallet itself.");
-      // Instant alone: 2 of 2. With the wedgie (3 of 3): 3 of 4, so the wedgie + any one.
-      const calls = [...(await budgetFirst(st)), selfCall(account.address, encodeFunctionData({ abi: abi.safe, functionName: "addOwnerWithThreshold", args: [h, st.hasWedgie ? 3n : 2n] }))];
-      const signers = ownerSigners(st, account);
-      const w = await wedgieFor(signers);
-      try {
-        const p = await prepareOwners({ account, state: st, calls, signers, feeToken, setup: true, wedgie: w });
-        return { label: <>Add <Addr a={h} chainId={chainId} inline /> as your hot wallet</>, p, after: () => onAccount({ ...account, hot: h }), settled: s => s.hasHot, close: async () => w?.close() };
-      } catch (e) {
-        await w?.close();
-        throw e;
-      }
-    });
-
   const setPaper = () =>
     prep("paper", async () => {
       const st = await fresh();
       if (!guardianIn) throw new Error("Enter an address (0x…) or an ENS name.");
       const paper = guardianIn;
-      if (st.owners.some(o => o.toLowerCase() === paper.toLowerCase())) throw new Error("That address is already one of your keys. The guardian must be separate.");
+      if (st.owners.some(o => o.toLowerCase() === paper.toLowerCase())) throw new Error("That address is already one of your keys. Recovery must be separate.");
       if (!st.guardians) throw new Error("Couldn't read the current recovery address. Try again in a moment.");
       const signers = ownerSigners(st, account);
       const w = await wedgieFor(signers);
       try {
         const p = await prepareOwners({ account, state: st, calls: setGuardianCalls(st.guardians, paper), signers, feeToken, wedgie: w });
         return {
-          label: <>Make <Addr a={paper} chainId={chainId} inline /> your guardian</>,
+          label: <>Make <Addr a={paper} chainId={chainId} inline /> your recovery address</>,
           p,
           after: () => {
             onAccount({ ...account, paper });
@@ -237,7 +218,7 @@ export function Keys({
         if (st.hasWedgie) throw new Error("The wedgie is already on this wallet here.");
         const key = await w.key();
         const [w1, w2] = wedgieSigners(key);
-        // Instant alone (1 of 1) → 3 of 3; Instant + hot (2 of 2) → 3 of 4. Either way the wedgie + one more.
+        // Instant alone (1 of 1) → 3 of 3: the wedgie + Instant. (An older wallet's Instant + hot, 2 of 2 → 3 of 4.)
         const calls = [
           ...(await budgetFirst(st)),
           deploySignerCall(key.x, key.y, VERIFIERS),
@@ -320,7 +301,8 @@ export function Keys({
       {st?.hasWedgie ? (
         <KeyRow kind="Wedgie" a={st.wedgie} chainId={chainId} />
       ) : (
-        <Step title="Wedgie (cold)">
+        <Step title="Wedgie (hardware key)">
+          <p className="fine">Keeping more than about $100 here? Pair a wedgie. Instant then spends a daily limit, and anything bigger needs the wedgie too.</p>
           <p className="fine">
             {wedgieDrive() ? "Plug it into this iPhone" : "Plug it into a computer (Chrome)"}, open its Safe signer app, then add it. Don&apos;t have one?{" "}
             <a href="https://wedgie.dev" target="_blank" rel="noreferrer">
@@ -336,19 +318,7 @@ export function Keys({
         </Step>
       )}
 
-      {st?.hasHot ? (
-        <KeyRow kind="Hot wallet" a={hot} chainId={chainId} />
-      ) : (
-        <Step title="Hot wallet">
-          <p className="fine">Any wallet extension on a computer, or a wallet app on your phone. Open this page in it, then add it.</p>
-          {action(
-            "hot",
-            <button className="btn btn-green wide" onClick={addHot} disabled={!!busy || !!pending || !!wait || !canPay || !hotAvailable()}>
-              {busy === "hot" ? "Connecting…" : hotAvailable() ? "Connect and add" : "No browser wallet here"}
-            </button>,
-          )}
-        </Step>
-      )}
+      {st?.hasHot && <KeyRow kind="Hot wallet" a={hot} chainId={chainId} />}
       {st?.budget && st.threshold > 1 && (
         <Step title={`Daily limit (1 of ${st.level} keys)`} key={`limit${chainId}`}>
           {editLimit !== chainId ? (
@@ -394,9 +364,15 @@ export function Keys({
         </Step>
       )}
 
-      <Step title="Guardian" done={ownRecovery}>
+      <Step title="Recovery" done={ownRecovery}>
         <p className="fine">
-          Replaces lost keys in 7 days. Best: <a href="/paper" target="_blank">a paper seed</a>.
+          {ownRecovery
+            ? "Your own address can replace lost keys."
+            : "Right now the DAO (dao.buidlguidl.eth) can replace lost keys. Set this to a wallet you control: MetaMask, a Ledger, your ENS name."}{" "}
+          It can only do that, it waits 7 days, and you can cancel it.
+        </p>
+        <p className="fine">
+          No wallet for it yet? <a href="/paper" target="_blank">Make a 24-word seed on 3 paper cards</a>.
         </p>
         <div className="guardian">
           <AddressInput key={chainId} initial={current} onChange={setGuardianIn} />

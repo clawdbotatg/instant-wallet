@@ -1,6 +1,8 @@
 # Levels — from burner to full self-custody
 
 > **Superseded / summarized by `PLAN.md` (2026-10-05)** — read that first.
+> **2026-10-14: no hot wallet.** Keys are the passkey and the wedgie; the recovery address (DAO at first, then any
+> address you control) is the third thing. See `SAFE-APP.md`.
 
 Austin, 2026-10-05. One Safe, one address for life. Each dial moves from "easy, trusts us" to
 "harder, trusts nobody". The app shows where you are and nudges you up (e.g. by balance). Add dials as we

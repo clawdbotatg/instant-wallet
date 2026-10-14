@@ -1,3 +1,7 @@
+> **2026-10-14 (Austin): the hot wallet is dropped.** Just the passkey, the wedgie, and the recovery address (DAO at
+> first, then anything you control, e.g. your MetaMask / ENS / a seed on paper cards). Everything below that uses "hot"
+> is from before; phase 4 needs a rethink with two keys.
+
 # Instant Wallet — the plan
 
 2026-10-05. **This is the master doc.** It replaces the rules in `ROLES.md` and `COLD-STORAGE.md` (no more

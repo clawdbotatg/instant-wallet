@@ -12,6 +12,7 @@ import { type ChainState, type SafeAccount, hotOf, readChain, wedgieSigners } fr
 import { Wedgie, wedgieDrive, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
 import { AddressInput, Blockie } from "../bits";
+import { Alerts } from "./Alerts";
 import { ChainSelect } from "./Pick";
 import { friendly } from "../Welcome";
 
@@ -383,6 +384,10 @@ export function Keys({
             {busy === "paper" ? "Working…" : "Save"}
           </button>,
         )}
+      </Step>
+
+      <Step title="Recovery alerts" key="alerts">
+        <Alerts account={account} toast={toast} />
       </Step>
 
 

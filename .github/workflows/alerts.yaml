@@ -1,0 +1,14 @@
+name: Recovery alerts
+
+# Runs the recovery watcher (web/app/api/alerts/check) every 5 minutes. GitHub may run it a few minutes late; a
+# recovery waits 7 days, so that's fine.
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: curl -sS --fail --max-time 60 https://instantwallet.io/api/alerts/check

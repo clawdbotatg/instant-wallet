@@ -134,6 +134,20 @@ with an alert) until you remove it at level 5. It's a good fit: recovery is rare
   makes every move wait, with no instant path, misses 4337/module transactions, and we couldn't find its audit.
   Ours: a module that queues moves signed by wedgie + one, runs them after 24 h, and lets any two keys cancel. It checks signatures and executes as the Safe, so it has full power: it needs a full audit.
   **Until phase 4 ships, the Safe needs 3 votes and wedgie + one is instant.**
+- **Maybe: no custom contract (idea, 10-13, not decided).** Our module could move every wallet's money, so
+  one bug loses everything. Existing audited parts might do the wait + two-key cancel instead:
+  - **Zodiac Delay.** Its owner (who can cancel) doesn't have to be the Safe. A "pair" Safe (W1, W2, B, H,
+    3 votes) is the only module that can queue; after 24 h anyone runs it. A "cancel" Safe (W, B, H, any 2)
+    owns the Delay through Zodiac Roles, scoped to `setTxNonce` only. UMA and Term Finance use this
+    Roles-scoped veto. Catch: the queue is in order, so cancelling one move also cancels the ones before it.
+  - **OpenZeppelin TimelockController**, enabled as a Safe module. Separate proposer / canceller / executor
+    roles: pair Safe proposes, cancel Safe cancels, anyone executes. Cancels one move at a time. The most
+    used timelock there is.
+  - **Rhinestone ColdStorageHook** (ERC-7579, via Safe7579; Ackee audited). Timelocked withdrawals, but no
+    "any two keys cancel". Weaker fit.
+  - What's still ours: setup, and keeping the pair and cancel Safes' owners in step with the main Safe on
+    every key change. After a recovery, the new owners must turn the Delay/timelock off (old keys could still
+    queue). Check before choosing: budgets (Roles), the key map, epoch, travel lock, and 4337 all still fit.
 
 ### Phase-4 contract rules (precise; follow-up review #1, #3, #5, #7)
 

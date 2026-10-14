@@ -9,7 +9,8 @@ const config: NextConfig = {
   // Vercel sends `Access-Control-Allow-Origin: *` on static pages by default; only our own site may read us
   // (Coinbase Onramp's security requirements).
   async headers() {
-    return [{ source: "/:path*", headers: [{ key: "Access-Control-Allow-Origin", value: "https://instantwallet.io" }] }];
+    // (/api/safe/queue sets its own: wedgie.dev/safe shares that queue)
+    return [{ source: "/:path((?!api/safe/queue).*)", headers: [{ key: "Access-Control-Allow-Origin", value: "https://instantwallet.io" }] }];
   },
   // the Safe build moved from /safe to / (2026-10-06); the v3 wallet is at /v3
   async redirects() {

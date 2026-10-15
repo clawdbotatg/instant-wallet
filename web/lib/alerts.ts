@@ -1,6 +1,7 @@
 import "server-only";
 import { p256 } from "@noble/curves/nist.js";
 import { sha256 } from "@noble/hashes/sha2.js";
+import nodemailer from "nodemailer";
 import webpush from "web-push";
 import { type Address, type Hex, createPublicClient, getAddress, http, keccak256, toBytes } from "viem";
 import { CHAINS, chainById } from "./chains";
@@ -141,18 +142,16 @@ export async function authorize(wallet: Address, change: string, s: Signed): Pro
 const SITE = process.env.ALERT_SITE || "https://instantwallet.io";
 const TG = process.env.TELEGRAM_BOT_TOKEN;
 export const channels = () => ({
-  email: !!process.env.RESEND_API_KEY,
+  email: !!process.env.ALERT_MAIL_USER && !!process.env.ALERT_MAIL_PASS,
   telegram: !!TG && !!process.env.TELEGRAM_BOT_NAME,
   push: !!process.env.VAPID_PRIVATE_KEY && !!process.env.NEXT_PUBLIC_VAPID_KEY,
 });
 
+// wedgie@buidlguidl.com, the same Gmail (app password) wedgie.dev sends from
+let smtp: ReturnType<typeof nodemailer.createTransport> | null = null;
 export async function sendEmail(to: string, subject: string, text: string) {
-  const r = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { authorization: `Bearer ${process.env.RESEND_API_KEY}`, "content-type": "application/json" },
-    body: JSON.stringify({ from: process.env.ALERT_FROM || "Instant Wallet <alerts@instantwallet.io>", to, subject, text }),
-  });
-  if (!r.ok) throw new Error(`email: ${r.status} ${await r.text()}`);
+  smtp ||= nodemailer.createTransport({ host: "smtp.gmail.com", port: 465, secure: true, auth: { user: process.env.ALERT_MAIL_USER, pass: process.env.ALERT_MAIL_PASS } });
+  await smtp.sendMail({ from: `Instant Wallet <${process.env.ALERT_MAIL_USER}>`, to, subject, text });
 }
 
 export async function sendTelegram(chat: number, text: string) {

@@ -1,7 +1,7 @@
 // Recovery alerts against a local app on a Base fork: who may change a wallet's contacts, and the watcher seeing a
 // recovery start.
 //   anvil --fork-url <base rpc> --port 8545 &
-//   NEXT_PUBLIC_CHAINS=8453 BASE_RPC_URL=http://127.0.0.1:8545 RESEND_API_KEY=re_fake npx next dev -p 3100 &
+//   NEXT_PUBLIC_CHAINS=8453 BASE_RPC_URL=http://127.0.0.1:8545 ALERT_MAIL_USER=x@example.com ALERT_MAIL_PASS=fake npx next dev -p 3100 &
 //   npx tsx tools/alerts-check.mts
 import { p256 } from "@noble/curves/nist.js";
 import { sha256 } from "@noble/hashes/sha2.js";
@@ -56,7 +56,7 @@ ok(r.status === 403, `an old signature is refused (${r.j.error})`);
 const good = sign(me, me.wallet, JSON.stringify(ch));
 r = await post(me.wallet, ch, good);
 ok(r.status === 200 && r.j.contacts.email === "ow…@example.com", `the wallet's own passkey sets the email (${JSON.stringify(r.j.contacts)})`);
-ok(r.j.errors.some((e: string) => /email: 40\d/.test(e)), "it tried to send the confirmation email (fake Resend key here)");
+ok(r.j.errors.length > 0, "it tried to send the confirmation email (fake Gmail login here)");
 r = await post(me.wallet, ch, good);
 ok(r.status === 403, `the same signature can't be used twice (${r.j.error})`);
 const g = await fetch(`${APP}/api/alerts?wallet=${me.wallet}`).then(x => x.json());

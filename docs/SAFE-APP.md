@@ -27,7 +27,7 @@ still sign (`hotOf`, the `"hot"` signer in `lib/safe/send.ts`).
   Safari: it only allows them for a home-screen app). A job reads every listed wallet's recovery on every chain every
   5 min (`.github/workflows/alerts.yaml` → `/api/alerts/check`) and sends once, then once more in the last day.
   Changing them takes Face ID (P-256 checked on the server, the key must own the wallet), and the old contacts are
-  told. `web/lib/alerts.ts`; test `web/tools/alerts-check.mts`. Env: `RESEND_API_KEY` (+ `ALERT_FROM`),
+  told. `web/lib/alerts.ts`; test `web/tools/alerts-check.mts`. Env: `ALERT_MAIL_USER` + `ALERT_MAIL_PASS` (wedgie@buidlguidl.com, Gmail app password, same as wedgie.dev),
   `TELEGRAM_BOT_TOKEN` + `TELEGRAM_BOT_NAME` + `TELEGRAM_WEBHOOK_SECRET` (setWebhook: see the route),
   `NEXT_PUBLIC_VAPID_KEY` + `VAPID_PRIVATE_KEY`. A channel without its env is hidden.
 - **Each chain is its own Safe** (same address): level up per chain (Keys has a chain picker).

@@ -24,6 +24,7 @@
     "html5-qrcode": "^2.3.8",
     "jspdf": "4.2.1",
     "next": "^15.5.27",
+    "nodemailer": "^6.9.16",
     "qrcode": "^1.5.4",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
@@ -33,6 +34,7 @@
   },
   "devDependencies": {
     "@types/node": "^26.6.4",
+    "@types/nodemailer": "^6.4.17",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",

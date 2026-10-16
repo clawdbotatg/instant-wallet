@@ -1,6 +1,6 @@
 import { type Address, type Hex, getAddress, keccak256, size, toBytes, zeroAddress } from "viem";
 import { CHAINS, publicClient } from "../chains";
-import { DAO, KEY_ETH, KEY_FEE_USDC, KEY_USDC, RECOVERY_7D } from "./config";
+import { DAO, KEY_ETH, KEY_FEE_USDC, KEY_USDC, RECOVERY_14D, RECOVERY_7D } from "./config";
 import { abi, rolesAddress, safeAddress, signerAddress } from "./core";
 import { VERIFIERS_SLOT2 } from "./config";
 
@@ -56,6 +56,9 @@ export type ChainState = {
   threshold: number;
   nonce: bigint;
   guardians: Address[] | null; // null = couldn't read them
+  recoveryModule: Address; // Candide's 7-day module, or the 14-day one once the wedgie is paired
+  recoveryDays: number;
+  modules: Address[]; // every module on (the order matters to turn one off)
   recovery: Recovery;
   roles: Address | null; // enabled Roles modifier (the burner's budget)
   staleBudget: boolean; // Roles is on and some other key is its member (a lost phone's budget, after a recovery)
@@ -82,6 +85,9 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
       threshold: 1,
       nonce: 0n,
       guardians: [DAO],
+      recoveryModule: RECOVERY_7D,
+      recoveryDays: 7,
+      modules: [RECOVERY_7D],
       recovery: null,
       roles: null,
       staleBudget: false,
@@ -95,13 +101,18 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
   const read = (functionName: any, args: any[] = [], address: Address = safe, ab: any = abi.safe) =>
     pc.readContract({ address, abi: ab, functionName, args } as any) as Promise<any>;
   const roles = rolesAddress(safe);
-  const [owners, threshold, nonce, rolesOn, guardians, req] = await Promise.all([
+  const [owners, threshold, nonce, rolesOn, mods] = await Promise.all([
     read("getOwners"),
     read("getThreshold"),
     read("nonce"),
     read("isModuleEnabled", [roles]),
-    read("getGuardians", [safe], RECOVERY_7D, abi.recovery).catch(() => null),
-    read("getRecoveryRequest", [safe], RECOVERY_7D, abi.recovery).catch(() => null),
+    read("getModulesPaginated", ["0x0000000000000000000000000000000000000001", 20n]),
+  ]);
+  const modules = (mods[0] as string[]).map(x => getAddress(x));
+  const rm = modules.includes(RECOVERY_14D) ? RECOVERY_14D : RECOVERY_7D;
+  const [guardians, req] = await Promise.all([
+    read("getGuardians", [safe], rm, abi.recovery).catch(() => null),
+    read("getRecoveryRequest", [safe], rm, abi.recovery).catch(() => null),
   ]);
   let budget: ChainState["budget"] = null;
   const rolesCode = await pc.getCode({ address: roles }).catch(() => undefined);
@@ -151,6 +162,9 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
     threshold: Number(threshold),
     nonce,
     guardians: g,
+    recoveryModule: rm,
+    recoveryDays: rm === RECOVERY_14D ? 14 : 7,
+    modules,
     recovery,
     roles: rolesOn ? roles : null,
     staleBudget: !!rolesOn && !!members && members.some(m => m.toLowerCase() !== a.burnerSigner.toLowerCase()),

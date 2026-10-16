@@ -102,7 +102,7 @@ export function Alerts({ account, toast }: { account: SafeAccount; toast: (m: st
   return (
     <>
       <p className="fine">
-        {none ? "Nothing yet. " : ""}If anyone starts a recovery on this wallet, you hear about it here, even with the app closed. You have 7 days to cancel.
+        {none ? "Nothing yet. " : ""}If anyone starts a recovery on this wallet, you hear about it here, even with the app closed. You have 7 days (14 with a wedgie) to cancel.
       </p>
 
       {info.channels.email && (

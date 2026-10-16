@@ -17,7 +17,8 @@ import { privateKeyToAccount } from "viem/accounts";
 const APP = process.env.APP || "http://localhost:3100";
 const RPC = "http://127.0.0.1:8545";
 const USDC = process.env.USDC || "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; // Base; Ethereum: 0xA0b8…eB48
-const RECOVERY = "0x088f6cfD8BB1dDb1BB069CCb3fc1A98927D233f2";
+const RECOVERY = "0x088f6cfD8BB1dDb1BB069CCb3fc1A98927D233f2"; // 7 days, from the first setup
+const R14 = "0x9BacD92F4687Db306D7ded5d4513a51EA05df25b"; // 14 days, once the wedgie is paired
 const DAO = "0xeF899e80aA814ab8D8e232f9Ed6403A633C727ec";
 const OUT = process.argv[2] || "/tmp";
 const cast = a => execSync(`cast ${a} --rpc-url ${RPC}`, { encoding: "utf8" }).trim();
@@ -255,6 +256,8 @@ await page.waitForTimeout(14000);
 await page.screenshot({ path: `${OUT}/s5-level2.png`, fullPage: true });
 ok(cast(`call ${acct.address} "getThreshold()(uint256)"`) === "3", "threshold 3 with the wedgie");
 ok(cast(`call ${acct.address} "getOwners()(address[])"`).split(",").length === 3, "3 owners: Instant + the wedgie's two slots");
+ok(cast(`call ${acct.address} "isModuleEnabled(address)(bool)" ${R14}`) === "true" && cast(`call ${acct.address} "isModuleEnabled(address)(bool)" ${RECOVERY}`) === "false", "pairing the wedgie moves recovery to 14 days");
+ok(cast(`call ${R14} "isGuardian(address,address)(bool)" ${acct.address} ${DAO}`) === "true", "the DAO is the 14-day module's guardian");
 await page.keyboard.press("Escape");
 await page.waitForTimeout(1000);
 
@@ -277,8 +280,8 @@ await page.locator(".guardian input").fill(paper);
 await page.getByRole("button", { name: "Save", exact: true }).tap();
 await page.getByRole("button", { name: "Yes", exact: true }).tap();
 await page.waitForTimeout(20000);
-ok(cast(`call ${RECOVERY} "isGuardian(address,address)(bool)" ${acct.address} ${paper}`) === "true", "paper is the recovery address");
-ok(cast(`call ${RECOVERY} "isGuardian(address,address)(bool)" ${acct.address} ${DAO}`) === "false", "the DAO is no longer the recovery address");
+ok(cast(`call ${R14} "isGuardian(address,address)(bool)" ${acct.address} ${paper}`) === "true", "paper is the recovery address");
+ok(cast(`call ${R14} "isGuardian(address,address)(bool)" ${acct.address} ${DAO}`) === "false", "the DAO is no longer the recovery address");
 await page.keyboard.press("Escape");
 await page.waitForTimeout(1000);
 
@@ -286,14 +289,14 @@ await page.waitForTimeout(1000);
 const thief = rand();
 cast(`rpc anvil_impersonateAccount ${paper}`);
 cast(`rpc anvil_setBalance ${paper} 0xde0b6b3a7640000`); // 1 ETH
-execSync(`cast send ${RECOVERY} "confirmRecovery(address,address[],uint256,bool)" ${acct.address} "[${thief}]" 1 true --unlocked --from ${paper} --rpc-url ${RPC}`, { stdio: "ignore" });
+execSync(`cast send ${R14} "confirmRecovery(address,address[],uint256,bool)" ${acct.address} "[${thief}]" 1 true --unlocked --from ${paper} --rpc-url ${RPC}`, { stdio: "ignore" });
 await page.waitForTimeout(14000);
 await page.screenshot({ path: `${OUT}/s10-recovery-alert.png` });
 ok(await page.getByText("Someone is recovering this wallet").isVisible(), "the app shows the recovery alert");
 await page.getByRole("button", { name: "Cancel it" }).tap();
 await page.getByRole("button", { name: "Sign to cancel it" }).tap();
 await page.waitForTimeout(25000);
-const req = cast(`call ${RECOVERY} "getRecoveryRequest(address)((uint256,uint256,uint64,address[]))" ${acct.address}`);
+const req = cast(`call ${R14} "getRecoveryRequest(address)((uint256,uint256,uint64,address[]))" ${acct.address}`);
 ok(/^\(0, 0, 0/.test(req), `recovery cancelled (${req.slice(0, 40)})`);
 
 // ---------------------------------------------------------------- log in again on a "new device"
@@ -330,10 +333,13 @@ await page2.screenshot({ path: `${OUT}/s12-waiting-for-recovery.png` });
 const acct2 = await page2.evaluate(() => JSON.parse(localStorage.getItem("iws.account")));
 ok(acct2.address === acct.address && acct2.burnerSigner !== acct.burnerSigner, "new phone: same wallet, new key");
 // the paper seed (the recovery address) starts it, 7 days pass, anyone finishes it
-execSync(`cast send ${RECOVERY} "confirmRecovery(address,address[],uint256,bool)" ${acct.address} "[${acct2.burnerSigner}]" 1 true --unlocked --from ${paper} --rpc-url ${RPC}`, { stdio: "ignore" });
+execSync(`cast send ${R14} "confirmRecovery(address,address[],uint256,bool)" ${acct.address} "[${acct2.burnerSigner}]" 1 true --unlocked --from ${paper} --rpc-url ${RPC}`, { stdio: "ignore" });
+cast("rpc evm_increaseTime 604801"); // 7 days: not enough on 14
+cast("rpc evm_mine");
+ok(execSync(`cast send ${R14} "finalizeRecovery(address)" ${acct.address} --unlocked --from ${paper} --rpc-url ${RPC} 2>&1 || true`, { encoding: "utf8" }).match(/revert|error/i) !== null, "after 7 days a 14-day recovery can't finish yet");
 cast("rpc evm_increaseTime 604801");
 cast("rpc evm_mine");
-execSync(`cast send ${RECOVERY} "finalizeRecovery(address)" ${acct.address} --unlocked --from ${paper} --rpc-url ${RPC}`, { stdio: "ignore" });
+execSync(`cast send ${R14} "finalizeRecovery(address)" ${acct.address} --unlocked --from ${paper} --rpc-url ${RPC}`, { stdio: "ignore" });
 ok(cast(`call ${acct.address} "getOwners()(address[])"`).toLowerCase() === `[${acct2.burnerSigner.toLowerCase()}]`, "recovery finished: the new key is the only owner");
 await page2.waitForTimeout(14000);
 ok(!(await page2.getByText("Waiting for recovery").isVisible()), "the new phone sees it's an owner");
@@ -358,7 +364,7 @@ await page2.getByRole("button", { name: "Turn it off" }).tap();
 await page2.getByRole("button", { name: "Sign to turn it off" }).tap();
 await page2.waitForTimeout(20000);
 const modsAfter = cast(`call ${acct.address} "getModulesPaginated(address,uint256)(address[],address)" 0x0000000000000000000000000000000000000001 10`);
-const rolesOf = rolesAddr.match(/0x[0-9a-fA-F]{40}/g).find(m => m.toLowerCase() !== RECOVERY.toLowerCase());
+const rolesOf = rolesAddr.match(/0x[0-9a-fA-F]{40}/g).find(m => m.toLowerCase() !== R14.toLowerCase());
 const members = cast(`call ${rolesOf} "getModulesPaginated(address,uint256)(address[],address)" 0x0000000000000000000000000000000000000001 10`);
 ok(!members.toLowerCase().includes(acct.burnerSigner.toLowerCase().slice(2)), `the lost phone is out of the budget (${members.slice(0, 50)})`);
 ok(modsAfter === rolesAddr, "Roles stays on, ready for this phone");
@@ -415,6 +421,7 @@ const errs3 = await page.locator(".err").allTextContents();
 if (errs3.length) console.log("on screen:", errs3);
 await page.screenshot({ path: `${OUT}/s15-recovery-then-wedgie.png`, fullPage: true });
 ok(cast(`call ${acct3.address} "getThreshold()(uint256)"`) === "3" && wedgieSigns === w0, "then the wedgie: threshold 3, Face ID alone signed it");
+ok(cast(`call ${R14} "isGuardian(address,address)(bool)" ${acct3.address} ${paper}`) === "true" && cast(`call ${acct3.address} "isModuleEnabled(address)(bool)" ${R14}`) === "true", "the own recovery address carries over to 14 days");
 await page.keyboard.press("Escape");
 await page.waitForTimeout(1000);
 ok((await lvl()) === "2/2", "Instant + wedgie: 2/2");

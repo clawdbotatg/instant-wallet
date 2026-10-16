@@ -15,8 +15,8 @@ export const GAS_BUDGET: Record<SendKind, bigint> = {
   exec: 350_000n,
   roles: 400_000n,
   "exec-wedgie": 1_100_000n, // the wedgie's second slot verifies P-256 in Solidity
-  setup: 1_800_000n, // a level change (deploy Roles + wire it, or add the wedgie's signers)
-  "first-setup": 2_600_000n,
+  setup: 2_200_000n, // a level change (deploy Roles + wire it, add the wedgie's signers, recovery → 14 days)
+  "first-setup": 3_000_000n,
   swap: 1_500_000n, // the Safe tx + approvals + whatever route LI.FI or Uniswap picked
   "first-swap": 2_100_000n,
   "swap-wedgie": 2_100_000n,
@@ -32,8 +32,8 @@ export const GAS_TYPICAL: Record<SendKind, bigint> = {
   exec: 200_000n,
   roles: 300_000n,
   "exec-wedgie": 650_000n,
-  setup: 1_000_000n,
-  "first-setup": 1_600_000n,
+  setup: 1_400_000n, // the wedgie + Roles + recovery → 14 days in one batch
+  "first-setup": 2_000_000n,
   // a swap's own gas comes on top (the quote's `extra`: the route's estimate)
   swap: 250_000n,
   "first-swap": 650_000n,

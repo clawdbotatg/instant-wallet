@@ -6,7 +6,7 @@ import webpush from "web-push";
 import { type Address, type Hex, createPublicClient, getAddress, http, keccak256, toBytes } from "viem";
 import { CHAINS, chainById } from "./chains";
 import { upstreamRpc } from "./rpcServer";
-import { RECOVERY_7D } from "./safe/config";
+import { RECOVERY_14D, RECOVERY_7D } from "./safe/config";
 import { abi, safeAddress, signerAddress } from "./safe/core";
 import { bytesToBase64url, hexToBytes } from "./webauthn";
 
@@ -203,13 +203,22 @@ export async function running(list: Address[]): Promise<Request[]> {
     const url = upstreamRpc(c.id);
     if (!url || !list.length) continue;
     const pc = createPublicClient({ chain: c.chain, transport: http(url) });
+    // both modules: a 7-day request stays readable after a move to 14 days, but only an enabled module can run it
+    const mods = [RECOVERY_7D, RECOVERY_14D];
     const res = await pc.multicall({
-      contracts: list.map(w => ({ address: RECOVERY_7D, abi: abi.recovery, functionName: "getRecoveryRequest", args: [w] }) as const),
+      contracts: list.flatMap(w => [
+        ...mods.map(m => ({ address: m, abi: abi.recovery, functionName: "getRecoveryRequest", args: [w] }) as const),
+        ...mods.map(m => ({ address: w, abi: abi.safe, functionName: "isModuleEnabled", args: [m] }) as const),
+      ]),
       allowFailure: true,
     });
-    res.forEach((r, i) => {
-      const v = r.status === "success" ? (r.result as any) : null;
-      if (v && Number(v.executeAfter) > 0) out.push({ chainId: c.id, wallet: list[i], executeAfter: Number(v.executeAfter), newOwners: [...v.newOwners] });
+    list.forEach((w, i) => {
+      const r = res.slice(i * 4, i * 4 + 4);
+      mods.forEach((_, j) => {
+        const v = r[j].status === "success" ? (r[j].result as any) : null;
+        if (v && Number(v.executeAfter) > 0 && r[2 + j].result === true)
+          out.push({ chainId: c.id, wallet: w, executeAfter: Number(v.executeAfter), newOwners: [...v.newOwners] });
+      });
     });
   }
   return out;

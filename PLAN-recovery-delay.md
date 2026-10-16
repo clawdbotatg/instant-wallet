@@ -1,3 +1,7 @@
+> **10-15: done another way.** Wallets still start on 7 days (addresses unchanged); pairing the wedgie moves the wallet
+> to the 14-day module in the same batch. We replayed Candide's deploy on Robinhood, Sonic and Arc (code hash checked
+> against Base). The wedgie app knows both (wedgie-safe 5a76f0d, on wedgie.dev). Branch `recovery-14d` is obsolete.
+
 # Plan: recovery delay 7 days → 14 days (DROPPED)
 
 **Austin, 10-13 (later): leave recovery at 7 days. Not doing this.** Kept for reference.

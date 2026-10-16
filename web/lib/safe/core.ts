@@ -27,6 +27,7 @@ import {
   PASSKEY_FACTORY,
   PASSKEY_SINGLETON,
   RECOVERY_7D,
+  RECOVERY_14D,
   ROLES_MASTERCOPY,
   ROLE_BURNER,
   SAFE_FACTORY,
@@ -481,20 +482,36 @@ export function signedRolesCalldata(call: Hex, signer: Address, signature: Hex, 
  * Make `next` the only recovery address. Candide keeps guardians in a linked list (newest first, as getGuardians
  * returns them); each revoke names the guardian before it in the list as it stands at that moment.
  */
-export function setGuardianCalls(current: Address[], next: Address): Call[] {
+export function setGuardianCalls(module: Address, current: Address[], next: Address): Call[] {
   const calls: Call[] = [];
   const list = [...current];
   if (!list.some(a => a.toLowerCase() === next.toLowerCase())) {
-    calls.push({ to: RECOVERY_7D, value: 0n, data: encodeFunctionData({ abi: abi.recovery, functionName: "addGuardianWithThreshold", args: [next, 1n] }) });
+    calls.push({ to: module, value: 0n, data: encodeFunctionData({ abi: abi.recovery, functionName: "addGuardianWithThreshold", args: [next, 1n] }) });
     list.unshift(next);
   }
   for (let i = list.length - 1; i >= 0; i--) {
     if (list[i].toLowerCase() === next.toLowerCase()) continue;
     const prev = i === 0 ? SENTINEL : list[i - 1];
-    calls.push({ to: RECOVERY_7D, value: 0n, data: encodeFunctionData({ abi: abi.recovery, functionName: "revokeGuardianWithThreshold", args: [prev, list[i], 1n] }) });
+    calls.push({ to: module, value: 0n, data: encodeFunctionData({ abi: abi.recovery, functionName: "revokeGuardianWithThreshold", args: [prev, list[i], 1n] }) });
     list.splice(i, 1);
   }
   return calls;
+}
+
+/**
+ * 7-day recovery → 14-day (with the wedgie): turn the 7-day module off, the 14-day one on, the same guardians on
+ * it. Goes first in its batch: `modules` is the list on chain now (something enabled earlier in the same batch
+ * would change who comes before the 7-day module).
+ */
+export function recovery14Calls(safe: Address, modules: Address[], guardians: Address[]): Call[] {
+  const i = modules.findIndex(m => m.toLowerCase() === RECOVERY_7D.toLowerCase());
+  const off =
+    i < 0 ? [] : [selfCall(safe, encodeFunctionData({ abi: abi.safe, functionName: "disableModule", args: [i === 0 ? SENTINEL : modules[i - 1], RECOVERY_7D] }))];
+  return [
+    ...off,
+    selfCall(safe, encodeFunctionData({ abi: abi.safe, functionName: "enableModule", args: [RECOVERY_14D] })),
+    ...guardians.map(g => ({ to: RECOVERY_14D, value: 0n, data: encodeFunctionData({ abi: abi.recovery, functionName: "addGuardianWithThreshold", args: [g, 1n] }) })),
+  ];
 }
 
 /** After a recovery: take every other key out of the burner's budget (Roles stays, ready for this phone). */

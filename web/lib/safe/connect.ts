@@ -1,6 +1,6 @@
 import { type Address, type Hex, concat, encodeAbiParameters, encodeFunctionData } from "viem";
 import { publicClient } from "../chains";
-import { RECOVERY_7D, MULTICALL3 } from "./config";
+import { RECOVERY_7D, RECOVERY_14D, MULTICALL3 } from "./config";
 import { type Call, type Sig, abi, deploySafeCall, deploySignerCall, encodeSignatures, rolesAddress, safeMessageHash } from "./core";
 import { hotSignMessage } from "./hot";
 import { type Signer, type Stage } from "./send";
@@ -17,7 +17,7 @@ import { type ChainState, type SafeAccount, hotOf } from "./state";
 
 /** A site's calls as Safe calls. Never into the wallet's own guts: its owners, guard, modules, budget, recovery. */
 export function siteCalls(safe: Address, calls: { target: Address; value: bigint; data: Hex }[]): Call[] {
-  const own = [safe, rolesAddress(safe), RECOVERY_7D].map(a => a.toLowerCase());
+  const own = [safe, rolesAddress(safe), RECOVERY_7D, RECOVERY_14D].map(a => a.toLowerCase());
   return calls.map(c => {
     if (own.includes(c.target.toLowerCase())) throw new Error("A site can't change your wallet's keys or settings.");
     return { to: c.target, value: c.value, data: c.data };

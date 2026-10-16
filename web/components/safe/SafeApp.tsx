@@ -173,7 +173,7 @@ export function SafeApp() {
           <div className="card stack">
             <b>Waiting for recovery</b>
             <p className="fine">
-              This phone&apos;s new key isn&apos;t an owner of this wallet yet. Send your recovery address (the DAO, or your own recovery wallet) this link. After they start it, it takes 7 days.
+              This phone&apos;s new key isn&apos;t an owner of this wallet yet. Send your recovery address (the DAO, or your own recovery wallet) this link. After they start it, it takes 7 days (14 with a wedgie).
             </p>
             <span className="mono" style={{ fontSize: 12 }}>new key {account.burnerSigner}</span>
             <button

@@ -16,6 +16,10 @@ export const PASSKEY_FACTORY: Address = "0x1d31F259eE307358a26dFb23EB365939E8641
 export const PASSKEY_SINGLETON: Address = "0x4E27b51350e6c2083EE19011120F50DAfEc5CA50";
 export const DAIMO_VERIFIER: Address = "0xc2b78104907F722DABAc4C69f826a522B2754De4";
 export const RECOVERY_7D: Address = "0x088f6cfD8BB1dDb1BB069CCb3fc1A98927D233f2"; // Candide SocialRecoveryModule, 7 days
+/** The 14-day one (Austin 10-15): a wallet moves to it when its wedgie is paired. Candide's deploy; on Robinhood,
+ * Sonic and Arc we replayed Candide's own deploy tx (same address, same code hash; 10-15). */
+export const RECOVERY_14D: Address = "0x9BacD92F4687Db306D7ded5d4513a51EA05df25b";
+export const RECOVERY_DAYS: Record<Address, number> = { [RECOVERY_7D]: 7, [RECOVERY_14D]: 14 };
 export const DAO: Address = "0xeF899e80aA814ab8D8e232f9Ed6403A633C727ec"; // dao.buidlguidl.eth, the same Safe on both chains
 export const MULTICALL3: Address = "0xcA11bde05977b3631167028862bE2a173976CA11";
 export const MODULE_FACTORY: Address = "0x000000000000aDdB49795b0f9bA5BC298cDda236"; // zodiac ModuleProxyFactory 1.2.0

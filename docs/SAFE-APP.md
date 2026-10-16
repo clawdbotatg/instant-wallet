@@ -11,7 +11,7 @@ onto a new key there, like a lost phone).
 | level | how | what it does on chain |
 |---|---|---|
 | 1 Instant wallet | Create wallet (Face ID) | Address exists at once on every chain (counterfactual). First send on a chain deploys the passkey signer + the Safe and runs the send, one relayer tx, fee paid in USDC or ETH inside your own batch. DAO (dao.buidlguidl.eth) is the 7-day recovery from the first setup. |
-| 2 Wedgie | Keys → Connect and add the wedgie (Chrome on a computer, or the iPhone drive) | One batch: deploys Zodiac Roles, gives the burner a daily budget (100 USDC + 0.04 ETH, refills daily), the wedgie becomes two owners (same key, two verifier settings), threshold 3. Big moves and settings need Face ID + the wedgie. |
+| 2 Wedgie | Keys → Connect and add the wedgie (Chrome on a computer, or the iPhone drive) | One batch: deploys Zodiac Roles, gives the burner a daily budget (100 USDC + 0.04 ETH, refills daily), the wedgie becomes two owners (same key, two verifier settings), threshold 3, and recovery moves from Candide's 7-day module to its 14-day one (same guardians). Big moves and settings need Face ID + the wedgie. A wallet paired before 10-15 gets a "Make it 14 days" button. |
 | 3 Own recovery | Keys → Recovery: any address you control (MetaMask, Ledger, ENS, a paper seed) | Replaces the DAO as the recovery address. It can only replace lost keys, after 7 days, and you can cancel. Seed cards: `/paper` (OPSEK layout, any 2 of 3). |
 
 **No hot wallet (Austin 10-14).** Three things only: the passkey, the wedgie, the recovery address. The app no longer

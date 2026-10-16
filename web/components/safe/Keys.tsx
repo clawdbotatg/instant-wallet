@@ -417,7 +417,7 @@ export function Keys({
             </button>,
           )}
         <p className="fine">
-          No wallet for it yet? <a href="/paper" target="_blank">Make a 24-word seed on 3 paper cards</a>.
+          No wallet for it yet? <a href="/paper">Make a 24-word seed on 3 paper cards</a>.
         </p>
         <div className="guardian">
           <AddressInput key={chainId} initial={current} onChange={setGuardianIn} />

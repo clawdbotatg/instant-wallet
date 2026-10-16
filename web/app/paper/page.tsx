@@ -9,9 +9,12 @@ const CARDS: { name: string; words: number[] }[] = [
   { name: "Card C", words: [...Array.from({ length: 8 }, (_, i) => i + 1), ...Array.from({ length: 8 }, (_, i) => i + 17)] },
 ];
 
+import { PaperBack } from "./back";
+
 export default function Paper() {
   return (
     <div className="app paper">
+      <PaperBack />
       <h1>Paper backup</h1>
       <p className="fine">
         Your recovery seed, on 3 cards. Any 2 cards rebuild all 24 words; one card alone is 16 words, and the missing 8 can&apos;t be guessed.
@@ -40,6 +43,7 @@ export default function Paper() {
         </div>
       ))}
       <p className="fine noprint center">Print with ⌘P / Ctrl+P.</p>
+      <PaperBack />
     </div>
   );
 }

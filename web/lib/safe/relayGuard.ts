@@ -1,6 +1,6 @@
 import "server-only";
 import { type Address, type Hex, keccak256, size, slice } from "viem";
-import { MODULE_FACTORY, MULTICALL3, PASSKEY_FACTORY, RECOVERY_14D, RECOVERY_7D, ROLES_MASTERCOPY } from "./config";
+import { MODULE_FACTORY, MULTICALL3, PASSKEY_FACTORY, RECOVERY_MODULES, ROLES_MASTERCOPY } from "./config";
 import { type Call, rolesAddress } from "./core";
 import { approvesRouter, checkSwap, isSwapTarget } from "./swap";
 
@@ -139,7 +139,7 @@ export async function withChainLock<T>(chainId: number, fn: () => Promise<T>): P
 
 const TRANSFER = "0xa9059cbb";
 
-const RECOVERY = [RECOVERY_7D, RECOVERY_14D].map(a => a.toLowerCase());
+const RECOVERY = RECOVERY_MODULES.map(a => a.toLowerCase());
 const sel = (d: Hex) => (size(d) >= 4 ? slice(d, 0, 4) : "0x");
 /** Safe owner/module functions, Candide guardian/recovery functions, Roles admin: the wallet's own changes. */
 const SAFE_SELF = new Set([

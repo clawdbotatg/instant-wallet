@@ -5,10 +5,10 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { type Address, encodeFunctionData, formatUnits, parseUnits, zeroAddress } from "viem";
 import { CHAINS, chainById, explorerAddress, nativeSymbol } from "@/lib/chains";
 import { short } from "@/lib/format";
-import { DAO, FEE_ALLOWANCE, RECOVERY_14D, RECOVERY_7D, VERIFIERS, VERIFIERS_SLOT2 } from "@/lib/safe/config";
-import { type Call, DEFAULT_BUDGET, abi, budgetCalls, deploySignerCall, feeAllowanceCalls, recovery14Calls, selfCall, setBudgetCalls, setGuardianCalls } from "@/lib/safe/core";
+import { DAO, FEE_ALLOWANCE, RECOVERY_60D, VERIFIERS, VERIFIERS_SLOT2 } from "@/lib/safe/config";
+import { type Call, DEFAULT_BUDGET, abi, budgetCalls, deploySignerCall, feeAllowanceCalls, recoveryLayoutCalls, selfCall, setBudgetCalls, setGuardianCalls } from "@/lib/safe/core";
 import { type FeeToken, type Prepared, type Signer, finishOwners, getQuote, ownerSigners, prepareOwners } from "@/lib/safe/send";
-import { type ChainState, type SafeAccount, hotOf, readChain, wedgieSigners } from "@/lib/safe/state";
+import { type ChainState, type SafeAccount, hotOf, oldLayout, readChain, wedgieSigners } from "@/lib/safe/state";
 import { Wedgie, wedgieDrive, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
 import { AddressInput, Blockie } from "../bits";
@@ -20,9 +20,9 @@ import { friendly } from "../Welcome";
  * Keys & safety, per chain (each chain's Safe is its own). Three things (Austin 10-14: no hot wallet any more):
  *   Instant     the passkey (Face ID). Alone at first; once the wedgie is on, it spends a daily limit.
  *   Wedgie      the hardware key, counts twice: big moves and settings need the wedgie + Instant (3 of 3).
- *   Recovery    starts as the DAO; set it to any address you control (MetaMask, Ledger, ENS, a paper seed). It can
- *               only replace lost keys, after 7 days (14 once the wedgie is paired: Austin 10-15, a week away from
- *               home without the wedgie mustn't be enough), and you can cancel. Not a signer.
+ *   Recovery    replaces lost keys only, after a wait you can cancel in. Not a signer. Instant alone: the DAO, or
+ *               any address you control (MetaMask, Ledger, ENS, a paper seed), 7 days. With the wedgie (Austin
+ *               10-15): your own address waits 14 days, the DAO 60 (it mustn't get your money in two weeks).
  * Pairing the wedgie also gives the burner its daily budget (Zodiac Roles). A wallet that already has a hot wallet
  * (added before 10-14) keeps it: it's still an owner, so it's shown and can still sign.
  */
@@ -81,12 +81,14 @@ export function Keys({
           ...(await feeApart()),
         ]
       : [];
-  // 7 days → 14, with the same guardians (never while a recovery runs: it would be dropped, not cancelled)
-  const to14 = async (s: ChainState): Promise<Call[]> => {
-    if (s.recoveryModule !== RECOVERY_7D) return [];
+  // the wedgie's recovery: the DAO on 60 days, your own address on 14 (never while a recovery runs: a guardian
+  // change drops it)
+  // (a chain without the 60-day module yet, HyperEVM: pairing leaves it as it is, the upgrade shows once it's there)
+  const toLayout = async (s: ChainState): Promise<Call[]> => {
+    if (s.modules.includes(RECOVERY_60D) || !s.has60) return [];
     if (s.recovery) throw new Error("A recovery is running on this wallet. Cancel it or let it finish first.");
-    if (!s.guardians) throw new Error("Couldn't read the recovery address. Try again in a moment.");
-    return recovery14Calls(account.address, s.modules, s.guardians);
+    if (!s.stored) throw new Error("Couldn't read the recovery address. Try again in a moment.");
+    return recoveryLayoutCalls(account.address, s.modules, s.stored);
   };
   // a change the wedgie has to sign: connect it now, while this is still the tap (a port prompt needs one)
   const wedgieFor = async (signers: Signer[]) => (signers.includes("wedgie") && wedgieSupported() ? await Wedgie.connect() : null);
@@ -170,6 +172,7 @@ export function Keys({
       if (!guardianIn) throw new Error("Enter an address (0x…) or an ENS name.");
       const paper = guardianIn;
       if (st.owners.some(o => o.toLowerCase() === paper.toLowerCase())) throw new Error("That address is already one of your keys. Recovery must be separate.");
+      if (st.modules.includes(RECOVERY_60D) && paper.toLowerCase() === DAO.toLowerCase()) throw new Error("That's the DAO. It's already your 60-day recovery.");
       if (!st.guardians) throw new Error("Couldn't read the current recovery address. Try again in a moment.");
       const signers = ownerSigners(st, account);
       const w = await wedgieFor(signers);
@@ -218,17 +221,17 @@ export function Keys({
       }
     });
 
-  // a wallet that paired its wedgie before 14 days existed: the same move on its own (the wedgie signs it too)
-  const upgrade14 = () =>
-    prep("14d", async () => {
+  // a wallet that paired its wedgie before the 60-day layout: the same move on its own (the wedgie signs it too)
+  const upgradeLayout = () =>
+    prep("layout", async () => {
       const st = await fresh();
-      const calls = await to14(st);
-      if (!calls.length) throw new Error("Already 14 days.");
+      const calls = await toLayout(st);
+      if (!calls.length) throw new Error("Already done.");
       const signers = ownerSigners(st, account);
       const w = await wedgieFor(signers);
       try {
-        const p = await prepareOwners({ account, state: st, calls, signers, feeToken, setup: true, wedgie: w, label: "Recovery: 14 days" });
-        return { label: "Recovery waits 14 days", p, settled: s => s.recoveryModule === RECOVERY_14D, close: async () => w?.close() };
+        const p = await prepareOwners({ account, state: st, calls, signers, feeToken, setup: true, wedgie: w, label: "Recovery: DAO 60 days" });
+        return { label: "The DAO waits 60 days, your own address 14", p, settled: s => s.modules.includes(RECOVERY_60D), close: async () => w?.close() };
       } catch (e) {
         await w?.close();
         throw e;
@@ -245,9 +248,9 @@ export function Keys({
         const key = await w.key();
         const [w1, w2] = wedgieSigners(key);
         // Instant alone (1 of 1) → 3 of 3: the wedgie + Instant. (An older wallet's Instant + hot, 2 of 2 → 3 of 4.)
-        // Recovery moves to 14 days in the same batch (first: see recovery14Calls)
+        // recovery moves to 14 + 60 days in the same batch (first: see recoveryLayoutCalls)
         const calls = [
-          ...(await to14(st)),
+          ...(await toLayout(st)),
           ...(await budgetFirst(st)),
           deploySignerCall(key.x, key.y, VERIFIERS),
           deploySignerCall(key.x, key.y, VERIFIERS_SLOT2),
@@ -301,6 +304,7 @@ export function Keys({
   const current = st?.guardians?.[0];
   const changed = !!guardianIn && guardianIn.toLowerCase() !== current?.toLowerCase();
   const ownRecovery = !!st?.guardians && st.guardians.length > 0 && !st.guardians.some(g => g.toLowerCase() === DAO.toLowerCase());
+  const layout = !!st?.modules.includes(RECOVERY_60D); // with the wedgie: DAO 60 days, yours 14
 
 
   return (
@@ -394,18 +398,22 @@ export function Keys({
 
       <Step title="Recovery" done={ownRecovery}>
         <p className="fine">
-          {ownRecovery
-            ? "Your own address can replace lost keys."
-            : "Right now the DAO (dao.buidlguidl.eth) can replace lost keys. Set this to a wallet you control: MetaMask, a Ledger, your ENS name."}{" "}
-          It can only do that, it waits {st?.recoveryDays ?? 7} days, and you can cancel it.
-          {st?.recoveryModule === RECOVERY_7D && !st.hasWedgie && " Pairing a wedgie makes it 14 days."}
+          {layout
+            ? "If you lose a key, the DAO (dao.buidlguidl.eth) can replace it after 60 days."
+            : ownRecovery
+              ? `Your own address can replace lost keys after ${st?.recoveryDays ?? 7} days.`
+              : `If you lose a key, the DAO (dao.buidlguidl.eth) can replace it after ${st?.recoveryDays ?? 7} days.`}{" "}
+          {layout && (ownRecovery ? "Your own address can, after 14 days." : "Add your own address and it can, after 14 days.")} You can cancel any recovery.
+          {!st?.hasWedgie && " Pairing a wedgie makes the DAO wait 60 days and your own address 14."}
         </p>
-        {st?.hasWedgie &&
-          st.recoveryModule === RECOVERY_7D &&
+        {!ownRecovery && <p className="fine"><b>Make your own recovery: a wallet only you control.</b></p>}
+        {st &&
+          oldLayout(st) &&
+          st.has60 &&
           action(
-            "14d",
-            <button className="btn wide" onClick={upgrade14} disabled={!!busy || !!pending || !!wait || !canPay}>
-              {busy === "14d" ? "Working…" : "Make it 14 days"}
+            "layout",
+            <button className="btn wide" onClick={upgradeLayout} disabled={!!busy || !!pending || !!wait || !canPay}>
+              {busy === "layout" ? "Working…" : "Make the DAO wait 60 days"}
             </button>,
           )}
         <p className="fine">
@@ -416,7 +424,7 @@ export function Keys({
         </div>
         {action(
           "paper",
-          <button className="btn btn-green wide" onClick={setPaper} disabled={!!busy || !!pending || !!wait || !canPay || !changed}>
+          <button className="btn btn-green wide" onClick={setPaper} disabled={!!busy || !!pending || !!wait || !canPay || !changed || (!!st && oldLayout(st) && st.has60)}>
             {busy === "paper" ? "Working…" : "Save"}
           </button>,
         )}

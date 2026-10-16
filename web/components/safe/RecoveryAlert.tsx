@@ -6,24 +6,26 @@ import { chainById } from "@/lib/chains";
 import { short } from "@/lib/format";
 import { abi } from "@/lib/safe/core";
 import { type Prepared, finishOwners, ownerSigners, prepareOwners } from "@/lib/safe/send";
-import type { ChainState, SafeAccount } from "@/lib/safe/state";
+import type { ChainState, RecoveryOn, SafeAccount } from "@/lib/safe/state";
 import { friendly } from "../Welcome";
 
 /** A recovery is running on this wallet: say so loudly, with the date it lands and a Cancel. */
 export function RecoveryAlert({
   account,
   state,
+  rec,
   feeToken,
   onDone,
 }: {
   account: SafeAccount;
   state: ChainState;
+  rec: RecoveryOn; // the module it runs on (with the wedgie, yours and the DAO's are two)
   feeToken: "usdc" | "eth";
   onDone: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const r = state.recovery!;
+  const r = rec.request!;
   const when = new Date(r.executeAfter);
   // only "mine" when it hands the wallet to exactly this phone (a recovery to [this phone, someone else] is not)
   const mine = !!account.recovered && r.newOwners.length === 1 && r.newOwners[0].toLowerCase() === account.burnerSigner.toLowerCase();
@@ -37,7 +39,7 @@ export function RecoveryAlert({
         await prepareOwners({
           account,
           state,
-          calls: [{ to: state.recoveryModule, value: 0n, data: encodeFunctionData({ abi: abi.recovery, functionName: "cancelRecovery" }) }],
+          calls: [{ to: rec.module, value: 0n, data: encodeFunctionData({ abi: abi.recovery, functionName: "cancelRecovery" }) }],
           signers: ownerSigners(state, account),
           feeToken,
         }),

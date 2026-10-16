@@ -11,8 +11,8 @@ onto a new key there, like a lost phone).
 | level | how | what it does on chain |
 |---|---|---|
 | 1 Instant wallet | Create wallet (Face ID) | Address exists at once on every chain (counterfactual). First send on a chain deploys the passkey signer + the Safe and runs the send, one relayer tx, fee paid in USDC or ETH inside your own batch. DAO (dao.buidlguidl.eth) is the 7-day recovery from the first setup. |
-| 2 Wedgie | Keys → Connect and add the wedgie (Chrome on a computer, or the iPhone drive) | One batch: deploys Zodiac Roles, gives the burner a daily budget (100 USDC + 0.04 ETH, refills daily), the wedgie becomes two owners (same key, two verifier settings), threshold 3, and recovery moves from Candide's 7-day module to its 14-day one (same guardians). Big moves and settings need Face ID + the wedgie. A wallet paired before 10-15 gets a "Make it 14 days" button. |
-| 3 Own recovery | Keys → Recovery: any address you control (MetaMask, Ledger, ENS, a paper seed) | Replaces the DAO as the recovery address. It can only replace lost keys, after 7 days, and you can cancel. Seed cards: `/paper` (OPSEK layout, any 2 of 3). |
+| 2 Wedgie | Keys → Connect and add the wedgie (Chrome on a computer, or the iPhone drive) | One batch: deploys Zodiac Roles, gives the burner a daily budget (100 USDC + 0.04 ETH, refills daily), the wedgie becomes two owners (same key, two verifier settings), threshold 3, and recovery changes (10-15): the DAO moves to a 60-day module (Candide's code, we deployed it: `0x6aa9…E960`), your own recovery address to Candide's 14-day one, the 7-day one is emptied and turned off. Big moves and settings need Face ID + the wedgie. A wallet paired before gets a "Make the DAO wait 60 days" button. Not on HyperEVM yet (the deploy needs a big block): pairing there leaves recovery on 7 days. |
+| 3 Own recovery | Keys → Recovery: any address you control (MetaMask, Ledger, ENS, a paper seed) | Without a wedgie: replaces the DAO, 7 days. With one: added on 14 days, the DAO stays on 60. It can only replace lost keys, and you can cancel. Seed cards: `/paper` (OPSEK layout, any 2 of 3). |
 
 **No hot wallet (Austin 10-14).** Three things only: the passkey, the wedgie, the recovery address. The app no longer
 offers to add a hot wallet. Wallets that added one before still have it as an owner: Keys shows it, and it can
@@ -21,7 +21,7 @@ still sign (`hotOf`, the `"hot"` signer in `lib/safe/send.ts`).
 - **Send:** within the budget = Face ID alone (a signed Zodiac Roles call). Over it = the owners (Face ID + the wedgie). The review screen says which keys and the fee.
 - **Recovery:** a running recovery shows a red alert with Cancel (it needs your owners' signatures: at level 2+ that's a
   computer with MetaMask). Lost phone: "Lost my phone: recover a wallet" on a
-  new device makes a new key; the recovery address runs `/recover` (deploy-if-needed, start, finish after 7 days;
+  new device makes a new key; the recovery address runs `/recover` (deploy-if-needed, start, finish after the wait: 7, 14 or 60 days;
   for the DAO it copies the calldata for Safe{Wallet}). Afterwards the app offers to turn off the old phone's budget.
 - **Recovery alerts** (10-14): Keys → Recovery alerts: an email, Telegram, notifications on this device (not iPhone
   Safari: it only allows them for a home-screen app). A job reads every listed wallet's recovery on every chain every

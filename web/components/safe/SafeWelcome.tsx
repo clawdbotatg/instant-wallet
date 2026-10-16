@@ -5,7 +5,7 @@ import { useState } from "react";
 import { type Address, getAddress, isAddress } from "viem";
 import { CHAINS, publicClient } from "@/lib/chains";
 import { type Candidate, confirmKey, createPasskey, recoverKeys, walletAppBrowser, webauthnAvailable } from "@/lib/passkey";
-import { RECOVERY_14D, RECOVERY_7D } from "@/lib/safe/config";
+import { RECOVERY_MODULES } from "@/lib/safe/config";
 import { abi, rolesAddress } from "@/lib/safe/core";
 import { type SafeAccount, accountFor } from "@/lib/safe/state";
 import { Band } from "../bits";
@@ -49,17 +49,17 @@ async function ownedBy(signer: Address): Promise<{ wallet: Address; guardians: A
         r("getThreshold"),
         r("getModulesPaginated", ["0x0000000000000000000000000000000000000001", 10n]),
       ]);
-      const rm = mods && (mods[0] as string[]).some(m => m.toLowerCase() === RECOVERY_14D.toLowerCase()) ? RECOVERY_14D : RECOVERY_7D;
-      const guardians = await r("getGuardians", [w], rm, abi.recovery);
+      const on = mods ? (mods[0] as string[]).map(m => getAddress(m)) : [];
+      const recs = RECOVERY_MODULES.filter(m => on.includes(m));
+      const guardians = (await Promise.all(recs.map(m => r("getGuardians", [w], m, abi.recovery)))).flatMap(g => (g ?? []) as string[]);
       // exactly what a just-recovered Instant Wallet looks like: this key alone, Candide (+ its own Roles), nothing else
-      const allowed = [rm, rolesAddress(w)].map(x => x.toLowerCase());
+      const allowed = [...RECOVERY_MODULES, rolesAddress(w)].map(x => x.toLowerCase());
       if (
         owners?.length === 1 &&
         owners[0].toLowerCase() === signer.toLowerCase() &&
         Number(threshold) === 1 &&
-        mods &&
-        (mods[0] as string[]).some(m => m.toLowerCase() === rm.toLowerCase()) &&
-        (mods[0] as string[]).every(m => allowed.includes(m.toLowerCase()))
+        recs.length > 0 &&
+        on.every(m => allowed.includes(m.toLowerCase()))
       )
         return { wallet: w, guardians: (guardians ?? []).map((g: string) => getAddress(g)) };
     }
@@ -170,7 +170,7 @@ export function SafeWelcome({ onReady }: { onReady: (a: SafeAccount) => void }) 
         <div className="welcome">
           <div className="stack">
             <h1>Recover a wallet</h1>
-            <p>Lost your phone? This makes a new key on this device. Your recovery address (the DAO, or your own recovery wallet) then swaps it in; it takes 7 days (14 with a wedgie), and you can cancel it from any key you still have.</p>
+            <p>Lost your phone? This makes a new key on this device. Your recovery address (the DAO, or your own recovery wallet) then swaps it in; it takes 7 days (with a wedgie: 14 from your own recovery address, 60 from the DAO), and you can cancel it from any key you still have.</p>
           </div>
           <div className="input">
             <input value={wallet} onChange={e => setWallet(e.target.value)} placeholder="0x… your wallet's address" autoCapitalize="none" spellCheck={false} />

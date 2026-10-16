@@ -1,6 +1,6 @@
 import { type Address, type Hex, getAddress, keccak256, size, toBytes, zeroAddress } from "viem";
 import { CHAINS, publicClient } from "../chains";
-import { DAO, KEY_ETH, KEY_FEE_USDC, KEY_USDC, RECOVERY_14D, RECOVERY_7D } from "./config";
+import { DAO, KEY_ETH, KEY_FEE_USDC, KEY_USDC, RECOVERY_14D, RECOVERY_60D, RECOVERY_7D, RECOVERY_DAYS, RECOVERY_MODULES } from "./config";
 import { abi, rolesAddress, safeAddress, signerAddress } from "./core";
 import { VERIFIERS_SLOT2 } from "./config";
 
@@ -47,6 +47,8 @@ export function saveAccount(a: SafeAccount | null) {
 }
 
 export type Recovery = { newOwners: Address[]; newThreshold: number; executeAfter: number; approvals: number } | null;
+/** One enabled recovery module: who can recover, after how long, and its running request. */
+export type RecoveryOn = { module: Address; days: number; guardians: Address[] | null; request: Recovery };
 
 /** One chain's view of the wallet. */
 export type ChainState = {
@@ -55,11 +57,14 @@ export type ChainState = {
   owners: Address[];
   threshold: number;
   nonce: bigint;
-  guardians: Address[] | null; // null = couldn't read them
-  recoveryModule: Address; // Candide's 7-day module, or the 14-day one once the wedgie is paired
+  guardians: Address[] | null; // your own recovery address(es), on recoveryModule (null = couldn't read them)
+  recoveryModule: Address; // where your own recovery address goes: 7 days, or 14 once the wedgie is paired
   recoveryDays: number;
+  recoveries: RecoveryOn[]; // every recovery module on (with the wedgie: 14 days for yours, 60 for the DAO)
+  stored: Record<Address, Address[]> | null; // each recovery module's guardians, on or off (null = a read failed)
+  has60: boolean; // the 60-day module is deployed on this chain
   modules: Address[]; // every module on (the order matters to turn one off)
-  recovery: Recovery;
+  recovery: Recovery; // the first running request (recoveries has each)
   roles: Address | null; // enabled Roles modifier (the burner's budget)
   staleBudget: boolean; // Roles is on and some other key is its member (a lost phone's budget, after a recovery)
   rolesMembers: Address[] | null; // the keys with a burner budget (null = couldn't read)
@@ -75,8 +80,9 @@ export type ChainState = {
 export async function readChain(chainId: number, a: SafeAccount): Promise<ChainState> {
   const pc = publicClient(chainId);
   const safe = a.address;
-  const code = await pc.getCode({ address: safe }).catch(() => undefined);
+  const [code, code60] = await Promise.all([pc.getCode({ address: safe }).catch(() => undefined), pc.getCode({ address: RECOVERY_60D }).catch(() => undefined)]);
   const deployed = !!code && code !== "0x";
+  const has60 = !!code60 && code60 !== "0x";
   if (!deployed)
     return {
       chainId,
@@ -87,6 +93,9 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
       guardians: [DAO],
       recoveryModule: RECOVERY_7D,
       recoveryDays: 7,
+      recoveries: [{ module: RECOVERY_7D, days: 7, guardians: [DAO], request: null }],
+      stored: { [RECOVERY_7D]: [DAO] },
+      has60,
       modules: [RECOVERY_7D],
       recovery: null,
       roles: null,
@@ -109,11 +118,16 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
     read("getModulesPaginated", ["0x0000000000000000000000000000000000000001", 20n]),
   ]);
   const modules = (mods[0] as string[]).map(x => getAddress(x));
+  // your own recovery address: the 14-day module once it's on, else the 7-day one
   const rm = modules.includes(RECOVERY_14D) ? RECOVERY_14D : RECOVERY_7D;
-  const [guardians, req] = await Promise.all([
-    read("getGuardians", [safe], rm, abi.recovery).catch(() => null),
-    read("getRecoveryRequest", [safe], rm, abi.recovery).catch(() => null),
-  ]);
+  const recs = await Promise.all(
+    RECOVERY_MODULES.map(async m => {
+      const [g, r] = await Promise.all([read("getGuardians", [safe], m, abi.recovery).catch(() => null), read("getRecoveryRequest", [safe], m, abi.recovery).catch(() => null)]);
+      return { module: m, days: RECOVERY_DAYS[m], guardians: g ? (g as string[]).map(x => getAddress(x)) : null, request: toRecovery(r) };
+    }),
+  );
+  const recoveries = recs.filter(r => modules.includes(r.module));
+  const stored = recs.every(r => r.guardians) ? Object.fromEntries(recs.map(r => [r.module, r.guardians!])) : null;
   let budget: ChainState["budget"] = null;
   const rolesCode = await pc.getCode({ address: roles }).catch(() => undefined);
   const members: Address[] | null =
@@ -132,17 +146,8 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
     // the fee allowance: null on a wallet set up before it existed (its USDC fee still comes off the limit)
     if (u && e) budget = { usdc: avail(u), eth: avail(e), usdcMax: u[1], ethMax: e[1], feeUsdc: f && f[2] > 0n ? avail(f) : null };
   }
-  const recovery: Recovery =
-    req && Number(req.executeAfter) > 0
-      ? {
-          newOwners: req.newOwners.map((x: string) => getAddress(x)),
-          newThreshold: Number(req.newThreshold),
-          executeAfter: Number(req.executeAfter) * 1000,
-          approvals: Number(req.guardiansApprovalCount),
-        }
-      : null;
   const o = (owners as string[]).map(x => getAddress(x));
-  const g = guardians ? (guardians as string[]).map(x => getAddress(x)) : null;
+  const g = recs.find(r => r.module === rm)!.guardians;
   // another device may have added the keys: the shape says it too (only the wedgie takes the threshold to 3)
   const known = !!a.wedgie && wedgieSigners(a.wedgie).every(w => o.includes(w));
   const hasWedgie = known || Number(threshold) >= 3;
@@ -163,9 +168,12 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
     nonce,
     guardians: g,
     recoveryModule: rm,
-    recoveryDays: rm === RECOVERY_14D ? 14 : 7,
+    recoveryDays: RECOVERY_DAYS[rm],
+    recoveries,
+    stored,
+    has60,
     modules,
-    recovery,
+    recovery: recoveries.find(r => r.request)?.request ?? null,
     roles: rolesOn ? roles : null,
     staleBudget: !!rolesOn && !!members && members.some(m => m.toLowerCase() !== a.burnerSigner.toLowerCase()),
     rolesMembers: members,
@@ -178,6 +186,22 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
     level,
   };
 }
+
+function toRecovery(req: any): Recovery {
+  return req && Number(req.executeAfter) > 0
+    ? {
+        newOwners: req.newOwners.map((x: string) => getAddress(x)),
+        newThreshold: Number(req.newThreshold),
+        executeAfter: Number(req.executeAfter) * 1000,
+        approvals: Number(req.guardiansApprovalCount),
+      }
+    : null;
+}
+
+/** With the wedgie: the DAO on the 60-day module (else wherever it is, on an older or wedgie-less wallet). */
+export const daoDays = (st: ChainState) => st.recoveries.find(r => r.guardians?.some(g => g.toLowerCase() === DAO.toLowerCase()))?.days ?? null;
+/** A wedgie wallet whose recovery isn't the 14 + 60-day layout yet (paired before it existed). */
+export const oldLayout = (st: ChainState) => st.hasWedgie && !st.modules.includes(RECOVERY_60D);
 
 /** Zodiac Roles allowance available now: balance plus refills since the last timestamp, capped at maxRefill. */
 function avail(x: readonly [bigint, bigint, bigint, bigint, bigint]): bigint {

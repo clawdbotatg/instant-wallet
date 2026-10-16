@@ -153,7 +153,7 @@ export function SafeApp() {
         </div>
 
         <PendingCards account={account} states={states} onDone={refresh} toast={setToast} />
-        {states.map(s => s.recovery && <RecoveryAlert key={s.chainId} account={account} state={s} feeToken={feeTokenOn(s.chainId)} onDone={refresh} />)}
+        {states.flatMap(s => s.recoveries.filter(r => r.request).map(r => <RecoveryAlert key={`${s.chainId}:${r.module}`} account={account} state={s} rec={r} feeToken={feeTokenOn(s.chainId)} onDone={refresh} />))}
         {states.map(
           s =>
             s.staleBudget &&
@@ -173,7 +173,7 @@ export function SafeApp() {
           <div className="card stack">
             <b>Waiting for recovery</b>
             <p className="fine">
-              This phone&apos;s new key isn&apos;t an owner of this wallet yet. Send your recovery address (the DAO, or your own recovery wallet) this link. After they start it, it takes 7 days (14 with a wedgie).
+              This phone&apos;s new key isn&apos;t an owner of this wallet yet. Send your recovery address (the DAO, or your own recovery wallet) this link. After they start it, it takes 7 days (with a wedgie: 14 from your own recovery address, 60 from the DAO).
             </p>
             <span className="mono" style={{ fontSize: 12 }}>new key {account.burnerSigner}</span>
             <button

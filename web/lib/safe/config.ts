@@ -19,7 +19,12 @@ export const RECOVERY_7D: Address = "0x088f6cfD8BB1dDb1BB069CCb3fc1A98927D233f2"
 /** The 14-day one (Austin 10-15): a wallet moves to it when its wedgie is paired. Candide's deploy; on Robinhood,
  * Sonic and Arc we replayed Candide's own deploy tx (same address, same code hash; 10-15). */
 export const RECOVERY_14D: Address = "0x9BacD92F4687Db306D7ded5d4513a51EA05df25b";
-export const RECOVERY_DAYS: Record<Address, number> = { [RECOVERY_7D]: 7, [RECOVERY_14D]: 14 };
+/** The 60-day one (Austin 10-15: the DAO shouldn't get your money in 2 weeks): the same Candide code, only the wait
+ * differs (constructor arg; bytecode diffed against the 14-day one). We deployed it on every chain through the Safe
+ * singleton factory, salt 0 (10-15). With a wedgie: the DAO sits here, your own recovery address on the 14-day one. */
+export const RECOVERY_60D: Address = "0x6aa9A8ad0582dB61A97A6E30eBa22Ba143D1E960";
+export const RECOVERY_MODULES: Address[] = [RECOVERY_7D, RECOVERY_14D, RECOVERY_60D];
+export const RECOVERY_DAYS: Record<Address, number> = { [RECOVERY_7D]: 7, [RECOVERY_14D]: 14, [RECOVERY_60D]: 60 };
 export const DAO: Address = "0xeF899e80aA814ab8D8e232f9Ed6403A633C727ec"; // dao.buidlguidl.eth, the same Safe on both chains
 export const MULTICALL3: Address = "0xcA11bde05977b3631167028862bE2a173976CA11";
 export const MODULE_FACTORY: Address = "0x000000000000aDdB49795b0f9bA5BC298cDda236"; // zodiac ModuleProxyFactory 1.2.0

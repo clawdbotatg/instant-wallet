@@ -3,7 +3,7 @@
 Austin, 10-18. Put $200 in one place. Hand out codes. Each code gets someone $5 into a new Instant Wallet.
 The point: get people to make a wallet (passkey) and have a little money on Base on their phone.
 
-Status: **plan, not built.** Open questions at the bottom.
+Status: **plan, not built.** Decisions at the bottom.
 
 ---
 
@@ -203,12 +203,15 @@ Roughly a day of work for 1–3, half a day for 4–6.
 
 ---
 
-## Open questions
+## Decided (Austin, 10-18)
 
-1. **Crowd farming:** cap + window enough, or also the rotating QR?
-2. **Admin:** OK to gate `/drop/new` with your Instant Wallet passkey (`DROP_ADMINS` = your wallet address)?
-3. **v1 tokens/chains:** Base USDC first, then Base ETH and mainnet? Or do you need mainnet ETH on day one?
-4. **Leftovers:** when a drop ends, sweep the rest back to your wallet automatically, or leave it until you tap Take back?
-5. **Domain on the QR:** `instantwallet.io` (short, permanent) or the Vercel URL?
-6. **Gas for new wallets:** should a claim also include a few cents of ETH so the wallet can do things right away,
-   or is USDC enough (the relay already takes fees in USDC)?
+- **Crowd guard:** cap + time window. No rotating QR.
+- **Admin:** gated by Austin's Instant Wallet passkey (`DROP_ADMINS`).
+- **Tokens v1:** all four: USDC and ETH, on Base and Ethereum.
+- **Leftovers:** stay in the pot until Austin taps **Take back**. No auto-sweep.
+
+## Still open
+
+1. **Domain on the QR:** `instantwallet.io` (short, permanent) or the Vercel URL?
+2. **Gas for new wallets:** should a claim also include a few cents of ETH, or is USDC enough (the relay takes fees
+   in USDC)?

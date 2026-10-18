@@ -11,7 +11,7 @@ import { type FeeToken, type Prepared, type Signer, finishOwners, getQuote, owne
 import { type ChainState, type SafeAccount, hotOf, oldLayout, readChain, wedgieSigners } from "@/lib/safe/state";
 import { Wedgie, wedgieDrive, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { AddressInput, Blockie } from "../bits";
+import { AddressInput, Blockie, TimedBar } from "../bits";
 import { Alerts } from "./Alerts";
 import { ChainSelect } from "./Pick";
 import { friendly } from "../Welcome";
@@ -271,7 +271,7 @@ export function Keys({
       {wait?.what === what && wait.chainId === chainId ? (
         <div className="stack" style={{ gap: 8 }}>
           <p className="fine">{busy ? "Sending…" : `Waiting for ${chainById(chainId)?.name}…`}</p>
-          <Progress ms={wait.ms} />
+          <TimedBar ms={wait.ms} />
         </div>
       ) : pending?.what === what ? (
         <div className="stack" style={{ gap: 8 }} ref={confirmRef}>
@@ -476,20 +476,6 @@ function KeyRow({ kind, a, chainId }: { kind: string; a?: Address; chainId: numb
     <div className="card keyrow">
       <b>{kind}</b>
       {a ? <Addr a={a} chainId={chainId} /> : <span className="fine">…</span>}
-    </div>
-  );
-}
-
-/** Fills toward the end over about `ms`, then creeps; the step replaces it when the change shows up. */
-function Progress({ ms }: { ms: number }) {
-  const [go, setGo] = useState(false);
-  useEffect(() => {
-    const t = requestAnimationFrame(() => setGo(true));
-    return () => cancelAnimationFrame(t);
-  }, []);
-  return (
-    <div className="progress">
-      <div style={{ width: go ? "95%" : "2%", transitionDuration: `${ms}ms` }} />
     </div>
   );
 }

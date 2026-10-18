@@ -22,6 +22,7 @@ import { SafeWelcome } from "./SafeWelcome";
 import { WedgieButton, WedgieProgress } from "./WedgieButton";
 import { PendingCards } from "./PendingCard";
 import { SafeConnectLayer } from "./SafeConnect";
+import { stashedCode } from "@/lib/dropClient";
 
 type View = { kind: "home" } | { kind: "send"; asset?: Asset } | { kind: "swap"; fund?: number } | { kind: "receive" } | { kind: "deposit" } | { kind: "keys" } | { kind: "sendAll" };
 
@@ -36,6 +37,8 @@ export function SafeApp() {
   const [dropReady, setDropReady] = useState<Prepared | null>(null);
   const [hidden, setHiddenState] = useState<string[]>([]);
   const [shown, setShownState] = useState<string[]>([]);
+  const [dropCode, setDropCode] = useState<string | null>(null); // a drop code scanned before this wallet existed
+  useEffect(() => setDropCode(stashedCode()), []);
 
   useEffect(() => {
     setAccountState(loadAccount());
@@ -153,6 +156,13 @@ export function SafeApp() {
         </div>
 
         <PendingCards account={account} states={states} onDone={refresh} toast={setToast} />
+        {dropCode && (
+          <div className="card stack">
+            <b>You have money to claim</b>
+            <p className="fine">The code {dropCode} is waiting for this wallet.</p>
+            <a className="btn btn-green wide" href="/d">Claim it</a>
+          </div>
+        )}
         {states.flatMap(s => s.recoveries.filter(r => r.request).map(r => <RecoveryAlert key={`${s.chainId}:${r.module}`} account={account} state={s} rec={r} feeToken={feeTokenOn(s.chainId)} onDone={refresh} />))}
         {states.map(
           s =>
@@ -213,6 +223,11 @@ export function SafeApp() {
             <p className="fine center" style={{ padding: 18 }}>
               Empty. Tap Deposit, or tap your address and send crypto to your address on {CHAINS.length > 2 ? `Base, Ethereum, or ${CHAINS.length - 2} other networks` : CHAINS.map(c => c.name).join(" or ")}.
             </p>
+          )}
+          {assets.length === 0 && !dropCode && (
+            <a className="fine center" href="/d" style={{ display: "block", paddingBottom: 14 }}>
+              Have a code?
+            </a>
           )}
           {assets.map(a => (
             <div key={`${a.chainId}:${a.asset}`} className="asset">

@@ -3,7 +3,7 @@
 Austin, 10-18. Put $200 in one place. Hand out codes. Each code gets someone $5 into a new Instant Wallet.
 The point: get people to make a wallet (passkey) and have a little money on Base on their phone.
 
-Status: **plan, not built.** Decisions at the bottom.
+Status: **built 10-18.** How to use it: docs/DROPS.md. Admin page is `/drops` (not `/drop/new`).
 
 ---
 

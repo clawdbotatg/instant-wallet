@@ -229,3 +229,13 @@ div.asset:active { background: none; }
 @media print { .claim-maker { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; } .claim-card { break-inside: avoid; } }
 
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+/* drops: Present, a full-screen QR for a slide (components/DropAdmin.tsx) */
+.present { position: fixed; inset: 0; z-index: 100; background: #fff; color: #1a1b1a; display: grid; place-items: center; padding: 24px; cursor: pointer; }
+.present-in { display: grid; gap: 2.5vh; justify-items: center; text-align: center; width: 100%; }
+.present-title { font-size: clamp(32px, 7vh, 80px); font-weight: 800; letter-spacing: -.02em; }
+.present-qr { width: min(60vh, 86vw); }
+.present-qr .qr { box-shadow: none; padding: 0; }
+.present-qr .qr img.code { max-width: none; }
+.present-code { font-size: clamp(18px, 3.4vh, 40px); }
+.present-count { font-size: clamp(16px, 2.6vh, 30px); color: #666; }

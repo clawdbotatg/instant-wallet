@@ -5,6 +5,7 @@ import { type Address, type Hash, formatUnits, getAddress, isAddress, parseUnits
 import { chainById, explorerTx, nativeSymbol } from "@/lib/chains";
 import { amount as fmtAmount, short, usd } from "@/lib/format";
 import { isClaimLink } from "@/lib/claim";
+import { dropCode } from "@/lib/dropClient";
 import { parse } from "@/lib/parse";
 import { openWalletConnect } from "@/lib/walletconnect";
 import { transfer } from "@/lib/safe/core";
@@ -190,6 +191,8 @@ export function SafeSend({
 
   function onScan(text: string) {
     setScanning(false);
+    const drop = dropCode(text);
+    if (drop) return void (window.location.href = `/d#${drop}`); // a drop's QR (any host): claim it into this wallet
     if (isClaimLink(text)) return void (window.location.href = `/claim${new URL(text.trim()).hash}`); // a claim card (any host): claim it into this wallet
     const r = parse(text);
     if (r.kind === "wc") return void (onDone(), openWalletConnect(r.uri)); // a site's WalletConnect QR: connect to it

@@ -95,8 +95,8 @@ export function masked(c: Contacts) {
 // ---------------------------------------------------------------- who may change a wallet's contacts
 
 /** The 32 bytes the passkey signs: the wallet, the change, and the time (a signed change is good for 5 minutes). */
-export function changeDigest(wallet: Address, change: string, ts: number): Hex {
-  return keccak256(toBytes(`Instant Wallet alerts\n${wallet.toLowerCase()}\n${change}\n${ts}`));
+export function changeDigest(wallet: Address, change: string, ts: number, scope = "alerts"): Hex {
+  return keccak256(toBytes(`Instant Wallet ${scope}\n${wallet.toLowerCase()}\n${change}\n${ts}`));
 }
 
 export type Signed = { qx: Hex; qy: Hex; authenticatorData: Hex; clientDataFields: string; r: Hex; s: Hex; ts: number };
@@ -105,9 +105,10 @@ export type Signed = { qx: Hex; qy: Hex; authenticatorData: Hex; clientDataField
  * A change is the wallet's own when its passkey signed it (P-256 over WebAuthn, as Safe's passkey signer checks)
  * and that passkey owns the wallet: its counterfactual Safe, or an owner on a chain where it's deployed.
  */
-export async function authorize(wallet: Address, change: string, s: Signed): Promise<string | null> {
-  if (!Number.isFinite(s.ts) || Math.abs(Date.now() - s.ts) > 5 * 60_000) return "That took too long. Try again.";
-  const digest = changeDigest(wallet, change, s.ts);
+export async function authorize(wallet: Address, change: string, s: Signed, scope = "alerts"): Promise<string | null> {
+  if (!s || !Number.isFinite(s.ts) || Math.abs(Date.now() - s.ts) > 5 * 60_000) return "That took too long. Try again.";
+  if (![s.qx, s.qy, s.authenticatorData, s.r, s.s].every(v => typeof v === "string" && /^0x[0-9a-fA-F]*$/.test(v)) || typeof s.clientDataFields !== "string") return "Bad signature.";
+  const digest = changeDigest(wallet, change, s.ts, scope);
   const json = `{"type":"webauthn.get","challenge":"${bytesToBase64url(hexToBytes(digest))}",${s.clientDataFields}}`;
   const msg = sha256(new Uint8Array([...hexToBytes(s.authenticatorData), ...sha256(new TextEncoder().encode(json))]));
   const pub = new Uint8Array([4, ...hexToBytes(s.qx), ...hexToBytes(s.qy)]);

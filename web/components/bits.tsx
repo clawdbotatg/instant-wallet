@@ -401,3 +401,17 @@ export function DepositIcon({ size = 20 }: { size?: number }) {
     </svg>
   );
 }
+
+/** Fills toward the end over about `ms`, then creeps; the step replaces it when the change shows up. */
+export function TimedBar({ ms }: { ms: number }) {
+  const [go, setGo] = useState(false);
+  useEffect(() => {
+    const t = requestAnimationFrame(() => setGo(true));
+    return () => cancelAnimationFrame(t);
+  }, []);
+  return (
+    <div className="progress">
+      <div style={{ width: go ? "95%" : "2%", transitionDuration: `${ms}ms` }} />
+    </div>
+  );
+}

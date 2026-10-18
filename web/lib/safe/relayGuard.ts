@@ -122,8 +122,10 @@ export async function reverted(safe: Address, ip: string, swap = false) {
 }
 
 /** A per-chain lock around nonce pick + broadcast. */
-export async function withChainLock<T>(chainId: number, fn: () => Promise<T>): Promise<T> {
-  const key = `lock:${chainId}`;
+export const withChainLock = <T>(chainId: number, fn: () => Promise<T>) => withLock(`lock:${chainId}`, fn);
+
+/** One holder at a time (another key's nonce: a drop's pot). */
+export async function withLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
   for (let i = 0; i < 40; i++) {
     if (await once(key, 20)) {
       try {

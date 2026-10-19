@@ -18,6 +18,8 @@ import {
   takeBack,
   updateDrop,
   usedCard,
+  walletChallenge,
+  walletLogin,
 } from "@/lib/drops";
 
 export const dynamic = "force-dynamic";
@@ -27,6 +29,8 @@ export const maxDuration = 60;
  * Drops, the giver's side (/drops). Face ID once to log in (an admin wallet's passkey over "login", scope "drops";
  * DROP_ADMINS lists the wallets), then a 12-hour session token.
  *   POST { op: "login", wallet, sig }        → { token }
+ *   POST { op: "challenge" }                 → { message }  for a wallet login (atg.eth): sign it in any wallet
+ *   POST { op: "login", wallet, message, signature } → { token }
  *   POST { op: "list", token }               → { drops: [{ ...drop, claimed, pot }], chains }
  *   POST { op: "get", token, id }            → { drop, claimed, pot: balances, codes: [{ code, used }], claims }
  *   POST { op: "create", token, drop }       → { drop }     NewDrop in lib/drops.ts
@@ -37,11 +41,16 @@ export async function POST(req: NextRequest) {
   const b = await req.json().catch(() => null);
   if (!b || typeof b.op !== "string") return NextResponse.json({ error: "bad request" }, { status: 400 });
   try {
+    if (b.op === "challenge") return NextResponse.json({ message: await walletChallenge() });
     if (b.op === "login") {
       if (!isAddress(b.wallet)) throw new DropRefused("wallet?");
       const w = getAddress(b.wallet);
-      const bad = await authorize(w, "login", b.sig as Signed, "drops");
-      if (bad) throw new DropRefused(bad, 403);
+      if (typeof b.message === "string") {
+        if (!(await walletLogin(w, b.message, b.signature))) throw new DropRefused("That signature didn't check out. Try again.", 403);
+      } else {
+        const bad = await authorize(w, "login", b.sig as Signed, "drops");
+        if (bad) throw new DropRefused(bad, 403);
+      }
       if (!isAdmin(w)) throw new DropRefused("This wallet can't make drops.", 403);
       return NextResponse.json({ token: await newSession(w), wallet: w });
     }

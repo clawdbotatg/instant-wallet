@@ -1,9 +1,9 @@
 import "server-only";
 import { hkdf } from "@noble/hashes/hkdf.js";
 import { sha256 } from "@noble/hashes/sha2.js";
-import { type Address, type Hex, createWalletClient, encodeFunctionData, getAddress, http, parseUnits, toHex } from "viem";
+import { type Address, type Hex, createPublicClient, createWalletClient, encodeFunctionData, getAddress, http, parseUnits, toHex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { CHAINS } from "./chains";
+import { CHAINS, knownChain } from "./chains";
 import { AUTH_TYPES, type ClaimAuth, authCall, usdc3009 } from "./claim";
 import { kv } from "./kv";
 import { upstreamRpc } from "./rpcServer";
@@ -381,4 +381,16 @@ export async function sessionWallet(t: unknown): Promise<Address | null> {
   if (typeof t !== "string" || !/^[0-9a-f]{48}$/.test(t)) return null;
   const w = await kv(["GET", `${P}s:${t}`]);
   return w && isAdmin(w) ? getAddress(w) : null;
+}
+
+/** Wallet login (atg.eth etc.): a one-time message, signed in any wallet (EOA or smart wallet, checked on Ethereum). */
+export async function walletChallenge(): Promise<string> {
+  const n = toHex(crypto.getRandomValues(new Uint8Array(12))).slice(2);
+  await kv(["SET", `${P}ch:${n}`, "1", "EX", 600]);
+  return `Log in to Instant Wallet drops\nnonce: ${n}`;
+}
+export async function walletLogin(wallet: Address, message: string, signature: Hex): Promise<boolean> {
+  const n = /\nnonce: ([0-9a-f]{24})$/.exec(message)?.[1];
+  if (!n || !(await kv(["DEL", `${P}ch:${n}`]))) return false;
+  return createPublicClient({ chain: knownChain(1)!.chain, transport: http(upstreamRpc(1)) }).verifyMessage({ address: wallet, message, signature });
 }

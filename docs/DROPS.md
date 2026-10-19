@@ -15,8 +15,8 @@ only pays a passkey wallet, so a code is worth nothing without making a wallet.
 
 ## Make one (you)
 
-1. Open `/drops` on the phone that has your Instant Wallet. **Log in with Face ID** (your wallet must be in
-   `DROP_ADMINS`).
+1. Open `/drops`. **Log in with Face ID** (an Instant Wallet on this phone) or **Log in with a wallet** (MetaMask,
+   Rabby, or a wallet's own browser: sign a one-time message). The wallet must be in `DROP_ADMINS` (atg.eth is).
 2. **New drop:** crowd or cards, Base or Ethereum, USDC or ETH, amount per claim, how many / the cap, crowd code
    (or random), window in minutes (blank = no limit).
 3. **Fill the pot:** send to the pot's address (QR on the drop). It says "Enough for X of the Y claims left" and how
@@ -51,7 +51,7 @@ only pays a passkey wallet, so a code is worth nothing without making a wallet.
 | var | what |
 |---|---|
 | `DROP_SECRET` | derives every pot key. Set in Vercel production. |
-| `DROP_ADMINS` | wallet addresses that can use `/drops`, comma-separated. Unset in production = nobody. |
+| `DROP_ADMINS` | wallet addresses that can use `/drops`, comma-separated. Unset in production = nobody. Set: atg.eth `0x34aA3F359A9D614239015126635CE7732c18fDF3`. |
 
 ## Code
 

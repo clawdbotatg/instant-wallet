@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { type Address, formatUnits } from "viem";
+import { type Address, formatUnits, toHex } from "viem";
 import { chainById, explorerTx } from "@/lib/chains";
 import { cardsPdf } from "@/lib/claimBatch";
 import { type DropInfo, dropAmount, dropSig, dropUrl } from "@/lib/dropClient";
@@ -106,6 +106,25 @@ export function DropAdmin() {
     }
   }
 
+  async function walletLogin() {
+    const eth = (window as any).ethereum;
+    if (!eth) return setError("No wallet in this browser. Open this page in your wallet's browser, or on a computer with MetaMask or Rabby.");
+    setBusy(true);
+    setError(null);
+    try {
+      const [wallet] = await eth.request({ method: "eth_requestAccounts" });
+      const { message } = await api("challenge");
+      const signature = await eth.request({ method: "personal_sign", params: [toHex(message), wallet] });
+      const j = await api("login", { wallet, message, signature });
+      localStorage.setItem(SESSION, JSON.stringify({ token: j.token, wallet: j.wallet }));
+      await load();
+    } catch (e: any) {
+      setError(friendly(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (account === undefined) return null;
 
   if (!authed)
@@ -124,6 +143,9 @@ export function DropAdmin() {
               <a className="btn btn-green wide" href="/">Open Instant Wallet</a>
             </>
           )}
+          <button className="btn wide" onClick={walletLogin} disabled={busy}>
+            Log in with a wallet
+          </button>
           {error && <p className="err">{error}</p>}
         </div>
       </div>

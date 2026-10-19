@@ -90,7 +90,7 @@ export function Drop() {
     );
 
   const tokens = info ? Number(formatUnits(BigInt(info.amount), info.decimals)) : 0;
-  const value = info ? (info.token === "usdc" ? usd(tokens) : price ? usd(tokens * price) : dropAmount(info)) : "…";
+  const value = info ? (info.token === "usdc" || info.usd ? usd(tokens) : price ? usd(tokens * price) : dropAmount(info)) : "…";
   const net = info && chainById(info.chainId)?.name;
 
   async function claim() {

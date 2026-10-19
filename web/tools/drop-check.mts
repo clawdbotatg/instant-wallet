@@ -127,14 +127,17 @@ ok(rs.every(x => x.status === 200), `20 USDC claims at once all paid (${rs.filte
 ok(ks.every(k => usdcOf(k.wallet) === 1_000_000n), "each wallet has 1 USDC");
 
 // ---- 20 at once: ETH
-r = await admin("create", { drop: { name: "Eth", chainId: 8453, token: "eth", amount: "0.001", kind: "crowd", count: 20 } });
+r = await admin("create", { drop: { name: "Eth", chainId: 8453, token: "eth", amount: "2", kind: "crowd", count: 20 } });
 const eth = r.j.drop;
-const pot4: string = (await admin("get", { id: eth.id })).j.pot.address;
-cast(`rpc anvil_setBalance ${pot4} 0x${(25n * 10n ** 15n).toString(16)}`); // 0.025 ETH
+const pot4g = (await admin("get", { id: eth.id })).j.pot;
+const pot4: string = pot4g.address;
+const each = BigInt(pot4g.each); // $2 of ETH at the Uniswap price
+ok(pot4g.ethUsd > 100 && Math.abs(Number(each) / 1e18 * pot4g.ethUsd - 2) < 0.01, `$2 of ETH = ${Number(each) / 1e18} ETH at $${pot4g.ethUsd.toFixed(2)}`);
+cast(`rpc anvil_setBalance ${pot4} 0x${(25n * (each + 10n ** 13n)).toString(16)}`);
 ks = Array.from({ length: 20 }, key);
 rs = await Promise.all(ks.map(k => claim(k, eth.code)));
 ok(rs.every(x => x.status === 200), `20 ETH claims at once all paid (${rs.filter(x => x.status !== 200).map(x => x.j.error).join("; ") || "ok"})`);
-ok(ks.every(k => ethOf(k.wallet) === 10n ** 15n), "each wallet has 0.001 ETH");
+ok(ks.every(k => ethOf(k.wallet) === each), "each wallet has $2 of ETH");
 
 // ---- closed window
 await admin("set", { id: crowd.id, minutes: 0 });

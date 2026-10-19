@@ -16,6 +16,7 @@ type Drop = {
   chainId: number;
   token: "usdc" | "eth";
   amount: string;
+  usd?: boolean;
   kind: "cards" | "crowd";
   cap: number;
   code?: string;
@@ -28,14 +29,16 @@ type Drop = {
 type Detail = {
   drop: Drop;
   claimed: number;
-  pot: { address: Address; usdc: string; eth: string; feeUsdc: string; gasEth: string };
+  pot: { address: Address; usdc: string; eth: string; feeUsdc: string; gasEth: string; ethUsd: number; each: string };
   codes: { code: string; used: boolean }[];
   claims: { code: string; wallet: Address; tx: string; at: number }[];
 };
 
 const SESSION = "iw.dropAdmin";
 const dec = (t: Drop["token"]) => (t === "usdc" ? 6 : 18);
-const amt = (d: Drop) => dropAmount({ ...d, decimals: dec(d.token) });
+const amt = (d: Drop) => dropAmount({ ...d, decimals: d.usd ? 6 : dec(d.token) });
+/** "$5" for a USDC drop or a dollar-priced ETH drop. */
+const dollars = (d: Drop) => (d.token === "usdc" || d.usd ? `$${formatUnits(BigInt(d.amount), 6)}` : amt(d));
 
 async function api(op: string, body: object = {}) {
   let token: string | undefined;
@@ -251,7 +254,7 @@ function NewDrop({ onMade }: { onMade: (d: Drop) => void }) {
         ["usdc", "USDC"],
         ["eth", "ETH"],
       ])}
-      {field(`${token.toUpperCase()} per claim`, <div className="input"><input inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value.replace(",", "."))} /></div>)}
+      {field(`Dollars per claim${token === "eth" ? " (paid in ETH at the price then)" : ""}`, <div className="input"><input inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value.replace(",", "."))} /></div>)}
       {field(kind === "cards" ? "How many cards" : "Most claims (the cap)", <div className="input"><input inputMode="numeric" value={count} onChange={e => setCount(e.target.value.replace(/\D/g, ""))} /></div>)}
       {kind === "crowd" && (
         <>
@@ -260,7 +263,7 @@ function NewDrop({ onMade }: { onMade: (d: Drop) => void }) {
         </>
       )}
       <p className="fine">
-        You&apos;ll fill it with about {Number(amount) * Number(count) || 0} {token.toUpperCase()} plus fees{chainId === 1 ? " (Ethereum fees are higher)" : ""}.
+        You&apos;ll fill it with about ${Number(amount) * Number(count) || 0}{token === "eth" ? " of ETH" : " USDC"} plus fees{chainId === 1 ? " (Ethereum fees are higher)" : ""}.
       </p>
       <button className="btn btn-green wide" onClick={make} disabled={busy}>
         {busy ? "…" : "Make it"}
@@ -285,11 +288,11 @@ function DropCard({ id, toast, onClose }: { id: string; toast: (m: string) => vo
 
   if (!d) return <div className="card fine center">{error ?? "…"}</div>;
   const { drop } = d;
-  const each = BigInt(drop.amount);
+  const each = BigInt(d.pot.each); // per claim, in the token (ETH: at today's price)
   const per = drop.token === "usdc" ? each + BigInt(d.pot.feeUsdc) : each + BigInt(d.pot.gasEth);
   const have = drop.token === "usdc" ? BigInt(d.pot.usdc) : BigInt(d.pot.eth);
   const left = drop.cap - d.claimed;
-  const enough = per > 0n ? Number(have / per) : 0;
+  const enough = per > 0n && each > 0n ? Number(have / per) : 0;
   const need = BigInt(Math.max(0, left - enough)) * per;
   const net = chainById(drop.chainId)?.name;
   const origin = window.location.origin;
@@ -313,7 +316,7 @@ function DropCard({ id, toast, onClose }: { id: string; toast: (m: string) => vo
   async function pdf() {
     const unused = d!.codes.filter(c => !c.used);
     if (!unused.length) return toast("Every card is claimed");
-    await cardsPdf(unused.map(c => ({ url: dropUrl(origin, c.code), amount: drop.token === "usdc" ? `$${formatUnits(each, 6)}` : amt(drop) })));
+    await cardsPdf(unused.map(c => ({ url: dropUrl(origin, c.code), amount: dollars(drop) })));
   }
 
   return (
@@ -330,7 +333,8 @@ function DropCard({ id, toast, onClose }: { id: string; toast: (m: string) => vo
       <b>The pot</b>
       <p className="fine">
         Has {formatUnits(BigInt(d.pot.usdc), 6)} USDC + {Number(formatUnits(BigInt(d.pot.eth), 18)).toFixed(5)} ETH on {net}. Enough for {Math.min(enough, left)} of the {left} claims left
-        {need > 0n ? `. Send ${formatUnits(need, dec(drop.token))} ${drop.token.toUpperCase()} more on ${net} to cover them all.` : "."}
+        {need > 0n ? `. Send ${drop.token === "eth" ? `${Number(formatUnits(need, 18)).toFixed(5)} ETH (~$${(Number(formatUnits(need, 18)) * d.pot.ethUsd).toFixed(2)})` : `${formatUnits(need, 6)} USDC`} more on ${net} to cover them all.` : "."}
+        {drop.token === "eth" && d.pot.ethUsd ? ` ETH is $${d.pot.ethUsd.toFixed(0)} now (Uniswap); each claim gets ${dollars(drop)} of ETH at the price when they claim.` : ""}
         {drop.token === "usdc" ? ` Each claim costs the pot ${formatUnits(BigInt(d.pot.feeUsdc), 6)} USDC in fees today.` : ""}
       </p>
       <div onClick={async () => (await copy(d.pot.address)) && toast("Address copied")} style={{ cursor: "pointer", maxWidth: 220, margin: "0 auto", width: "100%" }}>
@@ -429,7 +433,7 @@ function Present({ drop, onClose }: { drop: Drop; onClose: () => void }) {
     return () => clearInterval(t);
   }, [drop.code]);
   const host = window.location.host.replace(/^www\./, "");
-  const shown = drop.token === "usdc" ? `$${formatUnits(BigInt(drop.amount), 6)}` : amt(drop);
+  const shown = dollars(drop);
   return (
     <div className="present" onClick={onClose}>
       <div className="present-in">

@@ -17,7 +17,8 @@ only pays a passkey wallet, so a code is worth nothing without making a wallet.
 
 1. Open `/drops`. **Log in with Face ID** (an Instant Wallet on this phone) or **Log in with a wallet** (MetaMask,
    Rabby, or a wallet's own browser: sign a one-time message). The wallet must be in `DROP_ADMINS` (atg.eth is).
-2. **New drop:** crowd or cards, Base or Ethereum, USDC or ETH, amount per claim, how many / the cap, crowd code
+2. **New drop:** crowd or cards, Base or Ethereum, USDC or ETH, dollars per claim (ETH drops pay that many dollars of
+   ETH, at the Uniswap WETH/USDC price when each person claims), how many / the cap, crowd code
    (or random), window in minutes (blank = no limit).
 3. **Fill the pot:** send to the pot's address (QR on the drop). It says "Enough for X of the Y claims left" and how
    much more to send. USDC claims also cost the pot the relay's fee (~$0.003 on Base, more on Ethereum).
@@ -38,7 +39,8 @@ only pays a passkey wallet, so a code is worth nothing without making a wallet.
   every pot's money: it's in Vercel (production, readable type) — keep a copy.
 - **USDC:** the pot signs two EIP-3009 transfers (amount → wallet, fee → relay); the relay submits them. The pot needs
   no ETH.
-- **ETH:** the pot sends it and pays its own gas. One send at a time per pot.
+- **ETH:** the pot sends it and pays its own gas. One send at a time per pot. Amount = dollars ÷ the price in the
+  Uniswap v3 WETH/USDC 0.05% pool on that chain (`ethUsd` in `web/lib/drops.ts`).
 - **Claim checks:** code is live → the wallet's passkey signed `claim <CODE>` (same check as recovery alerts) →
   reserve (card used / this wallet's crowd claim / a place under the cap) → send → wait for it to land. A failed send
   gives the reservation back. 300 claims per IP per hour.

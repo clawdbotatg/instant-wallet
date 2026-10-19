@@ -37,7 +37,8 @@ export type Drop = {
   name: string;
   chainId: number;
   token: DropToken;
-  amount: string; // per claim, in the token's smallest unit
+  amount: string; // per claim, in the token's smallest unit; usd: in dollars (6 decimals), paid in ETH at the price then
+  usd?: boolean;
   kind: DropKind;
   cap: number; // cards: how many were made; crowd: the most claims
   code?: string; // crowd: the one code
@@ -122,7 +123,8 @@ export async function createDrop(admin: Address, n: NewDrop): Promise<Drop> {
   if (n.kind !== "cards" && n.kind !== "crowd") throw new DropRefused("Cards or crowd?");
   let amount: bigint;
   try {
-    amount = parseUnits(String(n.amount).trim(), decimals(n.token));
+    amount = parseUnits(String(n.amount).trim(), 6); // dollars, for ETH too
+
   } catch {
     throw new DropRefused("That amount doesn't look right.");
   }
@@ -138,6 +140,7 @@ export async function createDrop(admin: Address, n: NewDrop): Promise<Drop> {
     chainId: Number(n.chainId),
     token: n.token,
     amount: amount.toString(),
+    ...(n.token === "eth" ? { usd: true } : {}),
     kind: n.kind,
     cap: count,
     admin,
@@ -225,7 +228,7 @@ export async function claim(code: string, d: Drop, wallet: Address, ip: string):
   }
   let hash: Hex;
   try {
-    hash = d.token === "usdc" ? await sendUsdc(d.chainId, potKey(d.id), wallet, BigInt(d.amount)) : await sendEth(d.chainId, potKey(d.id), wallet, BigInt(d.amount));
+    hash = d.token === "usdc" ? await sendUsdc(d.chainId, potKey(d.id), wallet, BigInt(d.amount)) : await sendEth(d.chainId, potKey(d.id), wallet, await weiOf(d));
   } catch (e) {
     await release();
     throw e;
@@ -234,6 +237,32 @@ export async function claim(code: string, d: Drop, wallet: Address, ip: string):
   await kv(["SET", hold, JSON.stringify(rec)]);
   await kv(["RPUSH", `${P}log:${d.id}`, JSON.stringify(rec)]);
   return { hash };
+}
+
+// ---------------------------------------------------------------- the ETH price
+
+// Uniswap v3 WETH/USDC 0.05%, the deepest pool on each chain. [pool, true if USDC is token0]
+const POOLS: Record<number, [Address, boolean]> = {
+  1: ["0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640", true],
+  8453: ["0xd0b53D9277642d899DF5C87A3966A349A798F224", false],
+};
+const slot0 = [{ type: "function", name: "slot0", stateMutability: "view", inputs: [], outputs: [{ type: "uint160" }, { type: "int24" }, { type: "uint16" }, { type: "uint16" }, { type: "uint16" }, { type: "uint8" }, { type: "bool" }] }] as const;
+
+/** Dollars per ETH, from the pool right now. */
+export async function ethUsd(chainId: number): Promise<number> {
+  const [pool, usdcFirst] = POOLS[chainId] ?? POOLS[1];
+  const pc = createPublicClient({ chain: knownChain(POOLS[chainId] ? chainId : 1)!.chain, transport: http(upstreamRpc(POOLS[chainId] ? chainId : 1)) });
+  const [sqrt] = await pc.readContract({ address: pool, abi: slot0, functionName: "slot0" });
+  const p = (Number(sqrt) / 2 ** 96) ** 2; // token1 per token0, smallest units
+  const v = usdcFirst ? 1e12 / p : p * 1e12;
+  if (!(v > 100 && v < 1e6)) throw new Error("no ETH price");
+  return v;
+}
+
+/** What one claim pays, in wei. */
+export async function weiOf(d: Drop, price?: number): Promise<bigint> {
+  if (!d.usd) return BigInt(d.amount);
+  return (BigInt(d.amount) * 10n ** 12n * 1_000_000n) / BigInt(Math.round((price ?? (await ethUsd(d.chainId))) * 1e6));
 }
 
 // ---------------------------------------------------------------- moving money out of a pot
@@ -341,17 +370,19 @@ async function landed(pc: ReturnType<typeof clients>["pc"], hash: Hex) {
   if (rc && rc.status !== "success") throw new Error("The transfer failed on chain. Try again.");
 }
 
-export async function potBalances(d: Drop): Promise<{ address: Address; usdc: string; eth: string; feeUsdc: string; gasEth: string }> {
+export async function potBalances(d: Drop): Promise<{ address: Address; usdc: string; eth: string; feeUsdc: string; gasEth: string; ethUsd: number; each: string }> {
   const { pc } = clients(d.chainId);
   const address = potAddress(d.id);
-  const [usdc, eth, feeUsdc, f] = await Promise.all([
+  const [usdc, eth, feeUsdc, f, price] = await Promise.all([
     pc.readContract({ address: usdcOf(d.chainId), abi: abi.erc20, functionName: "balanceOf", args: [address] }) as Promise<bigint>,
     pc.getBalance({ address }),
     usdcFee(d.chainId).catch(() => 0n),
     pc.estimateFeesPerGas().catch(() => ({ maxFeePerGas: 0n })),
+    ethUsd(d.chainId).catch(() => 0),
   ]);
   const gasEth = 30_000n * f.maxFeePerGas + (d.chainId === 1 ? 0n : L1_ALLOWANCE);
-  return { address, usdc: usdc.toString(), eth: eth.toString(), feeUsdc: feeUsdc.toString(), gasEth: gasEth.toString() };
+  const each = d.token === "usdc" ? BigInt(d.amount) : price ? await weiOf(d, price) : 0n; // per claim, in the token
+  return { address, usdc: usdc.toString(), eth: eth.toString(), feeUsdc: feeUsdc.toString(), gasEth: gasEth.toString(), ethUsd: price, each: each.toString() };
 }
 
 /** Everything left in the pot (USDC and ETH) to `to`. */

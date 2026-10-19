@@ -16,6 +16,7 @@ export type DropInfo = {
   token: "usdc" | "eth";
   amount: string;
   decimals: number;
+  usd?: boolean; // amount is dollars (6 decimals), paid in the token (ETH at the price then)
   kind: "cards" | "crowd";
   claimed: number;
   cap: number;
@@ -57,8 +58,9 @@ export function clearStash() {
   } catch {}
 }
 
-/** "5 USDC", "0.001 ETH". */
-export const dropAmount = (d: { amount: string; decimals: number; token: string }) => `${formatUnits(BigInt(d.amount), d.decimals)} ${d.token.toUpperCase()}`;
+/** "5 USDC", "$5 of ETH", "0.001 ETH" (an older ETH drop). */
+export const dropAmount = (d: { amount: string; decimals: number; token: string; usd?: boolean }) =>
+  d.usd && d.token === "eth" ? `$${formatUnits(BigInt(d.amount), d.decimals)} of ETH` : `${formatUnits(BigInt(d.amount), d.decimals)} ${d.token.toUpperCase()}`;
 
 /** Face ID over a drops message (same bytes as changeDigest(…, "drops") in lib/alerts.ts). Call straight from a tap. */
 export async function dropSig(a: SafeAccount, change: string) {

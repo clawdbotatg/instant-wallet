@@ -50,7 +50,7 @@ await admin.getByText("New drop").tap();
 const code = `TALK${Date.now() % 100000}`;
 const fill = async (label, v) => admin.locator("label", { hasText: label }).locator("input").fill(v);
 await fill("Name", "Test talk");
-await fill("USDC per claim", "2");
+await fill("Dollars per claim", "2");
 await fill("Most claims", "5");
 await fill("Code", code);
 await admin.screenshot({ path: `${OUT}/drop-1-new.png` });

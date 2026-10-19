@@ -199,6 +199,15 @@ export function DropAdmin() {
   );
 }
 
+/** USDC (6 decimals) to cents, rounded up. */
+const up = (v: bigint) => (Number((v + 9_999n) / 10_000n) / 100).toFixed(2);
+const stat = (label: string, value: string) => (
+  <div key={label} className="stack center" style={{ flex: 1, gap: 2, padding: 8, borderRadius: 12, background: "var(--chip, rgba(127,127,127,.12))" }}>
+    <span className="fine">{label}</span>
+    <b>{value}</b>
+  </div>
+);
+
 /** The ETH price the drops pay at, bottom left. */
 function EthPrice() {
   const [p, setP] = useState(0);
@@ -209,7 +218,7 @@ function EthPrice() {
     return () => clearInterval(t);
   }, []);
   if (!p) return null;
-  return <div className="fine" style={{ position: "fixed", left: 12, bottom: 12, zIndex: 5 }}>ETH ${p.toFixed(2)}</div>;
+  return <div className="fine" style={{ position: "fixed", left: 12, bottom: 12, zIndex: 5, padding: "4px 10px", borderRadius: 99, background: "var(--bg, #f3f3ef)", boxShadow: "0 1px 4px rgba(0,0,0,.15)" }}>ETH ${p.toFixed(2)}</div>;
 }
 
 function NewDrop({ onMade }: { onMade: (d: Drop) => void }) {
@@ -339,18 +348,30 @@ function DropCard({ id, toast, onClose }: { id: string; toast: (m: string) => vo
         <b>{drop.name}</b>
         <button className="pill" onClick={onClose}>Close</button>
       </div>
-      <p className="fine">
-        {drop.kind === "cards" ? `${drop.cap} cards` : `Crowd code ${drop.code}, cap ${drop.cap}`} × {amt(drop)} on {net} · <b>{st}</b> · {d.claimed} claimed
-        {drop.closesAt && !drop.ended ? ` · ${Date.now() < drop.closesAt ? "closes" : "closed"} ${new Date(drop.closesAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : ""}
-      </p>
+      <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
+        <span className="pill on">{st}</span>
+        <span className="pill">{dollars(drop)} {drop.token === "eth" ? "of ETH" : "USDC"}</span>
+        <span className="pill">{net}</span>
+        <span className="pill">{d.claimed} / {drop.cap} claimed</span>
+        {drop.closesAt && !drop.ended && <span className="pill">{Date.now() < drop.closesAt ? "closes" : "closed"} {new Date(drop.closesAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span>}
+      </div>
 
-      <b>The pot</b>
-      <p className="fine">
-        Has {formatUnits(BigInt(d.pot.usdc), 6)} USDC + {Number(formatUnits(BigInt(d.pot.eth), 18)).toFixed(5)} ETH on {net}. Enough for {Math.min(enough, left)} of the {left} claims left
-        {need > 0n ? `. Send ${drop.token === "eth" ? `${Number(formatUnits(need, 18)).toFixed(5)} ETH (~$${(Number(formatUnits(need, 18)) * d.pot.ethUsd).toFixed(2)})` : `${formatUnits(need, 6)} USDC`} more on ${net} to cover them all.` : "."}
-        {drop.token === "eth" && d.pot.ethUsd ? ` ETH is $${d.pot.ethUsd.toFixed(0)} now (Uniswap); each claim gets ${dollars(drop)} of ETH at the price when they claim.` : ""}
-        {drop.token === "usdc" ? ` Each claim costs the pot ${formatUnits(BigInt(d.pot.feeUsdc), 6)} USDC in fees today.` : ""}
-      </p>
+      <div className="center" style={{ padding: "8px 0" }}>
+        {need > 0n ? (
+          <>
+            <div className="fine">Send to the pot</div>
+            <div style={{ fontSize: 34, fontWeight: 700 }}>{drop.token === "eth" ? `${Number(formatUnits(need, 18)).toFixed(4)} ETH` : `${up(need)} USDC`}</div>
+            <div className="fine">on {net}{drop.token === "eth" ? ` · ≈ $${(Number(formatUnits(need, 18)) * d.pot.ethUsd).toFixed(2)}` : ""}</div>
+          </>
+        ) : (
+          <div style={{ fontSize: 28, fontWeight: 700 }}>✓ Pot is full</div>
+        )}
+      </div>
+      <div className="row" style={{ gap: 8 }}>
+        {stat("In pot", drop.token === "eth" ? `$${(Number(formatUnits(BigInt(d.pot.eth), 18)) * d.pot.ethUsd).toFixed(2)}` : `$${up(BigInt(d.pot.usdc))}`)}
+        {stat("Covers", `${Math.min(enough, left)} of ${left}`)}
+        {stat("Fee each", drop.token === "eth" ? `$${(Number(formatUnits(BigInt(d.pot.gasEth), 18)) * d.pot.ethUsd).toFixed(2)}` : `$${up(BigInt(d.pot.feeUsdc))}`)}
+      </div>
       <div onClick={async () => (await copy(d.pot.address)) && toast("Address copied")} style={{ cursor: "pointer", maxWidth: 220, margin: "0 auto", width: "100%" }}>
         <Qr value={d.pot.address} center={d.pot.address} />
       </div>
@@ -364,8 +385,8 @@ function DropCard({ id, toast, onClose }: { id: string; toast: (m: string) => vo
           <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
             <button className="btn btn-green" onClick={() => setPresent(true)}>Present</button>
             <button className="pill" onClick={async () => (await copy(dropUrl(origin, drop.code!))) && toast("Link copied")}>Copy link</button>
-            <button className="pill" onClick={() => act("time", "set", { minutes: 30 })} disabled={!!busy}>Open 30 min from now</button>
-            <button className="pill" onClick={() => act("time", "set", { minutes: 0 })} disabled={!!busy}>No time limit</button>
+            <button className="pill" onClick={() => act("time", "set", { minutes: 30 })} disabled={!!busy}>Close in 30 min</button>
+            <button className="pill" onClick={() => act("time", "set", { minutes: 0 })} disabled={!!busy}>Never close</button>
           </div>
         </>
       )}

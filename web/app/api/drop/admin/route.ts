@@ -8,6 +8,7 @@ import {
   claimedCount,
   claims,
   createDrop,
+  ethUsd,
   getDrop,
   isAdmin,
   listDrops,
@@ -35,6 +36,7 @@ export const maxDuration = 60;
  *   POST { op: "get", token, id }            → { drop, claimed, pot: balances, codes: [{ code, used }], claims }
  *   POST { op: "create", token, drop }       → { drop }     NewDrop in lib/drops.ts
  *   POST { op: "set", token, id, paused?, ended?, minutes? } → { drop }
+ *   POST { op: "price", token }              → { ethUsd }   Uniswap, Base
  *   POST { op: "takeback", token, id }       → { hashes }   everything left, to the logged-in wallet
  */
 export async function POST(req: NextRequest) {
@@ -85,6 +87,8 @@ export async function POST(req: NextRequest) {
       case "set":
         await one();
         return NextResponse.json({ drop: await updateDrop(b.id, { paused: b.paused, ended: b.ended, minutes: b.minutes }) });
+      case "price":
+        return NextResponse.json({ ethUsd: await ethUsd(8453) });
       case "takeback":
         return NextResponse.json({ hashes: await takeBack(await one(), me) });
     }

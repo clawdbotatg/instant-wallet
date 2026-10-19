@@ -172,6 +172,7 @@ export function DropAdmin() {
         />
       )}
       {error && <p className="err">{error}</p>}
+      <EthPrice />
       {drops === null && <p className="fine center">…</p>}
       {drops?.length === 0 && !making && <p className="fine center">No drops yet. Tap New drop.</p>}
       {drops?.map(d =>
@@ -196,6 +197,19 @@ export function DropAdmin() {
       {toast && <div className="toast">{toast}</div>}
     </div>
   );
+}
+
+/** The ETH price the drops pay at, bottom left. */
+function EthPrice() {
+  const [p, setP] = useState(0);
+  useEffect(() => {
+    const get = () => api("price").then(j => setP(j.ethUsd)).catch(() => {});
+    get();
+    const t = setInterval(() => document.hidden || get(), 30_000);
+    return () => clearInterval(t);
+  }, []);
+  if (!p) return null;
+  return <div className="fine" style={{ position: "fixed", left: 12, bottom: 12, zIndex: 5 }}>ETH ${p.toFixed(2)}</div>;
 }
 
 function NewDrop({ onMade }: { onMade: (d: Drop) => void }) {

@@ -385,7 +385,9 @@ function DropCard({ id, toast, onClose }: { id: string; toast: (m: string) => vo
           <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
             <button className="btn btn-green" onClick={() => setPresent(true)}>Present</button>
             <button className="pill" onClick={async () => (await copy(dropUrl(origin, drop.code!))) && toast("Link copied")}>Copy link</button>
-            <button className="pill" onClick={() => act("time", "set", { minutes: 30 })} disabled={!!busy}>Close in 30 min</button>
+            {[30, 60, 90].map(m => (
+              <button key={m} className="pill" onClick={() => act("time", "set", { minutes: m })} disabled={!!busy}>Close in {m} min</button>
+            ))}
             <button className="pill" onClick={() => act("time", "set", { minutes: 0 })} disabled={!!busy}>Never close</button>
           </div>
         </>

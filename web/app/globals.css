@@ -163,6 +163,8 @@ div.asset:active { background: none; }
 .qr .mid { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
 
 .scanner { position: relative; border-radius: 24px; overflow: hidden; background: #111; aspect-ratio: 3 / 4; }
+/* html5-qrcode sets position:relative on its container, which drops inset:0 — force it back so the video fills on landscape (desktop) cameras */
+.scanner > div:first-child { position: absolute !important; inset: 0; }
 .scanner > div video { width: 100% !important; height: 100% !important; object-fit: cover; }
 .scanner .frame { position: absolute; left: 50%; top: 50%; width: 72%; aspect-ratio: 1; transform: translate(-50%, -50%); border: 4px solid var(--mint); border-radius: 26px; pointer-events: none; box-shadow: 0 0 0 999px rgba(0,0,0,.25); }
 .scanner #qr-shaded-region { display: none; }

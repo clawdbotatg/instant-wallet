@@ -157,7 +157,7 @@ await page.screenshot({ path: `${OUT}/s2-home-funded.png` });
 
 async function send(to, pickText, amount, shot, keys) {
   // the green send button on that asset's row (it skips the scanner and picks the asset)
-  await page.locator(".asset", { has: page.locator(".sym", { hasText: new RegExp(`^${pickText}$`) }) }).first().locator(".send-one").tap();
+  await page.locator(".asset", { has: page.locator(".sym", { hasText: new RegExp(`^${pickText}$`) }) }).first().tap();
   await page.getByPlaceholder("0x… or name.eth").fill(to);
   await page.locator("input.amount").fill(amount);
   await page.getByText("Review").tap();
@@ -359,7 +359,7 @@ ok(cast(`call ${acct.address} "getOwners()(address[])"`).toLowerCase() === `[${a
 await page2.waitForTimeout(14000);
 ok(!(await page2.getByText("Waiting for recovery").isVisible()), "the new phone sees it's an owner");
 const FRANK = rand();
-await page2.locator(".asset", { has: page2.locator(".sym", { hasText: /^USDC$/ }) }).first().locator(".send-one").tap();
+await page2.locator(".asset", { has: page2.locator(".sym", { hasText: /^USDC$/ }) }).first().tap();
 await page2.getByPlaceholder("0x… or name.eth").fill(FRANK);
 await page2.locator("input.amount").fill("7");
 await page2.getByText("Review").tap();

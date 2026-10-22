@@ -229,8 +229,10 @@ export function SafeApp() {
               Have a code?
             </a>
           )}
-          {assets.map(a => (
-            <div key={`${a.chainId}:${a.asset}`} className="asset">
+          {assets.map(a => {
+            const Row = isDust(a) ? "div" : "button";
+            return (
+            <Row key={`${a.chainId}:${a.asset}`} className="asset" {...(isDust(a) ? {} : { "aria-label": `Send ${a.symbol}`, onClick: () => setView({ kind: "send", asset: a }) })}>
               <TokenIcon symbol={a.symbol} asset={a.asset} chainId={a.chainId} logo={a.logo} />
               <div className="grow">
                 <div className="sym">{a.symbol}</div>
@@ -243,20 +245,17 @@ export function SafeApp() {
                 <div className="sym">{showUsd ? usd(a.usd) : amount(a.formatted)}</div>
                 <div className="fine">{showUsd ? `${amount(a.formatted)} ${a.symbol}` : usd(a.usd)}</div>
               </div>
-              {isDust(a) ? (
+              {isDust(a) && (
                 <button className="btn btn-red send-one" aria-label={`Hide ${a.symbol}`} onClick={() => {
                     setHidden([...hidden, keyOf(a)]);
                     setShown(shown.filter(k => k !== keyOf(a)));
                   }}>
                   <TrashIcon />
                 </button>
-              ) : (
-                <button className="btn btn-green send-one" aria-label={`Send ${a.symbol}`} onClick={() => setView({ kind: "send", asset: a })}>
-                  <SendIcon />
-                </button>
               )}
-            </div>
-          ))}
+            </Row>
+            );
+          })}
         </div>
       </div>
 

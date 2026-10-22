@@ -156,7 +156,7 @@ await page.evaluate(() => localStorage.setItem("test.phone", "1"));
 await page.reload();
 await page.waitForTimeout(13000);
 const HAL = rand();
-await page.locator(".asset", { has: page.locator(".sym", { hasText: /^USDC$/ }) }).first().locator(".send-one").tap();
+await page.locator(".asset", { has: page.locator(".sym", { hasText: /^USDC$/ }) }).first().tap();
 await page.getByPlaceholder("0x… or name.eth").fill(HAL);
 const unit = page.locator('[aria-label^="Type USDC"]');
 if (await unit.count()) await unit.tap(); // type the token amount
@@ -219,7 +219,7 @@ await page.evaluate(() => localStorage.setItem("test.phone", "1"));
 await page.reload();
 await page.waitForTimeout(13000);
 const IVY = rand();
-await page.locator(".asset", { has: page.locator(".sym", { hasText: /^USDC$/ }) }).first().locator(".send-one").tap();
+await page.locator(".asset", { has: page.locator(".sym", { hasText: /^USDC$/ }) }).first().tap();
 await page.getByPlaceholder("0x… or name.eth").fill(IVY);
 if (await unit.count()) await unit.tap();
 await page.locator("input.amount").fill("2");

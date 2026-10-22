@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 /**
- * Camera QR scanner (html5-qrcode): back camera, remembered once picked; closes on the first read.
+ * Camera QR scanner (html5-qrcode): back camera, remembered once picked; reads the whole picture (the green square is only a guide); closes on the first read.
  * From stupid-simple-api-wallet's scanner, trimmed.
  */
 export function Scanner({ onResult }: { onResult: (text: string) => void }) {
@@ -27,7 +27,7 @@ export function Scanner({ onResult }: { onResult: (text: string) => void }) {
           if (saved) camera = saved;
         } catch {}
         const start = (cam: typeof camera) =>
-          scanner.start(cam, { fps: 10, qrbox: (w: number, h: number) => ({ width: Math.min(w, h) * 0.72, height: Math.min(w, h) * 0.72 }) }, (text: string) => {
+          scanner.start(cam, { fps: 10 }, (text: string) => {
             if (done.current) return;
             done.current = true;
             cb.current(text);

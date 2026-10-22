@@ -10,6 +10,7 @@ import {
   parseAbi,
   recoverAddress,
   recoverMessageAddress,
+  recoverTypedDataAddress,
   slice,
 } from "viem";
 import { upstreamRpc } from "@/lib/rpcServer";
@@ -22,6 +23,8 @@ export const dynamic = "force-dynamic";
  * doesn't stop a multisig. Any Safe tx, many per Safe; every signature is checked on chain before it's kept.
  *   POST   { chainId, safe, tx, sigs: [{ owner, signature }], origin? } → merged into the Safe's queue
  *   GET    ?chainId&safe                                                 → { txs } still ahead of the Safe's nonce
+ *   DELETE { chainId, safe, hash, signature }                           → that one dropped, no transaction on chain;
+ *          signature: any owner's EIP-712 DeleteRequest, the same one Safe's Transaction Service takes (this hour or the last)
  * A signature here is one owner's Safe signature: 65 bytes (ECDSA / eth_sign), or a contract signature (v = 0)
  * with its data right after (s = 65), the way Safe's API takes one.
  */
@@ -32,6 +35,7 @@ const ORIGINS = ["https://wedgie.dev", "https://www.wedgie.dev", "https://instan
 const ZERO = "0x0000000000000000000000000000000000000000";
 const safeAbi = parseAbi([
   "function nonce() view returns (uint256)",
+  "function isOwner(address owner) view returns (bool)",
   "function checkNSignatures(bytes32 dataHash, bytes data, bytes signatures, uint256 requiredSignatures) view",
   "function encodeTransactionData(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address refundReceiver, uint256 _nonce) view returns (bytes)",
   "function getTransactionHash(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address refundReceiver, uint256 _nonce) view returns (bytes32)",
@@ -51,7 +55,7 @@ const cors = (req: NextRequest) => {
   const o = req.headers.get("origin") || "";
   return {
     "Access-Control-Allow-Origin": ORIGINS.includes(o) ? o : ORIGINS[0],
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "content-type",
     Vary: "Origin",
   };
@@ -134,6 +138,39 @@ export async function POST(req: NextRequest) {
     if (Object.keys(q).length > MAX) throw new Error("this Safe's queue is full");
     await stash(key(chainId, safe), q, TTL);
     return out(req, { ok: true, hash, sigs: e.sigs.length });
+  } catch (e: any) {
+    return out(req, { error: e?.shortMessage || e?.message || String(e) }, 400);
+  }
+}
+
+/** Safe's Transaction Service's delete message: one wallet signature removes a queued tx there and here. */
+const deleteRequest = (chainId: number, safe: Hex, hash: Hex, totp: bigint) => ({
+  domain: { name: "Safe Transaction Service", version: "1.0", chainId, verifyingContract: safe },
+  types: { DeleteRequest: [{ name: "safeTxHash", type: "bytes32" }, { name: "totp", type: "uint256" }] },
+  primaryType: "DeleteRequest" as const,
+  message: { safeTxHash: hash, totp },
+});
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const b = JSON.parse((await req.text()).slice(0, 2000));
+    const chainId = Number(b.chainId);
+    if (!isAddress(b.safe)) throw new Error("safe?");
+    if (!isHex(b.hash) || b.hash.length !== 66 || !isHex(b.signature) || b.signature.length !== 132) throw new Error("hash or signature?");
+    const safe = getAddress(b.safe), hash = b.hash.toLowerCase() as Hex, now = BigInt(Math.floor(Date.now() / 3600_000));
+    const pc = client(chainId);
+    let ok = false;
+    for (const totp of [now, now - 1n]) {
+      const who = await recoverTypedDataAddress({ ...deleteRequest(chainId, safe, hash, totp), signature: b.signature }).catch(() => null);
+      if (who && (await pc.readContract({ address: safe, abi: safeAbi, functionName: "isOwner", args: [who] }))) { ok = true; break; }
+    }
+    if (!ok) throw new Error("not signed by an owner of this Safe");
+    const q = (await unstash<Queue>(key(chainId, safe))) || {};
+    const had = !!q[hash];
+    delete q[hash];
+    if (Object.keys(q).length) await stash(key(chainId, safe), q, TTL);
+    else await drop(key(chainId, safe));
+    return out(req, { ok: true, removed: had });
   } catch (e: any) {
     return out(req, { error: e?.shortMessage || e?.message || String(e) }, 400);
   }

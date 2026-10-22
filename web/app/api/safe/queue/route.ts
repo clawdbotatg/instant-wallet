@@ -11,6 +11,7 @@ import {
   recoverAddress,
   recoverMessageAddress,
   recoverTypedDataAddress,
+  hashTypedData,
   slice,
 } from "viem";
 import { upstreamRpc } from "@/lib/rpcServer";
@@ -23,19 +24,25 @@ export const dynamic = "force-dynamic";
  * doesn't stop a multisig. Any Safe tx, many per Safe; every signature is checked on chain before it's kept.
  *   POST   { chainId, safe, tx, sigs: [{ owner, signature }], origin? } → merged into the Safe's queue
  *   GET    ?chainId&safe                                                 → { txs } still ahead of the Safe's nonce
- *   DELETE { chainId, safe, hash, signature }                           → that one dropped, no transaction on chain;
- *          signature: any owner's EIP-712 DeleteRequest, the same one Safe's Transaction Service takes (this hour or the last)
+ *   DELETE { chainId, safe, hash, nonce, signature }                    → that one dropped, no transaction on chain;
+ *          signature: any owner's EIP-712 DeleteRequest, the same one Safe's Transaction Service takes (this hour or the last):
+ *          a wallet's 65 bytes, or a contract owner's (a wedgie) in Safe's v = 0 form, checked with its isValidSignature.
+ *          Its hash goes on the Safe's dropped list (GET's `dropped`) so pages hide Safe's service's copy too, till
+ *          the Safe's nonce passes it. It can still run: only another tx at its nonce stops it.
  * A signature here is one owner's Safe signature: 65 bytes (ECDSA / eth_sign), or a contract signature (v = 0)
  * with its data right after (s = 65), the way Safe's API takes one.
  */
 const TTL = 30 * 24 * 3600;
 const MAX = 30;
 const key = (chainId: number, safe: string) => `queue:${chainId}:${safe.toLowerCase()}`;
+const dkey = (chainId: number, safe: string) => `dropped:${chainId}:${safe.toLowerCase()}`;
+type Dropped = Record<string, string>;     // safeTxHash → its nonce
 const ORIGINS = ["https://wedgie.dev", "https://www.wedgie.dev", "https://instantwallet.io", "http://localhost:5173", "http://localhost:4173"];
 const ZERO = "0x0000000000000000000000000000000000000000";
 const safeAbi = parseAbi([
   "function nonce() view returns (uint256)",
   "function isOwner(address owner) view returns (bool)",
+  "function isValidSignature(bytes32 message, bytes signature) view returns (bytes4)",
   "function checkNSignatures(bytes32 dataHash, bytes data, bytes signatures, uint256 requiredSignatures) view",
   "function encodeTransactionData(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address refundReceiver, uint256 _nonce) view returns (bytes)",
   "function getTransactionHash(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address refundReceiver, uint256 _nonce) view returns (bytes32)",
@@ -76,13 +83,15 @@ export async function GET(req: NextRequest) {
     const chainId = Number(req.nextUrl.searchParams.get("chainId"));
     const safe = req.nextUrl.searchParams.get("safe") || "";
     if (!isAddress(safe)) throw new Error("safe?");
-    const q = await unstash<Queue>(key(chainId, safe));
-    if (!q) return out(req, { txs: [] });
+    const [q, dq] = await Promise.all([unstash<Queue>(key(chainId, safe)), unstash<Dropped>(dkey(chainId, safe))]);
+    if (!q && !dq) return out(req, { txs: [], dropped: [] });
     const n = await client(chainId).readContract({ address: getAddress(safe), abi: safeAbi, functionName: "nonce" });
-    const left = live(q, n);
-    if (!Object.keys(left).length) await drop(key(chainId, safe));
+    const left = live(q || {}, n);
+    if (q && !Object.keys(left).length) await drop(key(chainId, safe));
     const txs = Object.values(left).sort((a, b) => Number(BigInt(a.tx.nonce) - BigInt(b.tx.nonce)) || a.at - b.at);
-    return out(req, { txs });
+    const dropped = Object.entries(dq || {}).filter(([, nn]) => BigInt(nn) >= n).map(([h]) => h);
+    if (dq && !dropped.length) await drop(dkey(chainId, safe));
+    return out(req, { txs, dropped });
   } catch (e: any) {
     return out(req, { error: e?.shortMessage || e?.message || String(e) }, 400);
   }
@@ -153,23 +162,41 @@ const deleteRequest = (chainId: number, safe: Hex, hash: Hex, totp: bigint) => (
 
 export async function DELETE(req: NextRequest) {
   try {
-    const b = JSON.parse((await req.text()).slice(0, 2000));
+    const b = JSON.parse((await req.text()).slice(0, 8000));
     const chainId = Number(b.chainId);
     if (!isAddress(b.safe)) throw new Error("safe?");
-    if (!isHex(b.hash) || b.hash.length !== 66 || !isHex(b.signature) || b.signature.length !== 132) throw new Error("hash or signature?");
+    if (!isHex(b.hash) || b.hash.length !== 66 || !isHex(b.signature) || b.signature.length < 132) throw new Error("hash or signature?");
     const safe = getAddress(b.safe), hash = b.hash.toLowerCase() as Hex, now = BigInt(Math.floor(Date.now() / 3600_000));
     const pc = client(chainId);
+    const sig = b.signature as Hex, contract = Number(BigInt(slice(sig, 64, 65))) === 0;
     let ok = false;
     for (const totp of [now, now - 1n]) {
-      const who = await recoverTypedDataAddress({ ...deleteRequest(chainId, safe, hash, totp), signature: b.signature }).catch(() => null);
-      if (who && (await pc.readContract({ address: safe, abi: safeAbi, functionName: "isOwner", args: [who] }))) { ok = true; break; }
+      if (contract) {         // a contract owner (a wedgie's signer): r = the owner, s = where its signature data starts
+        const owner = getAddress(slice(sig, 12, 32)), at = Number(BigInt(slice(sig, 32, 64)));
+        const len = Number(BigInt(slice(sig, at, at + 32))), data = slice(sig, at + 32, at + 32 + len);
+        const msg = hashTypedData(deleteRequest(chainId, safe, hash, totp));
+        const [own, magic] = await Promise.all([
+          pc.readContract({ address: safe, abi: safeAbi, functionName: "isOwner", args: [owner] }),
+          pc.readContract({ address: owner, abi: safeAbi, functionName: "isValidSignature", args: [msg, data] }).catch(() => "0x"),
+        ]);
+        if (own && magic === "0x1626ba7e") { ok = true; break; }
+      } else {
+        const who = await recoverTypedDataAddress({ ...deleteRequest(chainId, safe, hash, totp), signature: slice(sig, 0, 65) }).catch(() => null);
+        if (who && (await pc.readContract({ address: safe, abi: safeAbi, functionName: "isOwner", args: [who] }))) { ok = true; break; }
+      }
     }
     if (!ok) throw new Error("not signed by an owner of this Safe");
-    const q = (await unstash<Queue>(key(chainId, safe))) || {};
-    const had = !!q[hash];
-    delete q[hash];
-    if (Object.keys(q).length) await stash(key(chainId, safe), q, TTL);
-    else await drop(key(chainId, safe));
+    const [q, dq] = await Promise.all([unstash<Queue>(key(chainId, safe)), unstash<Dropped>(dkey(chainId, safe))]);
+    const had = !!q?.[hash];
+    const nonce = had ? q![hash].tx.nonce : String(BigInt(b.nonce ?? 0));
+    if (q && had) {
+      delete q[hash];
+      if (Object.keys(q).length) await stash(key(chainId, safe), q, TTL);
+      else await drop(key(chainId, safe));
+    }
+    const d = { ...(dq || {}), [hash]: nonce };
+    if (Object.keys(d).length > 100) throw new Error("this Safe's dropped list is full");
+    await stash(dkey(chainId, safe), d, TTL);
     return out(req, { ok: true, removed: had });
   } catch (e: any) {
     return out(req, { error: e?.shortMessage || e?.message || String(e) }, 400);

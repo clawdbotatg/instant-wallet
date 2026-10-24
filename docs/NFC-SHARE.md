@@ -1,6 +1,9 @@
 # Plan: Share to an NFC card (from the iPhone app)
 
-Status: not built. Written 2026-10-24.
+Status: built 2026-10-24 (`components/safe/Share.tsx`, app `InstantWallet/Nfc.swift`). Not yet tested on a phone.
+
+Decided (Austin, 10-24): within the daily budget only (one Face ID, no wedgie). The claimer pays the relay fee
+from the card. No shared-cards list: just share.
 
 ## What Austin wants
 
@@ -17,7 +20,8 @@ The link is about 100.
   wallet, and sweeps it in. See `docs/CLAIM.md`.
 - **Making keys and links:** `generatePrivateKey()` (viem) and `claimUrl(origin, key)` in `lib/claim.ts`.
 - **Keeping keys for take-back:** `iw.cards` in localStorage, in `components/ClaimMaker.tsx`.
-- **Sending from the wallet:** `sendCalls` + `transferCall` in `lib/wallet.ts` (what `Send.tsx` uses).
+- **Sending from the wallet:** `plan` + `budgetSend` / `ownersSend` in `lib/safe/send.ts` (what `SafeSend.tsx` uses).
+  The live site is the Safe wallet (`SafeApp`); `Settings.tsx` / `lib/wallet.ts` are the old `/v3` wallet.
 - **Applinks:** a tapped `instantwallet.io` link opens the app if it's installed, Safari if not. Both work.
 
 ## To build
@@ -43,12 +47,12 @@ Copy how `window.wedgieDrive` works in `InstantWallet/WebView.swift`.
 
 ### 2. Site: the Share screen (instant-wallet repo, web/)
 
-- In `components/Settings.tsx`, a **Share** button. Show it only when `window.wedgieNfc` exists (the app).
+- In `components/safe/Keys.tsx` (the settings button), a **Share to a card** button. Show it only when `window.wedgieNfc` exists (the app).
 - Share screen:
   1. Amount in USDC (preset chips like $5 / $10 / $20, plus a box). Network: Base.
   2. **Write card** does, in order:
      - make the key, save it to `iw.cards` **first** (so a failure later never loses money)
-     - send the USDC from the wallet to the key's address (`sendCalls` + `transferCall`), wait for it to land
+     - send the USDC from the wallet to the key's address (`budgetSend`), wait for it to land
      - `wedgieNfc.write(claimUrl(origin, key))`
      - "Done. $5 on the card."
   3. If the write fails or is cancelled: keep the key, show **Try again**. The money sits on the key, and **Take back**
@@ -56,8 +60,6 @@ Copy how `window.wedgieDrive` works in `InstantWallet/WebView.swift`.
 - Order matters: save the key, then fund, then write. Never write an unfunded card that you then forget.
 - Use the production origin (`https://instantwallet.io`) in the link, not `window.location.origin`, if those can
   differ in the app.
-- Add a "Shared cards" list (or link to `/claim/new`) so you can see which are claimed and take back the rest.
-  `ClaimMaker.tsx` already does this, so reuse it.
 
 ### 3. Claim side: check it, probably no change
 

@@ -15,6 +15,7 @@ import { AddressInput, Blockie, TimedBar } from "../bits";
 import { Alerts } from "./Alerts";
 import { ChainSelect } from "./Pick";
 import { friendly } from "../Welcome";
+import { wedgieNfc } from "./Share";
 
 /**
  * Keys & safety, per chain (each chain's Safe is its own). Three things (Austin 10-14: no hot wallet any more):
@@ -37,6 +38,7 @@ export function Keys({
   onFund,
   hiddenAssets,
   onUnhide,
+  onShare,
 }: {
   account: SafeAccount;
   states: ChainState[];
@@ -48,7 +50,10 @@ export function Keys({
   onFund: (chainId: number) => void;
   hiddenAssets: Asset[];
   onUnhide: (a: Asset) => void;
+  onShare: () => void;
 }) {
+  const [nfc, setNfc] = useState(false); // the iOS app only
+  useEffect(() => setNfc(!!wedgieNfc()), []);
   const [chainId, setChainId] = useState(CHAINS[0].id);
   const [busy, setBusy] = useState<string | null>(null);
   // an error shows in the step whose button caused it, next to where you tapped
@@ -309,6 +314,11 @@ export function Keys({
 
   return (
     <div className="stack">
+      {nfc && (
+        <button className="btn btn-green wide" onClick={onShare}>
+          Share to a card
+        </button>
+      )}
       <h2>Keys &amp; safety</h2>
       <ChainSelect value={chainId} onChange={setChainId} />
 

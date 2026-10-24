@@ -25,7 +25,7 @@ import { PendingCards } from "./PendingCard";
 import { SafeConnectLayer } from "./SafeConnect";
 import { stashedCode } from "@/lib/dropClient";
 
-type View = { kind: "home" } | { kind: "send"; asset?: Asset } | { kind: "swap"; fund?: number } | { kind: "receive" } | { kind: "deposit" } | { kind: "keys" } | { kind: "share" } | { kind: "sendAll" };
+type View = { kind: "home" } | { kind: "send"; asset?: Asset } | { kind: "swap"; fund?: number } | { kind: "receive" } | { kind: "deposit" } | { kind: "keys" } | { kind: "share"; chainId: number } | { kind: "sendAll" };
 
 /** Instant Wallet on a Safe: a big balance, Deposit / Swap, the address pill opens Receive, settings bottom middle (keys needed / keys you have), a send button on each asset, a scan button (addresses, claim cards, WalletConnect QRs) and the wedgie (bottom left). */
 export function SafeApp() {
@@ -276,7 +276,7 @@ export function SafeApp() {
           {view.kind === "swap" && <SafeSwap account={account} assets={assets} states={states} fund={view.fund} onDone={close} />}
           {view.kind === "deposit" && <Deposit account={account} onReceive={() => setView({ kind: "receive" })} />}
           {view.kind === "receive" && <Receive account={{ address: account.address } as any} toast={setToast} />}
-          {view.kind === "share" && <Share account={account} states={states} assets={assets} onDone={close} />}
+          {view.kind === "share" && <Share account={account} states={states} assets={assets} chainId={view.chainId} onDone={close} />}
           {view.kind === "keys" && (
             <Keys
               account={account}
@@ -291,7 +291,7 @@ export function SafeApp() {
                 setShown([...shown, keyOf(a)]);
               }}
               onFund={chainId => setView({ kind: "swap", fund: chainId })}
-              onShare={() => setView({ kind: "share" })}
+              onShare={chainId => setView({ kind: "share", chainId })}
               onSignOut={() => {
                 setAccount(null);
                 setPortfolio(null);

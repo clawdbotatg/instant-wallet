@@ -50,7 +50,7 @@ export function Keys({
   onFund: (chainId: number) => void;
   hiddenAssets: Asset[];
   onUnhide: (a: Asset) => void;
-  onShare: () => void;
+  onShare: (chainId: number) => void;
 }) {
   const [nfc, setNfc] = useState(false); // the iOS app only
   useEffect(() => setNfc(!!wedgieNfc()), []);
@@ -315,7 +315,7 @@ export function Keys({
   return (
     <div className="stack">
       {nfc && (
-        <button className="btn btn-green wide" onClick={onShare}>
+        <button className="btn btn-green wide" onClick={() => onShare(chainId)}>
           Share to a card
         </button>
       )}

@@ -104,6 +104,15 @@ export async function fillWithWallet(cards: Address[], each: bigint, onStep: (s:
  * side and 0.5 in top margins), with light cut lines so plain paper works too. Each card: the claim QR, the amount.
  */
 export async function cardsPdf(cards: { url: string; amount: string }[]): Promise<void> {
+  (await cardsDoc(cards)).save(`claim-cards-${cards.length}.pdf`);
+}
+
+/** The same PDF as a Blob (Share's Save or print hands it to the share sheet). */
+export async function cardsPdfBlob(cards: { url: string; amount: string }[]): Promise<Blob> {
+  return (await cardsDoc(cards)).output("blob");
+}
+
+async function cardsDoc(cards: { url: string; amount: string }[]) {
   const [{ jsPDF }, QR] = await Promise.all([import("jspdf"), import("qrcode")]);
   const doc = new jsPDF({ unit: "in", format: "letter" });
   const W = 3.5, H = 2, X0 = 0.75, Y0 = 0.5;
@@ -119,5 +128,5 @@ export async function cardsPdf(cards: { url: string; amount: string }[]): Promis
     doc.setFont("helvetica", "bold").setFontSize(12).text("Scan to claim", x + 2.02, y + 1.12);
     doc.setFont("helvetica", "normal").setFontSize(9).setTextColor(110).text(["Instant Wallet", "Treat it like cash"], x + 2.02, y + 1.38);
   }
-  doc.save(`claim-cards-${cards.length}.pdf`);
+  return doc;
 }

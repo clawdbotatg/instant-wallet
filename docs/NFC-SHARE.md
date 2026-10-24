@@ -1,3 +1,11 @@
+# Share crypto (QR or NFC card)
+
+**Now (10-24, Austin):** Settings → pick a network → **Share crypto** → any token → amount → **QR code** (save or
+print) or **NFC card** (iOS app only) → **Fund it**. The key is kept in `iw.cards` before the QR / card exists;
+money moves last. A token other than USDC or the native coin also gets a little of the coin for gas, and the
+claim page (`Claim.tsx`) has the card send those tokens itself (found via `/api/portfolio`), then sweeps the rest.
+Big amounts take the wedgie like any send. The rest of this doc is the first plan.
+
 # Plan: Share to an NFC card (from the iPhone app)
 
 Status: built 2026-10-24 (`components/safe/Share.tsx`, app `InstantWallet/Nfc.swift`). Not yet tested on a phone.

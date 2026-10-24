@@ -2,14 +2,15 @@
 
 /* eslint-disable @next/next/no-img-element */
 import { useEffect, useState } from "react";
-import { type Address, type Hex, createWalletClient, formatUnits, http, toHex } from "viem";
+import { type Address, type Hex, createWalletClient, formatUnits, http, toHex, zeroAddress } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { CHAINS, publicClient, rpcPath } from "@/lib/chains";
 import { AUTH_TYPES, type ClaimAuth, claimKey, usdc3009 } from "@/lib/claim";
-import { usd } from "@/lib/format";
+import { amount as fmtAmount, usd } from "@/lib/format";
 import { abi } from "@/lib/safe/core";
 import { getQuote, waitFor } from "@/lib/safe/send";
 import { type SafeAccount, loadAccount, saveAccount } from "@/lib/safe/state";
+import type { Asset } from "@/lib/types";
 import { SafeWelcome } from "./safe/SafeWelcome";
 import { friendly } from "./Welcome";
 
@@ -85,6 +86,29 @@ async function claimUsdc(key: Hex, chainId: number, balance: bigint, to: Address
   return balance - fee;
 }
 
+/** Any other token (Share puts a little ETH on the card for this): the card sends it, paying its own gas. */
+async function claimToken(key: Hex, t: Asset, to: Address): Promise<void> {
+  const c = CHAINS.find(x => x.id === t.chainId)!;
+  const card = privateKeyToAccount(key);
+  const pc = publicClient(t.chainId);
+  const wc = createWalletClient({ account: card, chain: c.chain, transport: http(rpcPath(t.chainId)) });
+  const bal = (await pc.readContract({ address: t.asset, abi: abi.erc20, functionName: "balanceOf", args: [card.address] })) as bigint;
+  if (bal === 0n) return;
+  const hash = await wc.writeContract({ address: t.asset, abi: abi.erc20, functionName: "transfer", args: [to, bal], chain: c.chain }).catch((e: any) => {
+    throw new Error(/insufficient funds/i.test(String(e?.message)) ? `No ${c.native.symbol} on the card to move the ${t.symbol}.` : e?.shortMessage || e?.message);
+  });
+  await waitFor(t.chainId, hash);
+}
+
+/** Every token on the card other than USDC and the native coin (those two are read straight from the chain). */
+async function others(addr: Address): Promise<Asset[]> {
+  const p = await fetch(`/api/portfolio?address=${addr}`, { cache: "no-store" }).then(r => r.json()).catch(() => null);
+  return ((p?.assets ?? []) as Asset[]).filter(a => {
+    const usdc = CHAINS.find(c => c.id === a.chainId)?.usdc?.toLowerCase();
+    return a.asset !== zeroAddress && a.asset.toLowerCase() !== usdc && BigInt(a.balance) > 0n;
+  });
+}
+
 /** ETH: the card pays its own gas and sends the rest. Dust that can't pay for a transfer stays. */
 async function claimEth(key: Hex, chainId: number, to: Address): Promise<bigint> {
   const c = CHAINS.find(x => x.id === chainId)!;
@@ -106,6 +130,7 @@ export function Claim() {
   const [key, setKey] = useState<Hex | null | undefined>(undefined);
   const [account, setAccount] = useState<SafeAccount | null | undefined>(undefined);
   const [onChain, setOnChain] = useState<OnChain[] | null>(null);
+  const [tokens, setTokens] = useState<Asset[]>([]);
   const [price, setPrice] = useState(0);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<number | null>(null); // the $ claimed
@@ -127,7 +152,10 @@ export function Claim() {
   useEffect(() => {
     if (!key) return;
     const addr = privateKeyToAccount(key).address;
-    const load = () => read(addr).then(setOnChain).catch(() => {});
+    const load = () => {
+      read(addr).then(setOnChain).catch(() => {});
+      others(addr).then(setTokens);
+    };
     load();
     const t = setInterval(() => document.hidden || load(), 5_000);
     return () => clearInterval(t);
@@ -147,8 +175,8 @@ export function Claim() {
 
   const usdcTotal = (onChain ?? []).reduce((t, c) => t + c.usdc, 0n);
   const ethTotal = (onChain ?? []).reduce((t, c) => t + c.eth, 0n);
-  const value = Number(formatUnits(usdcTotal, 6)) + Number(formatUnits(ethTotal, 18)) * price;
-  const empty = onChain !== null && usdcTotal === 0n && ethTotal === 0n;
+  const value = Number(formatUnits(usdcTotal, 6)) + Number(formatUnits(ethTotal, 18)) * price + tokens.reduce((t, a) => t + (a.usd ?? 0), 0);
+  const empty = onChain !== null && usdcTotal === 0n && ethTotal === 0n && tokens.length === 0;
 
   async function claim() {
     if (!account || !key || !onChain) return;
@@ -156,7 +184,12 @@ export function Claim() {
     setError(null);
     try {
       let got = 0; // what arrived, after fees
-      for (const c of onChain) {
+      for (const t of tokens) {
+        await claimToken(key, t, account.address); // first: the card's ETH pays for these, the rest is swept after
+        got += t.usd ?? 0;
+      }
+      const fresh = tokens.length ? await read(privateKeyToAccount(key).address) : onChain; // what gas left of the ETH
+      for (const c of fresh) {
         if (c.usdc > 0n) got += Number(formatUnits(await claimUsdc(key, c.chainId, c.usdc, account.address), 6));
         if (c.eth > 0n) got += Number(formatUnits(await claimEth(key, c.chainId, account.address), 18)) * price;
       }
@@ -178,7 +211,7 @@ export function Claim() {
       <div className="big" style={{ fontSize: 56, fontWeight: 700 }}>{done !== null ? usd(done) : onChain === null || (ethTotal > 0n && !price) ? "…" : usd(value)}</div>
       {done === null && !empty && onChain && (
         <div className="fine">
-          {[usdcTotal > 0n && `${formatUnits(usdcTotal, 6)} USDC`, ethTotal > 0n && `${Number(formatUnits(ethTotal, 18)).toFixed(6)} ETH`].filter(Boolean).join(" + ")}
+          {[usdcTotal > 0n && `${formatUnits(usdcTotal, 6)} USDC`, ...tokens.map(t => `${fmtAmount(t.formatted)} ${t.symbol}`), ethTotal > 0n && `${Number(formatUnits(ethTotal, 18)).toFixed(6)} ETH`].filter(Boolean).join(" + ")}
         </div>
       )}
     </div>

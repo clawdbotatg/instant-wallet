@@ -1,5 +1,5 @@
 import { KIND_WEBAUTHN, walletAddress } from "./address";
-import type { Account } from "./types";
+import type { Account, Portfolio } from "./types";
 
 /** localStorage, wrapped: private windows and blocked storage throw, and the app must still render. */
 function get<T>(k: string): T | null {
@@ -26,6 +26,10 @@ export const loadAccount = (): Account | null => {
 };
 export const saveAccount = (a: Account | null) => set("iw3.account", a);
 
+
+/** The last balance this phone saw, per wallet: shown at launch while the fresh one loads. */
+export const loadPortfolio = (address: string): Portfolio | null => get<Portfolio>(`iw3.portfolio.${address.toLowerCase()}`);
+export const savePortfolio = (address: string, p: Portfolio) => set(`iw3.portfolio.${address.toLowerCase()}`, p);
 
 /** Coins the user trashed off the home list (spam dust), as "chainId:address" lowercase. */
 export const loadHidden = (): string[] => get<string[]>("iw3.hidden") ?? [];

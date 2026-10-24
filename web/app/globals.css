@@ -148,6 +148,10 @@ div.asset:active { background: none; }
 .sheet h2 { font-size: 26px; }
 @keyframes up { from { transform: translateY(40px); opacity: .4; } }
 @keyframes fade { from { opacity: 0; } }
+/* the balance before it loads: a breathing bar, never $0 */
+.loading-bar { display: inline-block; width: 60%; height: .8em; border-radius: 12px; background: currentColor; opacity: .08; animation: breathe 1.4s ease-in-out infinite; vertical-align: middle; }
+.loading-bar.row { display: block; width: auto; height: 44px; margin: 14px; }
+@keyframes breathe { 50% { opacity: .18; } }
 
 .field { display: grid; gap: 6px; }
 .field label { font-size: 13px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }

@@ -6,7 +6,7 @@ import { CHAINS, chainById } from "@/lib/chains";
 import { amount, short, usd } from "@/lib/format";
 import { type ChainState, type SafeAccount, loadAccount, readAll, saveAccount } from "@/lib/safe/state";
 import type { Asset, Portfolio } from "@/lib/types";
-import { loadHidden, loadShown, saveHidden, saveShown } from "@/lib/store";
+import { loadHidden, loadPortfolio, loadShown, saveHidden, savePortfolio, saveShown } from "@/lib/store";
 import { dropOtherBudgetsCalls } from "@/lib/safe/core";
 import { type Prepared, finishOwners, ownerSigners, prepareOwners, signerOptions } from "@/lib/safe/send";
 import { friendly } from "../Welcome";
@@ -66,7 +66,10 @@ export function SafeApp() {
     busy.current = true;
     const p = await fetch(`/api/portfolio?address=${account.address}`, { cache: "no-store" }).then(r => r.json()).catch(() => null);
     busy.current = false;
-    if (p?.assets) setPortfolio(p);
+    if (p?.assets) {
+      setPortfolio(p);
+      savePortfolio(account.address, p);
+    }
   }, [account]);
   const loadStates = useCallback(async () => {
     if (!account) return;
@@ -79,6 +82,8 @@ export function SafeApp() {
 
   useEffect(() => {
     if (!account) return;
+    // last open's balance at once, the fresh one replaces it when it lands
+    setPortfolio(loadPortfolio(account.address));
     refresh();
     // balance every 3 s, keys every 12 s; nothing while the tab is hidden
     const b = setInterval(() => document.hidden || loadBalance(), 3_000);
@@ -201,7 +206,7 @@ export function SafeApp() {
         <div className="card balance">
           <div className="total">
             <div className="big" onClick={() => setShowUsd(!showUsd)}>
-              {portfolio ? (showUsd ? usd(portfolio.totalUsd ?? 0) : `${assets.length} assets`) : "…"}
+              {portfolio ? (showUsd ? usd(portfolio.totalUsd ?? 0) : `${assets.length} assets`) : <span className="loading-bar" aria-label="Loading" />}
             </div>
             {assets.length > 0 && (
               <button className="send-all" aria-label="Send everything" onClick={() => setView({ kind: "sendAll" })}>
@@ -220,12 +225,13 @@ export function SafeApp() {
         </div>
 
         <div className="card assets">
-          {assets.length === 0 && (
+          {!portfolio && <div className="loading-bar row" />}
+          {portfolio && assets.length === 0 && (
             <p className="fine center" style={{ padding: 18 }}>
               Empty. Tap Deposit, or tap your address and send crypto to your address on {CHAINS.length > 2 ? `Base, Ethereum, or ${CHAINS.length - 2} other networks` : CHAINS.map(c => c.name).join(" or ")}.
             </p>
           )}
-          {assets.length === 0 && !dropCode && (
+          {portfolio && assets.length === 0 && !dropCode && (
             <a className="fine center" href="/d" style={{ display: "block", paddingBottom: 14 }}>
               Have a code?
             </a>

@@ -4,14 +4,14 @@ import { useState } from "react";
 import { assertChallenge } from "@/lib/passkey";
 import { onrampChallenge } from "@/lib/onramp";
 import type { SafeAccount } from "@/lib/safe/state";
-import { TokenIcon } from "../bits";
+import { ReceiveIcon, TokenIcon } from "../bits";
 
 /**
  * Buy USDC or ETH on Base with Apple Pay (or a card), straight into this wallet: Coinbase Pay, through /api/onramp.
  * Face ID signs the request (the server only mints a link for the wallet's own passkey), then a second tap opens
- * Coinbase: a fresh tap, so Safari doesn't block the new tab.
+ * Coinbase: a fresh tap, so Safari doesn't block the new tab. "Send in crypto" opens Receive (the address QR).
  */
-export function Deposit({ account }: { account: SafeAccount }) {
+export function Deposit({ account, onReceive }: { account: SafeAccount; onReceive: () => void }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [ready, setReady] = useState<{ asset: string; url: string } | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -61,6 +61,12 @@ export function Deposit({ account }: { account: SafeAccount }) {
             {busy === a ? "Face ID…" : `Buy ${a}`}
           </button>
         ))
+      )}
+      {!ready && (
+        <button className="btn wide" disabled={!!busy} onClick={onReceive}>
+          <ReceiveIcon size={24} />
+          Send in crypto
+        </button>
       )}
       {err && <span className="err">{err}</span>}
     </div>

@@ -221,6 +221,9 @@ export function Share({
       <p className="fine">
         Puts USDC on Base on an NFC card. Whoever taps it gets the money.
       </p>
+      <a className="fine" href="/claim/new">
+        My cards: see which are claimed, take back the rest
+      </a>
       <div className="row" style={{ gap: 8 }}>
         {CHIPS.map((c) => (
           <button

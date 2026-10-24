@@ -2,7 +2,7 @@
 
 Status: built 2026-10-24 (`components/safe/Share.tsx`, app `InstantWallet/Nfc.swift`). Not yet tested on a phone.
 
-Decided (Austin, 10-24): within the daily budget only (one Face ID, no wedgie). The claimer pays the relay fee
+Decided (Austin, 10-24): order is check money + budget, keep the key, write the card, THEN fund it. Within the daily budget only (one Face ID, no wedgie). The claimer pays the relay fee
 from the card. No shared-cards list: just share.
 
 ## What Austin wants

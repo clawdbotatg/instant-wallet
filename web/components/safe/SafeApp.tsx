@@ -31,6 +31,7 @@ type View = { kind: "home" } | { kind: "send"; asset?: Asset } | { kind: "swap";
 export function SafeApp() {
   const [account, setAccountState] = useState<SafeAccount | null | undefined>(undefined);
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
+  const [fresh, setFresh] = useState(false); // false while portfolio is last open's, saved
   const [states, setStates] = useState<ChainState[]>([]);
   const [view, setView] = useState<View>({ kind: "home" });
   const [showUsd, setShowUsd] = useState(true);
@@ -68,6 +69,7 @@ export function SafeApp() {
     busy.current = false;
     if (p?.assets) {
       setPortfolio(p);
+      setFresh(true);
       savePortfolio(account.address, p);
     }
   }, [account]);
@@ -84,6 +86,7 @@ export function SafeApp() {
     if (!account) return;
     // last open's balance at once, the fresh one replaces it when it lands
     setPortfolio(loadPortfolio(account.address));
+    setFresh(false);
     refresh();
     // balance every 3 s, keys every 12 s; nothing while the tab is hidden
     const b = setInterval(() => document.hidden || loadBalance(), 3_000);
@@ -205,10 +208,11 @@ export function SafeApp() {
 
         <div className="card balance">
           <div className="total">
-            <div className="big" onClick={() => setShowUsd(!showUsd)}>
+            <div className={fresh ? "big" : "big stale"} onClick={() => setShowUsd(!showUsd)}>
               {portfolio ? (showUsd ? usd(portfolio.totalUsd ?? 0) : `${assets.length} assets`) : <span className="loading-bar" aria-label="Loading" />}
             </div>
-            {assets.length > 0 && (
+            {portfolio && !fresh && <span className="spinner" aria-label="Updating" />}
+            {fresh && assets.length > 0 && (
               <button className="send-all" aria-label="Send everything" onClick={() => setView({ kind: "sendAll" })}>
                 <SendIcon size={26} />
               </button>
@@ -224,7 +228,7 @@ export function SafeApp() {
           </div>
         </div>
 
-        <div className="card assets">
+        <div className={portfolio && !fresh ? "card assets stale" : "card assets"}>
           {!portfolio && <div className="loading-bar row" />}
           {portfolio && assets.length === 0 && (
             <p className="fine center" style={{ padding: 18 }}>

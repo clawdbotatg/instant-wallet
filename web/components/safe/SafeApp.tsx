@@ -97,6 +97,18 @@ export function SafeApp() {
     };
   }, [account, refresh, loadBalance, loadStates]);
 
+  // the iOS app's pull-down: reload now, with the spinner beside the balance for at least a beat
+  const [pulling, setPulling] = useState(false);
+  useEffect(() => {
+    const pull = async () => {
+      setPulling(true);
+      await Promise.all([refresh(), new Promise(r => setTimeout(r, 800))]);
+      setPulling(false);
+    };
+    window.addEventListener("instantwallet:refresh", pull);
+    return () => window.removeEventListener("instantwallet:refresh", pull);
+  }, [refresh]);
+
   // the iOS app holds its logo until the balance is on screen (or there's no wallet yet); in a browser this does nothing
   useEffect(() => {
     if (account === null || portfolio) (window as any).webkit?.messageHandlers?.ready?.postMessage(true);
@@ -211,8 +223,8 @@ export function SafeApp() {
             <div className={fresh ? "big" : "big stale"} onClick={() => setShowUsd(!showUsd)}>
               {portfolio ? (showUsd ? usd(portfolio.totalUsd ?? 0) : `${assets.length} assets`) : <span className="loading-bar" aria-label="Loading" />}
             </div>
-            {portfolio && !fresh && <span className="spinner" aria-label="Updating" />}
-            {fresh && assets.length > 0 && (
+            {portfolio && (!fresh || pulling) && <span className="spinner" aria-label="Updating" />}
+            {fresh && !pulling && assets.length > 0 && (
               <button className="send-all" aria-label="Send everything" onClick={() => setView({ kind: "sendAll" })}>
                 <SendIcon size={26} />
               </button>

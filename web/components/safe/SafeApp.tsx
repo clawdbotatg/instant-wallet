@@ -99,10 +99,14 @@ export function SafeApp() {
 
   // the iOS app's pull-down: reload now, with the spinner beside the balance for at least a beat
   const [pulling, setPulling] = useState(false);
+  const pullBusy = useRef(false);
   useEffect(() => {
     const pull = async () => {
+      if (pullBusy.current) return; // a pull while one is loading does nothing
+      pullBusy.current = true;
       setPulling(true);
       await Promise.all([refresh(), new Promise(r => setTimeout(r, 800))]);
+      pullBusy.current = false;
       setPulling(false);
     };
     window.addEventListener("instantwallet:refresh", pull);

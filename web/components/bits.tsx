@@ -58,6 +58,8 @@ export function Qr({ value, center, children }: { value: string; center?: string
 }
 
 let sheetsOpen = 0;
+/** A sheet is up (the iOS app's pull-down skips its reload then). */
+export const sheetOpen = () => sheetsOpen > 0;
 
 const SheetBack = createContext<React.MutableRefObject<(() => void) | null> | null>(null);
 
@@ -81,6 +83,7 @@ export function useSheetBack(back: (() => void) | null) {
  */
 export function Sheet({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
+  const bgRef = useRef<HTMLDivElement>(null);
   const drag = useRef<{ y0: number; t0: number; dy: number; on: boolean } | null>(null);
   const back = useRef<(() => void) | null>(null);
   const downOnBg = useRef(false);
@@ -142,13 +145,23 @@ export function Sheet({ onClose, children }: { onClose: () => void; children: Re
       // only when the sheet is at its top, so scrolling its content still works
       drag.current = el.scrollTop <= 0 ? { y0: e.touches[0].clientY, t0: Date.now(), dy: 0, on: false } : null;
     };
-    const move = (e: TouchEvent) => pullRef.current(e.touches[0].clientY, e);
+    const move = (e: TouchEvent) => {
+      // the iOS app's page bounces (its pull-down reload): a swipe the sheet doesn't scroll itself must never
+      // start that bounce, or the page and the dimmed backdrop slide down with the sheet
+      const d = drag.current;
+      if (e.cancelable && ((d && e.touches[0].clientY > d.y0) || el.scrollHeight <= el.clientHeight)) e.preventDefault();
+      pullRef.current(e.touches[0].clientY, e);
+    };
     const end = () => releaseRef.current();
+    const bg = bgRef.current;
+    const still = (e: TouchEvent) => e.target === bg && e.cancelable && e.preventDefault(); // the backdrop never scrolls
+    bg?.addEventListener("touchmove", still, { passive: false });
     el.addEventListener("touchstart", start, { passive: true });
     el.addEventListener("touchmove", move, { passive: false });
     el.addEventListener("touchend", end);
     el.addEventListener("touchcancel", end);
     return () => {
+      bg?.removeEventListener("touchmove", still);
       el.removeEventListener("touchstart", start);
       el.removeEventListener("touchmove", move);
       el.removeEventListener("touchend", end);
@@ -172,6 +185,7 @@ export function Sheet({ onClose, children }: { onClose: () => void; children: Re
     <SheetBack.Provider value={back}>
       <div
         className="sheet-bg"
+        ref={bgRef}
         onPointerDown={e => (downOnBg.current = e.target === e.currentTarget)}
         onClick={e => {
           if (e.target === e.currentTarget && downOnBg.current) dismiss();

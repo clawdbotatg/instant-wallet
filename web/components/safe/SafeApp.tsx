@@ -10,7 +10,7 @@ import { loadHidden, loadPortfolio, loadShown, saveHidden, savePortfolio, saveSh
 import { dropOtherBudgetsCalls } from "@/lib/safe/core";
 import { type Prepared, finishOwners, ownerSigners, prepareOwners, signerOptions } from "@/lib/safe/send";
 import { friendly } from "../Welcome";
-import { Blockie, DepositIcon, GearIcon, ScanIcon, SendIcon, Sheet, SwapIcon, TokenIcon, TrashIcon, copy, useToast } from "../bits";
+import { Blockie, DepositIcon, GearIcon, ScanIcon, SendIcon, Sheet, SwapIcon, sheetOpen, TokenIcon, TrashIcon, copy, useToast } from "../bits";
 import { Receive } from "../Receive";
 import { Deposit } from "./Deposit";
 import { Keys } from "./Keys";
@@ -102,7 +102,7 @@ export function SafeApp() {
   const pullBusy = useRef(false);
   useEffect(() => {
     const pull = async () => {
-      if (pullBusy.current) return; // a pull while one is loading does nothing
+      if (pullBusy.current || sheetOpen()) return; // a pull while one is loading, or under a sheet, does nothing
       pullBusy.current = true;
       setPulling(true);
       await Promise.all([refresh(), new Promise(r => setTimeout(r, 800))]);

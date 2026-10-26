@@ -6,6 +6,7 @@ import { ETH, chainByShort } from "./chains";
  *   wc:…                                WalletConnect pairing
  *   ethereum:0x…[@chain][/transfer?address=…&uint256=…][?value=…]   EIP-681
  *   https://<anything>/<path>           the path, parsed as below (so punkwallet.io and our links work)
+ *   https://<anything>/ethereum:…       an EIP-681 request behind a web link (requestLink: a phone camera opens it)
  *   [net:]0xADDR[;amount]               our / punk wallet's link format (amount in the chain's native token)
  *   0xADDR · name.eth                   a recipient
  */
@@ -76,7 +77,7 @@ export function parse(input: string): Parsed {
       const wc = u.searchParams.get("uri");
       if (wc && /^wc:/i.test(wc)) return { kind: "wc", uri: wc };
       const path = decodeURIComponent(u.pathname + u.hash.replace(/^#/, ""));
-      if (/^\/?ethereum:/i.test(path)) return eip681(path.replace(/^\//, ""));
+      if (/^\/?ethereum:/i.test(path)) return eip681(path.replace(/^\//, "") + u.search);
       return pathForm(path);
     } catch {
       return { kind: "unknown", text: s };
@@ -98,3 +99,6 @@ export function requestUri(to: Address, chainId: number, asset: Address | "eth",
     ? `ethereum:${to}@${chainId}?value=${base}`
     : `ethereum:${asset}@${chainId}/transfer?address=${to}&uint256=${base}`;
 }
+
+/** A request as a web link, <origin>/ethereum:…: a phone's camera opens it; our scanner and /[...link] read it. */
+export const requestLink = (origin: string, uri: string) => `${origin}/${uri}`;

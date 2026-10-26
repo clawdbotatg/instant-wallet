@@ -37,3 +37,6 @@ export const saveHidden = (h: string[]) => set("iw3.hidden", h.length ? h : null
 /** Coins under a penny the user tapped Show for (they're hidden on their own otherwise). */
 export const loadShown = (): string[] => get<string[]>("iw3.shown") ?? [];
 export const saveShown = (h: string[]) => set("iw3.shown", h.length ? h : null);
+/** Request QRs as an instantwallet.io link (any phone camera opens it) or a bare ethereum: request. On unless turned off. */
+export const loadRequestLink = (): boolean => get<boolean>("iw3.requestLink") ?? true;
+export const saveRequestLink = (on: boolean) => set("iw3.requestLink", on ? null : false);

@@ -33,16 +33,18 @@ export function SafeSend({
   assets,
   states,
   start,
+  scanned,
   onDone,
 }: {
   account: SafeAccount;
   assets: Asset[];
   states: ChainState[];
   start?: Asset;
+  scanned?: string; // a payment request link that opened the app: filled in as if scanned
   onDone: () => void;
 }) {
   const [toInput, setToInput] = useState("");
-  const [scanning, setScanning] = useState(!start);
+  const [scanning, setScanning] = useState(!start && !scanned);
   // the scanner opened from the form: swiping it away goes back to the form
   const [scanFromForm, setScanFromForm] = useState(false);
   const leaveScan = useCallback(() => {
@@ -214,6 +216,10 @@ export function SafeSend({
       setInUsd(false); // a payment request names the token amount
     }
   }
+
+  useEffect(() => {
+    if (scanned) onScan(scanned);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function send() {
     if (!resolved || !asset || base === null || !st || !p) return;

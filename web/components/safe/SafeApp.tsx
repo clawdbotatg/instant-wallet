@@ -25,10 +25,10 @@ import { PendingCards } from "./PendingCard";
 import { SafeConnectLayer } from "./SafeConnect";
 import { stashedCode } from "@/lib/dropClient";
 
-type View = { kind: "home" } | { kind: "send"; asset?: Asset } | { kind: "swap"; fund?: number } | { kind: "receive" } | { kind: "deposit" } | { kind: "keys" } | { kind: "share"; chainId: number } | { kind: "sendAll" };
+type View = { kind: "home" } | { kind: "send"; asset?: Asset; scanned?: string } | { kind: "swap"; fund?: number } | { kind: "receive" } | { kind: "deposit" } | { kind: "keys" } | { kind: "share"; chainId: number } | { kind: "sendAll" };
 
 /** Instant Wallet on a Safe: a big balance, Deposit / Swap, the address pill opens Receive, settings bottom middle (keys needed / keys you have), a send button on each asset, a scan button (addresses, claim cards, WalletConnect QRs) and the wedgie (bottom left). */
-export function SafeApp() {
+export function SafeApp({ link }: { link?: string } = {}) {
   const [account, setAccountState] = useState<SafeAccount | null | undefined>(undefined);
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
   const [fresh, setFresh] = useState(false); // false while portfolio is last open's, saved
@@ -117,6 +117,14 @@ export function SafeApp() {
     window.addEventListener("instantwallet:refresh", pull);
     return () => window.removeEventListener("instantwallet:refresh", pull);
   }, [refresh]);
+
+  // a payment request link (/[...link]): Send opens on it once the balance is known, so it can pick the token
+  const [pendingLink, setPendingLink] = useState(link);
+  useEffect(() => {
+    if (!pendingLink || !account || !portfolio) return;
+    setView({ kind: "send", scanned: pendingLink });
+    setPendingLink(undefined);
+  }, [pendingLink, account, portfolio]);
 
   // the iOS app holds its logo until the balance is on screen (or there's no wallet yet); in a browser this does nothing
   useEffect(() => {
@@ -302,7 +310,7 @@ export function SafeApp() {
 
       {view.kind !== "home" && (
         <Sheet onClose={close}>
-          {view.kind === "send" && <SafeSend account={account} assets={assets} states={states} start={view.asset} onDone={close} />}
+          {view.kind === "send" && <SafeSend account={account} assets={assets} states={states} start={view.asset} scanned={view.scanned} onDone={close} />}
           {view.kind === "sendAll" && <SendAll account={account} assets={assets} states={states} onDone={close} />}
           {view.kind === "swap" && <SafeSwap account={account} assets={assets} states={states} fund={view.fund} onDone={close} />}
           {view.kind === "deposit" && <Deposit account={account} onReceive={() => setView({ kind: "receive" })} />}

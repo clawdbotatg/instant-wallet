@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import { type Address, parseUnits } from "viem";
 import { CHAINS } from "@/lib/chains";
-import { requestUri } from "@/lib/parse";
+import { requestLink, requestUri } from "@/lib/parse";
 import { short } from "@/lib/format";
+import { loadRequestLink, saveRequestLink } from "@/lib/store";
 import type { Account } from "@/lib/types";
 import { Blockie, CopyIcon, Qr, copy } from "./bits";
 import { ChainSelect } from "./safe/Pick";
@@ -12,6 +13,8 @@ import { ChainSelect } from "./safe/Pick";
 /**
  * One card: your address as a QR (blockie in the middle), the short address + a copy icon under it; a tap anywhere
  * copies it and says so. Request → an amount, token and network, and the QR becomes an EIP-681 payment request.
+ * "Include instantwallet.io link (any phone camera opens it)" (on by default, remembered) wraps it in a web link so any phone camera opens it
+ * (/[...link]); off, it's the bare ethereum: request other wallets' scanners read.
  */
 export function Receive({ account }: { account: Account; toast?: (m: string) => void }) {
   const [asking, setAsking] = useState(false);
@@ -19,6 +22,9 @@ export function Receive({ account }: { account: Account; toast?: (m: string) => 
   const [token, setToken] = useState<"USDC" | "ETH">("USDC");
   const [chainId, setChainId] = useState(CHAINS[0].id);
   const chain = CHAINS.find(c => c.id === chainId)!;
+  const [withLink, setWithLink] = useState(true);
+  useEffect(() => setWithLink(loadRequestLink()), []);
+  const toggleLink = (on: boolean) => (setWithLink(on), saveRequestLink(on));
   let uri: string | null = null;
   if (asking && Number(amount) > 0) {
     try {
@@ -30,6 +36,7 @@ export function Receive({ account }: { account: Account; toast?: (m: string) => 
             : null;
     } catch {}
   }
+  if (uri && withLink) uri = requestLink(window.location.origin, uri);
   const [copied, setCopied] = useState<string | null>(null);
   useEffect(() => {
     if (!copied) return;
@@ -77,6 +84,10 @@ export function Receive({ account }: { account: Account; toast?: (m: string) => 
             </div>
           </div>
           <ChainSelect value={chainId} onChange={setChainId} />
+          <label className="row" style={{ gap: 8 }}>
+            <input type="checkbox" checked={withLink} onChange={e => toggleLink(e.target.checked)} />
+            Include {window.location.host} link (any phone camera opens it)
+          </label>
           <button className="btn wide" onClick={() => (setAsking(false), setAmount(""))}>
             Cancel
           </button>

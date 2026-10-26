@@ -97,7 +97,8 @@ export function SafeApp() {
     };
   }, [account, refresh, loadBalance, loadStates]);
 
-  // the iOS app's pull-down: reload now, with the spinner beside the balance for at least a beat
+  // the iOS app's pull-down: a newer deploy reloads the whole page; otherwise reload the balance now, with the
+  // spinner beside it for at least a beat
   const [pulling, setPulling] = useState(false);
   const pullBusy = useRef(false);
   useEffect(() => {
@@ -105,6 +106,10 @@ export function SafeApp() {
       if (pullBusy.current || sheetOpen()) return; // a pull while one is loading, or under a sheet, does nothing
       pullBusy.current = true;
       setPulling(true);
+      const live = await fetch("/api/version", { cache: "no-store" })
+        .then(r => r.json())
+        .catch(() => null);
+      if (live?.build && live.build !== process.env.NEXT_PUBLIC_BUILD) return window.location.reload();
       await Promise.all([refresh(), new Promise(r => setTimeout(r, 800))]);
       pullBusy.current = false;
       setPulling(false);

@@ -7,6 +7,8 @@ import QRCode from "qrcode";
 import { type Address, getAddress, isAddress } from "viem";
 import { chainById } from "@/lib/chains";
 import { short } from "@/lib/format";
+import { parse } from "@/lib/parse";
+import { Scanner } from "./Scanner";
 
 export function Band() {
   return (
@@ -320,6 +322,36 @@ export function TokenIcon({
 }
 
 /**
+ * The scan button for an address field: `pill` goes inside the `.input`, `camera` right under it.
+ * A read QR (0x…, name.eth, a payment link) hands its recipient to `onAddress`.
+ */
+export function useAddressScan(onAddress: (to: string) => void) {
+  const [open, setOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const pill = (
+    <button type="button" className="pill" onClick={() => (setError(null), setOpen(!open))} aria-label="Scan">
+      <ScanIcon size={20} />
+    </button>
+  );
+  const camera = (
+    <>
+      {open && (
+        <Scanner
+          onResult={text => {
+            setOpen(false);
+            const r = parse(text);
+            if (r.kind !== "pay") return setError("That QR isn't an address.");
+            onAddress(r.to);
+          }}
+        />
+      )}
+      {error && <span className="err">{error}</span>}
+    </>
+  );
+  return { pill, camera };
+}
+
+/**
  * An address field: the blockie + its ENS name (or 0x12ab…cdef) while idle, the full text while editing.
  * Takes 0x… or name.eth; `onChange` gets the address it resolves to, or null.
  */
@@ -372,30 +404,38 @@ export function AddressInput({ initial, onChange, placeholder = "0x… or name.e
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [text]);
+  const scan = useAddressScan(to => {
+    touched.current = true;
+    setText(to);
+  });
   const idle = !focus && !!addr;
   return (
-    <div className="input">
-      {addr && <Blockie address={addr} size={30} />}
-      <input
-        className={idle && !name ? "mono" : undefined}
-        value={idle ? (name ?? short(addr)) : text}
-        onChange={e => {
-          touched.current = true;
-          setText(e.target.value);
-        }}
-        onFocus={e => {
-          setFocus(true);
-          // the full address replaces the short one on focus: select it all, so a paste replaces it
-          const el = e.currentTarget;
-          requestAnimationFrame(() => el.select());
-        }}
-        onBlur={() => setFocus(false)}
-        placeholder={looking ? "Looking it up…" : placeholder}
-        autoCapitalize="none"
-        autoCorrect="off"
-        spellCheck={false}
-      />
-    </div>
+    <>
+      <div className="input">
+        {addr && <Blockie address={addr} size={30} />}
+        <input
+          className={idle && !name ? "mono" : undefined}
+          value={idle ? (name ?? short(addr)) : text}
+          onChange={e => {
+            touched.current = true;
+            setText(e.target.value);
+          }}
+          onFocus={e => {
+            setFocus(true);
+            // the full address replaces the short one on focus: select it all, so a paste replaces it
+            const el = e.currentTarget;
+            requestAnimationFrame(() => el.select());
+          }}
+          onBlur={() => setFocus(false)}
+          placeholder={looking ? "Looking it up…" : placeholder}
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+        />
+        {scan.pill}
+      </div>
+      {scan.camera}
+    </>
   );
 }
 

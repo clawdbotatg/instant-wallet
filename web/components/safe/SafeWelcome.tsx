@@ -8,7 +8,7 @@ import { type Candidate, confirmKey, createPasskey, recoverKeys, walletAppBrowse
 import { RECOVERY_MODULES } from "@/lib/safe/config";
 import { abi, rolesAddress } from "@/lib/safe/core";
 import { type SafeAccount, accountFor } from "@/lib/safe/state";
-import { Band } from "../bits";
+import { Band, useAddressScan } from "../bits";
 import { friendly } from "../Welcome";
 
 /** Has this address got code or money anywhere? (Picks the real key out of a login's candidates.) */
@@ -71,6 +71,7 @@ export function SafeWelcome({ onReady }: { onReady: (a: SafeAccount) => void }) 
   const [busy, setBusy] = useState<"create" | "login" | "recover" | null>(null);
   const [recovering, setRecovering] = useState(false);
   const [wallet, setWallet] = useState("");
+  const scan = useAddressScan(setWallet);
   const [confirm, setConfirm] = useState<{ account: SafeAccount; guardians: Address[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const supported = typeof window === "undefined" || webauthnAvailable();
@@ -174,7 +175,9 @@ export function SafeWelcome({ onReady }: { onReady: (a: SafeAccount) => void }) 
           </div>
           <div className="input">
             <input value={wallet} onChange={e => setWallet(e.target.value)} placeholder="0x… your wallet's address" autoCapitalize="none" spellCheck={false} />
+            {scan.pill}
           </div>
+          {scan.camera}
           <button className="btn btn-green wide" onClick={recover} disabled={!!busy}>
             {busy === "recover" ? "Making the new key…" : "Make my new key"}
           </button>

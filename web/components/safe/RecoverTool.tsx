@@ -6,7 +6,7 @@ import { CHAINS, chainById, explorerTx, publicClient } from "@/lib/chains";
 import { short } from "@/lib/format";
 import { DAO, RECOVERY_7D, RECOVERY_DAYS, RECOVERY_MODULES, SAFE_FACTORY } from "@/lib/safe/config";
 import { abi, deploySafeCall, safeAddress } from "@/lib/safe/core";
-import { Band, copy } from "../bits";
+import { Band, copy, useAddressScan } from "../bits";
 import { ChainSelect } from "./Pick";
 import { friendly } from "../Welcome";
 
@@ -33,6 +33,7 @@ export function RecoverTool() {
   const q = typeof window === "undefined" ? null : new URLSearchParams(window.location.search);
   const [chainId, setChainId] = useState(CHAINS[0].id);
   const [wallet, setWallet] = useState(q?.get("wallet") ?? "");
+  const scan = useAddressScan(setWallet);
   const [newKey, setNewKey] = useState(q?.get("owner") ?? "");
   const [original, setOriginal] = useState("");
   type Mod = { module: Address; guardians: Address[]; executeAfter: number; newOwners: Address[] };
@@ -99,7 +100,9 @@ export function RecoverTool() {
         <label>The wallet</label>
         <div className="input">
           <input value={wallet} onChange={e => setWallet(e.target.value)} placeholder="0x…" autoCapitalize="none" spellCheck={false} />
+          {scan.pill}
         </div>
+        {scan.camera}
       </div>
       {info && (
         <p className="fine">

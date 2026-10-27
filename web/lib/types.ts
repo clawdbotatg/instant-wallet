@@ -24,3 +24,15 @@ export type Account = {
   signerId: Address;
   address: Address;
 };
+
+export type Nft = {
+  chainId: number;
+  contract: Address;
+  tokenId: string;
+  type: string; // ERC721 | ERC1155
+  balance: string;
+  name: string;
+  collection: string;
+  thumb: string;
+  image: string;
+};

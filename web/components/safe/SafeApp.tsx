@@ -23,9 +23,10 @@ import { SafeWelcome } from "./SafeWelcome";
 import { WedgieButton, WedgieProgress } from "./WedgieButton";
 import { PendingCards } from "./PendingCard";
 import { SafeConnectLayer } from "./SafeConnect";
+import { Nfts } from "./Nfts";
 import { stashedCode } from "@/lib/dropClient";
 
-type View = { kind: "home" } | { kind: "send"; asset?: Asset; scanned?: string } | { kind: "swap"; fund?: number } | { kind: "receive" } | { kind: "deposit" } | { kind: "keys" } | { kind: "share"; chainId: number } | { kind: "sendAll" };
+type View = { kind: "home" } | { kind: "send"; asset?: Asset; scanned?: string } | { kind: "swap"; fund?: number } | { kind: "receive" } | { kind: "deposit" } | { kind: "keys" } | { kind: "share"; chainId: number } | { kind: "sendAll" } | { kind: "nfts" };
 
 /** Instant Wallet on a Safe: a big balance, Deposit / Swap, the address pill opens Receive, settings bottom middle (keys needed / keys you have), a send button on each asset, a scan button (addresses, claim cards, WalletConnect QRs) and the wedgie (bottom left). */
 export function SafeApp({ link }: { link?: string } = {}) {
@@ -296,6 +297,11 @@ export function SafeApp({ link }: { link?: string } = {}) {
             </Row>
             );
           })}
+          {portfolio && (
+            <button className="nfts-link" onClick={() => setView({ kind: "nfts" })}>
+              NFTs
+            </button>
+          )}
         </div>
       </div>
 
@@ -313,6 +319,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
           {view.kind === "send" && <SafeSend account={account} assets={assets} states={states} start={view.asset} scanned={view.scanned} onDone={close} />}
           {view.kind === "sendAll" && <SendAll account={account} assets={assets} states={states} onDone={close} />}
           {view.kind === "swap" && <SafeSwap account={account} assets={assets} states={states} fund={view.fund} onDone={close} />}
+          {view.kind === "nfts" && <Nfts address={account.address} />}
           {view.kind === "deposit" && <Deposit account={account} onReceive={() => setView({ kind: "receive" })} />}
           {view.kind === "receive" && <Receive account={{ address: account.address } as any} toast={setToast} />}
           {view.kind === "share" && <Share account={account} states={states} assets={assets} chainId={view.chainId} onDone={close} />}

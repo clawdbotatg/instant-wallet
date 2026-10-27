@@ -40,3 +40,6 @@ export const saveShown = (h: string[]) => set("iw3.shown", h.length ? h : null);
 /** Request QRs as an instantwallet.io link (any phone camera opens it) or a bare ethereum: request. On unless turned off. */
 export const loadRequestLink = (): boolean => get<boolean>("iw3.requestLink") ?? true;
 export const saveRequestLink = (on: boolean) => set("iw3.requestLink", on ? null : false);
+/** NFT collections the user hid, as "chainId:contract" lowercase. */
+export const loadHiddenNfts = (): string[] => get<string[]>("iw3.hiddenNfts") ?? [];
+export const saveHiddenNfts = (h: string[]) => set("iw3.hiddenNfts", h.length ? h : null);

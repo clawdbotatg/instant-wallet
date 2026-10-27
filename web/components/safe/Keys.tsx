@@ -1,6 +1,5 @@
 "use client";
 
-import { openWalletConnect } from "@/lib/walletconnect";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { type Address, encodeFunctionData, formatUnits, parseUnits, zeroAddress } from "viem";
 import { CHAINS, chainById, explorerAddress, nativeSymbol } from "@/lib/chains";
@@ -463,9 +462,6 @@ export function Keys({
         </div>
       )}
 
-      <button className="btn wide" onClick={() => openWalletConnect()}>
-        Connected sites (WalletConnect)
-      </button>
       <button className="btn wide" onClick={onSignOut}>
         Sign out of this device
       </button>

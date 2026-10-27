@@ -62,9 +62,9 @@ export async function clearBundle(tag: string, chain: number, t: { to: string; d
       seen.add(d);
       top.push(d);
     }
-    // a call inside the call (multicall, permitAndCall): any contract the calldata names whose selector it carries
-    for (const a of addresses(c.data)) {
-      if (a === to) continue;
+    // a call inside the call (multicall, permitAndCall): any contract the calldata names, or this one (a multicall
+    // into itself), whose selector it carries
+    for (const a of new Set([to, ...addresses(c.data)])) {
       const g = await file(tag, chain, "0x" + a);
       if (!g) continue;
       for (const [sel, s] of Object.entries(g))

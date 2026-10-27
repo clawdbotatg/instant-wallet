@@ -36,3 +36,16 @@ export type Nft = {
   thumb: string;
   image: string;
 };
+
+/** A DeFi position (Zerion): one pool / vault / stake, its tokens summed. */
+export type Position = {
+  id: string;
+  chainId: number;
+  name: string; // "Venice sVVV Pool"
+  protocol: string;
+  type: string; // deposit | staked | reward | loan, the biggest part's
+  usd: number; // loans count against it
+  tokens: string[];
+  icon?: string;
+  url?: string;
+};

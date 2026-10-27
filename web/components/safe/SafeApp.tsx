@@ -24,6 +24,7 @@ import { WedgieButton, WedgieProgress } from "./WedgieButton";
 import { PendingCards } from "./PendingCard";
 import { SafeConnectLayer } from "./SafeConnect";
 import { NftGrid } from "./Nfts";
+import { PositionList } from "./Positions";
 import { stashedCode } from "@/lib/dropClient";
 
 type View = { kind: "home" } | { kind: "send"; asset?: Asset; scanned?: string } | { kind: "swap"; fund?: number } | { kind: "receive" } | { kind: "deposit" } | { kind: "keys" } | { kind: "share"; chainId: number } | { kind: "sendAll" };
@@ -298,6 +299,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
             );
           })}
         </div>
+        <PositionList address={account.address} />
         <NftGrid address={account.address} />
       </div>
 

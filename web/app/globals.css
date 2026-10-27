@@ -112,6 +112,7 @@ input { font: inherit; color: inherit; }
 .assets { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; padding: 8px; }
 .asset { display: flex; align-items: center; gap: 12px; padding: 10px 10px; border-radius: 16px; background: none; border: 0; width: 100%; text-align: left; cursor: pointer; }
 .asset:active { background: rgba(0,0,0,.04); }
+a.asset { color: inherit; text-decoration: none; }
 div.asset { cursor: auto; }
 div.asset:active { background: none; }
 .asset .logo { width: 36px; height: 36px; border-radius: 50%; background: var(--recess); display: grid; place-items: center; font-weight: 700; font-size: 13px; overflow: hidden; flex: none; }

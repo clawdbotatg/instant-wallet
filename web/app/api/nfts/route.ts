@@ -11,8 +11,8 @@ const cache = new Map<string, { at: number; v: Nft[] }>();
 
 /**
  * `GET /api/nfts?address=0x…` — the NFTs a wallet holds on every enabled chain (Alchemy NFT API, first page per
- * chain). Alchemy's spam and airdrop flags drop a little; anything without an image is dropped too (almost
- * always spam). HyperEVM has no NFT API yet and comes back empty.
+ * chain). Alchemy's spam and airdrop flags drop only a little, so `spammy` does the rest; anything without an
+ * image is dropped too. HyperEVM has no NFT API yet and comes back empty.
  */
 export async function GET(req: NextRequest) {
   const a = req.nextUrl.searchParams.get("address");
@@ -36,7 +36,7 @@ async function chainNfts(chainId: number, wallet: Address): Promise<Nft[]> {
   const out: Nft[] = [];
   for (const x of j?.ownedNfts ?? []) {
     const thumb = x.image?.thumbnailUrl || x.image?.cachedUrl;
-    if (!thumb || x.contract?.isSpam) continue;
+    if (!thumb || x.contract?.isSpam || spammy(x)) continue;
     const collection = x.contract?.openSeaMetadata?.collectionName || x.contract?.name || "Unknown";
     out.push({
       chainId,
@@ -51,4 +51,17 @@ async function chainNfts(chainId: number, wallet: Address): Promise<Nft[]> {
     });
   }
   return out;
+}
+
+// links, bait words, and the fake letters spam uses to dodge filters (𝗯𝗼𝗹𝗱 math letters, ｆｕｌｌｗｉｄｔｈ, zero-width spaces)
+const BAIT =
+  /https?:\/\/|www\.|\b[a-z0-9-]+\.(win|io|xyz|com|net|org|app|fun|gift|top|live|site|online|club|vip|pro|cc|me|gg|lol|bet)\b|claim|voucher|reward|airdrop|visit|casino|bonus|deposit|giveaway|exclusive|seed phrase|vault|website|portal|\$\d|[\u{1D400}-\u{1D7FF}\uFF01-\uFF5E\u200B]/iu;
+
+/** Spam Alchemy doesn't flag. A collection OpenSea verified or approved is never spam. */
+function spammy(x: any): boolean {
+  const o = x.contract?.openSeaMetadata ?? {};
+  if (o.safelistRequestStatus === "verified" || o.safelistRequestStatus === "approved") return false;
+  // a $0 floor and no supply: a one-off dropped on thousands of wallets
+  if (o.floorPrice === 0 && !x.contract?.totalSupply) return true;
+  return BAIT.test([x.name, x.description, x.contract?.name, o.collectionName].filter(Boolean).join(" "));
 }

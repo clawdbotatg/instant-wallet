@@ -36,7 +36,8 @@ still sign (`hotOf`, the `"hot"` signer in `lib/safe/send.ts`).
 - **WalletConnect:** the scan button also reads a site's `wc:` QR and connects at once, no question (the scan was the yes; a site WalletConnect flags as a scam or impostor still asks) (Settings → Connected sites to paste a link or
   disconnect). A site's calls are one owner-signed batch + the relay's fee (the same keys as a big send, never the
   budget path); messages (`personal_sign`, typed data) are ERC-1271 SafeMessage signatures, ERC-6492-wrapped until
-  the Safe and this phone's signer exist on that chain. The wedgie can't sign a site's message, and a wedgie
+  the Safe and this phone's signer exist on that chain. The wedgie signs a text message (sign-in): it shows the text and
+  works out the hash itself (Safe Signer safe-29+); typed data it can't show, so it won't sign that. A wedgie
   transaction can't park from a phone (the site waits). Calls into the wallet itself are refused.
   `web/lib/safe/connect.ts`, `web/components/safe/SafeConnect.tsx` (the connection is shared with v3).
 

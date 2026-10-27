@@ -171,7 +171,7 @@ function baseStatus(peek: Peek | null, account: SafeAccount, states: ChainState[
   return { tone: "ok", title: "Wedgie connected", detail: "This is your wallet's wedgie. It signs big moves with one A press.", key: h.safe };
 }
 
-/** Bottom left: the wedgie. Solid when the wallet's wedgie is plugged in and ready; faded when there's none; a blip when something's off. */
+/** Bottom left: the wedgie. Solid when the wallet's wedgie is plugged in and ready; faded when there's none or something's off. */
 export function WedgieButton({ account, states, onKeys }: { account: SafeAccount; states: ChainState[]; onKeys: () => void }) {
   const [peek, setPeek] = useState<Peek | null>(null);
   const [open, setOpen] = useState(false);
@@ -259,8 +259,7 @@ export function WedgieButton({ account, states, onKeys }: { account: SafeAccount
           check();
         }}
       >
-        <WedgieIcon size={50} />
-        {st.tone !== "ok" && st.tone !== "off" && <span className="blip">!</span>}
+        <WedgieIcon size={56} />
       </button>
 
       {open && (

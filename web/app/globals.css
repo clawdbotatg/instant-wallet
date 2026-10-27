@@ -125,14 +125,11 @@ div.asset:active { background: none; }
   display: grid; place-items: center; color: #fff; background: var(--green-fill); cursor: pointer; z-index: 30;
   box-shadow: inset 0 3px 0 rgba(255,255,255,.35), inset 0 -5px 0 rgba(0,0,0,.18), 0 3px 0 #0f6e28, 0 16px 28px -10px rgba(22,140,52,.8); }
 .fab:active { transform: translateY(3px); }
-/* bottom left: the wedgie. Solid = your wedgie is plugged in and ready; faded = none here; a blip = something's off */
-.fab-wedgie { right: auto; left: max(18px, calc(50vw - 222px)); width: 66px; height: 66px; bottom: calc(26px + env(safe-area-inset-bottom));
-  background: var(--shell); box-shadow: var(--shell-shadow); transition: opacity .2s; }
+/* bottom left: the wedgie, same raised round button as scan in white-gray. Solid = plugged in and ready; faded = not here or something's off */
+.fab-wedgie { right: auto; left: max(18px, calc(50vw - 222px)); background: linear-gradient(#ffffff, #e4e4df); transition: opacity .2s;
+  box-shadow: inset 0 3px 0 #fff, inset 0 -5px 0 rgba(0,0,0,.08), 0 3px 0 #b9b9b3, 0 16px 28px -10px rgba(20,20,20,.45); }
 .fab-wedgie.off, .fab-wedgie.bad, .fab-wedgie.warn { opacity: .5; }
 .fab-wedgie.warn { opacity: .8; }
-.fab-wedgie .blip { position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center;
-  font-size: 13px; font-weight: 700; color: #fff; background: var(--red-fill); box-shadow: 0 0 0 2px var(--paper); }
-.fab-wedgie.warn .blip { background: linear-gradient(#ffc44d, #e08a00); }
 .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; background: var(--stripe-grey); }
 .dot.ok { background: var(--mint); } .dot.warn { background: #f0a400; } .dot.bad { background: var(--coral); }
 .wedgie-hero { display: grid; place-items: center; padding: 6px 0 0; }
@@ -230,11 +227,11 @@ div.asset:active { background: none; }
 .seedcard .word { border: 1.5px solid var(--ink); border-radius: 8px; height: 46px; position: relative; background: #fff; }
 .seedcard .word span { position: absolute; top: 2px; left: 6px; font-size: 11px; font-weight: 700; color: var(--muted); }
 @media print { .noprint, .fab { display: none !important; } body, html { background: #fff; } .card { box-shadow: none; border: 1.5px solid #1a1b1a; } }
-/* bottom middle: settings (keys + rules), the level under the gear */
-.fab-settings { right: auto; left: 50%; transform: translateX(-50%); width: 66px; height: 66px; bottom: calc(26px + env(safe-area-inset-bottom));
-  color: var(--ink); background: var(--shell); box-shadow: var(--shell-shadow); gap: 0; align-content: center; }
+/* bottom middle: settings (keys + rules), the level under the gear; the same raised button in dark gray */
+.fab-settings { right: auto; left: 50%; transform: translateX(-50%); gap: 0; align-content: center; color: #fff; background: var(--grey-fill);
+  box-shadow: inset 0 3px 0 rgba(255,255,255,.22), inset 0 -5px 0 rgba(0,0,0,.25), 0 3px 0 #2c2d2f, 0 16px 28px -10px rgba(20,20,20,.7); }
 .fab-settings:active { transform: translateX(-50%) translateY(3px); }
-.fab-settings .lvl { font-size: 10px; font-weight: 700; letter-spacing: .03em; color: var(--muted); line-height: 1; margin-top: 1px; }
+.fab-settings .lvl { font-size: 11px; font-weight: 700; letter-spacing: .03em; color: rgba(255,255,255,.75); line-height: 1; margin-top: 1px; }
 
 /* claim cards (/claim/new): printed, the QR alone fills a card; several to a page */
 @media print { .claim-maker { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; } .claim-card { break-inside: avoid; } }

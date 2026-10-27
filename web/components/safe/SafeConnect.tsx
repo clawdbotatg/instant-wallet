@@ -9,7 +9,7 @@ import { type FeeToken, type Prepared, type Signer, type Stage, finishOwners, ow
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { type Pending, remember, respond } from "@/lib/walletconnect";
 import { ChainChip } from "../bits";
-import { CallLine, ConnectLayer, DappHead } from "../WalletConnect";
+import { CallLine, ConnectLayer, DappHead, type Session } from "../WalletConnect";
 import { friendly } from "../Welcome";
 import { SignerChoice } from "./Pick";
 import { Progress } from "./Progress";
@@ -20,17 +20,20 @@ export function SafeConnectLayer({
   states,
   feeTokenOn,
   onSent,
+  onSessions,
 }: {
   account: SafeAccount;
   states: ChainState[];
   feeTokenOn: (chainId: number) => FeeToken;
   onSent: () => void;
+  onSessions?: (s: Session[]) => void;
 }) {
   const chainIds = useMemo(() => CHAINS.map(c => c.id), []);
   return (
     <ConnectLayer
       address={account.address}
       chainIds={chainIds}
+      onSessions={onSessions}
       request={(pending, onDone, onNo) => (
         <SafeRequest
           pending={pending}
@@ -123,7 +126,7 @@ function SafeRequest({
         });
         await answer(hash);
       } else {
-        const sig = await signForSite(account, st, signers, pending.hash, s => setStage(s));
+        const sig = await signForSite(account, st, signers, pending.hash, s => setStage(s), pending.raw);
         await respond(pending.topic, pending.id, sig);
       }
       onDone();

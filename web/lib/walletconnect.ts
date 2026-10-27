@@ -12,6 +12,7 @@ import {
   hashTypedData,
   hexToBytes,
   isHex,
+  toHex,
   numberToHex,
 } from "viem";
 import { factoryAbi } from "./abi";
@@ -99,6 +100,7 @@ export async function rejectProposal(p: WalletKitTypes.SessionProposal) {
 export async function disconnect(topic: string) {
   const k = await getKit();
   await k.disconnectSession({ topic, reason: getSdkError("USER_DISCONNECTED") });
+  window.dispatchEvent(new Event("iw:wcsessions")); // the layer re-reads its list (our own disconnect fires no session_delete)
 }
 
 // ---------------------------------------------------------------- requests
@@ -108,7 +110,7 @@ export type Dapp = { name: string; url: string; icon?: string };
 /** A request that needs the user: a batch of calls, or a message to sign. */
 export type Pending =
   | { kind: "calls"; id: number; topic: string; chainId: number; dapp: Dapp; calls: Call[]; method: string }
-  | { kind: "sign"; id: number; topic: string; chainId: number; dapp: Dapp; hash: Hex; preview: string; method: string };
+  | { kind: "sign"; id: number; topic: string; chainId: number; dapp: Dapp; hash: Hex; preview: string; method: string; raw?: Hex };
 
 const chainOf = (eip155: string) => Number(eip155.split(":")[1]);
 
@@ -179,7 +181,7 @@ export async function triage(e: WalletKitTypes.SessionRequest, chainIds = WC_CHA
       const msg = (isHex(p[0]) && p[0].length === 42 ? p[1] : p[0]) as Hex | string;
       const text = isHex(msg) ? tryUtf8(msg) : msg;
       const hash = hashMessage(isHex(msg) ? { raw: msg } : msg);
-      return { kind: "sign", id, topic, chainId, dapp, hash, preview: text ?? String(msg), method };
+      return { kind: "sign", id, topic, chainId, dapp, hash, preview: text ?? String(msg), method, raw: isHex(msg) ? msg : toHex(msg) };
     }
     case "eth_signTypedData":
     case "eth_signTypedData_v4": {

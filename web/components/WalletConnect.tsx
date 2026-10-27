@@ -23,7 +23,7 @@ import { Blockie, ChainChip, Sheet, useToast } from "./bits";
 import { Scanner } from "./Scanner";
 import { friendly } from "./Welcome";
 
-type Session = { topic: string; name: string; url: string; icon?: string };
+export type Session = { topic: string; name: string; url: string; icon?: string };
 
 /**
  * Everything WalletConnect on screen, mounted once while a wallet is open: listens for sites, shows the
@@ -49,11 +49,14 @@ export function ConnectLayer({
   pairUri,
   chainIds,
   request,
+  onSessions,
 }: {
   address: string;
   pairUri?: string;
   chainIds?: number[];
   request: (pending: Pending, onDone: () => void, onNo: () => void) => React.ReactNode;
+  /** the connected sites, each time the list changes (the home page shows them) */
+  onSessions?: (s: Session[]) => void;
 }) {
   const [kit, setKit] = useState<Kit | null>(null);
   const [sheet, setSheet] = useState(false);
@@ -64,15 +67,15 @@ export function ConnectLayer({
   const [toast, setToast] = useToast();
 
   const refreshSessions = useCallback((k: Kit) => {
-    setSessions(
-      Object.values(k.getActiveSessions()).map(s => ({
-        topic: s.topic,
-        name: s.peer.metadata.name,
-        url: s.peer.metadata.url,
-        icon: s.peer.metadata.icons?.[0],
-      })),
-    );
-  }, []);
+    const list = Object.values(k.getActiveSessions()).map(s => ({
+      topic: s.topic,
+      name: s.peer.metadata.name,
+      url: s.peer.metadata.url,
+      icon: s.peer.metadata.icons?.[0],
+    }));
+    setSessions(list);
+    onSessions?.(list);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     let live = true;
@@ -99,7 +102,8 @@ export function ConnectLayer({
         respondError(e.topic, e.id, err?.message || "Not supported", err?.code ?? 4200).catch(() => {});
       }
     };
-    const onDelete = () => refreshSessions(k);
+    const onDelete = () => k && refreshSessions(k);
+    window.addEventListener("iw:wcsessions", onDelete);
     getKit()
       .then(x => {
         if (!live) return;
@@ -113,6 +117,7 @@ export function ConnectLayer({
       .catch(e => setError(friendly(e)));
     return () => {
       live = false;
+      window.removeEventListener("iw:wcsessions", onDelete);
       if (k) {
         k.off("session_proposal", onProposal);
         k.off("session_request", onRequest);

@@ -8,7 +8,9 @@ import { type SafeTx, type Sig, encodeWebAuthn } from "./core";
  *   {"id":2,"type":"safe_sign","tx":{chainId, safe, to, value, data, operation, safeTxGas, baseGas, gasPrice,
  *    gasToken, refundReceiver, nonce}}                     -> {"type":"safe_sig", safeTxHash, x, y, r, s,
  *                                                             authenticatorData, clientDataFields} | {"type":"refused"}
- * The wedgie computes the hash itself, shows the transaction, and signs only on a real A press.
+ *   {"id":3,"type":"safe_message","chainId","safe","hex"}  -> {"type":"safe_sig", messageHash, safeMessageHash, x, y, r, s,
+ *                                                             authenticatorData, clientDataFields} (wedgie-safe safe-29+)
+ * The wedgie computes the hash itself, shows the transaction (or the message's text), and signs only on a real A press.
  * A USB line is at most 6 KB: a bigger tx (a bridge swap) sends its data ahead in pieces, if the app says it takes
  * them (hello's safe_chunk, wedgie-safe b4e86f8+):
  *   {"type":"safe_data","at":<bytes so far>,"hex":"..."} -> {"type":"safe_data","have":n}, then safe_sign with data "@".
@@ -500,6 +502,26 @@ export class Wedgie {
     };
     try {
       return await this.signing(tx, t, expectHash, slots);
+    } finally {
+      activity(null);
+    }
+  }
+
+  /** One A press signs a site's text message (personal_sign) for the Safe; `raw` = the message's bytes. The wedgie
+   * shows the text and works out the SafeMessage hash itself; `expectHash` is ours, to check it signed the same. */
+  async signMessage(chainId: number, safe: Address, raw: Hex, expectHash: Hex, slots: [Address, Address]): Promise<Sig[]> {
+    const msg = { type: "safe_message", chainId, safe: getAddress(safe), hex: raw };
+    if (JSON.stringify({ id: 0, ...msg }).length > (this.drive ? DRIVE_LINE_MAX : LINE_MAX)) throw new Error("This message is too long for the wedgie.");
+    try {
+      activity({ what: "Press the green button on your wedgie", p: 0.92, press: true });
+      const g = await this.request(msg, 300_000);
+      if (g?.type === "refused") throw new Error("Refused on the wedgie.");
+      if (g?.type === "error" && /unknown type/.test(g.error || "")) throw new Error("Your wedgie's Safe signer is too old to sign messages. Update it from the wedgie button (on a computer), then try again.");
+      if (g?.type === "error") throw new Error(`The wedgie won't sign it: ${g.error}`);
+      if (g?.type !== "safe_sig") throw new Error("The wedgie said something unexpected.");
+      if (String(g.safeMessageHash).toLowerCase() !== expectHash.toLowerCase()) throw new Error("The wedgie signed a different message. Not sending.");
+      const data = encodeWebAuthn({ authenticatorData: g.authenticatorData, clientDataFields: g.clientDataFields, r: BigInt(g.r), s: BigInt(g.s) });
+      return slots.map(signer => ({ signer, data, kind: "contract" as const }));
     } finally {
       activity(null);
     }

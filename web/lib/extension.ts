@@ -1,5 +1,5 @@
 /**
- * The Instant Wallet browser extension (extension/ at the repo root). A site on this computer asks the extension,
+ * The Instant Wallet browser extension (github.com/clawdbotatg/instant-wallet-extension). A site on this computer asks the extension,
  * the extension hands the request to this page through its content script, the same card as a WalletConnect
  * request signs it, and the answer goes back the same way. The extension holds no keys.
  *

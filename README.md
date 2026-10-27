@@ -44,7 +44,6 @@ with a green SIGN button). Both signers speak P-256, so one contract verifies bo
 | `CONCEPT.md` | the idea, the ladder, open questions |
 | `packages/foundry/` | `InstantWallet.sol`, `Factory.sol`, `MockUSDC.sol`, tests (`forge test`) |
 | `packages/nextjs/` | the app: passkeys, facilitator, device queue, talk-to-your-wallet, BYOAI |
-| `extension/` | the browser extension: sites ask, you approve in Instant Wallet (`extension/README.md`) |
 | `firmware/` | MicroPython for the device; `hardware/` build guide + case |
 | `emu/`, `tools/` | the virtual device (MicroPython in WebAssembly) and CLI helpers |
 | `design/` | mockups and the generator |

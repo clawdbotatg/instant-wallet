@@ -21,6 +21,7 @@ import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
 import { AddressInput, TokenIcon } from "../bits";
 import { friendly } from "../Welcome";
+import { ErrorLine } from "./WedgieButton";
 
 // each token past the first adds a transfer to the batch: quote that much more gas
 const PER_TOKEN_GAS = 45_000n;
@@ -210,7 +211,7 @@ export function SendAll({
             )}
             {fee && <span className="fine">Fee {fee}</span>}
             {r.prepared?.opts.self && <span className="fine">No fee. Your browser wallet sends it and pays the gas.</span>}
-            {r.error && <p className="err">{r.error}</p>}
+            {r.error && <ErrorLine text={r.error} />}
             {r.stage === "done" ? (
               <p className="fine">
                 ✓ Sent{" "}

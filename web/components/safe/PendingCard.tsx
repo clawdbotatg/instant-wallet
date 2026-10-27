@@ -8,7 +8,7 @@ import { type Stage, finishPending } from "@/lib/safe/send";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import { friendly } from "../Welcome";
-import { TxPicture, WedgieIcon } from "./WedgieButton";
+import { TxPicture, WedgieIcon, ErrorLine } from "./WedgieButton";
 import { Progress } from "./Progress";
 
 const STAGE: Partial<Record<Stage, string>> = { "signing-wedgie": "Press green on the wedgie…", sending: "Sending…", confirming: "Confirming…" };
@@ -85,7 +85,7 @@ function One({ p, account, onGone, toast }: { p: Pending; account: SafeAccount; 
       </div>
       <TxPicture hash={p.hash} />
       {!here && <p className="fine">Open Instant Wallet on your computer with the wedgie plugged in. It&apos;s there, ready to send.</p>}
-      {error && <p className="err">{error}</p>}
+      {error && <ErrorLine text={error} />}
       <div className="row">
         {here && (
           <button className="btn btn-green grow" onClick={sign} disabled={!!stage}>

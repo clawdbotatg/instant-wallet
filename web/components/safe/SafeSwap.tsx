@@ -16,6 +16,7 @@ import { TokenIcon } from "../bits";
 import { ChainSelect, type Opt, Select, SignerChoice, assetOpt } from "./Pick";
 import { Progress } from "./Progress";
 import { friendly } from "../Welcome";
+import { ErrorLine } from "./WedgieButton";
 
 const SLIPPAGE_BPS = 50;
 const tokenOf = (a: Asset): Token => ({ chainId: a.chainId, address: a.asset, symbol: a.symbol, decimals: a.decimals, logo: a.logo, priceUsd: a.price ?? undefined });
@@ -526,7 +527,7 @@ export function SafeSwap({
 
       {needsComputer && <p className="err">Swaps on this wallet need a key that isn&apos;t here: open Instant Wallet on your computer.</p>}
       {feeShort && <p className="err">Not enough {feeToken === "usdc" ? "USDC" : nativeSymbol(chainId)} on {chainById(chainId)?.name} for this plus the fee.</p>}
-      {error && <p className="err">{error}</p>}
+      {error && <ErrorLine text={error} />}
       <button className="btn btn-green wide go-swap" onClick={swap} disabled={busy || !ready}>
         {busy ? label[stage] ?? "…" : "Swap"}
       </button>

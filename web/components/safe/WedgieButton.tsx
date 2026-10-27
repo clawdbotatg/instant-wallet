@@ -18,11 +18,12 @@ import {
   wedgieDrive,
   wedgieSerial,
   wedgieSupported,
+  WEDGIE_TAKEN,
 } from "@/lib/safe/wedgie";
 import { Blockie, Sheet } from "../bits";
 
 /** The wedgie, drawn after the device render (design/brand/device-mark.png): white shell, a bill and a card behind, knob, screen, four buttons. */
-export function WedgieIcon({ size = 44 }: { size?: number }) {
+export function WedgieIcon({ size = 44, sad = false }: { size?: number; sad?: boolean }) {
   return (
     <svg width={size} height={(size * 52) / 64} viewBox="0 0 64 52" aria-hidden>
       <rect x="9" y="3" width="30" height="20" rx="2.5" fill="#3fbf5a" transform="rotate(-12 24 13)" />
@@ -32,14 +33,41 @@ export function WedgieIcon({ size = 44 }: { size?: number }) {
       <rect x="2" y="15" width="60" height="35" rx="8" fill="#55575a" />
       <rect x="2" y="14" width="60" height="33" rx="8" fill="#fbfbf9" stroke="#d6d6d1" strokeWidth="1" />
       <rect x="22" y="19" width="21" height="23" rx="2.5" fill="#1d1f1d" />
-      <polyline points="25,37 29,32 32,35 36,28 40,25" fill="none" stroke="#3fd768" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" />
-      <rect x="25" y="22" width="10" height="2.4" rx="1" fill="#e8e8e4" />
+      {sad ? (
+        // overworked: tired eyes, a frown, a drop of sweat
+        <>
+          <path d="M25.5 27.5 l4 -1.5 M39.5 27.5 l-4 -1.5" stroke="#e8e8e4" strokeWidth="1.6" strokeLinecap="round" />
+          <circle cx="28" cy="30" r="1.4" fill="#e8e8e4" />
+          <circle cx="37" cy="30" r="1.4" fill="#e8e8e4" />
+          <path d="M27.5 38.5 q5 -4.5 10 0" fill="none" stroke="#e3312c" strokeWidth="1.8" strokeLinecap="round" />
+          <path d="M60 6 q3 5 0 7 q-3 -2 0 -7z" fill="#5db7f0" />
+        </>
+      ) : (
+        <>
+          <polyline points="25,37 29,32 32,35 36,28 40,25" fill="none" stroke="#3fd768" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" />
+          <rect x="25" y="22" width="10" height="2.4" rx="1" fill="#e8e8e4" />
+        </>
+      )}
       <circle cx="12" cy="30.5" r="5.5" fill="#6d6e70" />
       <circle cx="12" cy="30.5" r="3.6" fill="#818285" />
       {["#2fc552", "#8a8b8d", "#8a8b8d", "#e3312c"].map((c, i) => (
         <rect key={i} x="48" y={19 + i * 6} width="8" height="4.4" rx="1.2" fill={c} />
       ))}
     </svg>
+  );
+}
+
+/** An error line; "the wedgie is busy in another tab" gets the sad wedgie. */
+export function ErrorLine({ text }: { text: string }) {
+  if (!text.includes(WEDGIE_TAKEN)) return <p className="err">{text}</p>;
+  return (
+    <div className="row" style={{ gap: 14 }}>
+      <WedgieIcon size={64} sad />
+      <div className="grow">
+        <b>Wedgie busy</b>
+        <div className="fine">It&apos;s open in another tab. Close that tab, then try again.</div>
+      </div>
+    </div>
   );
 }
 
@@ -147,7 +175,7 @@ function baseStatus(peek: Peek | null, account: SafeAccount, states: ChainState[
             : "Plug your wedgie into this computer and tap Find my wedgie (once per browser).",
         };
   if (peek.kind === "busy") return { tone: "ok", title: "Wedgie connected", detail: "It's signing a transaction now." };
-  if (peek.kind === "taken") return { tone: "bad", title: "Wedgie is open in another tab", detail: "Close wedgie.dev or any other tab using it, then check again." };
+  if (peek.kind === "taken") return { tone: "bad", title: "Wedgie busy", detail: "It's open in another tab (wedgie.dev, or Instant Wallet in another window). Close that tab, then check again." };
   if (peek.kind === "silent" && wedgieDrive()) // the drive is up but no answer yet: it keeps asking (no install advice)
     return { tone: "warn", title: "Waiting for your wedgie to answer", detail: "" };
   if (peek.kind === "silent")
@@ -259,13 +287,13 @@ export function WedgieButton({ account, states, onKeys }: { account: SafeAccount
           check();
         }}
       >
-        <WedgieIcon size={56} />
+        <WedgieIcon size={56} sad={peek?.kind === "taken"} />
       </button>
 
       {open && (
         <Sheet onClose={() => setOpen(false)}>
           <div className="wedgie-hero">
-            <WedgieIcon size={150} />
+            <WedgieIcon size={150} sad={peek?.kind === "taken"} />
           </div>
           <div className="stack" style={{ gap: 6 }}>
             <h2 className="row" style={{ gap: 10 }}>

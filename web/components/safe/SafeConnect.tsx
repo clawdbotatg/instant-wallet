@@ -13,6 +13,7 @@ import { CallLine, ConnectLayer, DappHead, type Session } from "../WalletConnect
 import { friendly } from "../Welcome";
 import { SignerChoice } from "./Pick";
 import { Progress } from "./Progress";
+import { ErrorLine } from "./WedgieButton";
 
 /** WalletConnect for the Safe wallet: the shared connect layer, with a card that signs the Safe way. */
 export function SafeConnectLayer({
@@ -188,7 +189,7 @@ function SafeRequest({
       </div>
       {!st && <p className="err">This wallet isn&apos;t on {chainById(pending.chainId)?.name ?? "that network"} here.</p>}
       {refused && <p className="err">{refused}</p>}
-      {error && <p className="err">{error}</p>}
+      {error && <ErrorLine text={error} />}
       {!refused && (
         <button className="btn btn-green wide" disabled={busy || !ready} onClick={go}>
           {busy ? label[stage!] ?? "…" : pending.kind === "calls" ? (prepared ? "Approve" : "Getting the fee…") : "Sign"}

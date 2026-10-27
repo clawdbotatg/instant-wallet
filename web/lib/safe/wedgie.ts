@@ -236,6 +236,11 @@ export type Peek =
   | { kind: "phone"; state: Exclude<DriveState, "here">; press?: boolean } // iPhone app: drive not picked, unplugged, or not writable yet
   | { kind: "hello"; hello: WedgieHello };
 
+/** The wedgie's port is held by another tab or app (wedgie.dev, a second Instant Wallet, Thonny). ErrorLine shows it
+ * with a sad wedgie. */
+export const WEDGIE_TAKEN = "Your wedgie is busy in another tab. Close the other tab, then try again.";
+const takenError = (e: any) => /failed to open|busy|access denied|already open/i.test(e?.message || "");
+
 export class Wedgie {
   private port: any;
   private writer?: WritableStreamDefaultWriter<Uint8Array>;
@@ -257,7 +262,9 @@ export class Wedgie {
     if (holder) throw new Error("The wedgie is busy with another transaction.");
     const w = new Wedgie();
     w.port = port;
-    await port.open({ baudRate: 115200 });
+    await port.open({ baudRate: 115200 }).catch((e: any) => {
+      throw takenError(e) ? new Error(WEDGIE_TAKEN) : e;
+    });
     w.writer = port.writable.getWriter();
     w.reader = port.readable.getReader();
     w.read();
@@ -327,7 +334,7 @@ export class Wedgie {
       try {
         await w.port.open({ baudRate: 115200 });
       } catch (e: any) {
-        if (/failed to open|busy|access denied|already open/i.test(e?.message || "")) return { kind: "taken" };
+        if (takenError(e)) return { kind: "taken" };
         return { kind: "silent", error: "Couldn't open it." };
       }
       w.writer = w.port.writable.getWriter();

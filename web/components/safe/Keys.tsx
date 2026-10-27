@@ -14,6 +14,7 @@ import { AddressInput, Blockie, TimedBar } from "../bits";
 import { Alerts } from "./Alerts";
 import { ChainSelect } from "./Pick";
 import { friendly } from "../Welcome";
+import { ErrorLine } from "./WedgieButton";
 
 /**
  * Keys & safety, per chain (each chain's Safe is its own). Three things (Austin 10-14: no hot wallet any more):
@@ -299,7 +300,7 @@ export function Keys({
       ) : (
         button
       )}
-      {error?.what === what && <p className="err">{error.msg}</p>}
+      {error?.what === what && <ErrorLine text={error.msg} />}
     </>
   );
 

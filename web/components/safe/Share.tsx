@@ -15,7 +15,7 @@ import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
 import { Qr } from "../bits";
 import { Select, assetOpt } from "./Pick";
-import { WedgieIcon } from "./WedgieButton";
+import { WedgieIcon, ErrorLine } from "./WedgieButton";
 import { friendly } from "../Welcome";
 
 /** The iOS app's NFC writer (instant-wallet-app InstantWallet/Nfc.swift). Only there. */
@@ -212,7 +212,7 @@ export function Share({ account, states, assets, chainId, onDone }: { account: S
       <div className="stack center">
         <h2>The card wasn&apos;t written</h2>
         <p>No money moved.</p>
-        {error && <p className="err">{error}</p>}
+        {error && <ErrorLine text={error} />}
         <button className="btn btn-green wide" onClick={() => write(card)}>
           Try again
         </button>
@@ -313,7 +313,7 @@ export function Share({ account, states, assets, chainId, onDone }: { account: S
           </span>
         )}
       </div>
-      {error && <p className="err">{error}</p>}
+      {error && <ErrorLine text={error} />}
       <button className="btn btn-green wide" onClick={next} disabled={busy || !st || !asset || !base || base <= 0n}>
         {busy ? "Checking…" : "Next"}
       </button>

@@ -20,7 +20,7 @@ import { Select, assetOpt } from "./Pick";
 import { friendly } from "../Welcome";
 import { SignerChoice } from "./Pick";
 import { Progress } from "./Progress";
-import { TxPicture, WedgieIcon } from "./WedgieButton";
+import { TxPicture, WedgieIcon, ErrorLine } from "./WedgieButton";
 import { Parked } from "@/lib/safe/pending";
 
 
@@ -348,7 +348,7 @@ export function SafeSend({
           )}
         </div>
         {feeShort && <p className="err">Not enough {feeToken === "usdc" ? "USDC" : nativeSymbol(chainId)} on {chainById(chainId)?.name} for this plus the fee.</p>}
-        {error && <p className="err">{error}</p>}
+        {error && <ErrorLine text={error} />}
         <button className="btn btn-green wide" onClick={send} disabled={busy || !quote || feeShort}>
           {busy ? label[stage] ?? "…" : "Send"}
         </button>
@@ -453,7 +453,7 @@ export function SafeSend({
               {tooMuch && <span className="err">More than you have</span>}
             </div>
           )}
-          {error && <p className="err">{error}</p>}
+          {error && <ErrorLine text={error} />}
           <button className="btn btn-green wide" disabled={!ready} onClick={review}>
             Review
           </button>

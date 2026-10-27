@@ -8,6 +8,7 @@ import { abi } from "@/lib/safe/core";
 import { type Prepared, finishOwners, ownerSigners, prepareOwners } from "@/lib/safe/send";
 import type { ChainState, RecoveryOn, SafeAccount } from "@/lib/safe/state";
 import { friendly } from "../Welcome";
+import { ErrorLine } from "./WedgieButton";
 
 /** A recovery is running on this wallet: say so loudly, with the date it lands and a Cancel. */
 export function RecoveryAlert({
@@ -77,7 +78,7 @@ export function RecoveryAlert({
           {busy ? (ready ? "Cancelling…" : "Getting ready…") : ready ? "Sign to cancel it" : "Cancel it"}
         </button>
       )}
-      {error && <p className="err">{error}</p>}
+      {error && <ErrorLine text={error} />}
     </div>
   );
 }

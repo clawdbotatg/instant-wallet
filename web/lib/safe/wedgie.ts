@@ -577,13 +577,7 @@ export class Wedgie {
       send = { ...tx, data: "@" };
     }
     activity({ what: "Press the green button on your wedgie", p: 0.92, press: true });
-    let g = await this.request({ type: "safe_sign", tx: send }, 300_000); // a big one takes the wedgie a while to hash
-    // joining the bundle can find no free block that big (a real wedgie on a phone, 10-27: "allocating 1784 bytes");
-    // a piece at a wrong `at` empties it, and it asks again without (the pieces of a big tx are still there)
-    if (cb && g?.type === "error" && /MemoryError/.test(g.error || "")) {
-      await this.request({ type: "safe_clear", at: -1, hex: "" }, 10_000).catch(() => null);
-      g = await this.request({ type: "safe_sign", tx: send }, 300_000);
-    }
+    const g = await this.request({ type: "safe_sign", tx: send }, 300_000); // a big one takes the wedgie a while to hash
     if (g?.type !== "safe_sig") throw notSigned(g);
     if (String(g.safeTxHash).toLowerCase() !== expectHash.toLowerCase()) throw new Error("The wedgie signed a different transaction. Not sending.");
     const data = encodeWebAuthn({ authenticatorData: g.authenticatorData, clientDataFields: g.clientDataFields, r: BigInt(g.r), s: BigInt(g.s) });

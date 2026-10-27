@@ -7,6 +7,8 @@
  *                     { __iwx: "gone" }                       it closed
  *                     { __iwx: "res", rid, result | error }   the answer to one request
  *   extension → page  { __iwx: "req", rid, origin, icon?, method, params, chainId }
+ *                     { __iwx: "hello" }                      the extension just arrived (installed while this tab
+ *                                                             was open): say "ready" again
  *
  * `origin` comes from the browser (the site's tab), never from the site. A request's WalletConnect `topic` is
  * "ext:<rid>", so respond() / respondError() in lib/walletconnect.ts send the answer here.
@@ -22,16 +24,18 @@ export function extRespond(topic: string, answer: { result: unknown } | { error:
   post({ __iwx: "res", rid: topic.slice(4), ...answer });
 }
 
-export const extReady = (address: string, chainIds: number[]) => post({ __iwx: "ready", address, chainIds });
-export const extGone = () => post({ __iwx: "gone" });
-
-export function onExtRequest(cb: (r: ExtRequest) => void): () => void {
+/** While a wallet is open: tell the extension, take its requests. Returns the cleanup. */
+export function serveExtension(address: string, chainIds: number[], cb: (r: ExtRequest) => void): () => void {
+  const ready = () => post({ __iwx: "ready", address, chainIds });
   const h = (e: MessageEvent) => {
-    if (e.source !== window || e.origin !== window.location.origin || e.data?.__iwx !== "req") return;
+    if (e.source !== window || e.origin !== window.location.origin) return;
+    if (e.data?.__iwx === "hello") return ready();
+    if (e.data?.__iwx !== "req") return;
     const { rid, origin, icon, method, params, chainId } = e.data;
     if (typeof rid !== "string" || typeof origin !== "string" || typeof method !== "string") return;
     cb({ rid, origin, icon: typeof icon === "string" ? icon : undefined, method, params: Array.isArray(params) ? params : [], chainId: Number(chainId) });
   };
   window.addEventListener("message", h);
-  return () => window.removeEventListener("message", h);
+  ready();
+  return () => (window.removeEventListener("message", h), post({ __iwx: "gone" }));
 }

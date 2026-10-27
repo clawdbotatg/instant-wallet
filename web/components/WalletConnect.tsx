@@ -6,7 +6,7 @@ import type { WalletKitTypes } from "@reown/walletkit";
 import { type Hex, decodeFunctionData, erc20Abi, formatEther, formatUnits } from "viem";
 import { chainById, publicClient } from "@/lib/chains";
 import { short } from "@/lib/format";
-import { extGone, extReady, onExtRequest } from "@/lib/extension";
+import { serveExtension } from "@/lib/extension";
 import type { Account } from "@/lib/types";
 import {
   type Kit,
@@ -132,8 +132,7 @@ export function ConnectLayer({
   // the browser extension: sites on this computer ask through it, into the same queue (lib/extension.ts)
   useEffect(() => {
     const ids = chainIds ?? WC_CHAIN_IDS;
-    extReady(address, ids);
-    const off = onExtRequest(r => {
+    return serveExtension(address, ids, r => {
       const topic = `ext:${r.rid}`;
       try {
         const dapp = { name: new URL(r.origin).host, url: r.origin, icon: r.icon };
@@ -144,7 +143,6 @@ export function ConnectLayer({
         respondError(topic, 0, err?.message || "Not supported", err?.code ?? 4200).catch(() => {});
       }
     });
-    return () => (off(), extGone());
   }, [address, chainIds?.join()]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // openWalletConnect(uri?) from the scan button or a link

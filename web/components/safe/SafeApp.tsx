@@ -44,6 +44,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
   const [hidden, setHiddenState] = useState<string[]>([]);
   const [shown, setShownState] = useState<string[]>([]);
   const [sites, setSites] = useState<Session[]>([]); // WalletConnect sites connected to this wallet
+  const [posUsd, setPosUsd] = useState(0); // DeFi positions, added to the big total
   const [dropCode, setDropCode] = useState<string | null>(null); // a drop code scanned before this wallet existed
   useEffect(() => setDropCode(stashedCode()), []);
 
@@ -243,7 +244,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
         <div className="card balance">
           <div className="total">
             <div className={fresh ? "big" : "big stale"} onClick={() => setShowUsd(!showUsd)}>
-              {portfolio ? (showUsd ? usd(portfolio.totalUsd ?? 0) : `${assets.length} assets`) : <span className="loading-bar" aria-label="Loading" />}
+              {portfolio ? (showUsd ? usd((portfolio.totalUsd ?? 0) + posUsd) : `${assets.length} assets`) : <span className="loading-bar" aria-label="Loading" />}
             </div>
             {portfolio && (!fresh || pulling) && <span className="spinner" aria-label="Updating" />}
             {fresh && !pulling && assets.length > 0 && (
@@ -323,7 +324,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
             );
           })}
         </div>
-        <PositionList address={account.address} />
+        <PositionList address={account.address} onTotal={setPosUsd} />
         <NftGrid address={account.address} />
       </div>
 

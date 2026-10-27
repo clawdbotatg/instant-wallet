@@ -8,19 +8,23 @@ import type { Position } from "@/lib/types";
 
 const TYPE: Record<string, string> = { deposit: "Deposit", staked: "Staked", reward: "Reward", loan: "Loan", locked: "Locked" };
 
-/** DeFi positions (pools, vaults, stakes) under the coins, from Zerion. Tap one to open its app. Hidden when there are none. */
-export function PositionList({ address }: { address: string }) {
+/** DeFi positions (pools, vaults, stakes) under the coins, from Zerion; their sum goes into the big total. Tap one to open its app. Hidden when there are none. */
+export function PositionList({ address, onTotal }: { address: string; onTotal: (usd: number) => void }) {
   const [list, setList] = useState<Position[] | null>(null);
   useEffect(() => {
     const load = () =>
       fetch(`/api/positions?address=${address}`, { cache: "no-store" })
         .then(r => r.json())
-        .then(j => j?.positions && setList(j.positions))
+        .then(j => {
+          if (!j?.positions) return;
+          setList(j.positions);
+          onTotal(j.positions.reduce((t: number, p: Position) => t + p.usd, 0));
+        })
         .catch(() => {});
     load();
     window.addEventListener("instantwallet:refresh", load);
     return () => window.removeEventListener("instantwallet:refresh", load);
-  }, [address]);
+  }, [address, onTotal]);
   if (!list?.length) return null;
   return (
     <div className="card assets">

@@ -1,4 +1,5 @@
 import { type Address, type Hex, getAddress } from "viem";
+import { clearBundle } from "./clear";
 import { type SafeTx, type Sig, encodeWebAuthn } from "./core";
 
 /**
@@ -14,6 +15,9 @@ import { type SafeTx, type Sig, encodeWebAuthn } from "./core";
  * A USB line is at most 6 KB: a bigger tx (a bridge swap) sends its data ahead in pieces, if the app says it takes
  * them (hello's safe_chunk, wedgie-safe b4e86f8+):
  *   {"type":"safe_data","at":<bytes so far>,"hex":"..."} -> {"type":"safe_data","have":n}, then safe_sign with data "@".
+ * Clear signing (safe-24+, hello's safe_clear = the data tag it trusts): the ERC-7730 bundle for the tx goes first, in
+ * pieces, {"type":"safe_clear","at","hex"} -> {"type":"safe_clear","have":n}; the next safe_sign shows the calls it
+ * names (lib/safe/clear.ts). Any error answer carries {"type":"error","error":".."}: we always show its text.
  *
  * In the Instant Wallet iPhone app there's no serial port: the app gives the page window.wedgieDrive, and the same
  * requests go as files on the wedgie's WEDGIE drive (docs/WEDGIE-PHONE.md, the app's WebView.swift). The drive
@@ -189,6 +193,16 @@ function driveRequest(msg: Record<string, unknown>, ms: number): Promise<any> {
 
 type Pending = { res: (v: any) => void; rej: (e: Error) => void; t: number };
 
+const NOT_SAFE = "Your wedgie isn't in Safe Signer. Open Safe Signer on it, then try again.";
+/** Any answer but a signature, as an error that says what the wedgie said. */
+function notSigned(g: any): Error {
+  if (g?.type === "refused") return new Error("Refused on the wedgie.");
+  const e = String(g?.error || "");
+  if (g?.type === "error" && /unknown type|^locked/.test(e)) return new Error(NOT_SAFE); // another app has it
+  if (g?.type === "error" && e) return new Error(`The wedgie won't sign it: ${e}`);
+  return new Error(`The wedgie said something unexpected (${g?.type || "nothing"}).`);
+}
+
 // One user of the port at a time: a status peek (WedgieButton) never opens it while a signing connection holds
 // it, and a connect waits for a peek in flight to close it.
 let holder: Wedgie | null = null;
@@ -212,7 +226,7 @@ const arm = () => {
 };
 
 /** What a plugged-in wedgie said when asked hello (nothing signs, nothing shows on its screen). */
-export type WedgieHello = { version?: string; short?: string; running?: string | null; carts?: { mod: string; v?: string | null }[]; safe?: { x: Hex; y: Hex } | null; safe_chunk?: number };
+export type WedgieHello = { version?: string; short?: string; running?: string | null; carts?: { mod: string; v?: string | null }[]; safe?: { x: Hex; y: Hex } | null; safe_chunk?: number; safe_clear?: string | null };
 const LINE_MAX = 5800; // the wedgie's USB line is 6 KB
 export type Peek =
   | { kind: "none" } // no wedgie this browser was allowed to see is plugged in
@@ -477,6 +491,17 @@ export class Wedgie {
     });
   }
 
+  /** Its hello, once per connection: it must be running Safe Signer (after a firmware update it can be in another app). */
+  private hi?: Promise<WedgieHello>;
+  private safeHello(): Promise<WedgieHello> {
+    this.hi ??= this.request({ type: "hello" }, 5000).then(h => {
+      if (h?.running !== undefined && h.running !== "safe") throw new Error(NOT_SAFE);
+      return h;
+    });
+    this.hi.catch(() => (this.hi = undefined));
+    return this.hi;
+  }
+
   async key(): Promise<{ x: Hex; y: Hex }> {
     activity({ what: "Talking to your wedgie", p: 0.1 });
     const h = await this.request({ type: "hello" }, 5000).finally(() => activity(null));
@@ -513,12 +538,12 @@ export class Wedgie {
     const msg = { type: "safe_message", chainId, safe: getAddress(safe), hex: raw };
     if (JSON.stringify({ id: 0, ...msg }).length > (this.drive ? DRIVE_LINE_MAX : LINE_MAX)) throw new Error("This message is too long for the wedgie.");
     try {
+      activity({ what: "Talking to your wedgie", p: 0.05 });
+      await this.safeHello();
       activity({ what: "Press the green button on your wedgie", p: 0.92, press: true });
       const g = await this.request(msg, 300_000);
-      if (g?.type === "refused") throw new Error("Refused on the wedgie.");
       if (g?.type === "error" && /unknown type/.test(g.error || "")) throw new Error("Your wedgie's Safe signer is too old to sign messages. Update it from the wedgie button (on a computer), then try again.");
-      if (g?.type === "error") throw new Error(`The wedgie won't sign it: ${g.error}`);
-      if (g?.type !== "safe_sig") throw new Error("The wedgie said something unexpected.");
+      if (g?.type !== "safe_sig") throw notSigned(g);
       if (String(g.safeMessageHash).toLowerCase() !== expectHash.toLowerCase()) throw new Error("The wedgie signed a different message. Not sending.");
       const data = encodeWebAuthn({ authenticatorData: g.authenticatorData, clientDataFields: g.clientDataFields, r: BigInt(g.r), s: BigInt(g.s) });
       return slots.map(signer => ({ signer, data, kind: "contract" as const }));
@@ -530,15 +555,22 @@ export class Wedgie {
   private async signing(tx: Record<string, any>, t: SafeTx, expectHash: Hex, slots: [Address, Address]): Promise<Sig[]> {
     let send: Record<string, unknown> = tx;
     activity({ what: "Sending it to your wedgie", p: 0.05 });
+    const h = await this.safeHello();
+    let chunk = h.safe_chunk;
+    if (chunk && this.drive) chunk = Math.min(chunk, DRIVE_CHUNK);
+    // what the ERC-7730 registry says about its calls, sent ahead: the wedgie checks it against its own roots
+    const cb = h.safe_clear && chunk ? await clearBundle(h.safe_clear, tx.chainId, t).catch(() => null) : null;
+    for (let o = 0; cb && chunk && o < cb.length; o += chunk) {
+      const a = await this.request({ type: "safe_clear", at: o / 2, hex: cb.slice(o, o + chunk) }, 20_000).catch(() => null);
+      if (a?.type !== "safe_clear") break; // it still signs; it just can't read the call
+    }
     if (JSON.stringify({ id: 0, type: "safe_sign", tx }).length > (this.drive ? DRIVE_LINE_MAX : LINE_MAX)) {
-      let chunk = (await this.request({ type: "hello" }, 5000))?.safe_chunk;
-      if (chunk && this.drive) chunk = Math.min(chunk, DRIVE_CHUNK);
       if (!chunk) throw new Error("This one is too big for the wedgie's Safe app. Update it at wedgie.dev, then try again.");
       const hex = t.data.slice(2);
       let at = 0;
       for (let i = 0; i < hex.length; i += chunk) {
         const r = await this.request({ type: "safe_data", at, hex: hex.slice(i, i + chunk) }, 10_000);
-        if (r?.type !== "safe_data") throw new Error(`The wedgie didn't take the transaction (${r?.error || "no answer"}).`);
+        if (r?.type !== "safe_data") throw r?.type === "error" ? notSigned(r) : new Error("The wedgie didn't take the transaction (no answer).");
         at = r.have;
         activity({ what: "Sending it to your wedgie", p: 0.05 + (0.85 * Math.min(i + chunk, hex.length)) / hex.length });
       }
@@ -546,8 +578,7 @@ export class Wedgie {
     }
     activity({ what: "Press the green button on your wedgie", p: 0.92, press: true });
     const g = await this.request({ type: "safe_sign", tx: send }, 300_000); // a big one takes the wedgie a while to hash
-    if (g?.type === "refused") throw new Error("Refused on the wedgie.");
-    if (g?.type !== "safe_sig") throw new Error("The wedgie said something unexpected.");
+    if (g?.type !== "safe_sig") throw notSigned(g);
     if (String(g.safeTxHash).toLowerCase() !== expectHash.toLowerCase()) throw new Error("The wedgie signed a different transaction. Not sending.");
     const data = encodeWebAuthn({ authenticatorData: g.authenticatorData, clientDataFields: g.clientDataFields, r: BigInt(g.r), s: BigInt(g.s) });
     return slots.map(signer => ({ signer, data, kind: "contract" as const }));

@@ -18,6 +18,7 @@ import {
 import { factoryAbi } from "./abi";
 import { KIND_WEBAUTHN } from "./address";
 import { CHAINS, FACTORY, SENDABLE, publicClient } from "./chains";
+import { extRespond, isExt } from "./extension";
 import { signDigest } from "./passkey";
 import type { Account } from "./types";
 import { type Call, isDeployed, sendCalls } from "./wallet";
@@ -53,6 +54,7 @@ const METHODS = [
 const EVENTS = ["chainChanged", "accountsChanged"];
 /** Chains sites may use: the ones we can actually send on (Base today). */
 const WC_CHAINS = CHAINS.filter(c => SENDABLE.has(c.id));
+export const WC_CHAIN_IDS = WC_CHAINS.map(c => c.id);
 
 const ERC6492_MAGIC: Hex = "0x6492649264926492649264926492649264926492649264926492649264926492";
 
@@ -80,7 +82,7 @@ export async function pair(uri: string) {
 }
 
 /** `chainIds`: the chains sites may use (the v3 wallet: the sendable ones; the Safe: every chain it's on). */
-export async function approveProposal(p: WalletKitTypes.SessionProposal, account: { address: string }, chainIds = WC_CHAINS.map(c => c.id)) {
+export async function approveProposal(p: WalletKitTypes.SessionProposal, account: { address: string }, chainIds = WC_CHAIN_IDS) {
   const k = await getKit();
   const chains = chainIds.map(id => `eip155:${id}`);
   const namespaces = buildApprovedNamespaces({
@@ -120,11 +122,13 @@ export function dappOf(k: Kit, topic: string): Dapp {
 }
 
 export async function respond(topic: string, id: number, result: unknown) {
+  if (isExt(topic)) return extRespond(topic, { result }); // the browser extension's request (lib/extension.ts)
   const k = await getKit();
   await k.respondSessionRequest({ topic, response: { id, jsonrpc: "2.0", result } });
 }
 
 export async function respondError(topic: string, id: number, message = "User rejected", code = 4001) {
+  if (isExt(topic)) return extRespond(topic, { error: { code, message } });
   const k = await getKit();
   await k.respondSessionRequest({ topic, response: { id, jsonrpc: "2.0", error: { code, message } } });
 }
@@ -138,7 +142,7 @@ const toCall = (c: { to?: string; value?: string; data?: string }): Call => {
  * Sort an incoming request: answer the ones that need nobody (capabilities, status, chain switch) and return
  * `Pending` for the ones that need a Face ID. Throws → the caller answers with an error.
  */
-export async function triage(e: WalletKitTypes.SessionRequest, chainIds = WC_CHAINS.map(c => c.id)): Promise<Pending | null> {
+export async function triage(e: WalletKitTypes.SessionRequest, chainIds = WC_CHAIN_IDS): Promise<Pending | null> {
   const k = await getKit();
   const wcChain = (id: number) => chainIds.includes(id);
   const { topic, id } = e;
@@ -168,7 +172,21 @@ export async function triage(e: WalletKitTypes.SessionRequest, chainIds = WC_CHA
       await k.emitSessionEvent({ topic, event: { name: "chainChanged", data: want }, chainId: `eip155:${want}` });
       return null;
     }
+    default: {
+      const pending = toPending(topic, id, method, p, chainId, dapp, chainIds);
+      if (pending) return pending;
+      throw Object.assign(new Error(`${method} is not supported`), { code: 4200 });
+    }
+  }
+}
+
+/** A request that needs a key (calls or a message) as a `Pending`; null if it isn't one. WalletConnect and the
+ * browser extension both use it. */
+export function toPending(topic: string, id: number, method: string, p: any[], chainId: number, dapp: Dapp, chainIds = WC_CHAIN_IDS): Pending | null {
+  const wcChain = (id: number) => chainIds.includes(id);
+  switch (method) {
     case "eth_sendTransaction":
+      if (!wcChain(chainId)) throw Object.assign(new Error("Chain not supported"), { code: 4902 });
       return { kind: "calls", id, topic, chainId, dapp, calls: [toCall(p[0])], method };
     case "wallet_sendCalls": {
       const req = p[0] as { chainId?: string; calls: { to?: string; value?: string; data?: string }[] };
@@ -184,6 +202,7 @@ export async function triage(e: WalletKitTypes.SessionRequest, chainIds = WC_CHA
       return { kind: "sign", id, topic, chainId, dapp, hash, preview: text ?? String(msg), method, raw: isHex(msg) ? msg : toHex(msg) };
     }
     case "eth_signTypedData":
+    case "eth_signTypedData_v3":
     case "eth_signTypedData_v4": {
       const raw = typeof p[1] === "string" ? JSON.parse(p[1]) : p[1];
       const { EIP712Domain: _, ...types } = raw.types ?? {};
@@ -191,7 +210,7 @@ export async function triage(e: WalletKitTypes.SessionRequest, chainIds = WC_CHA
       return { kind: "sign", id, topic, chainId, dapp, hash, preview: typedPreview(raw), method };
     }
     default:
-      throw Object.assign(new Error(`${method} is not supported`), { code: 4200 });
+      return null;
   }
 }
 

@@ -6,10 +6,12 @@ import type { WalletKitTypes } from "@reown/walletkit";
 import { type Hex, decodeFunctionData, erc20Abi, formatEther, formatUnits } from "viem";
 import { chainById, publicClient } from "@/lib/chains";
 import { short } from "@/lib/format";
+import { extGone, extReady, onExtRequest } from "@/lib/extension";
 import type { Account } from "@/lib/types";
 import {
   type Kit,
   type Pending,
+  WC_CHAIN_IDS,
   approve,
   approveProposal,
   disconnect,
@@ -17,6 +19,7 @@ import {
   pair,
   rejectProposal,
   respondError,
+  toPending,
   triage,
 } from "@/lib/walletconnect";
 import { Blockie, ChainChip, Sheet, useToast } from "./bits";
@@ -125,6 +128,24 @@ export function ConnectLayer({
       }
     };
   }, [address, chainIds?.join(), refreshSessions]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // the browser extension: sites on this computer ask through it, into the same queue (lib/extension.ts)
+  useEffect(() => {
+    const ids = chainIds ?? WC_CHAIN_IDS;
+    extReady(address, ids);
+    const off = onExtRequest(r => {
+      const topic = `ext:${r.rid}`;
+      try {
+        const dapp = { name: new URL(r.origin).host, url: r.origin, icon: r.icon };
+        const p = toPending(topic, 0, r.method, r.params as any[], r.chainId, dapp, ids);
+        if (!p) throw Object.assign(new Error(`${r.method} is not supported`), { code: 4200 });
+        setQueue(q => [...q, p]);
+      } catch (err: any) {
+        respondError(topic, 0, err?.message || "Not supported", err?.code ?? 4200).catch(() => {});
+      }
+    });
+    return () => (off(), extGone());
+  }, [address, chainIds?.join()]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // openWalletConnect(uri?) from the scan button or a link
   useEffect(() => {

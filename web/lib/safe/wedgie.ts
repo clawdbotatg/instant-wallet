@@ -560,8 +560,11 @@ export class Wedgie {
     if (chunk && this.drive) chunk = Math.min(chunk, DRIVE_CHUNK);
     // what the ERC-7730 registry says about its calls, sent ahead: the wedgie checks it against its own roots
     const cb = h.safe_clear && chunk ? await clearBundle(h.safe_clear, tx.chainId, t).catch(() => null) : null;
+    // the first piece says the whole size (n): Safe Signer safe-32+ reserves one block for it then, instead of joining
+    // the pieces at sign time (a real wedgie on a phone, 10-27: MemoryError, 1784 bytes). Older ones ignore n.
     for (let o = 0; cb && chunk && o < cb.length; o += chunk) {
-      const a = await this.request({ type: "safe_clear", at: o / 2, hex: cb.slice(o, o + chunk) }, 20_000).catch(() => null);
+      const piece = { type: "safe_clear", at: o / 2, hex: cb.slice(o, o + chunk), ...(o ? {} : { n: cb.length / 2 }) };
+      const a = await this.request(piece, 20_000).catch(() => null);
       if (a?.type !== "safe_clear") break; // it still signs; it just can't read the call
     }
     if (JSON.stringify({ id: 0, type: "safe_sign", tx }).length > (this.drive ? DRIVE_LINE_MAX : LINE_MAX)) {

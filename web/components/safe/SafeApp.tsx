@@ -27,6 +27,7 @@ import { NftGrid } from "./Nfts";
 import { PositionList } from "./Positions";
 import { stashedCode } from "@/lib/dropClient";
 import { disconnect, openWalletConnect } from "@/lib/walletconnect";
+import { inExtensionPanel } from "@/lib/extension";
 import type { Session } from "../WalletConnect";
 
 type View = { kind: "home" } | { kind: "send"; asset?: Asset; scanned?: string } | { kind: "swap"; fund?: number } | { kind: "receive" } | { kind: "deposit" } | { kind: "keys" } | { kind: "share"; chainId: number } | { kind: "sendAll" };
@@ -37,6 +38,8 @@ export function SafeApp({ link }: { link?: string } = {}) {
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
   const [fresh, setFresh] = useState(false); // false while portfolio is last open's, saved
   const [states, setStates] = useState<ChainState[]>([]);
+  const [inPanel, setInPanel] = useState(false); // the extension's side panel: no camera
+  useEffect(() => setInPanel(inExtensionPanel()), []);
   const [view, setView] = useState<View>({ kind: "home" });
   const [showUsd, setShowUsd] = useState(true);
   const [toast, setToast] = useToast();
@@ -333,8 +336,8 @@ export function SafeApp({ link }: { link?: string } = {}) {
         <GearIcon />
         <span className="lvl">{keysNeed}/{keysHave}</span>
       </button>
-      <button className="fab" aria-label="Scan to send" onClick={() => setView({ kind: "send" })}>
-        <ScanIcon />
+      <button className="fab" aria-label={inPanel ? "Send" : "Scan to send"} onClick={() => setView({ kind: "send" })}>
+        {inPanel ? <SendIcon size={34} /> : <ScanIcon />}
       </button>
 
       {view.kind !== "home" && (

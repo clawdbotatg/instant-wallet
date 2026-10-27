@@ -39,3 +39,16 @@ export function serveExtension(address: string, chainIds: number[], cb: (r: ExtR
   ready();
   return () => (window.removeEventListener("message", h), post({ __iwx: "gone" }));
 }
+
+/** Inside the extension's side panel (it loads the site with ?in=extension), kept for the frame's life. No camera there,
+ * so no scanning: the big button sends by typing. */
+export function inExtensionPanel(): boolean {
+  if (typeof window === "undefined") return false;
+  const asked = new URLSearchParams(window.location.search).get("in") === "extension";
+  try {
+    if (asked) sessionStorage.setItem("iw.inExtension", "1");
+    return sessionStorage.getItem("iw.inExtension") === "1";
+  } catch {
+    return asked;
+  }
+}

@@ -36,8 +36,6 @@ export function Keys({
   onAccount,
   onRefresh,
   onFund,
-  startChain,
-  editLimitOnOpen,
 }: {
   account: SafeAccount;
   states: ChainState[];
@@ -46,11 +44,9 @@ export function Keys({
   onAccount: (a: SafeAccount) => void;
   onRefresh: () => Promise<void> | void;
   onFund: (chainId: number) => void;
-  startChain?: number; // the network picked when it opens
-  editLimitOnOpen?: boolean; // open with the daily limit's editor up (the home screen's "edit")
 }) {
 
-  const [chainId, setChainId] = useState(startChain ?? CHAINS[0].id);
+  const [chainId, setChainId] = useState(CHAINS[0].id);
   const [busy, setBusy] = useState<string | null>(null);
   // an error shows in the step whose button caused it, next to where you tapped
   const [error, setErrorRaw] = useState<{ what: string; msg: string } | null>(null);
@@ -196,16 +192,6 @@ export function Keys({
   const [limitUsdc, setLimitUsdc] = useState("");
   const [limitEth, setLimitEth] = useState("");
   const [editLimit, setEditLimit] = useState<number | null>(null); // the chain whose limit is open for editing
-  const limitOpened = useRef(false);
-  useEffect(() => {
-    const b = states.find(x => x.chainId === chainId)?.budget;
-    if (!editLimitOnOpen || limitOpened.current || !b) return;
-    limitOpened.current = true;
-    setLimitUsdc(formatUnits(b.usdcMax, 6));
-    setLimitEth(formatUnits(b.ethMax, 18));
-    setEditLimit(chainId);
-    setTimeout(() => document.getElementById("daily-limit")?.scrollIntoView({ block: "center", behavior: "smooth" }), 50);
-  }, [editLimitOnOpen, states, chainId]);
   const setLimit = () =>
     prep("limit", async () => {
       const st = await fresh();
@@ -362,8 +348,7 @@ export function Keys({
 
       {st?.hasHot && <KeyRow kind="Hot wallet" a={hot} chainId={chainId} />}
       {st?.budget && st.threshold > 1 && (
-        <div id="daily-limit" key={`limit${chainId}`}>
-          <Step title={`Daily limit (1 of ${st.level} keys)`}>
+        <Step title={`Daily limit (1 of ${st.level} keys)`} key={`limit${chainId}`}>
           {editLimit !== chainId ? (
             <div className="row" style={{ justifyContent: "space-between" }}>
               <b>
@@ -405,7 +390,6 @@ export function Keys({
             </>
           )}
         </Step>
-        </div>
       )}
 
       <Step title="Recovery" done={ownRecovery}>

@@ -2,8 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { formatUnits } from "viem";
-import { CHAINS, chainById, nativeSymbol } from "@/lib/chains";
+import { CHAINS, chainById } from "@/lib/chains";
 import { amount, short, usd } from "@/lib/format";
 import { type ChainState, type SafeAccount, defaultWalletName, loadAccount, loadWalletName, readAll, saveAccount, saveWalletName } from "@/lib/safe/state";
 import type { Asset, Portfolio } from "@/lib/types";
@@ -26,12 +25,13 @@ import { PendingCards } from "./PendingCard";
 import { SafeConnectLayer } from "./SafeConnect";
 import { NftGrid } from "./Nfts";
 import { PositionList } from "./Positions";
+import { Limits } from "./Limits";
 import { stashedCode } from "@/lib/dropClient";
 import { renamePasskey } from "@/lib/passkey";
 import { disconnect, openWalletConnect } from "@/lib/walletconnect";
 import type { Session } from "../WalletConnect";
 
-type View = { kind: "home" } | { kind: "send"; asset?: Asset; scanned?: string } | { kind: "swap"; fund?: number } | { kind: "receive" } | { kind: "deposit" } | { kind: "keys"; chainId?: number; editLimit?: boolean } | { kind: "share"; chainId: number } | { kind: "sendAll" };
+type View = { kind: "home" } | { kind: "send"; asset?: Asset; scanned?: string } | { kind: "swap"; fund?: number } | { kind: "receive" } | { kind: "deposit" } | { kind: "keys" } | { kind: "share"; chainId: number } | { kind: "sendAll" };
 
 /** Instant Wallet on a Safe: a big balance, Connect / Deposit / Swap, the connected sites above the coins, the address pill opens Receive, settings bottom middle (keys needed / keys you have), a send button on each asset, a scan button (addresses, claim cards, WalletConnect QRs) and the wedgie (bottom left). */
 export function SafeApp({ link }: { link?: string } = {}) {
@@ -332,18 +332,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
               </button>
             )}
           </div>
-          {limitSt?.budget && (
-            <div className="limits">
-              <LimitBar left={limitSt.budget.usdc} max={limitSt.budget.usdcMax} decimals={6} unit="USDC" />
-              <LimitBar left={limitSt.budget.eth} max={limitSt.budget.ethMax} decimals={18} unit={nativeSymbol(limitSt.chainId)} />
-              <div className="limits-rule">
-                Face ID alone, per day on {chainById(limitSt.chainId)?.name}. More: {ownerSigners(limitSt, account).map(k => SIGNER_NAME[k]).join(" + ")}.
-                <button className="link-edit" onClick={() => setView({ kind: "keys", chainId: limitSt.chainId, editLimit: true })}>
-                  edit
-                </button>
-              </div>
-            </div>
-          )}
+          {limitSt?.budget && <Limits account={account} st={limitSt} assets={assets} onRefresh={refresh} toast={setToast} />}
           <div className="actions">
             <button className="btn" onClick={() => openWalletConnect()}>
               <ConnectIcon /> Connect
@@ -488,8 +477,6 @@ export function SafeApp({ link }: { link?: string } = {}) {
               onAccount={a => setAccount(a)}
               onRefresh={refresh}
               onFund={chainId => setView({ kind: "swap", fund: chainId })}
-              startChain={view.chainId}
-              editLimitOnOpen={view.editLimit}
             />
           )}
         </Sheet>
@@ -515,21 +502,3 @@ function roughUsd(v: number): number {
 }
 const compactUsd = (v: number) => (v >= 1e6 ? `$${v / 1e6}M` : v >= 1e3 ? `$${v / 1e3}k` : `$${v}`);
 
-const SIGNER_NAME = { burner: "Face ID", wedgie: "wedgie", hot: "hot wallet" } as const;
-
-/** One token's daily limit: what's left today of the max, as a thin bar. */
-function LimitBar({ left, max, decimals, unit }: { left: bigint; max: bigint; decimals: number; unit: string }) {
-  const n = (v: bigint) => Number(v) / 10 ** decimals;
-  const pct = max > 0n ? Math.min(100, (n(left) / n(max)) * 100) : 0;
-  return (
-    <div className="limit-row">
-      <span>{unit}</span>
-      <span>
-        {amount(formatUnits(left, decimals))} / {amount(formatUnits(max, decimals))} left
-      </span>
-      <div className="limit-bar">
-        <i style={{ width: `${pct}%` }} />
-      </div>
-    </div>
-  );
-}

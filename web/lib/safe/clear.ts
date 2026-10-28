@@ -7,13 +7,16 @@ import type { Hex } from "viem";
  * root built into the app, so leaving one out is all we could do wrong (the wedgie then says it can't read the call).
  * The bundle is the wire format's eth-sign-request keys 8 (tokens) and 13 (descriptors).
  */
-export const CLEAR_MAX = 6000; // bytes: what Safe Signer takes (its CLEAR_MAX)
+export const CLEAR_MAX = 6000; // bytes: what Safe Signer takes (its CLEAR_MAX) before safe-30
+// safe-30+ (its data's index.json has clearMax) takes more, but holds 6600 in a buffer made at start (safe-36): bigger
+// ones may not find the memory. The Universal Router's descriptor alone is 5577, so 6000 left out USDC (10-27).
+const CLEAR_BUF = 6600;
 const SITE = "https://wedgie.dev/clear/";
 const MULTISEND = "8d80ff0a";
 const files = new Map<string, Promise<Record<string, string> | null>>();
 
-function file(tag: string, chain: number, name: string) {
-  const k = `${tag}/${chain}/${name}`;
+function file(tag: string, chain: number, name: string, path?: string) {
+  const k = path ?? `${tag}/${chain}/${name}`;
   if (!files.has(k))
     files.set(
       k,
@@ -37,10 +40,13 @@ function unbatch(hex: string) {
   return out;
 }
 
-/** Every 20-byte word the calldata holds the way ABI holds an address (12 zero bytes, then 20), lowercase hex. */
+/** Every 20-byte word the calldata holds the way ABI holds an address (12 zero bytes, then 20), lowercase hex. Any
+ * byte offset (a call inside a call is 4 bytes off the outer words), so runs of zeros look like addresses too: those
+ * start with 2 zero bytes and are skipped (a Universal Router swap: 474 lookups, a minute, 10-27). */
 function addresses(hex: string) {
   const out = new Set<string>();
-  for (let i = 8; i + 64 <= hex.length; i += 2) if (/^0{24}/.test(hex.slice(i, i + 24))) out.add(hex.slice(i + 24, i + 64));
+  for (let i = 8; i + 64 <= hex.length; i += 2)
+    if (/^0{24}/.test(hex.slice(i, i + 24)) && !hex.startsWith("0000", i + 24)) out.add(hex.slice(i + 24, i + 64));
   return out;
 }
 
@@ -64,8 +70,9 @@ export async function clearBundle(tag: string, chain: number, t: { to: string; d
     }
     // a call inside the call (multicall, permitAndCall): any contract the calldata names, or this one (a multicall
     // into itself), whose selector it carries
-    for (const a of new Set([to, ...addresses(c.data)])) {
-      const g = await file(tag, chain, "0x" + a);
+    const named = [...new Set([to, ...addresses(c.data)])];
+    const found = await Promise.all(named.map(a => file(tag, chain, "0x" + a))); // at once, not one after another
+    for (const g of found) {
       if (!g) continue;
       for (const [sel, s] of Object.entries(g))
         if (!seen.has(s) && c.data.slice(8).includes(sel.slice(2))) {
@@ -82,8 +89,9 @@ export async function clearBundle(tag: string, chain: number, t: { to: string; d
     .filter(([a]) => named.includes(a.slice(2)))
     .map(([, s]) => s);
   // as much as fits, most needed first: the calls' own descriptors, the tokens, then the calls inside
+  const max = (await file(tag, 0, "index", `${tag}/index`))?.clearMax ? CLEAR_BUF : CLEAR_MAX;
   let size = 8;
-  const take = (l: string[]) => l.filter(s => size + s.length / 2 <= CLEAR_MAX && ((size += s.length / 2), true));
+  const take = (l: string[]) => l.filter(s => size + s.length / 2 <= max && ((size += s.length / 2), true));
   const d = take(top);
   const k = take(tk);
   const i = take(inner);

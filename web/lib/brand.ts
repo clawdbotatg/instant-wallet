@@ -38,3 +38,12 @@ export function retireBurnerKey(key: Hex) {
     document.cookie = `${BURNER_KEY}=; path=/; max-age=0`; // only once the copy above is saved
   } catch {}
 }
+
+/** The old Burner key this browser has, moved or not (Settings shows it so it can be copied out). */
+export function oldBurnerKey(): Hex | null {
+  try {
+    const k = claimKey(localStorage.getItem(BURNER_MOVED) || "");
+    if (k) return k;
+  } catch {}
+  return burnerKey();
+}

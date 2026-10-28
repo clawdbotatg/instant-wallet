@@ -1,7 +1,8 @@
 "use client";
 
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { type Address, encodeFunctionData, formatUnits, parseUnits, zeroAddress } from "viem";
+import { type Address, type Hex, encodeFunctionData, formatUnits, parseUnits, zeroAddress } from "viem";
+import { oldBurnerKey } from "@/lib/brand";
 import { CHAINS, chainById, explorerAddress, nativeSymbol } from "@/lib/chains";
 import { short } from "@/lib/format";
 import { DAO, FEE_ALLOWANCE, RECOVERY_60D, VERIFIERS, VERIFIERS_SLOT2 } from "@/lib/safe/config";
@@ -10,7 +11,7 @@ import { type FeeToken, type Prepared, type Signer, finishOwners, getQuote, owne
 import { type ChainState, type SafeAccount, hotOf, oldLayout, readChain, wedgieSigners } from "@/lib/safe/state";
 import { Wedgie, wedgieDrive, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { AddressInput, Blockie, TimedBar } from "../bits";
+import { AddressInput, Blockie, TimedBar, copy } from "../bits";
 import { Alerts } from "./Alerts";
 import { ChainSelect } from "./Pick";
 import { friendly } from "../Welcome";
@@ -463,10 +464,24 @@ export function Keys({
         </div>
       )}
 
+      <OldBurner toast={toast} />
+
       <button className="btn wide" onClick={onSignOut}>
         Sign out of this device
       </button>
     </div>
+  );
+}
+
+/** xdai.io: the old Burner Wallet's key still in this browser (lib/brand.ts): one button copies it out. */
+function OldBurner({ toast }: { toast: (m: string) => void }) {
+  const [key, setKey] = useState<Hex | null>(null);
+  useEffect(() => setKey(oldBurnerKey()), []);
+  if (!key) return null;
+  return (
+    <button className="btn wide" onClick={async () => toast((await copy(key)) ? "Old Burner private key copied" : "Couldn't copy")}>
+      Copy old Burner private key
+    </button>
   );
 }
 

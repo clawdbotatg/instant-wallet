@@ -262,12 +262,10 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
       {upgrade ? (
         <div className="stack center" style={{ gap: 10, marginBottom: 8 }}>
           <img src="/brand/xdai/burner.png" alt="Burner Wallet" style={{ height: 72, margin: "0 auto" }} />
-          <h2 style={{ fontSize: 26, lineHeight: 1.25 }}>
-            Burner Wallet
-            <br />
+          <h2 style={{ fontSize: 26, lineHeight: 1.25, display: "grid", gap: 18 }}>
+            <span>Burner Wallet</span>
             <span style={{ fontWeight: 500, color: "var(--muted)" }}>has become</span>
-            <br />
-            Instant Wallet
+            <span>Instant Wallet</span>
           </h2>
           <img src="/brand/xdai/logo.png" alt="Instant Wallet" style={{ width: 240, maxWidth: "70%", margin: "0 auto" }} />
         </div>

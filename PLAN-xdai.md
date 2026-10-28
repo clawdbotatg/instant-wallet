@@ -4,7 +4,12 @@ Austin, 10-27. Put Instant Wallet at xdai.io with a slightly different look (dar
 has a Burner Wallet key saved there gets a sweep screen (like claim) that moves everything into their new
 Instant Wallet.
 
-Status: **planning.** Nothing built.
+Status: **building on branch `xdai`** (10-27). Not on main, not on xdai.io yet.
+
+Built: dark 🔥 look (`lib/brand.ts`, end of `globals.css`; `?brand=xdai` turns it on in a preview), the old key's
+move screen (`Claim.tsx` with `burner`, opened from `SafeRoot.tsx`), old links `/#<key>` and `/<key>` → `/pk`,
+`public/service-worker.js` kill switch. Probe: `web/tools/xdai-probe.mjs` (no chain). Not done: the actual move
+on Gnosis with real money, gas for tokens when the key has no xDAI, export of `iw.oldBurnerKey`.
 
 ---
 
@@ -100,3 +105,20 @@ or the cache expires. Set `no-cache` on S3 now so it doesn't get worse.
 - Name on xdai.io: **Instant Wallet**.
 - Only `xdai.io` itself is swapped. Subdomains stay old.
 - xdai.io wallets are separate wallets, passkeys for xdai.io only. Top left says "Instant Wallet".
+
+---
+
+## What the old Burner code left behind (review 10-27, checked on chain)
+
+| what | where | on chain now | covered? |
+|---|---|---|---|
+| key in localStorage `metaPrivateKey`, or a cookie of that name | browser | — | yes |
+| `/pk#<key>` hex or 43-char base64url (printed cards), `/<key>`, `/#<key>` | links/QRs | — | yes |
+| "seed phrase" box (any text → bip39@2 seed, no word check, m/44'/60'/0'/0/0) | Settings | — | yes (Load old Burner Wallet) |
+| xDAI, tokens on Gnosis; DAI, ETH, SAI on Ethereum | the key's address | — | yes (tokens need gas on the key) |
+| **Send-with-link** funds: Links `0x5170DA7a3eF514c9F12A3A49EACAF9d026162a1f` (Gnosis) | contract | **98.8 xDAI** unclaimed, 397 sends from 84 senders, 2020-04..2022-06 | **no**. All expired: only the sender's key can take them back (`executeClaim` signed by the sender) |
+| **Old Burner Safes**: ProxyFactory `0x3BD7460A7B35D371d621119E2f3c1c5845b874c4`, 52 Safes; the Safe's address is in localStorage `<address>safe` | contracts | **~18 xDAI** over ~19 Safes (largest 7.5, 4.98, 2.5) | **no**. The old key is an owner: it could sign the Safe's own transfer |
+| Unclaimed xDai→DAI bridge withdrawals | Ethereum bridge `0x4aa42145…` (pays USDS now) | unknown | no |
+| BurnerVendor `0x57Af069C…` | contract | 152 xDAI | not users': only the super admin can `sweep` |
+| Badges (NFTs) `0xCF964c89…` | contract | — | not moved |
+| old payment links `/<address>;<amount>` | links | — | open Send, but default to Base, not Gnosis |

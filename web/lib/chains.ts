@@ -74,7 +74,10 @@ const ALL: ChainInfo[] = [
 ];
 
 const wanted = (process.env.NEXT_PUBLIC_CHAINS || ALL.filter(c => c.id !== foundry.id).map(c => c.id).join(",")).split(",").map(s => Number(s.trim()));
-export const CHAINS: ChainInfo[] = wanted.map(id => ALL.find(c => c.id === id)).filter((c): c is ChainInfo => !!c);
+const enabled = wanted.map(id => ALL.find(c => c.id === id)).filter((c): c is ChainInfo => !!c);
+// xdai.io (lib/brand.ts sets data-brand before any module runs): Gnosis first, so it's the default network there
+const xdai = typeof document !== "undefined" && document.documentElement.dataset.brand === "xdai";
+export const CHAINS: ChainInfo[] = xdai ? [...enabled.filter(c => c.id === 100), ...enabled.filter(c => c.id !== 100)] : enabled;
 export const DEFAULT_CHAIN = CHAINS[0];
 
 /** Any known chain, enabled or not (the server still resolves ENS on Ethereum when only Base is enabled). */

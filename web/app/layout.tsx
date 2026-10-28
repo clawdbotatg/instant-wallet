@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { DM_Mono, Outfit } from "next/font/google";
+import { BRAND_SCRIPT } from "@/lib/brand";
 import "./globals.css";
 
 // Outfit: the wordmark's look (og.png, design/gen.py)
@@ -39,8 +40,12 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${outfit.variable} ${mono.variable}`}>
-      <body>{children}</body>
+    <html lang="en" className={`${outfit.variable} ${mono.variable}`} suppressHydrationWarning>
+      <body>
+        {/* xdai.io's look, before first paint (lib/brand.ts) */}
+        <script dangerouslySetInnerHTML={{ __html: BRAND_SCRIPT }} />
+        {children}
+      </body>
     </html>
   );
 }

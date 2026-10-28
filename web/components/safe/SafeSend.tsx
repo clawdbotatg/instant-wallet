@@ -5,6 +5,7 @@ import { type Address, type Hash, formatUnits, getAddress, isAddress, parseUnits
 import { chainById, explorerTx, nativeSymbol } from "@/lib/chains";
 import { amount as fmtAmount, short, usd } from "@/lib/format";
 import { isClaimLink } from "@/lib/claim";
+import { isXdai } from "@/lib/brand";
 import { dropCode } from "@/lib/dropClient";
 import { parse } from "@/lib/parse";
 import { openWalletConnect } from "@/lib/walletconnect";
@@ -15,7 +16,6 @@ import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
 import { Blockie, ChainChip, ScanIcon, TokenIcon, useSheetBack } from "../bits";
-import { inExtensionPanel } from "@/lib/extension";
 import { Scanner } from "../Scanner";
 import { Select, assetOpt } from "./Pick";
 import { friendly } from "../Welcome";
@@ -45,8 +45,7 @@ export function SafeSend({
   onDone: () => void;
 }) {
   const [toInput, setToInput] = useState("");
-  const noCamera = inExtensionPanel(); // the extension's side panel
-  const [scanning, setScanning] = useState(!start && !scanned && !noCamera);
+  const [scanning, setScanning] = useState(!start && !scanned);
   // the scanner opened from the form: swiping it away goes back to the form
   const [scanFromForm, setScanFromForm] = useState(false);
   const leaveScan = useCallback(() => {
@@ -202,8 +201,11 @@ export function SafeSend({
     if (r.kind === "wc") return void (onDone(), openWalletConnect(r.uri)); // a site's WalletConnect QR: connect to it
     if (r.kind !== "pay") return setError("That QR isn't an address.");
     setToInput(r.to);
-    const m = r.chainId || r.asset ? assets.find(a => (!r.chainId || a.chainId === r.chainId) && (!r.asset || a.asset.toLowerCase() === r.asset.toLowerCase())) : undefined;
-    if (r.chainId || r.asset) {
+    const find = (chainId?: number) => assets.find(a => (!chainId || a.chainId === chainId) && (!r.asset || a.asset.toLowerCase() === r.asset.toLowerCase()));
+    // no network named: on xdai.io an old Burner link (/0x…;5) meant xDAI on Gnosis, so Gnosis first if it's held there
+    const home = !r.chainId && isXdai() ? find(100) : undefined;
+    const m = home ?? (r.chainId || r.asset ? find(r.chainId) : undefined);
+    if (r.chainId || r.asset || home) {
       if (!m) {
         setPick(null);
         setAmountIn("");
@@ -381,18 +383,16 @@ export function SafeSend({
             <div className="input">
               {resolved && <Blockie address={resolved} size={30} />}
               <input value={toInput} onChange={e => setToInput(e.target.value)} placeholder="0x… or name.eth" autoCapitalize="none" autoCorrect="off" spellCheck={false} />
-              {!noCamera && (
-                <button
-                  className="pill"
-                  onClick={() => {
-                    setScanFromForm(true);
-                    setScanning(true);
-                  }}
-                  aria-label="Scan"
-                >
-                  <ScanIcon size={20} />
-                </button>
-              )}
+              <button
+                className="pill"
+                onClick={() => {
+                  setScanFromForm(true);
+                  setScanning(true);
+                }}
+                aria-label="Scan"
+              >
+                <ScanIcon size={20} />
+              </button>
             </div>
             {resolving && <span className="fine">Looking up {toInput}…</span>}
             {resolved && toInput.includes(".") && <span className="fine mono">{resolved}</span>}

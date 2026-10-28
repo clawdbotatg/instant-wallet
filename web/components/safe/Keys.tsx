@@ -1,7 +1,9 @@
 "use client";
 
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { type Address, encodeFunctionData, formatUnits, parseUnits, zeroAddress } from "viem";
+import { type Address, type Hex, encodeFunctionData, formatUnits, parseUnits, zeroAddress } from "viem";
+import { brainKey, isXdai, oldBurnerKey } from "@/lib/brand";
+import { claimKey } from "@/lib/claim";
 import { CHAINS, chainById, explorerAddress, nativeSymbol } from "@/lib/chains";
 import { short } from "@/lib/format";
 import { DAO, FEE_ALLOWANCE, RECOVERY_60D, VERIFIERS, VERIFIERS_SLOT2 } from "@/lib/safe/config";
@@ -10,7 +12,7 @@ import { type FeeToken, type Prepared, type Signer, finishOwners, getQuote, owne
 import { type ChainState, type SafeAccount, hotOf, oldLayout, readChain, wedgieSigners } from "@/lib/safe/state";
 import { Wedgie, wedgieDrive, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { AddressInput, Blockie, TimedBar } from "../bits";
+import { AddressInput, Blockie, TimedBar, copy } from "../bits";
 import { Alerts } from "./Alerts";
 import { ChainSelect } from "./Pick";
 import { friendly } from "../Welcome";
@@ -463,10 +465,63 @@ export function Keys({
         </div>
       )}
 
+      <OldBurner toast={toast} />
+
       <button className="btn wide" onClick={onSignOut}>
         Sign out of this device
       </button>
     </div>
+  );
+}
+
+/**
+ * xdai.io: the old Burner Wallet. Copy out a key this browser has (lib/brand.ts), or load one from somewhere else, as
+ * a private key or as the old "seed phrase" box's text (any text: lib/brand.ts brainKey). Loading opens the move screen.
+ */
+function OldBurner({ toast }: { toast: (m: string) => void }) {
+  const [key, setKey] = useState<Hex | null>(null);
+  const [xdai, setXdai] = useState(false);
+  const [pk, setPk] = useState("");
+  const [phrase, setPhrase] = useState("");
+  useEffect(() => {
+    setKey(oldBurnerKey());
+    setXdai(isXdai());
+  }, []);
+  const load = (k: Hex | null) => {
+    if (!k) return toast("That's not a private key");
+    window.location.href = `/pk#${k}`; // the claim screen: what's on it, then move it into this wallet
+  };
+  const field = { autoComplete: "off", autoCorrect: "off", autoCapitalize: "none", spellCheck: false } as const;
+  return (
+    <>
+      {key && (
+        <button className="btn wide" onClick={async () => toast((await copy(key)) ? "Old Burner private key copied" : "Couldn't copy")}>
+          Copy old Burner private key
+        </button>
+      )}
+      {xdai && (
+        <div className="card stack" style={{ gap: 10 }}>
+          <b>Load old Burner Wallet</b>
+          <div className="row">
+            <div className="input grow">
+              <input {...field} placeholder="private key" value={pk} onChange={e => setPk(e.target.value)} />
+            </div>
+            <button className="btn btn-green btn-sm" disabled={!pk.trim()} onClick={() => load(claimKey(pk.trim(), true))}>
+              Load
+            </button>
+          </div>
+          <div className="row">
+            <div className="input grow">
+              <input {...field} type="password" placeholder="seed phrase" value={phrase} onChange={e => setPhrase(e.target.value)} />
+            </div>
+            <button className="btn btn-green btn-sm" disabled={!phrase} onClick={() => load(brainKey(phrase))}>
+              Load
+            </button>
+          </div>
+          <p className="fine">Type the seed phrase exactly as you did in the old Burner Wallet, spaces and capitals too.</p>
+        </div>
+      )}
+    </>
   );
 }
 

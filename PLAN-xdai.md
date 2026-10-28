@@ -74,7 +74,7 @@ or the cache expires. Set `no-cache` on S3 now so it doesn't get worse.
 
 ## Steps
 
-1. **Access:** find which AWS account has the xdai.io Route53 zone + S3 bucket + CloudFront. Need login.
+1. **Access:** Austin owns xdai.io, in his AWS (Route53 + S3 + CloudFront). Need a way in: AWS CLI login or he does the DNS flip.
 2. **Back up** the S3 bucket (the whole old site), so we can roll back by pointing DNS back.
 3. Decide if xdai.io Safes should also open on the main site (Related Origin Requests).
 4. Build: theme switch, sweep screen, multi-chain balance scan, gas drip on Gnosis, SW kill switch.
@@ -96,7 +96,6 @@ or the cache expires. Set `no-cache` on S3 now so it doesn't get worse.
 
 ## Open questions for Austin
 
-1. Who has the AWS login for xdai.io?
-2. Should an xdai.io Safe also open on the main site? (If yes, we need a real main domain.)
-3. Name on xdai.io: "Instant Wallet", "Burner Wallet", something else?
-4. Which old subdomains matter?
+1. Should an xdai.io Safe also open on the main site? (If yes, we need a real main domain.)
+2. Name on xdai.io: "Instant Wallet", "Burner Wallet", something else?
+3. Which old subdomains matter?

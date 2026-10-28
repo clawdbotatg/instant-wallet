@@ -228,6 +228,9 @@ const arm = () => {
 /** What a plugged-in wedgie said when asked hello (nothing signs, nothing shows on its screen). */
 export type WedgieHello = { version?: string; short?: string; running?: string | null; carts?: { mod: string; v?: string | null }[]; safe?: { x: Hex; y: Hex } | null; safe_chunk?: number; safe_clear?: string | null };
 const LINE_MAX = 5800; // the wedgie's USB line is 6 KB
+// a tx over this goes in safe_data pieces, as wedgie.dev sends it: one 3.4 KB line needed a block that big on a
+// wedgie whose memory was broken up (10-27, a Uniswap swap + fee: MemoryError)
+const SIGN_LINE_MAX = 3000;
 export type Peek =
   | { kind: "none" } // no wedgie this browser was allowed to see is plugged in
   | { kind: "busy" } // a signing connection has it open right now
@@ -576,7 +579,7 @@ export class Wedgie {
       if (a?.type !== "safe_clear")
         throw new Error(`Your wedgie couldn't take what this transaction does (${a?.error || "no answer"}). Update its Safe signer from the wedgie button, then try again.`);
     }
-    if (JSON.stringify({ id: 0, type: "safe_sign", tx }).length > (this.drive ? DRIVE_LINE_MAX : LINE_MAX)) {
+    if (JSON.stringify({ id: 0, type: "safe_sign", tx }).length > (this.drive ? DRIVE_LINE_MAX : chunk ? SIGN_LINE_MAX : LINE_MAX)) {
       if (!chunk) throw new Error("This one is too big for the wedgie's Safe app. Update it at wedgie.dev, then try again.");
       const hex = t.data.slice(2);
       let at = 0;

@@ -35,8 +35,8 @@ Route53 at Vercel. The app sees the hostname and switches to the 🔥 dark look.
 key into it.
 
 - **Passkeys are tied to the domain** (`rpId = window.location.hostname` in `web/lib/passkey.ts`). A Safe made
-  on xdai.io opens only on xdai.io. Fine unless we want the same wallet on the main site too; then use WebAuthn
-  Related Origin Requests (needs a real main domain, test on iPhone first).
+  on xdai.io opens only on xdai.io. **Decided (Austin, 10-27): that's fine.** An xdai.io wallet is a separate
+  wallet from the main site's. Passkey is for xdai.io. Top left still says "Instant Wallet".
 
 ---
 
@@ -78,7 +78,7 @@ or the cache expires. Set `no-cache` on S3 now so it doesn't get worse.
    2027-10-27, auto-renew on. Hosted zone `Z1YYNBSOM7DK7E`. The flip is one record: `xdai.io A` (alias to
    CloudFront `dllztdzvr6cyn`) → Vercel. Austin does it, or gives an AWS CLI login.
 2. **Back up** the S3 bucket (the whole old site), so we can roll back by pointing DNS back.
-3. Decide if xdai.io Safes should also open on the main site (Related Origin Requests).
+3. (Decided: xdai.io wallets are their own; no cross-domain passkeys.)
 4. Build: theme switch, sweep screen, multi-chain balance scan, gas drip on Gnosis, SW kill switch.
 5. **Test without touching xdai.io:** a staging domain (e.g. `xdai-test.<ours>`) where a test page writes a
    `metaPrivateKey` holding a little xDAI + a token. Run the whole thing on iPhone Safari and Android Chrome.
@@ -99,4 +99,4 @@ or the cache expires. Set `no-cache` on S3 now so it doesn't get worse.
 
 - Name on xdai.io: **Instant Wallet**.
 - Only `xdai.io` itself is swapped. Subdomains stay old.
-- Open: should an xdai.io Safe also open on the main site? (Needs a real main domain.)
+- xdai.io wallets are separate wallets, passkeys for xdai.io only. Top left says "Instant Wallet".

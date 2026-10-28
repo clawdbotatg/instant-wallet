@@ -35,7 +35,7 @@ export function ChainChip({ chainId }: { chainId: number }) {
 }
 
 /** QR code (error correction H) with the recipient's blockie in the middle, like punk wallet; `children` sit under it, in the same card. */
-export function Qr({ value, center, children }: { value: string; center?: string; children?: React.ReactNode }) {
+export function Qr({ value, center, top, children }: { value: string; center?: string; top?: React.ReactNode; children?: React.ReactNode }) {
   const [src, setSrc] = useState<string>();
   useEffect(() => {
     QRCode.toDataURL(value, { errorCorrectionLevel: "H", margin: 1, width: 600, color: { dark: "#1a1b1a", light: "#ffffff" } })
@@ -44,6 +44,7 @@ export function Qr({ value, center, children }: { value: string; center?: string
   }, [value]);
   return (
     <div className="qr">
+      {top}
       <div style={{ position: "relative", width: "100%", maxWidth: 300 }}>
         {src && <img className="code" src={src} alt="QR code" />}
         {center && (

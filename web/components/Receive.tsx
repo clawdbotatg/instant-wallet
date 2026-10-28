@@ -21,12 +21,14 @@ export function Receive({
   name,
   onName,
   onSignOut,
+  onSwitch,
 }: {
   account: Account;
   toast?: (m: string) => void;
   name?: string | null; // the wallet's name, as the title (tap to edit) when onName is given
   onName?: (name: string | null) => void; // null: back to the default name
   onSignOut?: () => void; // a "Sign out of this device" button at the bottom
+  onSwitch?: () => void; // a "Switch account" button at the top (another passkey's wallet)
 }) {
   const [asking, setAsking] = useState(false);
   const [amount, setAmount] = useState("");
@@ -60,9 +62,25 @@ export function Receive({
   };
   return (
     <div className="stack">
-      {onName ? <NameTitle name={name ?? null} onSave={onName} /> : <h2>{asking ? "Request" : "Receive"}</h2>}
+      {onSwitch && (
+        <button className="btn btn-sm" style={{ alignSelf: "center" }} onClick={onSwitch}>
+          Switch account
+        </button>
+      )}
+      {!onName && <h2>{asking ? "Request" : "Receive"}</h2>}
       <div onClick={onTap} style={{ cursor: "pointer", position: "relative" }}>
-        <Qr value={uri ?? account.address} center={account.address}>
+        <Qr
+          value={uri ?? account.address}
+          center={account.address}
+          top={
+            onName && (
+              // a tap on the name edits it; anywhere else on the card copies
+              <div onClick={e => e.stopPropagation()} style={{ cursor: "default", marginBottom: 10 }}>
+                <NameTitle name={name ?? null} onSave={onName} />
+              </div>
+            )
+          }
+        >
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, color: "var(--ink)" }}>
             <span className="mono" style={{ fontSize: 17, fontWeight: 600 }}>{short(account.address)}</span>
             <CopyIcon />

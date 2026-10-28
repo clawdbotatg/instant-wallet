@@ -67,12 +67,40 @@ async function ownedBy(signer: Address): Promise<{ wallet: Address; guardians: A
   return undefined;
 }
 
-export function SafeWelcome({ onReady }: { onReady: (a: SafeAccount) => void }) {
+export type Confirm = { account: SafeAccount; guardians: Address[] };
+
+/**
+ * Sign in with a passkey already on this device (the picker): its wallet, or `confirm` for a wallet it took over by
+ * recovery (the user says yes or no first). Also the address page's Switch account.
+ */
+export async function signIn(): Promise<{ account: SafeAccount } | { confirm: Confirm }> {
+  const { credentialId, candidates } = await recoverKeys();
+  const accts = candidates.map((c: Candidate) => accountFor(credentialId, c.qx, c.qy));
+  let pick = accts.length === 1 ? accts[0] : undefined;
+  if (!pick) {
+    const flags = await Promise.all(accts.map(used));
+    const hits = accts.filter((_, i) => flags[i]);
+    if (hits.length === 1) pick = hits[0];
+  }
+  // a key that took over another wallet by recovery: its own address is empty, Safe's index knows the wallet
+  for (const c of pick ? [pick] : accts) {
+    if (await used(c)) break;
+    const w = await ownedBy(c.burnerSigner);
+    if (w) return { confirm: { account: accountFor(credentialId, c.qx, c.qy, w.wallet), guardians: w.guardians } };
+  }
+  if (!pick) {
+    const c = await confirmKey(credentialId, candidates); // one more Face ID only when it's ambiguous
+    pick = accountFor(credentialId, c.qx, c.qy);
+  }
+  return { account: pick };
+}
+
+export function SafeWelcome({ onReady, initialConfirm }: { onReady: (a: SafeAccount) => void; initialConfirm?: Confirm | null }) {
   const [busy, setBusy] = useState<"create" | "login" | "recover" | null>(null);
   const [recovering, setRecovering] = useState(false);
   const [wallet, setWallet] = useState("");
   const scan = useAddressScan(setWallet);
-  const [confirm, setConfirm] = useState<{ account: SafeAccount; guardians: Address[] } | null>(null);
+  const [confirm, setConfirm] = useState<Confirm | null>(initialConfirm ?? null);
   const [error, setError] = useState<string | null>(null);
   const supported = typeof window === "undefined" || webauthnAvailable();
 
@@ -93,25 +121,9 @@ export function SafeWelcome({ onReady }: { onReady: (a: SafeAccount) => void }) 
     setBusy("login");
     setError(null);
     try {
-      const { credentialId, candidates } = await recoverKeys();
-      const accts = candidates.map((c: Candidate) => accountFor(credentialId, c.qx, c.qy));
-      let pick = accts.length === 1 ? accts[0] : undefined;
-      if (!pick) {
-        const flags = await Promise.all(accts.map(used));
-        const hits = accts.filter((_, i) => flags[i]);
-        if (hits.length === 1) pick = hits[0];
-      }
-      // a key that took over another wallet by recovery: its own address is empty, Safe's index knows the wallet
-      for (const c of pick ? [pick] : accts) {
-        if (await used(c)) break;
-        const w = await ownedBy(c.burnerSigner);
-        if (w) return setConfirm({ account: accountFor(credentialId, c.qx, c.qy, w.wallet), guardians: w.guardians }); // the user says yes or no
-      }
-      if (!pick) {
-        const c = await confirmKey(credentialId, candidates); // one more Face ID only when it's ambiguous
-        pick = accountFor(credentialId, c.qx, c.qy);
-      }
-      onReady(pick);
+      const r = await signIn();
+      if ("confirm" in r) setConfirm(r.confirm); // the user says yes or no
+      else onReady(r.account);
     } catch (e: any) {
       setError(friendly(e));
     } finally {

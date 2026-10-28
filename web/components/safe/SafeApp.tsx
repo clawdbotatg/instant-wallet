@@ -19,7 +19,7 @@ import { RecoveryAlert } from "./RecoveryAlert";
 import { SafeSend } from "./SafeSend";
 import { SendAll } from "./SendAll";
 import { SafeSwap } from "./SafeSwap";
-import { SafeWelcome } from "./SafeWelcome";
+import { type Confirm, SafeWelcome, signIn } from "./SafeWelcome";
 import { WedgieButton, WedgieProgress } from "./WedgieButton";
 import { PendingCards } from "./PendingCard";
 import { SafeConnectLayer } from "./SafeConnect";
@@ -65,6 +65,25 @@ export function SafeApp({ link }: { link?: string } = {}) {
   const setAccount = (a: SafeAccount | null) => {
     saveAccount(a);
     setAccountState(a);
+    if (a) setSwitchConfirm(null);
+  };
+  // the address page's Switch account: the passkey picker, then that wallet (a recovered one asks first, on the
+  // sign-in screen)
+  const [switchConfirm, setSwitchConfirm] = useState<Confirm | null>(null);
+  const switchAccount = async () => {
+    try {
+      const r = await signIn();
+      setPortfolio(null);
+      setStates([]);
+      setPosUsd(null);
+      setView({ kind: "home" });
+      if ("confirm" in r) {
+        setSwitchConfirm(r.confirm);
+        setAccount(null);
+      } else setAccount(r.account);
+    } catch (e: any) {
+      setToast(friendly(e));
+    }
   };
 
   // the balance shows as soon as it lands; the keys read (slower, several calls per network) never holds it up
@@ -189,7 +208,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
   }, [account, portfolio]);
 
   if (account === undefined) return null;
-  if (!account) return <SafeWelcome onReady={setAccount} />;
+  if (!account) return <SafeWelcome onReady={setAccount} initialConfirm={switchConfirm} />;
 
   const keyOf = (a: Asset) => `${a.chainId}:${a.asset}`.toLowerCase();
   const held = (portfolio?.assets ?? []).filter(a => BigInt(a.balance) > 0n);
@@ -404,6 +423,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
               toast={setToast}
               name={walletName}
               onName={setName}
+              onSwitch={switchAccount}
               onSignOut={() => {
                 setAccount(null);
                 setPortfolio(null);

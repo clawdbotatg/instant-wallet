@@ -1,13 +1,13 @@
 "use client";
 
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { type Address, type Hex, encodeFunctionData, formatUnits, parseUnits, zeroAddress } from "viem";
+import { type Address, type Hex, encodeFunctionData, zeroAddress } from "viem";
 import { brainKey, isXdai, oldBurnerKey } from "@/lib/brand";
 import { claimKey } from "@/lib/claim";
 import { CHAINS, chainById, explorerAddress, nativeSymbol } from "@/lib/chains";
 import { short } from "@/lib/format";
 import { DAO, FEE_ALLOWANCE, RECOVERY_60D, VERIFIERS, VERIFIERS_SLOT2 } from "@/lib/safe/config";
-import { type Call, DEFAULT_BUDGET, abi, budgetCalls, deploySignerCall, feeAllowanceCalls, recoveryLayoutCalls, selfCall, setBudgetCalls, setGuardianCalls } from "@/lib/safe/core";
+import { type Call, DEFAULT_BUDGET, abi, budgetCalls, deploySignerCall, feeAllowanceCalls, recoveryLayoutCalls, selfCall, setGuardianCalls } from "@/lib/safe/core";
 import { type FeeToken, type Prepared, type Signer, finishOwners, getQuote, ownerSigners, prepareOwners } from "@/lib/safe/send";
 import { type ChainState, type SafeAccount, hotOf, oldLayout, readChain, wedgieSigners } from "@/lib/safe/state";
 import { Wedgie, wedgieDrive, wedgieSupported } from "@/lib/safe/wedgie";
@@ -189,34 +189,6 @@ export function Keys({
       }
     });
 
-  const [limitUsdc, setLimitUsdc] = useState("");
-  const [limitEth, setLimitEth] = useState("");
-  const [editLimit, setEditLimit] = useState<number | null>(null); // the chain whose limit is open for editing
-  const setLimit = () =>
-    prep("limit", async () => {
-      const st = await fresh();
-      if (!st.budget) throw new Error("Still loading");
-      const usdcV = parseUnits(limitUsdc, 6);
-      const ethV = parseUnits(limitEth, 18);
-      const signers = ownerSigners(st, account);
-      const w = await wedgieFor(signers);
-      try {
-        // the fee rule is set once (with the budget): re-send it only on a wallet from before it existed
-        const calls = [...setBudgetCalls(account.address, { usdc: usdcV, eth: ethV }, now()), ...(st.budget.feeUsdc === null ? await feeApart() : [])];
-        const p = await prepareOwners({ account, state: st, calls, signers, feeToken, setup: true, wedgie: w, label: "Change the daily limit" });
-        return {
-          label: `Daily limit: ${formatUnits(usdcV, 6)} USDC · ${formatUnits(ethV, 18)} ${nativeSymbol(chainId)}`,
-          p,
-          after: () => setEditLimit(null),
-          settled: s => s.budget?.usdcMax === usdcV && s.budget.ethMax === ethV,
-          close: async () => w?.close(),
-        };
-      } catch (e) {
-        await w?.close();
-        throw e;
-      }
-    });
-
   // a wallet that paired its wedgie before the 60-day layout: the same move on its own (the wedgie signs it too)
   const upgradeLayout = () =>
     prep("layout", async () => {
@@ -347,51 +319,6 @@ export function Keys({
       )}
 
       {st?.hasHot && <KeyRow kind="Hot wallet" a={hot} chainId={chainId} />}
-      {st?.budget && st.threshold > 1 && (
-        <Step title={`Daily limit (1 of ${st.level} keys)`} key={`limit${chainId}`}>
-          {editLimit !== chainId ? (
-            <div className="row" style={{ justifyContent: "space-between" }}>
-              <b>
-                {cut(st.budget.usdc, 6, 2)}/{formatUnits(st.budget.usdcMax, 6)} USDC · {cut(st.budget.eth, 18, 4)}/{formatUnits(st.budget.ethMax, 18)} {nativeSymbol(chainId)}
-              </b>
-              <button
-                className="pill"
-                disabled={!!busy || !!pending || !!wait}
-                onClick={() => {
-                  setLimitUsdc(formatUnits(st.budget!.usdcMax, 6));
-                  setLimitEth(formatUnits(st.budget!.ethMax, 18));
-                  setEditLimit(chainId);
-                }}
-              >
-                Edit
-              </button>
-            </div>
-          ) : (
-            <>
-              <div className="input">
-                <input inputMode="decimal" value={limitUsdc} onChange={e => setLimitUsdc(e.target.value.replace(",", ".").replace(/[^0-9.]/g, ""))} />
-                <span className="unit">USDC</span>
-              </div>
-              <div className="input">
-                <input inputMode="decimal" value={limitEth} onChange={e => setLimitEth(e.target.value.replace(",", ".").replace(/[^0-9.]/g, ""))} />
-                <span className="unit">{nativeSymbol(chainId)}</span>
-              </div>
-              {action(
-                "limit",
-                <div className="row">
-                  <button className="btn grow" onClick={() => setEditLimit(null)} disabled={!!busy}>
-                    Cancel
-                  </button>
-                  <button className="btn btn-green grow" onClick={setLimit} disabled={!!busy || !!pending || !!wait || !canPay || !limitUsdc || !limitEth}>
-                    {busy === "limit" ? "Working…" : "Save"}
-                  </button>
-                </div>,
-              )}
-            </>
-          )}
-        </Step>
-      )}
-
       <Step title="Recovery" done={ownRecovery}>
         <p className="fine">
           {layout
@@ -489,7 +416,6 @@ function OldBurner({ toast }: { toast: (m: string) => void }) {
 }
 
 // a balance, cut (not rounded) to a few decimals: 99.77
-const cut = (v: bigint, d: number, dp: number) => String(Math.floor((Number(v) / 10 ** d) * 10 ** dp) / 10 ** dp);
 
 /** A key you have: what kind on the left, its address on the right. */
 function KeyRow({ kind, a, chainId }: { kind: string; a?: Address; chainId: number }) {

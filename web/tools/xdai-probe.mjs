@@ -47,10 +47,12 @@ const key = generatePrivateKey();
 p = await page({ key, tokens: [token, spam] });
 await p.goto(`${APP}/?brand=xdai`);
 await p.waitForSelector("text=Your old Burner Wallet has", { timeout: 30000 }).catch(() => {});
-await p.waitForSelector("text=$3.21", { timeout: 30000 }).catch(() => {}); // after every network's balance is read
+await p.waitForSelector("text=Also here", { timeout: 30000 }).catch(() => {}); // after every network's balance is read
 const txt = await p.evaluate(() => document.body.innerText);
 ok(txt.includes("Your old Burner Wallet has"), "move screen shows");
-ok(txt.includes("$3.21"), "value from the portfolio");
+// the old key has no xDAI (the chain is real, the key is new): the token can't pay its gas, so it's listed apart
+ok(/Also here: 3\.21 USDC\.e on Gnosis/.test(txt) && /send (about [\d.e-]+|a little) xDAI/.test(txt), "no gas: says what to send in");
+ok(txt.includes("$0.00") || txt.includes("$0"), "stuck token not counted in the total");
 ok(!txt.includes("SPAM"), "spam token left out");
 await p.screenshot({ path: `${OUT}/xdai-move.png` });
 await p.getByText("Not now").click().catch(() => {});

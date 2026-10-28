@@ -12,6 +12,7 @@ import { abi } from "@/lib/safe/core";
 import { getQuote, waitFor } from "@/lib/safe/send";
 import { type SafeAccount, loadAccount, saveAccount } from "@/lib/safe/state";
 import type { Asset } from "@/lib/types";
+import { copy } from "./bits";
 import { SafeWelcome } from "./safe/SafeWelcome";
 import { friendly } from "./Welcome";
 
@@ -198,7 +199,10 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
   const ethTotal = (onChain ?? []).reduce((t, c) => t + c.eth, 0n);
   const natives = (onChain ?? []).filter(c => c.eth > 0n); // ETH, xDAI, POL… one line each
   const nativeValue = (chainId: number, wei: bigint) => Number(formatUnits(wei, 18)) * (nativeUsd?.[chainId] ?? 0);
-  const value = Number(formatUnits(usdcTotal, 6)) + natives.reduce((t, c) => t + nativeValue(c.chainId, c.eth), 0) + tokens.reduce((t, a) => t + (a.usd ?? 0), 0);
+  // xdai.io: a token on a network where the old key has no coin for gas can't move yet (rare: Burner keys kept xDAI)
+  const stuck = (burner || xdai) && onChain ? tokens.filter(t => !onChain.find(c => c.chainId === t.chainId)?.eth) : [];
+  const movable = tokens.filter(t => !stuck.includes(t));
+  const value = Number(formatUnits(usdcTotal, 6)) + natives.reduce((t, c) => t + nativeValue(c.chainId, c.eth), 0) + movable.reduce((t, a) => t + (a.usd ?? 0), 0);
   const empty = onChain !== null && usdcTotal === 0n && ethTotal === 0n && tokens.length === 0;
 
   async function claim() {
@@ -207,7 +211,7 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
     setError(null);
     try {
       let got = 0; // what arrived, after fees
-      for (const t of tokens) {
+      for (const t of movable) {
         // first: the card's ETH pays for these, the rest is swept after. An old Burner key moves what it can.
         if (burner || xdai) {
           if (await claimToken(key, t, account.address).then(() => true, () => false)) got += t.usd ?? 0;
@@ -216,12 +220,12 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
         await claimToken(key, t, account.address);
         got += t.usd ?? 0;
       }
-      const fresh = tokens.length ? await read(privateKeyToAccount(key).address) : onChain; // what gas left of the ETH
+      const fresh = movable.length ? await read(privateKeyToAccount(key).address) : onChain; // what gas left of the ETH
       for (const c of fresh) {
         if (c.usdc > 0n) got += Number(formatUnits(await claimUsdc(key, c.chainId, c.usdc, account.address), 6));
         if (c.eth > 0n) got += nativeValue(c.chainId, await claimEth(key, c.chainId, account.address));
       }
-      if (burner) retireBurnerKey(key);
+      if (burner && !stuck.length) retireBurnerKey(key); // still holding stuck tokens: the move screen comes back
       else
         try {
           sessionStorage.removeItem(STORE);
@@ -252,13 +256,14 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
         <div className="fine">
           {[
             usdcTotal > 0n && `${formatUnits(usdcTotal, 6)} USDC`,
-            ...tokens.map(t => `${fmtAmount(t.formatted)} ${t.symbol}`),
+            ...movable.map(t => `${fmtAmount(t.formatted)} ${t.symbol}`),
             ...natives.map(c => `${Number(formatUnits(c.eth, 18)).toFixed(c.chainId === 100 ? 2 : 6)} ${nativeSymbol(c.chainId)}`),
           ]
             .filter(Boolean)
             .join(" + ")}
         </div>
       )}
+      {done === null && stuck.length > 0 && key && <Stuck stuck={stuck} address={privateKeyToAccount(key).address} />}
     </div>
   );
 
@@ -325,6 +330,39 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
           </button>
         )}
       </div>
+    </div>
+  );
+}
+
+/** Tokens an old key can't move: no coin on that network to pay gas. Says how much to send in first (about 2× the gas). */
+function Stuck({ stuck, address }: { stuck: Asset[]; address: Address }) {
+  const ids = [...new Set(stuck.map(t => t.chainId))];
+  const [gas, setGas] = useState<Record<number, bigint>>({});
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    for (const id of ids)
+      publicClient(id)
+        .getGasPrice()
+        .then(p => {
+          const need = p * 70_000n * 2n * BigInt(stuck.filter(t => t.chainId === id).length);
+          setGas(g => ({ ...g, [id]: need > 2n * ETH_DUST ? need : 2n * ETH_DUST })); // under the dust line it reads as empty
+        })
+        .catch(() => {});
+  }, [ids.join()]); // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <div className="recess stack" style={{ gap: 8, textAlign: "left" }}>
+      {ids.map(id => (
+        <p key={id} className="fine">
+          Also here: {stuck.filter(t => t.chainId === id).map(t => `${fmtAmount(t.formatted)} ${t.symbol}`).join(" + ")} on {CHAINS.find(c => c.id === id)?.name}.
+          To move {stuck.filter(t => t.chainId === id).length > 1 ? "them" : "it"} too, first send{" "}
+          {gas[id] ? `about ${parseFloat(Number(formatUnits(gas[id], 18)).toPrecision(2))}` : "a little"} {nativeSymbol(id)} for gas to:
+        </p>
+      ))}
+      <div className="mono" style={{ fontSize: 13 }}>{address}</div>
+      <button className="pill" onClick={async () => setCopied(await copy(address))}>
+        {copied ? "Copied" : "Copy address"}
+      </button>
+      <p className="fine">Then reload this page.</p>
     </div>
   );
 }

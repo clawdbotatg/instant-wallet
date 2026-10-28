@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import { type Address, type Hex, createWalletClient, formatUnits, http, toHex, zeroAddress } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { retireBurnerKey } from "@/lib/brand";
+import { isXdai, retireBurnerKey } from "@/lib/brand";
 import { CHAINS, nativeSymbol, publicClient, rpcPath } from "@/lib/chains";
 import { AUTH_TYPES, type ClaimAuth, claimKey, usdc3009 } from "@/lib/claim";
 import { amount as fmtAmount, usd } from "@/lib/format";
@@ -139,8 +139,10 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<number | null>(null); // the $ claimed
   const [error, setError] = useState<string | null>(null);
+  const [xdai, setXdai] = useState(false); // xdai.io: an old Burner key or card becomes an Instant Wallet
 
   useEffect(() => {
+    setXdai(isXdai());
     if (burner) {
       setKey(burner.key);
       setAccount(loadAccount());
@@ -232,9 +234,18 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
     }
   }
 
+  const upgrade = (burner || xdai) && done === null && !empty;
   const header = (
     <div className="stack center">
-      {account && <img className="mark" src="/mark.png" alt="" style={{ width: 96, margin: "0 auto" }} />}
+      {upgrade ? (
+        <div className="stack center" style={{ gap: 10, marginBottom: 8 }}>
+          <img src="/brand/xdai/burner.png" alt="Burner Wallet" style={{ height: 72, margin: "0 auto" }} />
+          <h2 style={{ fontSize: 26 }}>The Burner Wallet has become the Instant Wallet</h2>
+          <img src="/brand/xdai/logo.png" alt="Instant Wallet" style={{ width: 240, maxWidth: "70%", margin: "0 auto" }} />
+        </div>
+      ) : (
+        account && <img className="mark" src="/mark.png" alt="" style={{ width: 96, margin: "0 auto" }} />
+      )}
       <div className="fine">{done !== null ? "It's in your wallet" : empty ? "This card" : burner ? "Your old Burner Wallet has" : "Someone sent you"}</div>
       <div className="big" style={{ fontSize: 56, fontWeight: 700 }}>{done !== null ? usd(done) : onChain === null || (ethTotal > 0n && !nativeUsd) ? "…" : usd(value)}</div>
       {done === null && !empty && onChain && (
@@ -283,6 +294,7 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
       <>
         <div className="app" style={{ paddingBottom: 0 }}>{header}</div>
         <SafeWelcome
+          bare={upgrade}
           onReady={a => {
             saveAccount(a);
             setAccount(a);

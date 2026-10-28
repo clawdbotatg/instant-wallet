@@ -36,8 +36,6 @@ export function Keys({
   onAccount,
   onRefresh,
   onFund,
-  hiddenAssets,
-  onUnhide,
   onShare,
 }: {
   account: SafeAccount;
@@ -47,8 +45,6 @@ export function Keys({
   onAccount: (a: SafeAccount) => void;
   onRefresh: () => Promise<void> | void;
   onFund: (chainId: number) => void;
-  hiddenAssets: Asset[];
-  onUnhide: (a: Asset) => void;
   onShare: (chainId: number) => void;
 }) {
 
@@ -57,7 +53,6 @@ export function Keys({
   // an error shows in the step whose button caused it, next to where you tapped
   const [error, setErrorRaw] = useState<{ what: string; msg: string } | null>(null);
   const [guardianIn, setGuardianIn] = useState<Address | null>(null);
-  const [showHidden, setShowHidden] = useState(false);
   const st = states.find(s => s.chainId === chainId);
   const usdc = chainById(chainId)?.usdc?.toLowerCase();
   const haveUsdc = assets.some(a => a.chainId === chainId && a.asset.toLowerCase() === usdc && BigInt(a.balance) >= (chainId === 1 ? 10_000_000n : 1_000_000n));
@@ -440,28 +435,6 @@ export function Keys({
         <Alerts account={account} toast={toast} />
       </Step>
 
-
-      {hiddenAssets.length > 0 && (
-        <div className="card stack" style={{ gap: 8 }}>
-          <button className="row unhide" style={{ justifyContent: "space-between" }} onClick={() => setShowHidden(!showHidden)}>
-            <b>
-              {hiddenAssets.length} token{hiddenAssets.length === 1 ? "" : "s"} hidden
-            </b>
-            <span className="fine">{showHidden ? "Close" : "See"}</span>
-          </button>
-          {showHidden &&
-            hiddenAssets.map(a => (
-              <div key={`${a.chainId}:${a.asset}`} className="row" style={{ justifyContent: "space-between" }}>
-                <span>
-                  {a.symbol} <span className="fine">· {chainById(a.chainId)?.name}</span>
-                </span>
-                <button className="pill" onClick={() => onUnhide(a)}>
-                  Show
-                </button>
-              </div>
-            ))}
-        </div>
-      )}
 
       <OldBurner toast={toast} />
     </div>

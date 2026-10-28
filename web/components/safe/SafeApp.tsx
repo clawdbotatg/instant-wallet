@@ -44,6 +44,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
   const [dropReady, setDropReady] = useState<Prepared | null>(null);
   const [hidden, setHiddenState] = useState<string[]>([]);
   const [shown, setShownState] = useState<string[]>([]);
+  const [showHidden, setShowHidden] = useState(false); // the hidden tokens, under the coin list
   const [sites, setSites] = useState<Session[]>([]); // WalletConnect sites connected to this wallet
   const [posUsd, setPosUsd] = useState<number | null>(null); // DeFi positions, added to the big total (null: loading)
   const [dropCode, setDropCode] = useState<string | null>(null); // a drop code scanned before this wallet existed
@@ -397,6 +398,30 @@ export function SafeApp({ link }: { link?: string } = {}) {
             </Row>
             );
           })}
+          {hiddenAssets.length > 0 && (
+            <button className="hidden-link fine" onClick={() => setShowHidden(!showHidden)}>
+              {showHidden ? "Close" : `${hiddenAssets.length} token${hiddenAssets.length === 1 ? "" : "s"} hidden`}
+            </button>
+          )}
+          {showHidden &&
+            hiddenAssets.map(a => (
+              <div key={`${a.chainId}:${a.asset}`} className="asset">
+                <TokenIcon symbol={a.symbol} asset={a.asset} chainId={a.chainId} logo={a.logo} />
+                <div className="grow">
+                  <div className="sym">{a.symbol}</div>
+                  <div className="fine">{chainById(a.chainId)?.name}</div>
+                </div>
+                <button
+                  className="pill"
+                  onClick={() => {
+                    setHidden(hidden.filter(k => k !== keyOf(a)));
+                    setShown([...shown, keyOf(a)]);
+                  }}
+                >
+                  Show
+                </button>
+              </div>
+            ))}
         </div>
         <PositionList address={account.address} onTotal={setPosUsd} />
         <NftGrid address={account.address} />
@@ -441,11 +466,6 @@ export function SafeApp({ link }: { link?: string } = {}) {
               toast={setToast}
               onAccount={a => setAccount(a)}
               onRefresh={refresh}
-              hiddenAssets={hiddenAssets}
-              onUnhide={a => {
-                setHidden(hidden.filter(k => k !== keyOf(a)));
-                setShown([...shown, keyOf(a)]);
-              }}
               onFund={chainId => setView({ kind: "swap", fund: chainId })}
               onShare={chainId => setView({ kind: "share", chainId })}
             />

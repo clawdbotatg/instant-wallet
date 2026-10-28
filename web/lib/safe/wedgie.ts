@@ -572,7 +572,9 @@ export class Wedgie {
     for (let o = 0; cb && chunk && o < cb.length; o += chunk) {
       const piece = { type: "safe_clear", at: o / 2, hex: cb.slice(o, o + chunk), ...(o ? {} : { n: cb.length / 2 }) };
       const a = await this.request(piece, 20_000).catch(() => null);
-      if (a?.type !== "safe_clear") break; // it still signs; it just can't read the call
+      // never on quietly: the wedgie would show "can't read this" with no reason (10-27, a Uniswap swap)
+      if (a?.type !== "safe_clear")
+        throw new Error(`Your wedgie couldn't take what this transaction does (${a?.error || "no answer"}). Update its Safe signer from the wedgie button, then try again.`);
     }
     if (JSON.stringify({ id: 0, type: "safe_sign", tx }).length > (this.drive ? DRIVE_LINE_MAX : LINE_MAX)) {
       if (!chunk) throw new Error("This one is too big for the wedgie's Safe app. Update it at wedgie.dev, then try again.");

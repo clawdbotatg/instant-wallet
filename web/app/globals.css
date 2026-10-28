@@ -106,12 +106,9 @@ input { font: inherit; color: inherit; }
 .blockie { border-radius: 50%; display: block; image-rendering: pixelated; box-shadow: 0 0 0 2px #fff, 0 3px 8px -3px rgba(0,0,0,.4); }
 
 .balance { text-align: center; padding: 26px 16px 22px; }
-/* the daily limit under the total: thin bars, quiet text */
-.limits { display: grid; gap: 6px; max-width: 300px; margin: 14px auto 2px; text-align: left; }
-.limit-row { display: grid; grid-template-columns: 1fr auto; gap: 3px 8px; font-size: 12px; color: var(--muted); }
-.limit-bar { grid-column: 1 / -1; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
-.limit-bar > i { display: block; height: 100%; border-radius: 2px; background: var(--mint); }
-.limits-rule { font-size: 12px; color: var(--muted); text-align: center; margin-top: 2px; }
+/* the daily limit under the total: one quiet line */
+.limits { display: grid; gap: 6px; max-width: 300px; margin: 10px auto 2px; }
+.limits-rule { font-size: 12px; color: var(--muted); text-align: center; }
 .link-edit { border: 0; background: none; padding: 0 0 0 6px; color: var(--muted); font: inherit; text-decoration: underline; cursor: pointer; }
 .balance .big { font-size: clamp(46px, 14vw, 64px); font-weight: 700; letter-spacing: -.035em; line-height: 1; cursor: pointer; }
 .balance .total { display: flex; align-items: center; justify-content: center; gap: 10px; }

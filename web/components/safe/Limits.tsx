@@ -14,11 +14,11 @@ import { TimedBar } from "../bits";
 import { friendly } from "../Welcome";
 import { ErrorLine } from "./WedgieButton";
 
-const SIGNER_NAME = { burner: "Face ID", wedgie: "wedgie", hot: "hot wallet" } as const;
+const SIGNER_NAME = { burner: "Face ID", wedgie: "wedgie", hot: "hot wallet" } as const; // who signs the change
 
 /**
- * The daily limit under the home screen's total: what's left today as thin bars, the rule for anything bigger, and
- * a quiet "edit" that changes it right here. Same two taps as settings: Save gets it ready (the wedgie connects,
+ * The daily limit under the home screen's total, one quiet line ("daily: 80/100 USDC · 0.01/0.01 ETH"), and an
+ * "edit" that changes it right here. Same two taps as settings: Save gets it ready (the wedgie connects,
  * fee, nonce), Yes signs (Face ID has to start straight from a tap), then a bar until the chain shows it.
  */
 export function Limits({ account, st, assets, onRefresh, toast }: { account: SafeAccount; st: ChainState; assets: Asset[]; onRefresh: () => void; toast: (m: string) => void }) {
@@ -102,11 +102,9 @@ export function Limits({ account, st, assets, onRefresh, toast }: { account: Saf
   const fee = ready && (ready.p.opts.feeToken === "usdc" ? `${(Number(ready.p.fee.feeUsdc) / 1e6).toFixed(4)} USDC` : `${(Number(ready.p.fee.feeEth) / 1e18).toFixed(6)} ${coin}`);
   return (
     <div className="limits">
-      <LimitBar left={b.usdc} max={b.usdcMax} decimals={6} unit="USDC" />
-      <LimitBar left={b.eth} max={b.ethMax} decimals={18} unit={coin} />
       {!editing ? (
         <div className="limits-rule">
-          Face ID alone, per day on {chainById(chainId)?.name}. More: {ownerSigners(st, account).map(k => SIGNER_NAME[k]).join(" + ")}.
+          daily: {amount(formatUnits(b.usdc, 6))}/{amount(formatUnits(b.usdcMax, 6))} USDC · {amount(formatUnits(b.eth, 18))}/{amount(formatUnits(b.ethMax, 18))} {coin}
           <button
             className="link-edit"
             onClick={() => {
@@ -173,18 +171,3 @@ export function Limits({ account, st, assets, onRefresh, toast }: { account: Saf
   );
 }
 
-/** One token's daily limit: what's left today of the max, as a thin bar. */
-function LimitBar({ left, max, decimals, unit }: { left: bigint; max: bigint; decimals: number; unit: string }) {
-  const pct = max > 0n ? Math.min(100, Number((left * 1000n) / max) / 10) : 0;
-  return (
-    <div className="limit-row">
-      <span>{unit}</span>
-      <span>
-        {amount(formatUnits(left, decimals))} / {amount(formatUnits(max, decimals))} left
-      </span>
-      <div className="limit-bar">
-        <i style={{ width: `${pct}%` }} />
-      </div>
-    </div>
-  );
-}

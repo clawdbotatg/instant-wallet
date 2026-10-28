@@ -278,7 +278,7 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
             <span style={{ fontWeight: 500, color: "var(--muted)" }}>has become</span>
             <span>Instant Wallet</span>
           </h2>
-          <img src="/brand/xdai/logo.png" alt="Instant Wallet" style={{ width: 240, maxWidth: "70%", margin: "0 auto" }} />
+          <img src="/brand/xdai/logo.png" alt="Instant Wallet" style={{ width: 130, margin: "0 auto" }} />
         </div>
       ) : (
         account && <img className="mark" src="/mark.png" alt="" style={{ width: 96, margin: "0 auto" }} />

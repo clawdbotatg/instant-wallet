@@ -13,7 +13,7 @@ const ok = (c, m) => {
 };
 
 const browser = await chromium.launch({ executablePath: process.env.CHROME });
-const page = async ({ key, tokens = [] } = {}) => {
+const page = async ({ key, tokens = [], nfts = [] } = {}) => {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
   if (key) await ctx.addInitScript(k => localStorage.getItem("metaPrivateKey") === null && sessionStorage.getItem("seeded") === null && (localStorage.setItem("metaPrivateKey", k), sessionStorage.setItem("seeded", "1")), key);
   await ctx.route("**/api/portfolio**", r =>
@@ -24,8 +24,10 @@ const page = async ({ key, tokens = [] } = {}) => {
       },
     }),
   );
+  await ctx.route("**/api/nfts**", r => r.fulfill({ json: { nfts } }));
   return ctx.newPage();
 };
+const badge = { chainId: 100, contract: "0xCF964c89f509a8c0Ac36391c5460dF94B91daba5", tokenId: "42", type: "ERC721", balance: "1", name: "Badge #42", collection: "Badges", thumb: "", image: "" };
 const token = { chainId: 100, asset: "0xddafbb505ad214d7b80b1f830fccc89b60fb7a83", symbol: "USDC.e", decimals: 6, balance: "3210000", formatted: "3.21", price: 1, usd: 3.21 };
 const spam = { chainId: 100, asset: "0x1111111111111111111111111111111111111111", symbol: "SPAM", decimals: 18, balance: "1", formatted: "0.000000000000000001", price: null, usd: null };
 
@@ -44,14 +46,14 @@ await p.context().close();
 
 // 2. an old Burner key holding something: the move screen, then Not now leaves the key alone
 const key = generatePrivateKey();
-p = await page({ key, tokens: [token, spam] });
+p = await page({ key, tokens: [token, spam], nfts: [badge] });
 await p.goto(`${APP}/?brand=xdai`);
 await p.waitForSelector("text=Sweep to Instant Wallet", { timeout: 30000 }).catch(() => {});
 await p.waitForSelector("text=Also here", { timeout: 30000 }).catch(() => {}); // after every network's balance is read
 const txt = await p.evaluate(() => document.body.innerText);
 ok(txt.includes("has become") && txt.includes("Sweep to Instant Wallet"), "move screen shows");
 // the old key has no xDAI (the chain is real, the key is new): the token can't pay its gas, so it's listed apart
-ok(/Also here: 3\.21 USDC\.e on Gnosis/.test(txt) && /send (about [\d.e-]+|a little) xDAI/.test(txt), "no gas: says what to send in");
+ok(/Also here: 3\.21 USDC\.e \+ 1 NFT on Gnosis/.test(txt) && /send (about [\d.e-]+|a little) xDAI/.test(txt), "no gas: says what to send in");
 ok(!txt.includes("$"), "no dollar total on the sweep screen");
 ok(!txt.includes("SPAM"), "spam token left out");
 await p.screenshot({ path: `${OUT}/xdai-move.png` });

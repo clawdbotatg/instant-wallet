@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 import { useEffect, useState } from "react";
-import { type Address, type Hex, createWalletClient, formatUnits, http, toHex, zeroAddress } from "viem";
+import { type Address, type Hash, type Hex, createWalletClient, formatUnits, http, parseAbi, toHex, zeroAddress } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { isXdai, retireBurnerKey } from "@/lib/brand";
 import { CHAINS, nativeSymbol, publicClient, rpcPath } from "@/lib/chains";
@@ -12,7 +12,7 @@ import { abi } from "@/lib/safe/core";
 import { getQuote, waitFor } from "@/lib/safe/send";
 import { createPasskey } from "@/lib/passkey";
 import { type SafeAccount, accountFor, loadAccount, saveAccount } from "@/lib/safe/state";
-import type { Asset } from "@/lib/types";
+import type { Asset, Nft } from "@/lib/types";
 import { TimedBar, copy } from "./bits";
 import { SafeWelcome } from "./safe/SafeWelcome";
 import { friendly } from "./Welcome";
@@ -95,6 +95,42 @@ async function claimToken(key: Hex, t: Asset, to: Address): Promise<void> {
   await waitFor(t.chainId, hash);
 }
 
+/** NFTs on an old key (xdai.io): the key sends each one, paying its own gas. All sent first, then all waited for. */
+async function claimNfts(key: Hex, nfts: Nft[], to: Address): Promise<number> {
+  let moved = 0;
+  for (const chainId of [...new Set(nfts.map(n => n.chainId))]) {
+    const c = CHAINS.find(x => x.id === chainId)!;
+    const card = privateKeyToAccount(key);
+    const pc = publicClient(chainId);
+    const wc = createWalletClient({ account: card, chain: c.chain, transport: http(rpcPath(chainId)) });
+    let nonce = await pc.getTransactionCount({ address: card.address, blockTag: "pending" });
+    const sent: Hash[] = [];
+    for (const n of nfts.filter(x => x.chainId === chainId)) {
+      const call =
+        n.type === "ERC1155"
+          ? { address: n.contract, abi: nftAbi, functionName: "safeTransferFrom" as const, args: [card.address, to, BigInt(n.tokenId), BigInt(n.balance || "1"), "0x"] as const }
+          : { address: n.contract, abi: nftAbi, functionName: "transferFrom" as const, args: [card.address, to, BigInt(n.tokenId)] as const };
+      const h = await wc.writeContract({ ...(call as any), chain: c.chain, nonce }).catch(() => null); // one that won't move doesn't stop the rest
+      if (h) {
+        sent.push(h);
+        nonce++;
+      }
+    }
+    for (const h of sent) if ((await pc.waitForTransactionReceipt({ hash: h }).catch(() => null))?.status === "success") moved++;
+  }
+  return moved;
+}
+
+const nftAbi = parseAbi([
+  "function transferFrom(address from, address to, uint256 tokenId)",
+  "function safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes data)",
+]);
+
+async function oldNfts(addr: Address): Promise<Nft[]> {
+  const j = await fetch(`/api/nfts?address=${addr}&all=1`, { cache: "no-store" }).then(r => r.json()).catch(() => null);
+  return (j?.nfts ?? []) as Nft[];
+}
+
 /** Every token on the card other than USDC and the native coin (those two are read straight from the chain), and
  *  each network's native coin price (ETH, xDAI, POL…). Null if the portfolio didn't load. */
 async function others(addr: Address): Promise<{ tokens: Asset[]; nativeUsd: Record<number, number> } | null> {
@@ -138,6 +174,7 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
   const account = acct;
   const [onChain, setOnChain] = useState<OnChain[] | null>(null);
   const [tokens, setTokens] = useState<Asset[]>([]);
+  const [nfts, setNfts] = useState<Nft[]>([]); // xdai.io: the old key's NFTs (Burner badges and the like)
   const [nativeUsd, setNativeUsd] = useState<Record<number, number> | null>(null);
   const [busy, setBusy] = useState(false);
   const [sweeping, setSweeping] = useState(false); // past Face ID, the coins are moving: the progress bar runs
@@ -168,6 +205,7 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
     const addr = privateKeyToAccount(key).address;
     const load = () => {
       read(addr).then(setOnChain).catch(() => {});
+      if (burner || isXdai()) oldNfts(addr).then(setNfts);
       others(addr).then(o => {
         if (!o) return;
         setTokens(burner || isXdai() ? o.tokens.filter(worthMoving) : o.tokens);
@@ -181,7 +219,7 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
 
   // an old Burner key with nothing on it (once the token list is in too): straight on to the wallet
   const burnerEmpty =
-    !!burner && onChain !== null && nativeUsd !== null && tokens.length === 0 && onChain.every(c => c.usdc === 0n && c.eth === 0n);
+    !!burner && onChain !== null && nativeUsd !== null && tokens.length === 0 && nfts.length === 0 && onChain.every(c => c.usdc === 0n && c.eth === 0n);
   useEffect(() => {
     if (burnerEmpty && done === null && !busy) burner!.onDone();
   }, [burnerEmpty, busy]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -205,8 +243,10 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
   // xdai.io: a token on a network where the old key has no coin for gas can't move yet (rare: Burner keys kept xDAI)
   const stuck = (burner || xdai) && onChain ? tokens.filter(t => !onChain.find(c => c.chainId === t.chainId)?.eth) : [];
   const movable = tokens.filter(t => !stuck.includes(t));
+  const nftsStuck = onChain ? nfts.filter(n => !onChain.find(c => c.chainId === n.chainId)?.eth) : [];
+  const nftsMovable = nfts.filter(n => !nftsStuck.includes(n));
   const value = Number(formatUnits(usdcTotal, 6)) + natives.reduce((t, c) => t + nativeValue(c.chainId, c.eth), 0) + movable.reduce((t, a) => t + (a.usd ?? 0), 0);
-  const empty = onChain !== null && usdcTotal === 0n && ethTotal === 0n && tokens.length === 0;
+  const empty = onChain !== null && usdcTotal === 0n && ethTotal === 0n && tokens.length === 0 && nfts.length === 0;
 
   /** `make`: xdai.io's one button: no wallet on this phone yet, so the passkey is made first, then the sweep runs. */
   async function claim(make = false) {
@@ -233,12 +273,13 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
         await claimToken(key, t, account.address);
         got += t.usd ?? 0;
       }
-      const fresh = movable.length ? await read(privateKeyToAccount(key).address) : onChain; // what gas left of the ETH
+      if (nftsMovable.length) await claimNfts(key, nftsMovable, account.address); // before the coin: it pays their gas
+      const fresh = movable.length || nftsMovable.length ? await read(privateKeyToAccount(key).address) : onChain; // what gas left of the ETH
       for (const c of fresh) {
         if (c.usdc > 0n) got += Number(formatUnits(await claimUsdc(key, c.chainId, c.usdc, account.address), 6));
         if (c.eth > 0n) got += nativeValue(c.chainId, await claimEth(key, c.chainId, account.address));
       }
-      if (burner && !stuck.length) retireBurnerKey(key); // still holding stuck tokens: the move screen comes back
+      if (burner && !stuck.length && !nftsStuck.length) retireBurnerKey(key); // still holding stuck tokens: the move screen comes back
       else
         try {
           sessionStorage.removeItem(STORE);
@@ -266,6 +307,10 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
       ...(c.usdc > 0n ? [{ k: `u${c.chainId}`, amount: `${formatUnits(c.usdc, 6)} USDC`, chain: chainName(c.chainId) }] : []),
     ]),
     ...movable.map(t => ({ k: `${t.chainId}:${t.asset}`, amount: `${fmtAmount(t.formatted)} ${t.symbol}`, chain: chainName(t.chainId) })),
+    ...[...new Set(nftsMovable.map(n => n.chainId))].map(id => {
+      const k = nftsMovable.filter(n => n.chainId === id).length;
+      return { k: `nft${id}`, amount: `${k} NFT${k === 1 ? "" : "s"}`, chain: chainName(id) };
+    }),
   ];
   const onlyDollars = movable.length === 0 && natives.every(c => c.chainId === 100) && (usdcTotal === 0n || natives.length === 0);
   const header = (
@@ -305,7 +350,7 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
           {done === null && !empty && onChain && (parts.length > 1 || !onlyDollars) && <div className="fine">{parts.join(" + ")}</div>}
         </>
       )}
-      {done === null && stuck.length > 0 && key && <Stuck stuck={stuck} address={privateKeyToAccount(key).address} />}
+      {done === null && stuck.length + nftsStuck.length > 0 && key && <Stuck stuck={stuck} nfts={nftsStuck} address={privateKeyToAccount(key).address} />}
     </div>
   );
 
@@ -344,7 +389,7 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
           <button className="btn btn-green wide" onClick={() => claim(true)} disabled={busy || !onChain}>
             {busy ? "Sweeping…" : "Sweep to Instant Wallet"}
           </button>
-          {sweeping && <TimedBar ms={15_000} />}
+          {sweeping && <TimedBar ms={15_000 + 2_000 * nftsMovable.length} />}
           {error && <p className="err">{error}</p>}
           {burner && !busy && (
             <button className="nfts-link" onClick={burner.onDone}>
@@ -397,8 +442,8 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
 }
 
 /** Tokens an old key can't move: no coin on that network to pay gas. Says how much to send in first (about 2× the gas). */
-function Stuck({ stuck, address }: { stuck: Asset[]; address: Address }) {
-  const ids = [...new Set(stuck.map(t => t.chainId))];
+function Stuck({ stuck, nfts, address }: { stuck: Asset[]; nfts: Nft[]; address: Address }) {
+  const ids = [...new Set([...stuck, ...nfts].map(t => t.chainId))];
   const [gas, setGas] = useState<Record<number, bigint>>({});
   const [copied, setCopied] = useState(false);
   useEffect(() => {
@@ -406,17 +451,20 @@ function Stuck({ stuck, address }: { stuck: Asset[]; address: Address }) {
       publicClient(id)
         .getGasPrice()
         .then(p => {
-          const need = p * 70_000n * 2n * BigInt(stuck.filter(t => t.chainId === id).length);
+          const need = p * 70_000n * 2n * BigInt([...stuck, ...nfts].filter(t => t.chainId === id).length);
           setGas(g => ({ ...g, [id]: need > 2n * ETH_DUST ? need : 2n * ETH_DUST })); // under the dust line it reads as empty
         })
         .catch(() => {});
   }, [ids.join()]); // eslint-disable-line react-hooks/exhaustive-deps
+  const what = (id: number) => {
+    const k = nfts.filter(n => n.chainId === id).length;
+    return [...stuck.filter(t => t.chainId === id).map(t => `${fmtAmount(t.formatted)} ${t.symbol}`), k && `${k} NFT${k === 1 ? "" : "s"}`].filter(Boolean).join(" + ");
+  };
   return (
     <div className="recess stack" style={{ gap: 8, textAlign: "left" }}>
       {ids.map(id => (
         <p key={id} className="fine">
-          Also here: {stuck.filter(t => t.chainId === id).map(t => `${fmtAmount(t.formatted)} ${t.symbol}`).join(" + ")} on {CHAINS.find(c => c.id === id)?.name}.
-          To move {stuck.filter(t => t.chainId === id).length > 1 ? "them" : "it"} too, first send{" "}
+          Also here: {what(id)} on {CHAINS.find(c => c.id === id)?.name}. To move {[...stuck, ...nfts].filter(t => t.chainId === id).length > 1 ? "them" : "it"} too, first send{" "}
           {gas[id] ? `about ${parseFloat(Number(formatUnits(gas[id], 18)).toPrecision(2))}` : "a little"} {nativeSymbol(id)} for gas to:
         </p>
       ))}

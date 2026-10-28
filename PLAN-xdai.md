@@ -74,7 +74,9 @@ or the cache expires. Set `no-cache` on S3 now so it doesn't get worse.
 
 ## Steps
 
-1. **Access:** Austin owns xdai.io, in his AWS (Route53 + S3 + CloudFront). Need a way in: AWS CLI login or he does the DNS flip.
+1. **Access:** Austin owns xdai.io in his AWS (account 121420011273). Registered in Route 53, expires
+   2027-10-27, auto-renew on. Hosted zone `Z1YYNBSOM7DK7E`. The flip is one record: `xdai.io A` (alias to
+   CloudFront `dllztdzvr6cyn`) → Vercel. Austin does it, or gives an AWS CLI login.
 2. **Back up** the S3 bucket (the whole old site), so we can roll back by pointing DNS back.
 3. Decide if xdai.io Safes should also open on the main site (Related Origin Requests).
 4. Build: theme switch, sweep screen, multi-chain balance scan, gas drip on Gnosis, SW kill switch.
@@ -89,8 +91,11 @@ or the cache expires. Set `no-cache` on S3 now so it doesn't get worse.
 
 - **Every script on xdai.io can read those keys.** Keep third-party scripts off that origin (no analytics,
   no widgets), strict CSP.
-- Other burner hosts (`s.xdai.io`, buffidai, event subdomains) are separate origins. Each needs the same
-  treatment or its keys stay put. List them from the old deploy scripts (`deploy*.sh`) and decide which matter.
+- Other burner hosts are separate origins; each keeps its own keys. Still live 10-27 (CloudFront, title
+  "Burner"): `bar`, `fairtags`, `helena`, `min`, `rim`.xdai.io. Also `badges`, `bt` (CloudFront), `ald`,
+  `cryptogs`, `mint`, `wyre` (S3 http). `x.xdai.io` (old relay, ELB) doesn't answer. Other old zones in the
+  same account: buffidai.io/.com/.co, burnerwallet.io/.co, dendai.io, pooldai.*, xdai.sh. Same Vercel project
+  can take all of them as extra domains later.
 - Old cards printed as `xdai.io/pk#…` or `xdai.io/<key>` links should keep working: route them to claim.
 - People who never re-open xdai.io never sweep. Nothing to do about that.
 

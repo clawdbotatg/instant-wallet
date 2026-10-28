@@ -10,7 +10,8 @@ import { AUTH_TYPES, type ClaimAuth, claimKey, usdc3009 } from "@/lib/claim";
 import { amount as fmtAmount, usd } from "@/lib/format";
 import { abi } from "@/lib/safe/core";
 import { getQuote, waitFor } from "@/lib/safe/send";
-import { type SafeAccount, loadAccount, saveAccount } from "@/lib/safe/state";
+import { createPasskey } from "@/lib/passkey";
+import { type SafeAccount, accountFor, loadAccount, saveAccount } from "@/lib/safe/state";
 import type { Asset } from "@/lib/types";
 import { copy } from "./bits";
 import { SafeWelcome } from "./safe/SafeWelcome";
@@ -133,7 +134,8 @@ async function claimEth(key: Hex, chainId: number, to: Address): Promise<bigint>
  */
 export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } = {}) {
   const [key, setKey] = useState<Hex | null | undefined>(undefined);
-  const [account, setAccount] = useState<SafeAccount | null | undefined>(undefined);
+  const [acct, setAccount] = useState<SafeAccount | null | undefined>(undefined);
+  const account = acct;
   const [onChain, setOnChain] = useState<OnChain[] | null>(null);
   const [tokens, setTokens] = useState<Asset[]>([]);
   const [nativeUsd, setNativeUsd] = useState<Record<number, number> | null>(null);
@@ -205,11 +207,20 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
   const value = Number(formatUnits(usdcTotal, 6)) + natives.reduce((t, c) => t + nativeValue(c.chainId, c.eth), 0) + movable.reduce((t, a) => t + (a.usd ?? 0), 0);
   const empty = onChain !== null && usdcTotal === 0n && ethTotal === 0n && tokens.length === 0;
 
-  async function claim() {
-    if (!account || !key || !onChain) return;
+  /** `make`: xdai.io's one button: no wallet on this phone yet, so the passkey is made first, then the sweep runs. */
+  async function claim(make = false) {
+    if (!key || !onChain) return;
     setBusy(true);
     setError(null);
     try {
+      let account = acct;
+      if (!account && make) {
+        const pk = await createPasskey("Instant Wallet");
+        account = accountFor(pk.credentialId, pk.qx, pk.qy);
+        saveAccount(account);
+        setAccount(account);
+      }
+      if (!account) return;
       let got = 0; // what arrived, after fees
       for (const t of movable) {
         // first: the card's ETH pays for these, the rest is swept after. An old Burner key moves what it can.
@@ -238,7 +249,7 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
     }
   }
 
-  const upgrade = (burner || xdai) && done === null && !empty;
+  const upgrade = (burner || xdai) && done === null && (!empty || busy); // mid-sweep the balance drains: stay put
   // what's on it, coin by coin; one dollar coin alone (5.00 xDAI under $5.00) says nothing new, so it's left off
   const parts = [
     usdcTotal > 0n && `${formatUnits(usdcTotal, 6)} USDC`,
@@ -252,7 +263,7 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
         <div className="stack center" style={{ gap: 10, marginBottom: 8 }}>
           <img src="/brand/xdai/burner.png" alt="Burner Wallet" style={{ height: 72, margin: "0 auto" }} />
           <h2 style={{ fontSize: 26, lineHeight: 1.25 }}>
-            The Burner Wallet
+            Burner Wallet
             <br />
             <span style={{ fontWeight: 500, color: "var(--muted)" }}>has become</span>
             <br />
@@ -285,8 +296,8 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
       </div>
     );
 
-  if (empty && burner) return null; // on its way to the wallet (above), or the token list is still loading
-  if (empty)
+  if (empty && burner && !busy) return null; // on its way to the wallet (above), or the token list is still loading
+  if (empty && !busy)
     return (
       <div className="app">
         <div className="welcome">
@@ -297,13 +308,32 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
       </div>
     );
 
+  // xdai.io: one button. A wallet already on this phone gets it; none yet, the button makes one (Face ID) and sweeps.
+  if (upgrade)
+    return (
+      <div className="app">
+        <div className="welcome" style={{ minHeight: 0, paddingTop: 12 }}>
+          {header}
+          <button className="btn btn-green wide" onClick={() => claim(true)} disabled={busy || !onChain}>
+            {busy ? "Sweeping…" : "Sweep to Instant Wallet"}
+          </button>
+          {error && <p className="err">{error}</p>}
+          {burner && !busy && (
+            <button className="nfts-link" onClick={burner.onDone}>
+              Not now
+            </button>
+          )}
+          <p className="fine center" style={{ marginTop: 24 }}>long live the burner wallet</p>
+        </div>
+      </div>
+    );
+
   // no wallet on this phone yet: make one first (the claim goes to its address, which exists before it's deployed)
   if (!account)
     return (
       <>
         <div className="app" style={{ paddingBottom: 0 }}>{header}</div>
         <SafeWelcome
-          bare={upgrade}
           onReady={a => {
             saveAccount(a);
             setAccount(a);
@@ -323,7 +353,7 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
     <div className="app">
       <div className="welcome">
         {header}
-        <button className="btn btn-green wide" onClick={claim} disabled={busy || !onChain}>
+        <button className="btn btn-green wide" onClick={() => claim()} disabled={busy || !onChain}>
           {busy ? (burner ? "Moving…" : "Claiming…") : burner ? "Move it to my wallet" : "Claim it"}
         </button>
         {error && <p className="err">{error}</p>}

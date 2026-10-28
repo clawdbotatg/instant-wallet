@@ -67,8 +67,7 @@ async function ownedBy(signer: Address): Promise<{ wallet: Address; guardians: A
   return undefined;
 }
 
-/** `bare`: under a screen that already shows the logo and name (xdai.io's Burner → Instant Wallet move): buttons only. */
-export function SafeWelcome({ onReady, bare }: { onReady: (a: SafeAccount) => void; bare?: boolean }) {
+export function SafeWelcome({ onReady }: { onReady: (a: SafeAccount) => void }) {
   const [busy, setBusy] = useState<"create" | "login" | "recover" | null>(null);
   const [recovering, setRecovering] = useState(false);
   const [wallet, setWallet] = useState("");
@@ -192,16 +191,12 @@ export function SafeWelcome({ onReady, bare }: { onReady: (a: SafeAccount) => vo
 
   return (
     <div className="app">
-      <div className="welcome" style={bare ? { minHeight: 0 } : undefined}>
-        {!bare && (
-          <>
-            <img className="mark" src="/mark.png" alt="" />
-            <div className="stack">
-              <h1>Instant Wallet</h1>
-            </div>
-            <Band />
-          </>
-        )}
+      <div className="welcome">
+        <img className="mark" src="/mark.png" alt="" />
+        <div className="stack">
+          <h1>Instant Wallet</h1>
+        </div>
+        <Band />
         {supported ? (
           <div className="stack">
             <button className="btn btn-green wide" onClick={create} disabled={!!busy}>

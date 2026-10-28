@@ -91,16 +91,12 @@ or the cache expires. Set `no-cache` on S3 now so it doesn't get worse.
 
 - **Every script on xdai.io can read those keys.** Keep third-party scripts off that origin (no analytics,
   no widgets), strict CSP.
-- Other burner hosts are separate origins; each keeps its own keys. Still live 10-27 (CloudFront, title
-  "Burner"): `bar`, `fairtags`, `helena`, `min`, `rim`.xdai.io. Also `badges`, `bt` (CloudFront), `ald`,
-  `cryptogs`, `mint`, `wyre` (S3 http). `x.xdai.io` (old relay, ELB) doesn't answer. Other old zones in the
-  same account: buffidai.io/.com/.co, burnerwallet.io/.co, dendai.io, pooldai.*, xdai.sh. Same Vercel project
-  can take all of them as extra domains later.
+- Old subdomains (`bar`, `fairtags`, `helena`, `min`, `rim`, …) stay on the old code for now (Austin, 10-27).
 - Old cards printed as `xdai.io/pk#…` or `xdai.io/<key>` links should keep working: route them to claim.
 - People who never re-open xdai.io never sweep. Nothing to do about that.
 
-## Open questions for Austin
+## Decided
 
-1. Should an xdai.io Safe also open on the main site? (If yes, we need a real main domain.)
-2. Name on xdai.io: "Instant Wallet", "Burner Wallet", something else?
-3. Which old subdomains matter?
+- Name on xdai.io: **Instant Wallet**.
+- Only `xdai.io` itself is swapped. Subdomains stay old.
+- Open: should an xdai.io Safe also open on the main site? (Needs a real main domain.)

@@ -5,6 +5,7 @@ import { type Address, type Hash, formatUnits, getAddress, isAddress, parseUnits
 import { chainById, explorerTx, nativeSymbol } from "@/lib/chains";
 import { amount as fmtAmount, short, usd } from "@/lib/format";
 import { isClaimLink } from "@/lib/claim";
+import { isXdai } from "@/lib/brand";
 import { dropCode } from "@/lib/dropClient";
 import { parse } from "@/lib/parse";
 import { openWalletConnect } from "@/lib/walletconnect";
@@ -200,8 +201,11 @@ export function SafeSend({
     if (r.kind === "wc") return void (onDone(), openWalletConnect(r.uri)); // a site's WalletConnect QR: connect to it
     if (r.kind !== "pay") return setError("That QR isn't an address.");
     setToInput(r.to);
-    const m = r.chainId || r.asset ? assets.find(a => (!r.chainId || a.chainId === r.chainId) && (!r.asset || a.asset.toLowerCase() === r.asset.toLowerCase())) : undefined;
-    if (r.chainId || r.asset) {
+    const find = (chainId?: number) => assets.find(a => (!chainId || a.chainId === chainId) && (!r.asset || a.asset.toLowerCase() === r.asset.toLowerCase()));
+    // no network named: on xdai.io an old Burner link (/0x…;5) meant xDAI on Gnosis, so Gnosis first if it's held there
+    const home = !r.chainId && isXdai() ? find(100) : undefined;
+    const m = home ?? (r.chainId || r.asset ? find(r.chainId) : undefined);
+    if (r.chainId || r.asset || home) {
       if (!m) {
         setPick(null);
         setAmountIn("");

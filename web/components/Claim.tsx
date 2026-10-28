@@ -146,7 +146,7 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
       setAccount(loadAccount());
       return;
     }
-    let k = claimKey(window.location.hash);
+    let k = claimKey(window.location.hash, true);
     try {
       if (k) sessionStorage.setItem(STORE, k);
       else k = claimKey(sessionStorage.getItem(STORE) || "");

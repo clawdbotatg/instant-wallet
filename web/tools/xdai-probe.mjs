@@ -85,6 +85,11 @@ await p.waitForURL("**/pk", { timeout: 15000 }).catch(() => {});
 ok(new URL(p.url()).pathname === "/pk", "/0x<key> → /pk");
 ok(!p.url().includes(key.slice(2)), "key out of the address bar");
 
+// printed xdai.io cards carry the key as 43 base64url characters: /pk#<b64> opens the claim, not "broken"
+await p.goto(`${APP}/pk#${Buffer.from(key.slice(2), "hex").toString("base64url")}`);
+await p.waitForTimeout(3000);
+ok(!(await p.evaluate(() => document.body.innerText)).includes("broken"), "/pk#<base64url key> opens the claim");
+
 // 6. the old service worker's replacement is served
 const sw = await p.request.get(`${APP}/service-worker.js`);
 ok(sw.ok() && (await sw.text()).includes("unregister"), "/service-worker.js kill switch");

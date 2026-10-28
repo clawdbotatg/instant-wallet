@@ -41,17 +41,22 @@ export const AUTH_TYPES = {
 
 export const claimUrl = (origin: string, key: Hex) => `${origin}/pk#${key}`;
 
-/** The key in a claim link's fragment (with or without 0x), or null. */
-export function claimKey(hash: string): Hex | null {
-  const k = hash.replace(/^#/, "").replace(/^0x/i, "").trim();
-  return /^[0-9a-f]{64}$/i.test(k) ? (`0x${k.toLowerCase()}` as Hex) : null;
+/** The key in a claim link's fragment (with or without 0x), or null. `b64`: also the 43-character base64url form that
+ *  printed xdai.io Burner cards carry (xdai.io/pk#<base64url>); only /pk and /claim links take it. */
+export function claimKey(hash: string, b64 = false): Hex | null {
+  const raw = hash.replace(/^#/, "").trim();
+  const k = raw.replace(/^0x/i, "");
+  if (/^[0-9a-f]{64}$/i.test(k)) return `0x${k.toLowerCase()}` as Hex;
+  if (!b64 || !/^[A-Za-z0-9_-]{43}$/.test(raw)) return null;
+  const bin = atob(raw.replace(/-/g, "+").replace(/_/g, "/") + "=");
+  return `0x${Array.from(bin, c => c.charCodeAt(0).toString(16).padStart(2, "0")).join("")}` as Hex;
 }
 
 /** Is this scanned text a claim link (ours or punk wallet's, on any host)? */
 export function isClaimLink(text: string): boolean {
   try {
     const u = new URL(text.trim());
-    return /^\/(claim|pk)\/?$/.test(u.pathname) && !!claimKey(u.hash);
+    return /^\/(claim|pk)\/?$/.test(u.pathname) && !!claimKey(u.hash, true);
   } catch {
     return false;
   }

@@ -239,6 +239,13 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
   }
 
   const upgrade = (burner || xdai) && done === null && !empty;
+  // what's on it, coin by coin; one dollar coin alone (5.00 xDAI under $5.00) says nothing new, so it's left off
+  const parts = [
+    usdcTotal > 0n && `${formatUnits(usdcTotal, 6)} USDC`,
+    ...movable.map(t => `${fmtAmount(t.formatted)} ${t.symbol}`),
+    ...natives.map(c => `${Number(formatUnits(c.eth, 18)).toFixed(c.chainId === 100 ? 2 : 6)} ${nativeSymbol(c.chainId)}`),
+  ].filter(Boolean) as string[];
+  const onlyDollars = movable.length === 0 && natives.every(c => c.chainId === 100) && (usdcTotal === 0n || natives.length === 0);
   const header = (
     <div className="stack center">
       {upgrade ? (
@@ -259,17 +266,7 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
       {/* an old xdai.io card is the person's own old wallet, not a gift: no "Someone sent you" */}
       {!(upgrade && !burner) && <div className="fine">{done !== null ? "It's in your wallet" : empty ? "This card" : burner ? "Your old Burner Wallet has" : "Someone sent you"}</div>}
       <div className="big" style={{ fontSize: 56, fontWeight: 700 }}>{done !== null ? usd(done) : onChain === null || (ethTotal > 0n && !nativeUsd) ? "…" : usd(value)}</div>
-      {done === null && !empty && onChain && (
-        <div className="fine">
-          {[
-            usdcTotal > 0n && `${formatUnits(usdcTotal, 6)} USDC`,
-            ...movable.map(t => `${fmtAmount(t.formatted)} ${t.symbol}`),
-            ...natives.map(c => `${Number(formatUnits(c.eth, 18)).toFixed(c.chainId === 100 ? 2 : 6)} ${nativeSymbol(c.chainId)}`),
-          ]
-            .filter(Boolean)
-            .join(" + ")}
-        </div>
-      )}
+      {done === null && !empty && onChain && (parts.length > 1 || !onlyDollars) && <div className="fine">{parts.join(" + ")}</div>}
       {done === null && stuck.length > 0 && key && <Stuck stuck={stuck} address={privateKeyToAccount(key).address} />}
     </div>
   );

@@ -12,63 +12,15 @@ import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
 import { TimedBar } from "../bits";
 import { friendly } from "../Welcome";
-import { ChainSelect } from "./Pick";
 import { ErrorLine } from "./WedgieButton";
 
 const SIGNER_NAME = { burner: "Face ID", wedgie: "wedgie", hot: "hot wallet" } as const; // who signs the change
 
-/** The daily limit under the home screen's total, one quiet line: "daily: 80/100 USDC · 0.01/0.01 ETH  edit". */
-export function LimitLine({ st, onEdit }: { st: ChainState; onEdit: () => void }) {
-  const b = st.budget!;
-  return (
-    <div className="limits-rule">
-      daily: {amount(formatUnits(b.usdc, 6))}/{amount(formatUnits(b.usdcMax, 6))} USDC · {amount(formatUnits(b.eth, 18))}/{amount(formatUnits(b.ethMax, 18))}{" "}
-      {nativeSymbol(st.chainId)}
-      <button className="link-edit" onClick={onEdit}>
-        edit
-      </button>
-    </div>
-  );
-}
-
-/** The daily limit sheet: pick a network (each one's limit is its own), change its limit. */
-export function LimitsSheet({
-  account,
-  states,
-  assets,
-  chainId: start,
-  onRefresh,
-  toast,
-}: {
-  account: SafeAccount;
-  states: ChainState[];
-  assets: Asset[];
-  chainId: number;
-  onRefresh: () => void;
-  toast: (m: string) => void;
-}) {
-  const [chainId, setChainId] = useState(start);
-  const st = states.find(s => s.chainId === chainId);
-  return (
-    <div className="stack">
-      <h2>Daily limit</h2>
-      <ChainSelect value={chainId} onChange={setChainId} />
-      {!st ? (
-        <p className="fine">Loading…</p>
-      ) : st.budget && st.threshold > 1 ? (
-        <ChainLimit key={chainId} account={account} st={st} assets={assets} onRefresh={onRefresh} toast={toast} />
-      ) : (
-        <p className="fine">No daily limit on {chainById(chainId)?.name}. Face ID alone can move everything here. Pair a wedgie to get one.</p>
-      )}
-    </div>
-  );
-}
-
 /**
- * One network's limit. Same two taps as everywhere: Save gets it ready (the wedgie connects, fee, nonce), Yes signs
+ * One network's daily limit (in settings, under its network picker). Same two taps as everywhere: Save gets it ready (the wedgie connects, fee, nonce), Yes signs
  * (Face ID has to start straight from a tap), then a bar until the chain shows it.
  */
-function ChainLimit({ account, st, assets, onRefresh, toast }: { account: SafeAccount; st: ChainState; assets: Asset[]; onRefresh: () => void; toast: (m: string) => void }) {
+export function ChainLimit({ account, st, assets, onRefresh, toast }: { account: SafeAccount; st: ChainState; assets: Asset[]; onRefresh: () => void; toast: (m: string) => void }) {
   const b = st.budget!;
   const chainId = st.chainId;
   const coin = nativeSymbol(chainId);

@@ -15,6 +15,7 @@ import type { Asset } from "@/lib/types";
 import { AddressInput, Blockie, TimedBar, copy } from "../bits";
 import { Alerts } from "./Alerts";
 import { ChainSelect } from "./Pick";
+import { ChainLimit } from "./Limits";
 import { friendly } from "../Welcome";
 import { ErrorLine } from "./WedgieButton";
 
@@ -319,6 +320,12 @@ export function Keys({
       )}
 
       {st?.hasHot && <KeyRow kind="Hot wallet" a={hot} chainId={chainId} />}
+      {st?.budget && st.threshold > 1 && (
+        <Step title="Daily limit" key={`limit${chainId}`}>
+          <ChainLimit account={account} st={st} assets={assets} onRefresh={onRefresh} toast={toast} />
+        </Step>
+      )}
+
       <Step title="Recovery" done={ownRecovery}>
         <p className="fine">
           {layout

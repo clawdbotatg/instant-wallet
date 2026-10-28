@@ -1,4 +1,7 @@
+import { pbkdf2 } from "@noble/hashes/pbkdf2.js";
+import { sha512 } from "@noble/hashes/sha2.js";
 import { type Hex, toHex } from "viem";
+import { HDKey } from "viem/accounts";
 import { claimKey } from "./claim";
 
 /**
@@ -58,4 +61,15 @@ export function plantTestBurner(): Hex | null {
     localStorage.setItem(BURNER_KEY, k);
   } catch {}
   return k;
+}
+
+/**
+ * The old Burner's "seed phrase" box: any text at all, not just real BIP-39 words. It ran the text through BIP-39's
+ * seed step with no word check (bip39@2 mnemonicToSeed: PBKDF2-SHA512, salt "mnemonic", 2048 rounds), then took
+ * m/44'/60'/0'/0/0 (ethereum-mnemonic-privatekey-utils). Same text in, same key out. The text is used exactly as typed.
+ */
+export function brainKey(phrase: string): Hex {
+  const enc = new TextEncoder();
+  const seed = pbkdf2(sha512, enc.encode(phrase.normalize("NFKD")), enc.encode("mnemonic"), { c: 2048, dkLen: 64 });
+  return toHex(HDKey.fromMasterSeed(seed).derive("m/44'/60'/0'/0/0").privateKey!);
 }

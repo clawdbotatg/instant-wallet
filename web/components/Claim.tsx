@@ -166,7 +166,7 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
       read(addr).then(setOnChain).catch(() => {});
       others(addr).then(o => {
         if (!o) return;
-        setTokens(burner ? o.tokens.filter(worthMoving) : o.tokens);
+        setTokens(burner || isXdai() ? o.tokens.filter(worthMoving) : o.tokens);
         setNativeUsd(o.nativeUsd);
       });
     };
@@ -209,7 +209,7 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
       let got = 0; // what arrived, after fees
       for (const t of tokens) {
         // first: the card's ETH pays for these, the rest is swept after. An old Burner key moves what it can.
-        if (burner) {
+        if (burner || xdai) {
           if (await claimToken(key, t, account.address).then(() => true, () => false)) got += t.usd ?? 0;
           continue;
         }

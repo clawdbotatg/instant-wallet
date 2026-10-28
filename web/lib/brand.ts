@@ -42,13 +42,13 @@ export function retireBurnerKey(key: Hex) {
   } catch {}
 }
 
-/** The old Burner key this browser has, moved or not (Settings shows it so it can be copied out). */
+/** The old Burner key whose wallet this browser moved into a new one (Settings on xdai.io offers to copy it out). */
 export function oldBurnerKey(): Hex | null {
   try {
-    const k = claimKey(localStorage.getItem(BURNER_MOVED) || "");
-    if (k) return k;
-  } catch {}
-  return burnerKey();
+    return claimKey(localStorage.getItem(BURNER_MOVED) || "");
+  } catch {
+    return null;
+  }
 }
 
 /** Testing only, never on xdai.io or production: `?burner=new` plants a fresh key where the old Burner Wallet kept its key, as if

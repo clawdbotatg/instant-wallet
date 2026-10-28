@@ -462,7 +462,8 @@ function OldBurner({ toast }: { toast: (m: string) => void }) {
   const [pk, setPk] = useState("");
   const [phrase, setPhrase] = useState("");
   useEffect(() => {
-    setKey(oldBurnerKey());
+    // only on xdai.io, only after an old Burner was moved into this wallet
+    setKey(isXdai() ? oldBurnerKey() : null);
     setXdai(isXdai());
   }, []);
   const load = (k: Hex | null) => {

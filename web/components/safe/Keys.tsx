@@ -415,7 +415,6 @@ function OldBurner({ toast }: { toast: (m: string) => void }) {
   );
 }
 
-// a balance, cut (not rounded) to a few decimals: 99.77
 
 /** A key you have: what kind on the left, its address on the right. */
 function KeyRow({ kind, a, chainId }: { kind: string; a?: Address; chainId: number }) {

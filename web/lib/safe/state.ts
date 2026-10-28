@@ -60,7 +60,7 @@ export function saveWalletName(address: Address, name: string | null) {
     else localStorage.removeItem(`iws.name.${address.toLowerCase()}`);
   } catch {}
 }
-export const defaultWalletName = (hasWedgie: boolean) => (hasWedgie ? "Savings account" : "Spending account");
+export const defaultWalletName = (usd: number) => (usd < 200 ? "Spending account" : "Savings account");
 
 export type Recovery = { newOwners: Address[]; newThreshold: number; executeAfter: number; approvals: number } | null;
 /** One enabled recovery module: who can recover, after how long, and its running request. */

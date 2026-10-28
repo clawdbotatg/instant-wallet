@@ -45,7 +45,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
   const [hidden, setHiddenState] = useState<string[]>([]);
   const [shown, setShownState] = useState<string[]>([]);
   const [sites, setSites] = useState<Session[]>([]); // WalletConnect sites connected to this wallet
-  const [posUsd, setPosUsd] = useState(0); // DeFi positions, added to the big total
+  const [posUsd, setPosUsd] = useState<number | null>(null); // DeFi positions, added to the big total (null: loading)
   const [dropCode, setDropCode] = useState<string | null>(null); // a drop code scanned before this wallet existed
   useEffect(() => setDropCode(stashedCode()), []);
 
@@ -105,6 +105,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
   }, [account, refresh, loadBalance, loadStates]);
 
   // the wallet's name: the user's own once they set one (we never rename it then), else Spending / Savings account
+  // by balance (under $200 is spending money)
   const [customName, setCustomName] = useState<string | null>(null);
   useEffect(() => setCustomName(account ? loadWalletName(account.address) : null), [account]);
   const setName = (n: string | null) => {
@@ -112,7 +113,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
     saveWalletName(account.address, n);
     setCustomName(n);
   };
-  const walletName = customName ?? (states.length ? defaultWalletName(states.some(s => s.hasWedgie)) : null);
+  const walletName = customName ?? (portfolio ? defaultWalletName((portfolio.totalUsd ?? 0) + (posUsd ?? 0)) : null);
   // the passkey's name in the password manager tracks the wallet: "Savings account · atg.eth · ~$50". Every
   // rename can pop a system notification, so the balance is rough (1-2-5 steps) and only
   // moves when the real one halves or doubles; the last name sent is saved, so a reload doesn't rename again.
@@ -126,7 +127,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
       .catch(() => setEns(null));
   }, [account]);
   useEffect(() => {
-    if (!account || !fresh || !portfolio || !walletName || ens === undefined) return;
+    if (!account || !fresh || !portfolio || posUsd === null || !walletName || ens === undefined) return;
     const key = `iws.passkeyName.${account.credentialId}`;
     let last: { name: string; rough: number } | null = null;
     try {
@@ -236,7 +237,11 @@ export function SafeApp({ link }: { link?: string } = {}) {
           </div>
           <button className="pill me big" onClick={() => setView({ kind: "receive" })}>
             <Blockie address={account.address} size={38} />
-            <span className="mono">{short(account.address)}</span>
+            <span className="me-text">
+              {customName && <span className="me-name own">{customName}</span>}
+              <span className="mono">{short(account.address)}</span>
+              {!customName && walletName && <span className="me-name">{walletName}</span>}
+            </span>
           </button>
         </div>
 
@@ -283,10 +288,9 @@ export function SafeApp({ link }: { link?: string } = {}) {
         )}
 
         <div className="card balance">
-          {walletName && <div className="wallet-name">{walletName}</div>}
           <div className="total">
             <div className={fresh ? "big" : "big stale"} onClick={() => setShowUsd(!showUsd)}>
-              {portfolio ? (showUsd ? usd((portfolio.totalUsd ?? 0) + posUsd) : `${assets.length} assets`) : <span className="loading-bar" aria-label="Loading" />}
+              {portfolio ? (showUsd ? usd((portfolio.totalUsd ?? 0) + (posUsd ?? 0)) : `${assets.length} assets`) : <span className="loading-bar" aria-label="Loading" />}
             </div>
             {portfolio && (!fresh || pulling) && <span className="spinner" aria-label="Updating" />}
             {fresh && !pulling && assets.length > 0 && (

@@ -35,7 +35,6 @@ export function Keys({
   toast,
   onAccount,
   onRefresh,
-  onSignOut,
   onFund,
   hiddenAssets,
   onUnhide,
@@ -47,7 +46,6 @@ export function Keys({
   toast: (m: string) => void;
   onAccount: (a: SafeAccount) => void;
   onRefresh: () => Promise<void> | void;
-  onSignOut: () => void;
   onFund: (chainId: number) => void;
   hiddenAssets: Asset[];
   onUnhide: (a: Asset) => void;
@@ -466,10 +464,6 @@ export function Keys({
       )}
 
       <OldBurner toast={toast} />
-
-      <button className="btn wide" onClick={onSignOut}>
-        Sign out of this device
-      </button>
     </div>
   );
 }

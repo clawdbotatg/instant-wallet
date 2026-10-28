@@ -398,7 +398,20 @@ export function SafeApp({ link }: { link?: string } = {}) {
           {view.kind === "sendAll" && <SendAll account={account} assets={assets} states={states} onDone={close} />}
           {view.kind === "swap" && <SafeSwap account={account} assets={assets} states={states} fund={view.fund} onDone={close} />}
           {view.kind === "deposit" && <Deposit account={account} onReceive={() => setView({ kind: "receive" })} />}
-          {view.kind === "receive" && <Receive account={{ address: account.address } as any} toast={setToast} name={walletName} onName={setName} />}
+          {view.kind === "receive" && (
+            <Receive
+              account={{ address: account.address } as any}
+              toast={setToast}
+              name={walletName}
+              onName={setName}
+              onSignOut={() => {
+                setAccount(null);
+                setPortfolio(null);
+                setStates([]);
+                setView({ kind: "home" });
+              }}
+            />
+          )}
           {view.kind === "share" && <Share account={account} states={states} assets={assets} chainId={view.chainId} onDone={close} />}
           {view.kind === "keys" && (
             <Keys
@@ -415,12 +428,6 @@ export function SafeApp({ link }: { link?: string } = {}) {
               }}
               onFund={chainId => setView({ kind: "swap", fund: chainId })}
               onShare={chainId => setView({ kind: "share", chainId })}
-              onSignOut={() => {
-                setAccount(null);
-                setPortfolio(null);
-                setStates([]);
-                setView({ kind: "home" });
-              }}
             />
           )}
         </Sheet>

@@ -20,11 +20,13 @@ export function Receive({
   account,
   name,
   onName,
+  onSignOut,
 }: {
   account: Account;
   toast?: (m: string) => void;
   name?: string | null; // the wallet's name, as the title (tap to edit) when onName is given
   onName?: (name: string | null) => void; // null: back to the default name
+  onSignOut?: () => void; // a "Sign out of this device" button at the bottom
 }) {
   const [asking, setAsking] = useState(false);
   const [amount, setAmount] = useState("");
@@ -101,6 +103,11 @@ export function Receive({
             Cancel
           </button>
         </>
+      )}
+      {onSignOut && !asking && (
+        <button className="btn wide" onClick={onSignOut}>
+          Sign out of this device
+        </button>
       )}
     </div>
   );

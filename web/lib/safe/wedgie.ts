@@ -258,9 +258,9 @@ export class Wedgie {
     const serial = (navigator as any).serial;
     const known = (await serial.getPorts()).filter((p: any) => p.getInfo().usbVendorId === RPI_VID);
     if (!known[0] && inExtensionPanel()) {
-      // Chrome can't show the USB picker in a side panel: the extension opens ?pair=wedgie in a tab, once
+      // Chrome can't show the USB picker in a side panel: the extension opens ?pair=wedgie in a popup, once
       window.parent.postMessage({ __iwp: "pair-wedgie" }, "*");
-      throw new Error("Pick your wedgie in the tab that just opened. Then come back here and tap Approve again.");
+      throw new Error("Pick your wedgie in the popup. Then tap Approve again.");
     }
     const port = known[0] ?? (await serial.requestPort({ filters: [{ usbVendorId: RPI_VID }] }));
     arm();

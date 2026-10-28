@@ -27,33 +27,20 @@ So the new code must run on exactly that origin. A redirect away first loses the
 
 ---
 
-## Two ways to do it
+## Decided (Austin, 10-27): swap the code on xdai.io
 
-### A. Instant Wallet runs on xdai.io (what Austin asked for)
+Instant Wallet replaces the old Burner code on xdai.io itself. Add `xdai.io` to the Vercel project, point
+Route53 at Vercel. The app sees the hostname and switches to the 🔥 dark look. On load it checks for
+`metaPrivateKey`; if found, it shows the migration screen: make a passkey Safe, move everything from the old
+key into it.
 
-Add `xdai.io` to the Vercel project, point Route53 at Vercel. The app sees the hostname and switches to the
-🔥 dark look. On load it checks for `metaPrivateKey`; if there's money on it, it shows the sweep screen.
-
-- Catch: **passkeys are tied to the domain** (`rpId = window.location.hostname` in `web/lib/passkey.ts`).
-  A wallet made on xdai.io is a different wallet from one made on the main site, and can only be opened on
-  xdai.io. Fix if we want one wallet everywhere: WebAuthn Related Origin Requests (`/.well-known/webauthn` on
-  the main domain listing xdai.io), so xdai.io makes passkeys for the main domain. Needs a real main domain
-  (not `*.vercel.app`) and a check that iOS Safari + Chrome Android both do it.
-
-### B. Tiny bridge page on xdai.io, wallet stays on the main site
-
-Keep it static. xdai.io serves one small page: reads `metaPrivateKey`, sends you to
-`<main site>/claim#<key>` (fragment, never hits a server). The existing claim page does the rest.
-
-- No passkey split, little new code, nothing else of ours on that origin.
-- But no 🔥 version of the wallet; xdai.io is just a door.
-
-**Leaning A** (it's the ask), with Related Origin Requests if it works on iPhone. B is the fallback, and also
-a fine first step: it can ship in a day.
+- **Passkeys are tied to the domain** (`rpId = window.location.hostname` in `web/lib/passkey.ts`). A Safe made
+  on xdai.io opens only on xdai.io. Fine unless we want the same wallet on the main site too; then use WebAuthn
+  Related Origin Requests (needs a real main domain, test on iPhone first).
 
 ---
 
-## The sweep screen
+## The migration screen
 
 Reuse `web/components/Claim.tsx`. The key comes from localStorage instead of the link. Changes:
 
@@ -89,7 +76,7 @@ or the cache expires. Set `no-cache` on S3 now so it doesn't get worse.
 
 1. **Access:** find which AWS account has the xdai.io Route53 zone + S3 bucket + CloudFront. Need login.
 2. **Back up** the S3 bucket (the whole old site), so we can roll back by pointing DNS back.
-3. **Decide A or B** (and test Related Origin Requests on iPhone if A).
+3. Decide if xdai.io Safes should also open on the main site (Related Origin Requests).
 4. Build: theme switch, sweep screen, multi-chain balance scan, gas drip on Gnosis, SW kill switch.
 5. **Test without touching xdai.io:** a staging domain (e.g. `xdai-test.<ours>`) where a test page writes a
    `metaPrivateKey` holding a little xDAI + a token. Run the whole thing on iPhone Safari and Android Chrome.
@@ -101,7 +88,7 @@ or the cache expires. Set `no-cache` on S3 now so it doesn't get worse.
 ## Risks
 
 - **Every script on xdai.io can read those keys.** Keep third-party scripts off that origin (no analytics,
-  no widgets). That's a point for B, or for a strict CSP on A.
+  no widgets), strict CSP.
 - Other burner hosts (`s.xdai.io`, buffidai, event subdomains) are separate origins. Each needs the same
   treatment or its keys stay put. List them from the old deploy scripts (`deploy*.sh`) and decide which matter.
 - Old cards printed as `xdai.io/pk#…` or `xdai.io/<key>` links should keep working: route them to claim.
@@ -110,7 +97,6 @@ or the cache expires. Set `no-cache` on S3 now so it doesn't get worse.
 ## Open questions for Austin
 
 1. Who has the AWS login for xdai.io?
-2. A or B? If A: one passkey wallet across both domains, or a separate xdai.io wallet is fine?
-3. What's the main domain going to be? (Related Origin Requests need a real one.)
-4. Name on xdai.io: "Instant Wallet", "Burner Wallet", something else?
-5. Which old subdomains matter?
+2. Should an xdai.io Safe also open on the main site? (If yes, we need a real main domain.)
+3. Name on xdai.io: "Instant Wallet", "Burner Wallet", something else?
+4. Which old subdomains matter?

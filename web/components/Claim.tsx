@@ -13,7 +13,7 @@ import { getQuote, waitFor } from "@/lib/safe/send";
 import { createPasskey } from "@/lib/passkey";
 import { type SafeAccount, accountFor, loadAccount, saveAccount } from "@/lib/safe/state";
 import type { Asset } from "@/lib/types";
-import { copy } from "./bits";
+import { TimedBar, copy } from "./bits";
 import { SafeWelcome } from "./safe/SafeWelcome";
 import { friendly } from "./Welcome";
 
@@ -140,6 +140,7 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
   const [tokens, setTokens] = useState<Asset[]>([]);
   const [nativeUsd, setNativeUsd] = useState<Record<number, number> | null>(null);
   const [busy, setBusy] = useState(false);
+  const [sweeping, setSweeping] = useState(false); // past Face ID, the coins are moving: the progress bar runs
   const [done, setDone] = useState<number | null>(null); // the $ claimed
   const [error, setError] = useState<string | null>(null);
   const [xdai, setXdai] = useState(false); // xdai.io: an old Burner key or card becomes an Instant Wallet
@@ -221,6 +222,7 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
         setAccount(account);
       }
       if (!account) return;
+      setSweeping(true);
       let got = 0; // what arrived, after fees
       for (const t of movable) {
         // first: the card's ETH pays for these, the rest is swept after. An old Burner key moves what it can.
@@ -246,6 +248,7 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
       setError(friendly(e));
     } finally {
       setBusy(false);
+      setSweeping(false);
     }
   }
 
@@ -341,6 +344,7 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
           <button className="btn btn-green wide" onClick={() => claim(true)} disabled={busy || !onChain}>
             {busy ? "Sweeping…" : "Sweep to Instant Wallet"}
           </button>
+          {sweeping && <TimedBar ms={15_000} />}
           {error && <p className="err">{error}</p>}
           {burner && !busy && (
             <button className="nfts-link" onClick={burner.onDone}>

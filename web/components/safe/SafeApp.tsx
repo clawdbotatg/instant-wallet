@@ -26,6 +26,7 @@ import { SafeConnectLayer } from "./SafeConnect";
 import { NftGrid } from "./Nfts";
 import { PositionList } from "./Positions";
 import { stashedCode } from "@/lib/dropClient";
+import { renamePasskey } from "@/lib/passkey";
 import { disconnect, openWalletConnect } from "@/lib/walletconnect";
 import type { Session } from "../WalletConnect";
 
@@ -102,6 +103,27 @@ export function SafeApp({ link }: { link?: string } = {}) {
       clearInterval(k);
     };
   }, [account, refresh, loadBalance, loadStates]);
+
+  // the passkey's name in the password manager tracks the wallet: "Savings · atg.eth · $1,234" (Spending until a
+  // wedgie is paired), re-sent whenever it changes so the passkey picker shows which wallet is which
+  const [ens, setEns] = useState<string | null | undefined>(undefined);
+  useEffect(() => {
+    if (!account) return;
+    setEns(undefined);
+    fetch(`/api/ens?address=${account.address}`)
+      .then(r => r.json())
+      .then(j => setEns(j?.name ?? null))
+      .catch(() => setEns(null));
+  }, [account]);
+  const named = useRef("");
+  useEffect(() => {
+    if (!account || !fresh || !portfolio || !states.length || ens === undefined) return;
+    const kind = states.some(s => s.hasWedgie) ? "Savings" : "Spending";
+    const name = `${kind} · ${ens ?? short(account.address)} · ${usd((portfolio.totalUsd ?? 0) + posUsd)}`;
+    if (name === named.current) return;
+    named.current = name;
+    renamePasskey(account.credentialId, name);
+  }, [account, fresh, portfolio, posUsd, states, ens]);
 
   // the iOS app's pull-down: a newer deploy reloads the whole page; otherwise reload the balance now, with the
   // spinner beside it for at least a beat

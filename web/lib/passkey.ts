@@ -78,12 +78,48 @@ function prfOf(cred: PublicKeyCredential, which: "first" | "second" = "first"): 
   return r ? new Uint8Array(r) : undefined;
 }
 
+/** credentialId -> the passkey's user.id (base64url), which renamePasskey needs. Saved at creation and on every
+ *  sign-in (assertions return it), so passkeys made before this get it at their next Face ID. */
+const HANDLES = "iws.userHandles";
+function loadHandles(): Record<string, string> {
+  try {
+    return JSON.parse(localStorage.getItem(HANDLES) || "{}");
+  } catch {
+    return {};
+  }
+}
+function saveHandle(credentialId: string, userId: Uint8Array) {
+  try {
+    const h = loadHandles();
+    const v = bytesToBase64url(userId);
+    if (h[credentialId] === v) return;
+    localStorage.setItem(HANDLES, JSON.stringify({ ...h, [credentialId]: v }));
+  } catch {}
+}
+
+/**
+ * Renames a passkey in the user's password manager (WebAuthn Signal API: Chrome 132+, Safari 26+). Best effort:
+ * no prompt, and a browser or password manager may ignore it. False when unsupported or the user.id is unknown.
+ */
+export async function renamePasskey(credentialId: string, name: string): Promise<boolean> {
+  const signal = (window.PublicKeyCredential as any)?.signalCurrentUserDetails;
+  const userId = loadHandles()[credentialId];
+  if (!signal || !userId) return false;
+  try {
+    await signal.call(window.PublicKeyCredential, { rpId: rpId(), userId, name, displayName: name });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function createPasskey(label = "Instant Wallet"): Promise<NewPasskey> {
+  const userId = crypto.getRandomValues(new Uint8Array(16));
   const cred = (await ceremony(() => navigator.credentials.create({
     publicKey: {
       challenge: random32(),
       rp: { name: RP_NAME, id: rpId() },
-      user: { id: crypto.getRandomValues(new Uint8Array(16)), name: `${label} · ${new Date().toISOString().slice(0, 10)}`, displayName: label },
+      user: { id: userId, name: `${label} · ${new Date().toISOString().slice(0, 10)}`, displayName: label },
       pubKeyCredParams: [{ type: "public-key", alg: -7 }],
       authenticatorSelection: { residentKey: "required", userVerification: "required" },
       attestation: "none",
@@ -101,6 +137,7 @@ export async function createPasskey(label = "Instant Wallet"): Promise<NewPasske
   const key = await crypto.subtle.importKey("spki", spki, { name: "ECDSA", namedCurve: "P-256" }, true, ["verify"]);
   const jwk = await crypto.subtle.exportKey("jwk", key);
   if (!jwk.x || !jwk.y) throw new Error("Could not read the passkey's public key");
+  saveHandle(bytesToBase64url(new Uint8Array(cred.rawId)), userId);
   return {
     credentialId: bytesToBase64url(new Uint8Array(cred.rawId)),
     qx: bytesToHex(base64urlToBytes(jwk.x)),
@@ -133,6 +170,7 @@ async function assert(challenge: Uint8Array<ArrayBuffer>, credentialId?: string,
   }))) as PublicKeyCredential | null;
   if (!cred) throw new Error("No passkey signature");
   const r = cred.response as AuthenticatorAssertionResponse;
+  if (r.userHandle) saveHandle(bytesToBase64url(new Uint8Array(cred.rawId)), new Uint8Array(r.userHandle));
   return {
     credentialId: bytesToBase64url(new Uint8Array(cred.rawId)),
     authenticatorData: new Uint8Array(r.authenticatorData),

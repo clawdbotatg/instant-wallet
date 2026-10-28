@@ -44,6 +44,7 @@ export async function signForSite(
   hash: Hex,
   onStage?: (s: Stage) => void,
   raw?: Hex,
+  wedgie?: Wedgie | null,             // connected already, on the tap (the caller closes it)
 ): Promise<Hex> {
   const chainId = st.chainId;
   const h = safeMessageHash(chainId, a.address, hash);
@@ -64,10 +65,10 @@ export async function signForSite(
         onStage?.("signing-hot");
         sigs.push(await hotSignMessage(chainId, a.address, hash, hot));
       } else {
-        w = await Wedgie.connect();
-        const key = a.wedgie ?? (await w.key());
+        const ww = wedgie ?? (w = await Wedgie.connect());
+        const key = a.wedgie ?? (await ww.key());
         onStage?.("signing-wedgie");
-        sigs.push(...(await w.signMessage(chainId, a.address, raw!, h, wedgieSigners(key))));
+        sigs.push(...(await ww.signMessage(chainId, a.address, raw!, h, wedgieSigners(key))));
       }
     }
   } finally {

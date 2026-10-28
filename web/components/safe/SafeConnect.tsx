@@ -14,6 +14,7 @@ import { friendly } from "../Welcome";
 import { SignerChoice } from "./Pick";
 import { Progress } from "./Progress";
 import { ErrorLine } from "./WedgieButton";
+import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 
 /** WalletConnect for the Safe wallet: the shared connect layer, with a card that signs the Safe way. */
 export function SafeConnectLayer({
@@ -103,10 +104,15 @@ function SafeRequest({
   async function go() {
     if (!st) return;
     setError(null);
+    let w: Wedgie | null = null;
     try {
+      if (pending.kind === "calls" && !prepared) return;
+      if (pending.kind === "calls" && prepared!.fee.until < Date.now() + 30_000) return setTick(t => t + 1); // stale quote: a fresh one, then tap again
+      // the wedgie first, while it's still the tap: Chrome's port prompt needs one, and Face ID used it up
+      // (10-27: "Must be handling a user gesture" on a Uniswap swap from the extension)
+      if (signers.includes("wedgie") && wedgieSupported() && (pending.kind === "calls" || pending.raw)) w = await Wedgie.connect();
       if (pending.kind === "calls") {
         if (!prepared) return;
-        if (prepared.fee.until < Date.now() + 30_000) return setTick(t => t + 1); // stale quote: a fresh one, then tap again
         // answer the site the moment the relay has the hash, as any wallet does: the site watches the chain itself
         // (10-10: answering only after the receipt left Uniswap on "Confirm in wallet" for the whole wait)
         let answered: Promise<void> | null = null;
@@ -118,6 +124,7 @@ function SafeRequest({
           ...prepared,
           opts: {
             ...prepared.opts,
+            wedgie: w ?? prepared.opts.wedgie,
             onStage: (s, h) => {
               setStage(s);
               if (h) setHash(h);
@@ -127,7 +134,7 @@ function SafeRequest({
         });
         await answer(hash);
       } else {
-        const sig = await signForSite(account, st, signers, pending.hash, s => setStage(s), pending.raw);
+        const sig = await signForSite(account, st, signers, pending.hash, s => setStage(s), pending.raw, w);
         await respond(pending.topic, pending.id, sig);
       }
       onDone();
@@ -135,6 +142,8 @@ function SafeRequest({
       setError(friendly(e));
       setStage(null);
       setHash(null);
+    } finally {
+      await w?.close();
     }
   }
 

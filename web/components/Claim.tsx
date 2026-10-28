@@ -256,6 +256,14 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
     ...movable.map(t => `${fmtAmount(t.formatted)} ${t.symbol}`),
     ...natives.map(c => `${Number(formatUnits(c.eth, 18)).toFixed(c.chainId === 100 ? 2 : 6)} ${nativeSymbol(c.chainId)}`),
   ].filter(Boolean) as string[];
+  const chainName = (id: number) => CHAINS.find(c => c.id === id)?.name ?? "";
+  const rows = [
+    ...(onChain ?? []).flatMap(c => [
+      ...(c.eth > 0n ? [{ k: `n${c.chainId}`, amount: `${Number(formatUnits(c.eth, 18)).toFixed(c.chainId === 100 ? 2 : 6)} ${nativeSymbol(c.chainId)}`, chain: chainName(c.chainId) }] : []),
+      ...(c.usdc > 0n ? [{ k: `u${c.chainId}`, amount: `${formatUnits(c.usdc, 6)} USDC`, chain: chainName(c.chainId) }] : []),
+    ]),
+    ...movable.map(t => ({ k: `${t.chainId}:${t.asset}`, amount: `${fmtAmount(t.formatted)} ${t.symbol}`, chain: chainName(t.chainId) })),
+  ];
   const onlyDollars = movable.length === 0 && natives.every(c => c.chainId === 100) && (usdcTotal === 0n || natives.length === 0);
   const header = (
     <div className="stack center">
@@ -273,9 +281,27 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
         account && <img className="mark" src="/mark.png" alt="" style={{ width: 96, margin: "0 auto" }} />
       )}
       {/* an old xdai.io card is the person's own old wallet, not a gift: no "Someone sent you" */}
-      {!(upgrade && !burner) && <div className="fine">{done !== null ? "It's in your wallet" : empty ? "This card" : burner ? "Your old Burner Wallet has" : "Someone sent you"}</div>}
-      <div className="big" style={{ fontSize: 56, fontWeight: 700 }}>{done !== null ? usd(done) : onChain === null || (ethTotal > 0n && !nativeUsd) ? "…" : usd(value)}</div>
-      {done === null && !empty && onChain && (parts.length > 1 || !onlyDollars) && <div className="fine">{parts.join(" + ")}</div>}
+      {upgrade ? (
+        // xdai.io: what gets swept, coin by coin, instead of one dollar total
+        <div className="recess stack" style={{ gap: 6, textAlign: "left" }}>
+          {onChain === null ? (
+            <span className="loading-bar" style={{ width: "100%" }} />
+          ) : (
+            rows.map(r => (
+              <div key={r.k} className="row" style={{ justifyContent: "space-between" }}>
+                <b>{r.amount}</b>
+                <span className="fine">{r.chain}</span>
+              </div>
+            ))
+          )}
+        </div>
+      ) : (
+        <>
+          <div className="fine">{done !== null ? "It's in your wallet" : empty ? "This card" : burner ? "Your old Burner Wallet has" : "Someone sent you"}</div>
+          <div className="big" style={{ fontSize: 56, fontWeight: 700 }}>{done !== null ? usd(done) : onChain === null || (ethTotal > 0n && !nativeUsd) ? "…" : usd(value)}</div>
+          {done === null && !empty && onChain && (parts.length > 1 || !onlyDollars) && <div className="fine">{parts.join(" + ")}</div>}
+        </>
+      )}
       {done === null && stuck.length > 0 && key && <Stuck stuck={stuck} address={privateKeyToAccount(key).address} />}
     </div>
   );

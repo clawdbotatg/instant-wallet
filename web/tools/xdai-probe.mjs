@@ -46,18 +46,18 @@ await p.context().close();
 const key = generatePrivateKey();
 p = await page({ key, tokens: [token, spam] });
 await p.goto(`${APP}/?brand=xdai`);
-await p.waitForSelector("text=Your old Burner Wallet has", { timeout: 30000 }).catch(() => {});
+await p.waitForSelector("text=Sweep to Instant Wallet", { timeout: 30000 }).catch(() => {});
 await p.waitForSelector("text=Also here", { timeout: 30000 }).catch(() => {}); // after every network's balance is read
 const txt = await p.evaluate(() => document.body.innerText);
-ok(txt.includes("Your old Burner Wallet has"), "move screen shows");
+ok(txt.includes("has become") && txt.includes("Sweep to Instant Wallet"), "move screen shows");
 // the old key has no xDAI (the chain is real, the key is new): the token can't pay its gas, so it's listed apart
 ok(/Also here: 3\.21 USDC\.e on Gnosis/.test(txt) && /send (about [\d.e-]+|a little) xDAI/.test(txt), "no gas: says what to send in");
-ok(txt.includes("$0.00") || txt.includes("$0"), "stuck token not counted in the total");
+ok(!txt.includes("$"), "no dollar total on the sweep screen");
 ok(!txt.includes("SPAM"), "spam token left out");
 await p.screenshot({ path: `${OUT}/xdai-move.png` });
 await p.getByText("Not now").click().catch(() => {});
 await p.waitForTimeout(500);
-ok(!(await p.evaluate(() => document.body.innerText)).includes("Your old Burner Wallet has"), "Not now: on to the wallet");
+ok(!(await p.evaluate(() => document.body.innerText)).includes("has become"), "Not now: on to the wallet");
 ok((await p.evaluate(() => localStorage.getItem("metaPrivateKey"))) === key, "Not now: key untouched");
 await p.context().close();
 
@@ -66,7 +66,7 @@ const empty = generatePrivateKey();
 p = await page({ key: empty });
 await p.goto(`${APP}/?brand=xdai`);
 await p.waitForTimeout(8000);
-ok(!(await p.evaluate(() => document.body.innerText)).includes("Your old Burner Wallet has"), "empty key: no move screen");
+ok(!(await p.evaluate(() => document.body.innerText)).includes("has become"), "empty key: no move screen");
 ok((await p.evaluate(() => localStorage.getItem("metaPrivateKey"))) === empty, "empty key: key untouched");
 await p.context().close();
 

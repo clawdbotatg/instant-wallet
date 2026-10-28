@@ -22,6 +22,7 @@ export function Receive({
   onName,
   onSignOut,
   onSwitch,
+  onShare,
 }: {
   account: Account;
   toast?: (m: string) => void;
@@ -29,6 +30,7 @@ export function Receive({
   onName?: (name: string | null) => void; // null: back to the default name
   onSignOut?: () => void; // a "Sign out of this device" button at the bottom
   onSwitch?: () => void; // a "Switch account" button at the top (another passkey's wallet)
+  onShare?: () => void; // "Share Instant Wallet" (the app's link as a QR) and "Share crypto" at the bottom
 }) {
   const [asking, setAsking] = useState(false);
   const [amount, setAmount] = useState("");
@@ -122,6 +124,12 @@ export function Receive({
           </button>
         </>
       )}
+      {onShare && !asking && APP_LINK && <ShareApp />}
+      {onShare && !asking && (
+        <button className="btn btn-green wide" onClick={onShare}>
+          Share crypto
+        </button>
+      )}
       {onSignOut && !asking && (
         <button className="btn wide" onClick={onSignOut}>
           Sign out of this device
@@ -167,5 +175,35 @@ function NameTitle({ name, onSave }: { name: string | null; onSave: (name: strin
         Save
       </button>
     </form>
+  );
+}
+
+/** Where to get the app (the TestFlight link for now); "" hides Share Instant Wallet. */
+const APP_LINK = "";
+
+/** "Share Instant Wallet": opens the app's link as a QR; a tap on it copies the link. */
+function ShareApp() {
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return;
+    const t = setTimeout(() => setCopied(false), 1500);
+    return () => clearTimeout(t);
+  }, [copied]);
+  if (!open)
+    return (
+      <button className="btn wide" onClick={() => setOpen(true)}>
+        Share Instant Wallet
+      </button>
+    );
+  return (
+    <div onClick={async () => (await copy(APP_LINK)) && setCopied(true)} style={{ cursor: "pointer" }}>
+      <Qr value={APP_LINK} top={<b style={{ marginBottom: 10 }}>Get Instant Wallet</b>}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, color: "var(--ink)" }}>
+          <span className="fine">{copied ? "Copied" : "Tap to copy the link"}</span>
+          <CopyIcon />
+        </div>
+      </Qr>
+    </div>
   );
 }

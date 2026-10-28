@@ -14,7 +14,7 @@ import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
 import { Qr } from "../bits";
-import { Select, assetOpt } from "./Pick";
+import { ChainSelect, Select, assetOpt } from "./Pick";
 import { WedgieIcon, ErrorLine } from "./WedgieButton";
 import { friendly } from "../Welcome";
 
@@ -46,12 +46,13 @@ type Card = { key: Hex; asset: Asset; amount: bigint; label: string };
 type Step = "form" | "check" | "how" | "write" | "unwritten" | "ready" | Stage | "unfunded" | "parked" | "done";
 
 /**
- * Share crypto (docs/NFC-SHARE.md), on the network picked in settings: any token, an amount, then QR (save or
+ * Share crypto (docs/NFC-SHARE.md), on a network picked here (starts on `chainId`): any token, an amount, then QR (save or
  * print) or an NFC card (the iOS app only), then Fund it. Order (Austin, 10-24): check the money, keep the key,
  * make the QR / write the card, then fund it — a cancelled tap moves no money. A token other than USDC or the
  * native coin also gets a little of the coin, so the card can pay to move it. Big amounts take the wedgie, as a send does.
  */
-export function Share({ account, states, assets, chainId, onDone }: { account: SafeAccount; states: ChainState[]; assets: Asset[]; chainId: number; onDone: () => void }) {
+export function Share({ account, states, assets, chainId: startChain, onDone }: { account: SafeAccount; states: ChainState[]; assets: Asset[]; chainId: number; onDone: () => void }) {
+  const [chainId, setChainId] = useState(startChain);
   const [amountIn, setAmountIn] = useState("5"); // dollars when the token has a price, else the token
   const [step, setStep] = useState<Step>("form");
   const [how, setHow] = useState<"qr" | "nfc">("qr");
@@ -278,7 +279,8 @@ export function Share({ account, states, assets, chainId, onDone }: { account: S
   return (
     <div className="stack">
       <h2>Share crypto</h2>
-      <p className="fine">On {net?.name}. Whoever scans or taps it gets it.</p>
+      <ChainSelect value={chainId} onChange={setChainId} />
+      <p className="fine">Whoever scans or taps it gets it.</p>
       <a className="fine" href="/claim/new">
         My shares: see which are claimed, take back the rest
       </a>
@@ -287,7 +289,7 @@ export function Share({ account, states, assets, chainId, onDone }: { account: S
         {options.length ? (
           <Select value={asset ? assetOpt(asset) : null} options={options.map(assetOpt)} onPick={setPick} />
         ) : (
-          <p className="fine">Nothing on {net?.name}. Pick another network in settings.</p>
+          <p className="fine">Nothing on {net?.name}. Pick another network above.</p>
         )}
       </div>
       {price ? (

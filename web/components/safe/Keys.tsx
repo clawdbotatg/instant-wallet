@@ -36,7 +36,6 @@ export function Keys({
   onAccount,
   onRefresh,
   onFund,
-  onShare,
 }: {
   account: SafeAccount;
   states: ChainState[];
@@ -45,7 +44,6 @@ export function Keys({
   onAccount: (a: SafeAccount) => void;
   onRefresh: () => Promise<void> | void;
   onFund: (chainId: number) => void;
-  onShare: (chainId: number) => void;
 }) {
 
   const [chainId, setChainId] = useState(CHAINS[0].id);
@@ -309,9 +307,6 @@ export function Keys({
     <div className="stack">
       <h2>Keys &amp; safety</h2>
       <ChainSelect value={chainId} onChange={setChainId} />
-      <button className="btn btn-green wide" onClick={() => onShare(chainId)}>
-        Share crypto
-      </button>
 
       {!st && <p className="fine">Loading…</p>}
       {!canPay ? (

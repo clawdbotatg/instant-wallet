@@ -15,7 +15,6 @@ import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
 import { Blockie, ChainChip, ScanIcon, TokenIcon, useSheetBack } from "../bits";
-import { inExtensionPanel } from "@/lib/extension";
 import { Scanner } from "../Scanner";
 import { Select, assetOpt } from "./Pick";
 import { friendly } from "../Welcome";
@@ -45,8 +44,7 @@ export function SafeSend({
   onDone: () => void;
 }) {
   const [toInput, setToInput] = useState("");
-  const noCamera = inExtensionPanel(); // the extension's side panel
-  const [scanning, setScanning] = useState(!start && !scanned && !noCamera);
+  const [scanning, setScanning] = useState(!start && !scanned);
   // the scanner opened from the form: swiping it away goes back to the form
   const [scanFromForm, setScanFromForm] = useState(false);
   const leaveScan = useCallback(() => {
@@ -381,18 +379,16 @@ export function SafeSend({
             <div className="input">
               {resolved && <Blockie address={resolved} size={30} />}
               <input value={toInput} onChange={e => setToInput(e.target.value)} placeholder="0x… or name.eth" autoCapitalize="none" autoCorrect="off" spellCheck={false} />
-              {!noCamera && (
-                <button
-                  className="pill"
-                  onClick={() => {
-                    setScanFromForm(true);
-                    setScanning(true);
-                  }}
-                  aria-label="Scan"
-                >
-                  <ScanIcon size={20} />
-                </button>
-              )}
+              <button
+                className="pill"
+                onClick={() => {
+                  setScanFromForm(true);
+                  setScanning(true);
+                }}
+                aria-label="Scan"
+              >
+                <ScanIcon size={20} />
+              </button>
             </div>
             {resolving && <span className="fine">Looking up {toInput}…</span>}
             {resolved && toInput.includes(".") && <span className="fine mono">{resolved}</span>}

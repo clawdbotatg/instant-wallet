@@ -7,19 +7,17 @@ import { burnerKey, isXdai, plantTestBurner } from "@/lib/brand";
 import { copy } from "../bits";
 import { claimKey } from "@/lib/claim";
 import { Claim } from "../Claim";
-import { PairWedgie } from "./PairWedgie";
 import { SafeApp } from "./SafeApp";
 
 const BURNER_LATER = "iw.burnerLater"; // "Not now" (or nothing on it): this tab doesn't ask again
 
-/** The wallet, the extension's wedgie pairing page (?pair=wedgie), or on xdai.io the old Burner Wallet's move screen. */
+/** The wallet, or on xdai.io the old Burner Wallet's move screen. */
 export function SafeRoot() {
-  const [view, setView] = useState<"wallet" | "pair" | { burner: Hex } | { planted: Hex }>();
+  const [view, setView] = useState<"wallet" | { burner: Hex } | { planted: Hex }>();
   useEffect(() => {
     // an old Burner paper wallet / link: xdai.io/#<key> is a claim
     const k = claimKey(window.location.hash);
     if (k) return void window.location.replace(`/pk#${k}`);
-    if (new URLSearchParams(window.location.search).get("pair") === "wedgie") return setView("pair");
     const planted = plantTestBurner();
     if (planted) return setView({ planted });
     let later = false;
@@ -31,7 +29,6 @@ export function SafeRoot() {
   }, []);
 
   if (!view) return null;
-  if (view === "pair") return <PairWedgie />;
   if (view === "wallet") return <SafeApp />;
   if ("planted" in view) return <Planted k={view.planted} />;
   return (

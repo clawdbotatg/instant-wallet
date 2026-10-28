@@ -1,6 +1,5 @@
 import { type Address, type Hex, getAddress } from "viem";
 import { clearBundle } from "./clear";
-import { inExtensionPanel } from "../extension";
 import { type SafeTx, type Sig, encodeWebAuthn } from "./core";
 
 /**
@@ -257,11 +256,6 @@ export class Wedgie {
     if (!wedgieSupported()) throw new Error("This browser can't talk to a wedgie. Use Chrome or Edge on a computer.");
     const serial = (navigator as any).serial;
     const known = (await serial.getPorts()).filter((p: any) => p.getInfo().usbVendorId === RPI_VID);
-    if (!known[0] && inExtensionPanel()) {
-      // Chrome can't show the USB picker in a side panel: the extension opens ?pair=wedgie in a popup, once
-      window.parent.postMessage({ __iwp: "pair-wedgie" }, "*");
-      throw new Error("Pick your wedgie in the popup. Then tap Approve again.");
-    }
     const port = known[0] ?? (await serial.requestPort({ filters: [{ usbVendorId: RPI_VID }] }));
     arm();
     await peeking?.catch(() => {});

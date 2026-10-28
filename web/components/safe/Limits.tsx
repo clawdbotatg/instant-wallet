@@ -12,22 +12,68 @@ import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
 import { TimedBar } from "../bits";
 import { friendly } from "../Welcome";
+import { ChainSelect } from "./Pick";
 import { ErrorLine } from "./WedgieButton";
 
 const SIGNER_NAME = { burner: "Face ID", wedgie: "wedgie", hot: "hot wallet" } as const; // who signs the change
 
+/** The daily limit under the home screen's total, one quiet line: "daily: 80/100 USDC · 0.01/0.01 ETH  edit". */
+export function LimitLine({ st, onEdit }: { st: ChainState; onEdit: () => void }) {
+  const b = st.budget!;
+  return (
+    <div className="limits-rule">
+      daily: {amount(formatUnits(b.usdc, 6))}/{amount(formatUnits(b.usdcMax, 6))} USDC · {amount(formatUnits(b.eth, 18))}/{amount(formatUnits(b.ethMax, 18))}{" "}
+      {nativeSymbol(st.chainId)}
+      <button className="link-edit" onClick={onEdit}>
+        edit
+      </button>
+    </div>
+  );
+}
+
+/** The daily limit sheet: pick a network (each one's limit is its own), change its limit. */
+export function LimitsSheet({
+  account,
+  states,
+  assets,
+  chainId: start,
+  onRefresh,
+  toast,
+}: {
+  account: SafeAccount;
+  states: ChainState[];
+  assets: Asset[];
+  chainId: number;
+  onRefresh: () => void;
+  toast: (m: string) => void;
+}) {
+  const [chainId, setChainId] = useState(start);
+  const st = states.find(s => s.chainId === chainId);
+  return (
+    <div className="stack">
+      <h2>Daily limit</h2>
+      <ChainSelect value={chainId} onChange={setChainId} />
+      {!st ? (
+        <p className="fine">Loading…</p>
+      ) : st.budget && st.threshold > 1 ? (
+        <ChainLimit key={chainId} account={account} st={st} assets={assets} onRefresh={onRefresh} toast={toast} />
+      ) : (
+        <p className="fine">No daily limit on {chainById(chainId)?.name}. Face ID alone can move everything here. Pair a wedgie to get one.</p>
+      )}
+    </div>
+  );
+}
+
 /**
- * The daily limit under the home screen's total, one quiet line ("daily: 80/100 USDC · 0.01/0.01 ETH"), and an
- * "edit" that changes it right here. Same two taps as settings: Save gets it ready (the wedgie connects,
- * fee, nonce), Yes signs (Face ID has to start straight from a tap), then a bar until the chain shows it.
+ * One network's limit. Same two taps as everywhere: Save gets it ready (the wedgie connects, fee, nonce), Yes signs
+ * (Face ID has to start straight from a tap), then a bar until the chain shows it.
  */
-export function Limits({ account, st, assets, onRefresh, toast }: { account: SafeAccount; st: ChainState; assets: Asset[]; onRefresh: () => void; toast: (m: string) => void }) {
+function ChainLimit({ account, st, assets, onRefresh, toast }: { account: SafeAccount; st: ChainState; assets: Asset[]; onRefresh: () => void; toast: (m: string) => void }) {
   const b = st.budget!;
   const chainId = st.chainId;
   const coin = nativeSymbol(chainId);
-  const [editing, setEditing] = useState(false);
-  const [usdcIn, setUsdcIn] = useState("");
-  const [ethIn, setEthIn] = useState("");
+  const [usdcIn, setUsdcIn] = useState(formatUnits(b.usdcMax, 6));
+  const [ethIn, setEthIn] = useState(formatUnits(b.ethMax, 18));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState<{ p: Prepared; usdc: bigint; eth: bigint; close: () => Promise<void> } | null>(null);
@@ -39,7 +85,6 @@ export function Limits({ account, st, assets, onRefresh, toast }: { account: Saf
     if (!wait || busy) return;
     if (settled) {
       setWait(null);
-      setEditing(false);
       toast("Done");
       return;
     }
@@ -101,23 +146,12 @@ export function Limits({ account, st, assets, onRefresh, toast }: { account: Saf
 
   const fee = ready && (ready.p.opts.feeToken === "usdc" ? `${(Number(ready.p.fee.feeUsdc) / 1e6).toFixed(4)} USDC` : `${(Number(ready.p.fee.feeEth) / 1e18).toFixed(6)} ${coin}`);
   return (
-    <div className="limits">
-      {!editing ? (
-        <div className="limits-rule">
-          daily: {amount(formatUnits(b.usdc, 6))}/{amount(formatUnits(b.usdcMax, 6))} USDC · {amount(formatUnits(b.eth, 18))}/{amount(formatUnits(b.ethMax, 18))} {coin}
-          <button
-            className="link-edit"
-            onClick={() => {
-              setUsdcIn(formatUnits(b.usdcMax, 6));
-              setEthIn(formatUnits(b.ethMax, 18));
-              setError(null);
-              setEditing(true);
-            }}
-          >
-            edit
-          </button>
-        </div>
-      ) : wait ? (
+    <>
+      <p className="fine">
+        What Face ID alone can send each day. Left today: {amount(formatUnits(b.usdc, 6))} USDC · {amount(formatUnits(b.eth, 18))} {coin}. More than that needs{" "}
+        {ownerSigners(st, account).map(k => SIGNER_NAME[k]).join(" + ")}.
+      </p>
+      {wait ? (
         <div className="stack" style={{ gap: 6 }}>
           <p className="fine">{busy ? "Sending…" : `Waiting for ${chainById(chainId)?.name}…`}</p>
           <TimedBar ms={wait.ms} />
@@ -130,24 +164,22 @@ export function Limits({ account, st, assets, onRefresh, toast }: { account: Saf
           <p className="fine">
             Fee {fee}. Signed by {ready.p.opts.signers.map(k => SIGNER_NAME[k]).join(" + ")}.
           </p>
-          <div className="row">
-            <button
-              className="btn btn-sm grow"
-              disabled={busy}
-              onClick={async () => {
-                await ready.close();
-                setReady(null);
-              }}
-            >
-              Cancel
-            </button>
-            <button className="btn btn-sm btn-green grow" onClick={sign} disabled={busy}>
-              {busy ? "Signing…" : "Yes"}
-            </button>
-          </div>
+          <button className="btn btn-green wide" onClick={sign} disabled={busy}>
+            {busy ? "Signing and sending…" : "Yes"}
+          </button>
+          <button
+            className="btn wide"
+            disabled={busy}
+            onClick={async () => {
+              await ready.close();
+              setReady(null);
+            }}
+          >
+            Cancel
+          </button>
         </div>
       ) : (
-        <div className="stack" style={{ gap: 8 }}>
+        <>
           <div className="input">
             <input inputMode="decimal" value={usdcIn} onChange={e => setUsdcIn(e.target.value.replace(",", ".").replace(/[^0-9.]/g, ""))} />
             <span className="unit">USDC</span>
@@ -156,18 +188,12 @@ export function Limits({ account, st, assets, onRefresh, toast }: { account: Saf
             <input inputMode="decimal" value={ethIn} onChange={e => setEthIn(e.target.value.replace(",", ".").replace(/[^0-9.]/g, ""))} />
             <span className="unit">{coin}</span>
           </div>
-          <div className="row">
-            <button className="btn btn-sm grow" onClick={() => setEditing(false)} disabled={busy}>
-              Cancel
-            </button>
-            <button className="btn btn-sm btn-green grow" onClick={save} disabled={busy || !usdcIn || !ethIn}>
-              {busy ? "Getting ready…" : "Save"}
-            </button>
-          </div>
-        </div>
+          <button className="btn btn-green wide" onClick={save} disabled={busy || !usdcIn || !ethIn}>
+            {busy ? "Getting ready…" : "Save"}
+          </button>
+        </>
       )}
       {error && <ErrorLine text={error} />}
-    </div>
+    </>
   );
 }
-

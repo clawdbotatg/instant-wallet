@@ -25,13 +25,13 @@ import { PendingCards } from "./PendingCard";
 import { SafeConnectLayer } from "./SafeConnect";
 import { NftGrid } from "./Nfts";
 import { PositionList } from "./Positions";
-import { Limits } from "./Limits";
+import { LimitLine, LimitsSheet } from "./Limits";
 import { stashedCode } from "@/lib/dropClient";
 import { renamePasskey } from "@/lib/passkey";
 import { disconnect, openWalletConnect } from "@/lib/walletconnect";
 import type { Session } from "../WalletConnect";
 
-type View = { kind: "home" } | { kind: "send"; asset?: Asset; scanned?: string } | { kind: "swap"; fund?: number } | { kind: "receive" } | { kind: "deposit" } | { kind: "keys" } | { kind: "share"; chainId: number } | { kind: "sendAll" };
+type View = { kind: "home" } | { kind: "send"; asset?: Asset; scanned?: string } | { kind: "swap"; fund?: number } | { kind: "receive" } | { kind: "deposit" } | { kind: "keys" } | { kind: "limits"; chainId: number } | { kind: "share"; chainId: number } | { kind: "sendAll" };
 
 /** Instant Wallet on a Safe: a big balance, Connect / Deposit / Swap, the connected sites above the coins, the address pill opens Receive, settings bottom middle (keys needed / keys you have), a send button on each asset, a scan button (addresses, claim cards, WalletConnect QRs) and the wedgie (bottom left). */
 export function SafeApp({ link }: { link?: string } = {}) {
@@ -332,7 +332,11 @@ export function SafeApp({ link }: { link?: string } = {}) {
               </button>
             )}
           </div>
-          {limitSt?.budget && <Limits account={account} st={limitSt} assets={assets} onRefresh={refresh} toast={setToast} />}
+          {limitSt?.budget && (
+            <div className="limits">
+              <LimitLine st={limitSt} onEdit={() => setView({ kind: "limits", chainId: limitSt.chainId })} />
+            </div>
+          )}
           <div className="actions">
             <button className="btn" onClick={() => openWalletConnect()}>
               <ConnectIcon /> Connect
@@ -468,6 +472,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
             />
           )}
           {view.kind === "share" && <Share account={account} states={states} assets={assets} chainId={view.chainId} onDone={close} />}
+          {view.kind === "limits" && <LimitsSheet account={account} states={states} assets={assets} chainId={view.chainId} onRefresh={refresh} toast={setToast} />}
           {view.kind === "keys" && (
             <Keys
               account={account}

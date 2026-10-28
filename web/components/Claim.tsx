@@ -4,7 +4,8 @@
 import { useEffect, useState } from "react";
 import { type Address, type Hex, createWalletClient, formatUnits, http, toHex, zeroAddress } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { CHAINS, publicClient, rpcPath } from "@/lib/chains";
+import { retireBurnerKey } from "@/lib/brand";
+import { CHAINS, nativeSymbol, publicClient, rpcPath } from "@/lib/chains";
 import { AUTH_TYPES, type ClaimAuth, claimKey, usdc3009 } from "@/lib/claim";
 import { amount as fmtAmount, usd } from "@/lib/format";
 import { abi } from "@/lib/safe/core";
@@ -30,14 +31,6 @@ async function read(addr: Address): Promise<OnChain[]> {
       return { chainId: c.id, usdc, eth: eth < ETH_DUST ? 0n : eth };
     }),
   );
-}
-
-let ethPrice: number | null = null;
-async function ethUsd(): Promise<number> {
-  if (ethPrice) return ethPrice;
-  const j = await fetch("https://api.coinbase.com/v2/prices/ETH-USD/spot").then(r => r.json()).catch(() => null);
-  ethPrice = Number(j?.data?.amount) || 0;
-  return ethPrice;
 }
 
 /** USDC: two signed transfers (all but the fee to `to`, the fee to the relay), the relay submits them. */
@@ -100,14 +93,22 @@ async function claimToken(key: Hex, t: Asset, to: Address): Promise<void> {
   await waitFor(t.chainId, hash);
 }
 
-/** Every token on the card other than USDC and the native coin (those two are read straight from the chain). */
-async function others(addr: Address): Promise<Asset[]> {
+/** Every token on the card other than USDC and the native coin (those two are read straight from the chain), and
+ *  each network's native coin price (ETH, xDAI, POL…). Null if the portfolio didn't load. */
+async function others(addr: Address): Promise<{ tokens: Asset[]; nativeUsd: Record<number, number> } | null> {
   const p = await fetch(`/api/portfolio?address=${addr}`, { cache: "no-store" }).then(r => r.json()).catch(() => null);
-  return ((p?.assets ?? []) as Asset[]).filter(a => {
+  if (!p?.assets) return null;
+  const nativeUsd: Record<number, number> = {};
+  for (const a of p.assets as Asset[]) if (a.asset === zeroAddress && a.price) nativeUsd[a.chainId] = a.price;
+  const tokens = (p.assets as Asset[]).filter(a => {
     const usdc = CHAINS.find(c => c.id === a.chainId)?.usdc?.toLowerCase();
     return a.asset !== zeroAddress && a.asset.toLowerCase() !== usdc && BigInt(a.balance) > 0n;
   });
+  return { tokens, nativeUsd };
 }
+
+/** An old Burner Wallet's address holds years of spam airdrops: only tokens worth a cent are moved. */
+const worthMoving = (t: Asset) => (t.usd ?? 0) >= 0.01;
 
 /** ETH: the card pays its own gas and sends the rest. Dust that can't pay for a transfer stays. */
 async function claimEth(key: Hex, chainId: number, to: Address): Promise<bigint> {
@@ -125,18 +126,26 @@ async function claimEth(key: Hex, chainId: number, to: Address): Promise<bigint>
   return bal - cost;
 }
 
-/** /pk#0x<key> (or /claim#<key>): see what's on the card, make a wallet if this phone has none, move it all in. */
-export function Claim() {
+/**
+ * /pk#0x<key> (or /claim#<key>): see what's on the card, make a wallet if this phone has none, move it all in.
+ * `burner`: the same move for an old Burner Wallet key found in this domain's storage (xdai.io, lib/brand.ts).
+ */
+export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } = {}) {
   const [key, setKey] = useState<Hex | null | undefined>(undefined);
   const [account, setAccount] = useState<SafeAccount | null | undefined>(undefined);
   const [onChain, setOnChain] = useState<OnChain[] | null>(null);
   const [tokens, setTokens] = useState<Asset[]>([]);
-  const [price, setPrice] = useState(0);
+  const [nativeUsd, setNativeUsd] = useState<Record<number, number> | null>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<number | null>(null); // the $ claimed
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (burner) {
+      setKey(burner.key);
+      setAccount(loadAccount());
+      return;
+    }
     let k = claimKey(window.location.hash);
     try {
       if (k) sessionStorage.setItem(STORE, k);
@@ -146,20 +155,30 @@ export function Claim() {
     if (window.location.hash) history.replaceState(null, "", window.location.pathname);
     setKey(k);
     setAccount(loadAccount());
-    ethUsd().then(setPrice);
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!key) return;
     const addr = privateKeyToAccount(key).address;
     const load = () => {
       read(addr).then(setOnChain).catch(() => {});
-      others(addr).then(setTokens);
+      others(addr).then(o => {
+        if (!o) return;
+        setTokens(burner ? o.tokens.filter(worthMoving) : o.tokens);
+        setNativeUsd(o.nativeUsd);
+      });
     };
     load();
     const t = setInterval(() => document.hidden || load(), 5_000);
     return () => clearInterval(t);
   }, [key]);
+
+  // an old Burner key with nothing on it (once the token list is in too): straight on to the wallet
+  const burnerEmpty =
+    !!burner && onChain !== null && nativeUsd !== null && tokens.length === 0 && onChain.every(c => c.usdc === 0n && c.eth === 0n);
+  useEffect(() => {
+    if (burnerEmpty && done === null && !busy) burner!.onDone();
+  }, [burnerEmpty, busy]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (key === undefined || account === undefined) return null;
   if (!key)
@@ -175,7 +194,9 @@ export function Claim() {
 
   const usdcTotal = (onChain ?? []).reduce((t, c) => t + c.usdc, 0n);
   const ethTotal = (onChain ?? []).reduce((t, c) => t + c.eth, 0n);
-  const value = Number(formatUnits(usdcTotal, 6)) + Number(formatUnits(ethTotal, 18)) * price + tokens.reduce((t, a) => t + (a.usd ?? 0), 0);
+  const natives = (onChain ?? []).filter(c => c.eth > 0n); // ETH, xDAI, POL… one line each
+  const nativeValue = (chainId: number, wei: bigint) => Number(formatUnits(wei, 18)) * (nativeUsd?.[chainId] ?? 0);
+  const value = Number(formatUnits(usdcTotal, 6)) + natives.reduce((t, c) => t + nativeValue(c.chainId, c.eth), 0) + tokens.reduce((t, a) => t + (a.usd ?? 0), 0);
   const empty = onChain !== null && usdcTotal === 0n && ethTotal === 0n && tokens.length === 0;
 
   async function claim() {
@@ -185,17 +206,24 @@ export function Claim() {
     try {
       let got = 0; // what arrived, after fees
       for (const t of tokens) {
-        await claimToken(key, t, account.address); // first: the card's ETH pays for these, the rest is swept after
+        // first: the card's ETH pays for these, the rest is swept after. An old Burner key moves what it can.
+        if (burner) {
+          if (await claimToken(key, t, account.address).then(() => true, () => false)) got += t.usd ?? 0;
+          continue;
+        }
+        await claimToken(key, t, account.address);
         got += t.usd ?? 0;
       }
       const fresh = tokens.length ? await read(privateKeyToAccount(key).address) : onChain; // what gas left of the ETH
       for (const c of fresh) {
         if (c.usdc > 0n) got += Number(formatUnits(await claimUsdc(key, c.chainId, c.usdc, account.address), 6));
-        if (c.eth > 0n) got += Number(formatUnits(await claimEth(key, c.chainId, account.address), 18)) * price;
+        if (c.eth > 0n) got += nativeValue(c.chainId, await claimEth(key, c.chainId, account.address));
       }
-      try {
-        sessionStorage.removeItem(STORE);
-      } catch {}
+      if (burner) retireBurnerKey(key);
+      else
+        try {
+          sessionStorage.removeItem(STORE);
+        } catch {}
       setDone(got);
     } catch (e: any) {
       setError(friendly(e));
@@ -207,11 +235,17 @@ export function Claim() {
   const header = (
     <div className="stack center">
       {account && <img className="mark" src="/mark.png" alt="" style={{ width: 96, margin: "0 auto" }} />}
-      <div className="fine">{done !== null ? "It's in your wallet" : empty ? "This card" : "Someone sent you"}</div>
-      <div className="big" style={{ fontSize: 56, fontWeight: 700 }}>{done !== null ? usd(done) : onChain === null || (ethTotal > 0n && !price) ? "…" : usd(value)}</div>
+      <div className="fine">{done !== null ? "It's in your wallet" : empty ? "This card" : burner ? "Your old Burner Wallet has" : "Someone sent you"}</div>
+      <div className="big" style={{ fontSize: 56, fontWeight: 700 }}>{done !== null ? usd(done) : onChain === null || (ethTotal > 0n && !nativeUsd) ? "…" : usd(value)}</div>
       {done === null && !empty && onChain && (
         <div className="fine">
-          {[usdcTotal > 0n && `${formatUnits(usdcTotal, 6)} USDC`, ...tokens.map(t => `${fmtAmount(t.formatted)} ${t.symbol}`), ethTotal > 0n && `${Number(formatUnits(ethTotal, 18)).toFixed(6)} ETH`].filter(Boolean).join(" + ")}
+          {[
+            usdcTotal > 0n && `${formatUnits(usdcTotal, 6)} USDC`,
+            ...tokens.map(t => `${fmtAmount(t.formatted)} ${t.symbol}`),
+            ...natives.map(c => `${Number(formatUnits(c.eth, 18)).toFixed(c.chainId === 100 ? 2 : 6)} ${nativeSymbol(c.chainId)}`),
+          ]
+            .filter(Boolean)
+            .join(" + ")}
         </div>
       )}
     </div>
@@ -222,11 +256,16 @@ export function Claim() {
       <div className="app">
         <div className="welcome">
           {header}
-          <a className="btn btn-green wide" href="/">Open my wallet</a>
+          {burner ? (
+            <button className="btn btn-green wide" onClick={burner.onDone}>Open my wallet</button>
+          ) : (
+            <a className="btn btn-green wide" href="/">Open my wallet</a>
+          )}
         </div>
       </div>
     );
 
+  if (empty && burner) return null; // on its way to the wallet (above), or the token list is still loading
   if (empty)
     return (
       <div className="app">
@@ -249,6 +288,13 @@ export function Claim() {
             setAccount(a);
           }}
         />
+        {burner && (
+          <div className="app" style={{ paddingTop: 0 }}>
+            <button className="nfts-link" onClick={burner.onDone}>
+              Not now
+            </button>
+          </div>
+        )}
       </>
     );
 
@@ -257,10 +303,15 @@ export function Claim() {
       <div className="welcome">
         {header}
         <button className="btn btn-green wide" onClick={claim} disabled={busy || !onChain}>
-          {busy ? "Claiming…" : "Claim it"}
+          {busy ? (burner ? "Moving…" : "Claiming…") : burner ? "Move it to my wallet" : "Claim it"}
         </button>
         {error && <p className="err">{error}</p>}
         <p className="fine center">Goes to your Instant Wallet. A few cents of it pays the network fee.</p>
+        {burner && !busy && (
+          <button className="nfts-link" onClick={burner.onDone}>
+            Not now
+          </button>
+        )}
       </div>
     </div>
   );

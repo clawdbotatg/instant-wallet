@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { formatUnits } from "viem";
 import { ETH, chainById } from "@/lib/chains";
+import { claimKey } from "@/lib/claim";
 import { amount, short } from "@/lib/format";
 import { parse } from "@/lib/parse";
 import { loadAccount } from "@/lib/safe/state";
@@ -22,6 +23,9 @@ export function PayLink() {
   useEffect(() => {
     // anything else under / that isn't a page: the wallet
     // (a missing /apple-touch-icon.png parses as a name: only addresses and .eth names count)
+    // an old Burner Wallet link with the key in the path (xdai.io/<key>): a claim
+    const k = claimKey(window.location.pathname.replace(/^\//, ""));
+    if (k) return void window.location.replace(`/pk#${k}`);
     const p = parse(window.location.href);
     if (p.kind !== "pay" || !(p.to.startsWith("0x") || p.to.endsWith(".eth"))) return void window.location.replace("/");
     setHref(window.location.href);

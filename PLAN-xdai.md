@@ -4,7 +4,12 @@ Austin, 10-27. Put Instant Wallet at xdai.io with a slightly different look (dar
 has a Burner Wallet key saved there gets a sweep screen (like claim) that moves everything into their new
 Instant Wallet.
 
-Status: **planning.** Nothing built.
+Status: **building on branch `xdai`** (10-27). Not on main, not on xdai.io yet.
+
+Built: dark 🔥 look (`lib/brand.ts`, end of `globals.css`; `?brand=xdai` turns it on in a preview), the old key's
+move screen (`Claim.tsx` with `burner`, opened from `SafeRoot.tsx`), old links `/#<key>` and `/<key>` → `/pk`,
+`public/service-worker.js` kill switch. Probe: `web/tools/xdai-probe.mjs` (no chain). Not done: the actual move
+on Gnosis with real money, gas for tokens when the key has no xDAI, export of `iw.oldBurnerKey`.
 
 ---
 

@@ -104,9 +104,6 @@ export function SafeApp({ link }: { link?: string } = {}) {
     };
   }, [account, refresh, loadBalance, loadStates]);
 
-  // the passkey's name in the password manager tracks the wallet: "Savings account · atg.eth · ~$50". Every
-  // rename can pop a system notification, so the balance is rough (1-2-5 steps) and only
-  // moves when the real one halves or doubles; the last name sent is saved, so a reload doesn't rename again.
   // the wallet's name: the user's own once they set one (we never rename it then), else Spending / Savings account
   const [customName, setCustomName] = useState<string | null>(null);
   useEffect(() => setCustomName(account ? loadWalletName(account.address) : null), [account]);
@@ -116,6 +113,9 @@ export function SafeApp({ link }: { link?: string } = {}) {
     setCustomName(n);
   };
   const walletName = customName ?? (states.length ? defaultWalletName(states.some(s => s.hasWedgie)) : null);
+  // the passkey's name in the password manager tracks the wallet: "Savings account · atg.eth · ~$50". Every
+  // rename can pop a system notification, so the balance is rough (1-2-5 steps) and only
+  // moves when the real one halves or doubles; the last name sent is saved, so a reload doesn't rename again.
   const [ens, setEns] = useState<string | null | undefined>(undefined);
   useEffect(() => {
     if (!account) return;

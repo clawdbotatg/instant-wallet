@@ -46,6 +46,22 @@ export function saveAccount(a: SafeAccount | null) {
   } catch {}
 }
 
+/** The name the user gave this wallet (this browser only, private), or null: we name it (defaultWalletName). */
+export function loadWalletName(address: Address): string | null {
+  try {
+    return localStorage.getItem(`iws.name.${address.toLowerCase()}`);
+  } catch {
+    return null;
+  }
+}
+export function saveWalletName(address: Address, name: string | null) {
+  try {
+    if (name) localStorage.setItem(`iws.name.${address.toLowerCase()}`, name);
+    else localStorage.removeItem(`iws.name.${address.toLowerCase()}`);
+  } catch {}
+}
+export const defaultWalletName = (hasWedgie: boolean) => (hasWedgie ? "Savings account" : "Spending account");
+
 export type Recovery = { newOwners: Address[]; newThreshold: number; executeAfter: number; approvals: number } | null;
 /** One enabled recovery module: who can recover, after how long, and its running request. */
 export type RecoveryOn = { module: Address; days: number; guardians: Address[] | null; request: Recovery };

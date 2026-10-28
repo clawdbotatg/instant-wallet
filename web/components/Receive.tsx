@@ -7,7 +7,7 @@ import { requestLink, requestUri } from "@/lib/parse";
 import { short } from "@/lib/format";
 import { loadRequestLink, saveRequestLink } from "@/lib/store";
 import type { Account } from "@/lib/types";
-import { Blockie, CopyIcon, Qr, copy } from "./bits";
+import { Blockie, CopyIcon, PencilIcon, Qr, copy } from "./bits";
 import { ChainSelect } from "./safe/Pick";
 
 /**
@@ -16,7 +16,16 @@ import { ChainSelect } from "./safe/Pick";
  * "Include instantwallet.io link (any phone camera opens it)" (on by default, remembered) wraps it in a web link so any phone camera opens it
  * (/[...link]); off, it's the bare ethereum: request other wallets' scanners read.
  */
-export function Receive({ account }: { account: Account; toast?: (m: string) => void }) {
+export function Receive({
+  account,
+  name,
+  onName,
+}: {
+  account: Account;
+  toast?: (m: string) => void;
+  name?: string | null; // the wallet's name, as the title (tap to edit) when onName is given
+  onName?: (name: string | null) => void; // null: back to the default name
+}) {
   const [asking, setAsking] = useState(false);
   const [amount, setAmount] = useState("");
   const [token, setToken] = useState<"USDC" | "ETH">("USDC");
@@ -49,7 +58,7 @@ export function Receive({ account }: { account: Account; toast?: (m: string) => 
   };
   return (
     <div className="stack">
-      <h2>{asking ? "Request" : "Receive"}</h2>
+      {onName ? <NameTitle name={name ?? null} onSave={onName} /> : <h2>{asking ? "Request" : "Receive"}</h2>}
       <div onClick={onTap} style={{ cursor: "pointer", position: "relative" }}>
         <Qr value={uri ?? account.address} center={account.address}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, color: "var(--ink)" }}>
@@ -94,5 +103,38 @@ export function Receive({ account }: { account: Account; toast?: (m: string) => 
         </>
       )}
     </div>
+  );
+}
+
+/** The wallet's name as the title; tap to edit, Save (empty = back to the default name). */
+function NameTitle({ name, onSave }: { name: string | null; onSave: (name: string | null) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [v, setV] = useState("");
+  if (!editing)
+    return (
+      <h2 onClick={() => (setV(name ?? ""), setEditing(true))} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
+        {name ?? "…"}
+        <span style={{ color: "var(--muted)", display: "flex" }}>
+          <PencilIcon />
+        </span>
+      </h2>
+    );
+  return (
+    <form
+      className="row"
+      style={{ gap: 8 }}
+      onSubmit={e => {
+        e.preventDefault();
+        onSave(v.trim().slice(0, 40) || null);
+        setEditing(false);
+      }}
+    >
+      <div className="input" style={{ flex: 1 }}>
+        <input autoFocus maxLength={40} placeholder="Name this wallet" value={v} onChange={e => setV(e.target.value)} />
+      </div>
+      <button className="btn" type="submit">
+        Save
+      </button>
+    </form>
   );
 }

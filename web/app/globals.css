@@ -101,7 +101,9 @@ input { font: inherit; color: inherit; }
 .me .mono { word-break: normal; }
 .blockie { border-radius: 50%; display: block; image-rendering: pixelated; box-shadow: 0 0 0 2px #fff, 0 3px 8px -3px rgba(0,0,0,.4); }
 
-.balance { text-align: center; padding: 26px 16px 22px; }
+.balance { text-align: center; padding: 26px 16px 22px; position: relative; }
+.balance:has(.wallet-name) { padding-top: 38px; }
+.balance .wallet-name { position: absolute; top: 12px; right: 18px; max-width: 60%; font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .balance .big { font-size: clamp(46px, 14vw, 64px); font-weight: 700; letter-spacing: -.035em; line-height: 1; cursor: pointer; }
 .balance .total { display: flex; align-items: center; justify-content: center; gap: 10px; }
 .balance .send-all { flex: none; padding: 6px; border: 0; background: none; color: #1fa641; cursor: pointer; display: grid; place-items: center; }

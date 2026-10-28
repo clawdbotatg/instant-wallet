@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CHAINS, chainById } from "@/lib/chains";
 import { amount, short, usd } from "@/lib/format";
-import { type ChainState, type SafeAccount, loadAccount, readAll, saveAccount } from "@/lib/safe/state";
+import { type ChainState, type SafeAccount, defaultWalletName, loadAccount, loadWalletName, readAll, saveAccount, saveWalletName } from "@/lib/safe/state";
 import type { Asset, Portfolio } from "@/lib/types";
 import { loadHidden, loadPortfolio, loadShown, saveHidden, savePortfolio, saveShown } from "@/lib/store";
 import { dropOtherBudgetsCalls } from "@/lib/safe/core";
@@ -104,9 +104,18 @@ export function SafeApp({ link }: { link?: string } = {}) {
     };
   }, [account, refresh, loadBalance, loadStates]);
 
-  // the passkey's name in the password manager tracks the wallet: "Savings · atg.eth · ~$50" (Spending until a
-  // wedgie is paired). Every rename can pop a system notification, so the balance is rough (1-2-5 steps) and only
+  // the passkey's name in the password manager tracks the wallet: "Savings account · atg.eth · ~$50". Every
+  // rename can pop a system notification, so the balance is rough (1-2-5 steps) and only
   // moves when the real one halves or doubles; the last name sent is saved, so a reload doesn't rename again.
+  // the wallet's name: the user's own once they set one (we never rename it then), else Spending / Savings account
+  const [customName, setCustomName] = useState<string | null>(null);
+  useEffect(() => setCustomName(account ? loadWalletName(account.address) : null), [account]);
+  const setName = (n: string | null) => {
+    if (!account) return;
+    saveWalletName(account.address, n);
+    setCustomName(n);
+  };
+  const walletName = customName ?? (states.length ? defaultWalletName(states.some(s => s.hasWedgie)) : null);
   const [ens, setEns] = useState<string | null | undefined>(undefined);
   useEffect(() => {
     if (!account) return;
@@ -117,7 +126,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
       .catch(() => setEns(null));
   }, [account]);
   useEffect(() => {
-    if (!account || !fresh || !portfolio || !states.length || ens === undefined) return;
+    if (!account || !fresh || !portfolio || !walletName || ens === undefined) return;
     const key = `iws.passkeyName.${account.credentialId}`;
     let last: { name: string; rough: number } | null = null;
     try {
@@ -125,8 +134,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
     } catch {}
     const total = (portfolio.totalUsd ?? 0) + posUsd;
     const rough = last && total >= last.rough / 2 && total <= last.rough * 2 && (last.rough > 0 || total < 1) ? last.rough : roughUsd(total);
-    const kind = states.some(s => s.hasWedgie) ? "Savings" : "Spending";
-    const name = `${kind} · ${ens ?? short(account.address)} · ~${compactUsd(rough)}`;
+    const name = `${walletName} · ${ens ?? short(account.address)} · ~${compactUsd(rough)}`;
     if (name === last?.name) return;
     renamePasskey(account.credentialId, name).then(ok => {
       if (!ok) return;
@@ -134,7 +142,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
         localStorage.setItem(key, JSON.stringify({ name, rough }));
       } catch {}
     });
-  }, [account, fresh, portfolio, posUsd, states, ens]);
+  }, [account, fresh, portfolio, posUsd, walletName, ens]);
 
   // the iOS app's pull-down: a newer deploy reloads the whole page; otherwise reload the balance now, with the
   // spinner beside it for at least a beat
@@ -275,6 +283,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
         )}
 
         <div className="card balance">
+          {walletName && <div className="wallet-name">{walletName}</div>}
           <div className="total">
             <div className={fresh ? "big" : "big stale"} onClick={() => setShowUsd(!showUsd)}>
               {portfolio ? (showUsd ? usd((portfolio.totalUsd ?? 0) + posUsd) : `${assets.length} assets`) : <span className="loading-bar" aria-label="Loading" />}
@@ -376,7 +385,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
           {view.kind === "sendAll" && <SendAll account={account} assets={assets} states={states} onDone={close} />}
           {view.kind === "swap" && <SafeSwap account={account} assets={assets} states={states} fund={view.fund} onDone={close} />}
           {view.kind === "deposit" && <Deposit account={account} onReceive={() => setView({ kind: "receive" })} />}
-          {view.kind === "receive" && <Receive account={{ address: account.address } as any} toast={setToast} />}
+          {view.kind === "receive" && <Receive account={{ address: account.address } as any} toast={setToast} name={walletName} onName={setName} />}
           {view.kind === "share" && <Share account={account} states={states} assets={assets} chainId={view.chainId} onDone={close} />}
           {view.kind === "keys" && (
             <Keys

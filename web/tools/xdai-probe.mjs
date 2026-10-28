@@ -89,6 +89,17 @@ ok(!p.url().includes(key.slice(2)), "key out of the address bar");
 const sw = await p.request.get(`${APP}/service-worker.js`);
 ok(sw.ok() && (await sw.text()).includes("unregister"), "/service-worker.js kill switch");
 
+// 7. ?burner=new plants a test key and shows its address to fund; a second visit keeps the same key
+p = await page();
+await p.goto(`${APP}/?burner=new`);
+await p.waitForSelector("text=Test Burner");
+const planted = await p.evaluate(() => localStorage.getItem("metaPrivateKey"));
+ok(/^0x[0-9a-f]{64}$/.test(planted || ""), "?burner=new plants a key");
+await p.goto(`${APP}/?burner=new`);
+await p.waitForSelector("text=Test Burner");
+ok((await p.evaluate(() => localStorage.getItem("metaPrivateKey"))) === planted, "?burner=new keeps the same key");
+await p.context().close();
+
 await browser.close();
 console.log(fails ? `${fails} FAILED` : "all passed");
 process.exit(fails ? 1 : 0);

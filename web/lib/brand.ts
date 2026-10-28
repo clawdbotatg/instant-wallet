@@ -1,4 +1,4 @@
-import { type Hex } from "viem";
+import { type Hex, toHex } from "viem";
 import { claimKey } from "./claim";
 
 /**
@@ -46,4 +46,16 @@ export function oldBurnerKey(): Hex | null {
     if (k) return k;
   } catch {}
   return burnerKey();
+}
+
+/** Testing only, never on xdai.io or production: `?burner=new` plants a fresh key where the old Burner Wallet kept its key, as if
+ *  this browser had used it. Fund its address, reload, and the move screen shows (PLAN-xdai.md). */
+export function plantTestBurner(): Hex | null {
+  if (XDAI_HOSTS.includes(window.location.hostname) || process.env.NEXT_PUBLIC_VERCEL_ENV === "production") return null;
+  if (new URLSearchParams(window.location.search).get("burner") !== "new") return null;
+  const k = burnerKey() ?? (toHex(crypto.getRandomValues(new Uint8Array(32))) as Hex);
+  try {
+    localStorage.setItem(BURNER_KEY, k);
+  } catch {}
+  return k;
 }

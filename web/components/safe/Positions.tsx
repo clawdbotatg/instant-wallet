@@ -12,18 +12,25 @@ const TYPE: Record<string, string> = { deposit: "Deposit", staked: "Staked", rew
 export function PositionList({ address, onTotal }: { address: string; onTotal: (usd: number) => void }) {
   const [list, setList] = useState<Position[] | null>(null);
   useEffect(() => {
-    const load = () =>
+    // a failed load retries in 15 s: the passkey rename waits for the positions total (SafeApp)
+    let retry: ReturnType<typeof setTimeout> | undefined;
+    const load = () => {
+      clearTimeout(retry);
       fetch(`/api/positions?address=${address}`, { cache: "no-store" })
         .then(r => r.json())
         .then(j => {
-          if (!j?.positions) return;
+          if (!j?.positions) throw new Error("no positions");
           setList(j.positions);
           onTotal(j.positions.reduce((t: number, p: Position) => t + p.usd, 0));
         })
-        .catch(() => {});
+        .catch(() => (retry = setTimeout(load, 15_000)));
+    };
     load();
     window.addEventListener("instantwallet:refresh", load);
-    return () => window.removeEventListener("instantwallet:refresh", load);
+    return () => {
+      clearTimeout(retry);
+      window.removeEventListener("instantwallet:refresh", load);
+    };
   }, [address, onTotal]);
   if (!list?.length) return null;
   return (

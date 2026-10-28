@@ -112,11 +112,17 @@ function NameTitle({ name, onSave }: { name: string | null; onSave: (name: strin
   const [v, setV] = useState("");
   if (!editing)
     return (
-      <h2 onClick={() => (setV(name ?? ""), setEditing(true))} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
-        {name ?? "…"}
-        <span style={{ color: "var(--muted)", display: "flex" }}>
-          <PencilIcon />
-        </span>
+      <h2>
+        <button
+          aria-label={`Rename ${name ?? "this wallet"}`}
+          onClick={() => (setV(name ?? ""), setEditing(true))}
+          style={{ border: 0, padding: 0, background: "none", color: "inherit", font: "inherit", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}
+        >
+          {name ?? "…"}
+          <span style={{ color: "var(--muted)", display: "flex" }}>
+            <PencilIcon />
+          </span>
+        </button>
       </h2>
     );
   return (

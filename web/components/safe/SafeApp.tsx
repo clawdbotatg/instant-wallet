@@ -105,7 +105,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
   }, [account, refresh, loadBalance, loadStates]);
 
   // the wallet's name: the user's own once they set one (we never rename it then), else Spending / Savings account
-  // by balance (under $200 is spending money)
+  // by the rough balance below (under ~$200 is spending money)
   const [customName, setCustomName] = useState<string | null>(null);
   useEffect(() => setCustomName(account ? loadWalletName(account.address) : null), [account]);
   const setName = (n: string | null) => {
@@ -113,10 +113,22 @@ export function SafeApp({ link }: { link?: string } = {}) {
     saveWalletName(account.address, n);
     setCustomName(n);
   };
-  const walletName = customName ?? (portfolio ? defaultWalletName((portfolio.totalUsd ?? 0) + (posUsd ?? 0)) : null);
   // the passkey's name in the password manager tracks the wallet: "Savings account · atg.eth · ~$50". Every
-  // rename can pop a system notification, so the balance is rough (1-2-5 steps) and only
-  // moves when the real one halves or doubles; the last name sent is saved, so a reload doesn't rename again.
+  // rename can pop a system notification, so the balance is rough (1-2-5 steps) and sticky: it only moves when the
+  // real one halves or doubles (so does the default name, which follows it). The last name sent is saved, so a
+  // reload doesn't rename again.
+  const namedKey = account ? `iws.passkeyName.${account.credentialId}` : "";
+  const roughRef = useRef<number | null>(null);
+  useEffect(() => {
+    roughRef.current = null;
+    try {
+      roughRef.current = JSON.parse(localStorage.getItem(namedKey) || "null")?.rough ?? null;
+    } catch {}
+  }, [namedKey]);
+  const total = portfolio ? (portfolio.totalUsd ?? 0) + (posUsd ?? 0) : null;
+  const rough = total === null ? null : stickyRough(total, roughRef.current);
+  roughRef.current = rough ?? roughRef.current;
+  const walletName = customName ?? (rough === null ? null : defaultWalletName(rough));
   const [ens, setEns] = useState<string | null | undefined>(undefined);
   useEffect(() => {
     if (!account) return;
@@ -127,23 +139,20 @@ export function SafeApp({ link }: { link?: string } = {}) {
       .catch(() => setEns(null));
   }, [account]);
   useEffect(() => {
-    if (!account || !fresh || !portfolio || posUsd === null || !walletName || ens === undefined) return;
-    const key = `iws.passkeyName.${account.credentialId}`;
-    let last: { name: string; rough: number } | null = null;
+    if (!account || !fresh || posUsd === null || rough === null || !walletName || ens === undefined) return;
+    let last: { name: string } | null = null;
     try {
-      last = JSON.parse(localStorage.getItem(key) || "null");
+      last = JSON.parse(localStorage.getItem(namedKey) || "null");
     } catch {}
-    const total = (portfolio.totalUsd ?? 0) + posUsd;
-    const rough = last && total >= last.rough / 2 && total <= last.rough * 2 && (last.rough > 0 || total < 1) ? last.rough : roughUsd(total);
     const name = `${walletName} · ${ens ?? short(account.address)} · ~${compactUsd(rough)}`;
     if (name === last?.name) return;
     renamePasskey(account.credentialId, name).then(ok => {
       if (!ok) return;
       try {
-        localStorage.setItem(key, JSON.stringify({ name, rough }));
+        localStorage.setItem(namedKey, JSON.stringify({ name, rough }));
       } catch {}
     });
-  }, [account, fresh, portfolio, posUsd, walletName, ens]);
+  }, [account, namedKey, fresh, posUsd, rough, walletName, ens]);
 
   // the iOS app's pull-down: a newer deploy reloads the whole page; otherwise reload the balance now, with the
   // spinner beside it for at least a beat
@@ -421,6 +430,12 @@ export function SafeApp({ link }: { link?: string } = {}) {
       <WedgieProgress />
     </>
   );
+}
+
+/** The last rough balance while the real one is within half to double of it (and under $1 for 0), else a new one. */
+function stickyRough(total: number, last: number | null): number {
+  if (last !== null && (last > 0 ? total >= last / 2 && total <= last * 2 : total < 1)) return last;
+  return roughUsd(total);
 }
 
 /** The nearest 1-2-5 step: 0, 1, 2, 5, 10, 20, 50, 100… */

@@ -104,8 +104,9 @@ export function SafeApp({ link }: { link?: string } = {}) {
     };
   }, [account, refresh, loadBalance, loadStates]);
 
-  // the passkey's name in the password manager tracks the wallet: "Savings · atg.eth · $1,234" (Spending until a
-  // wedgie is paired), re-sent whenever it changes so the passkey picker shows which wallet is which
+  // the passkey's name in the password manager tracks the wallet: "Savings · atg.eth · ~$50" (Spending until a
+  // wedgie is paired). Every rename can pop a system notification, so the balance is rough (1-2-5 steps) and only
+  // moves when the real one halves or doubles; the last name sent is saved, so a reload doesn't rename again.
   const [ens, setEns] = useState<string | null | undefined>(undefined);
   useEffect(() => {
     if (!account) return;
@@ -115,14 +116,24 @@ export function SafeApp({ link }: { link?: string } = {}) {
       .then(j => setEns(j?.name ?? null))
       .catch(() => setEns(null));
   }, [account]);
-  const named = useRef("");
   useEffect(() => {
     if (!account || !fresh || !portfolio || !states.length || ens === undefined) return;
+    const key = `iws.passkeyName.${account.credentialId}`;
+    let last: { name: string; rough: number } | null = null;
+    try {
+      last = JSON.parse(localStorage.getItem(key) || "null");
+    } catch {}
+    const total = (portfolio.totalUsd ?? 0) + posUsd;
+    const rough = last && total >= last.rough / 2 && total <= last.rough * 2 && (last.rough > 0 || total < 1) ? last.rough : roughUsd(total);
     const kind = states.some(s => s.hasWedgie) ? "Savings" : "Spending";
-    const name = `${kind} · ${ens ?? short(account.address)} · ${usd((portfolio.totalUsd ?? 0) + posUsd)}`;
-    if (name === named.current) return;
-    named.current = name;
-    renamePasskey(account.credentialId, name);
+    const name = `${kind} · ${ens ?? short(account.address)} · ~${compactUsd(rough)}`;
+    if (name === last?.name) return;
+    renamePasskey(account.credentialId, name).then(ok => {
+      if (!ok) return;
+      try {
+        localStorage.setItem(key, JSON.stringify({ name, rough }));
+      } catch {}
+    });
   }, [account, fresh, portfolio, posUsd, states, ens]);
 
   // the iOS app's pull-down: a newer deploy reloads the whole page; otherwise reload the balance now, with the
@@ -398,3 +409,11 @@ export function SafeApp({ link }: { link?: string } = {}) {
     </>
   );
 }
+
+/** The nearest 1-2-5 step: 0, 1, 2, 5, 10, 20, 50, 100… */
+function roughUsd(v: number): number {
+  if (v < 0.5) return 0;
+  const p = 10 ** Math.floor(Math.log10(v));
+  return [1, 2, 5, 10].map(m => m * p).reduce((a, b) => (Math.abs(Math.log(b / v)) < Math.abs(Math.log(a / v)) ? b : a));
+}
+const compactUsd = (v: number) => (v >= 1e6 ? `$${v / 1e6}M` : v >= 1e3 ? `$${v / 1e3}k` : `$${v}`);

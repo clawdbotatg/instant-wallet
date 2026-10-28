@@ -244,13 +244,20 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
       {upgrade ? (
         <div className="stack center" style={{ gap: 10, marginBottom: 8 }}>
           <img src="/brand/xdai/burner.png" alt="Burner Wallet" style={{ height: 72, margin: "0 auto" }} />
-          <h2 style={{ fontSize: 26 }}>The Burner Wallet has become the Instant Wallet</h2>
+          <h2 style={{ fontSize: 26, lineHeight: 1.25 }}>
+            The Burner Wallet
+            <br />
+            <span style={{ fontWeight: 500, color: "var(--muted)" }}>has become</span>
+            <br />
+            Instant Wallet
+          </h2>
           <img src="/brand/xdai/logo.png" alt="Instant Wallet" style={{ width: 240, maxWidth: "70%", margin: "0 auto" }} />
         </div>
       ) : (
         account && <img className="mark" src="/mark.png" alt="" style={{ width: 96, margin: "0 auto" }} />
       )}
-      <div className="fine">{done !== null ? "It's in your wallet" : empty ? "This card" : burner ? "Your old Burner Wallet has" : "Someone sent you"}</div>
+      {/* an old xdai.io card is the person's own old wallet, not a gift: no "Someone sent you" */}
+      {!(upgrade && !burner) && <div className="fine">{done !== null ? "It's in your wallet" : empty ? "This card" : burner ? "Your old Burner Wallet has" : "Someone sent you"}</div>}
       <div className="big" style={{ fontSize: 56, fontWeight: 700 }}>{done !== null ? usd(done) : onChain === null || (ethTotal > 0n && !nativeUsd) ? "…" : usd(value)}</div>
       {done === null && !empty && onChain && (
         <div className="fine">

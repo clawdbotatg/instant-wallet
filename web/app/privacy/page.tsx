@@ -23,6 +23,10 @@ export default function Privacy() {
         <li>Blockchain data (balances, prices, swaps) comes from Alchemy, Uniswap and LI.FI; they see your wallet address.</li>
         <li>Buying crypto with a card or Apple Pay goes through Coinbase, under Coinbase&apos;s own privacy policy.</li>
         <li>The camera is used only to scan QR codes, on your phone. Nothing is recorded or uploaded.</li>
+        <li>
+          The browser extension holds no keys. It keeps your address, connected sites and settings on your computer.
+          It passes a site&apos;s requests to Instant Wallet in your browser, and its blockchain reads to our server.
+        </li>
       </ul>
       <p className="fine">We don&apos;t sell or share your data. Questions: austin@ethereum.org</p>
     </div>

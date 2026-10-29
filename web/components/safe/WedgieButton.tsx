@@ -174,7 +174,7 @@ function baseStatus(peek: Peek | null, account: SafeAccount, states: ChainState[
             ? "Plug your wedgie into this computer. It shows up here by itself."
             : "Plug your wedgie into this computer and tap Find my wedgie (once per browser).",
         };
-  if (peek.kind === "busy") return { tone: "ok", title: "Wedgie connected", detail: "It's signing a transaction now." };
+  if (peek.kind === "busy") return { tone: "ok", title: "Wedgie connected", detail: "" };
   if (peek.kind === "taken") return { tone: "bad", title: "Wedgie busy", detail: "It's open in another tab (wedgie.dev, or Instant Wallet in another window). Close that tab, then check again." };
   if (peek.kind === "silent" && wedgieDrive()) // the drive is up but no answer yet: it keeps asking (no install advice)
     return { tone: "warn", title: "Waiting for your wedgie to answer", detail: "" };
@@ -195,8 +195,8 @@ function baseStatus(peek: Peek | null, account: SafeAccount, states: ChainState[
   if (!mine && !onWallet)
     return { tone: "warn", title: "Wedgie ready", detail: "It isn't a signer on this wallet yet.", key: h.safe };
   if (!mine && onWallet)
-    return { tone: "ok", title: "Wedgie connected", detail: "This wallet has a wedgie (added on another device). Sign with this one and the wallet checks it.", key: h.safe };
-  return { tone: "ok", title: "Wedgie connected", detail: "This is your wallet's wedgie. It signs big moves with one A press.", key: h.safe };
+    return { tone: "ok", title: "Wedgie connected", detail: "", key: h.safe };
+  return { tone: "ok", title: "Wedgie connected", detail: "", key: h.safe };
 }
 
 /**
@@ -278,7 +278,6 @@ export function WedgiePanel({ account, states, add }: { account: SafeAccount; st
   const plugged = peek?.kind === "hello" || peek?.kind === "busy";
   const hello = peek?.kind === "hello" ? peek.hello : null;
   const onWallet = states.some(s => s.hasWedgie);
-  const chains = states.filter(s => s.hasWedgie).length;
 
   return (
     <div className="stack" style={{ gap: 12 }}>
@@ -305,25 +304,10 @@ export function WedgiePanel({ account, states, add }: { account: SafeAccount; st
             )}
           </div>
 
-          {(hello || onWallet || account.wedgie) && (
-            <div className="card kv">
-              {hello && (
-                <div>
-                  <span>App</span>
-                  <b>{"safe" in hello ? "Safe signer" : hello.running || "none"}</b>
-                </div>
-              )}
-              {st.key && (
-                <div>
-                  <span>On its screen</span>
-                  <b className="mono">{`${wedgieHome(st.key).slice(0, 6)}…${wedgieHome(st.key).slice(-4)}`}</b>
-                </div>
-              )}
-              <div>
-                <span>On this wallet</span>
-                <b>{onWallet ? `yes, on ${chains} chain${chains === 1 ? "" : "s"}` : account.wedgie ? "yes" : "not yet"}</b>
-              </div>
-            </div>
+          {st.key && st.tone !== "ok" && (
+            <p className="fine">
+              On its screen: <b className="mono">{`${wedgieHome(st.key).slice(0, 6)}…${wedgieHome(st.key).slice(-4)}`}</b>
+            </p>
           )}
 
           <div className="stack">
@@ -380,17 +364,17 @@ export function WedgiePanel({ account, states, add }: { account: SafeAccount; st
               </button>
             )}
             {st.tone === "warn" && st.key && !onWallet && add}
-            {((wedgieSerial() && armed) || (wedgieDrive() && plugged)) && !installing && (
+            {st.tone === "bad" && ((wedgieSerial() && armed) || (wedgieDrive() && plugged)) && !installing && (
               <button className="btn wide" onClick={() => check(true)} disabled={checking}>
                 {checking ? "Checking…" : "Check again"}
               </button>
             )}
-            {wedgieDrive() && !st.drive && (
+            {wedgieDrive() && !st.drive && st.tone !== "ok" && (
               <button className="pill" style={{ justifySelf: "center" }} onClick={() => openDrivePanel()}>
                 Wedgie connection
               </button>
             )}
-            {wedgieSerial() && armed && (
+            {wedgieSerial() && armed && st.tone === "bad" && (
               <button
                 className="pill"
                 style={{ justifySelf: "center" }}

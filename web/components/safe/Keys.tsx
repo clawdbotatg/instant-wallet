@@ -386,19 +386,13 @@ export function Keys({
       <ChainSelect value={chainId} onChange={setChainId} />
       {st && (
         <Summary key={chainId} account={account} st={st} assets={assets} onRefresh={onRefresh} toast={toast}>
-          {st.owners.map(o => (
+          {/* one row per wedgie (older wallets have it in 2 slots); every slot while editing, so each can go */}
+          {st.owners.filter((o, i, all) => keysEdit || !st.wedgieHomes[o.toLowerCase()] || all.findIndex(x => st.wedgieHomes[x.toLowerCase()] === st.wedgieHomes[o.toLowerCase()]) === i).map(o => (
             <div className="keyrow" key={o} style={{ padding: 0 }}>
               <span className="row" style={{ gap: 8 }}>
                 {howSigns(account, st, o) === "wedgie" && st.wedgieHomes[o.toLowerCase()] ? (
-                  // the wedgie by the address on its own home screen; the owner (its signer contract) when opened
-                  <span className="stack" style={{ gap: 2 }}>
-                    <Addr a={st.wedgieHomes[o.toLowerCase()]} chainId={chainId} />
-                    {wedgieOpen && (
-                      <span className="fine">
-                        signs through <Addr a={o} chainId={chainId} inline />
-                      </span>
-                    )}
-                  </span>
+                  // the wedgie by the address on its own home screen
+                  <Addr a={st.wedgieHomes[o.toLowerCase()]} chainId={chainId} />
                 ) : (
                   <Addr a={o} chainId={chainId} />
                 )}

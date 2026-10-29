@@ -9,7 +9,7 @@ import { type ChainState, type SafeAccount, defaultWalletName, forgetKnown, know
 import type { Asset, Portfolio } from "@/lib/types";
 import { loadHidden, loadPortfolio, loadShown, saveHidden, savePortfolio, saveShown } from "@/lib/store";
 import { dropOtherBudgetsCalls } from "@/lib/safe/core";
-import { type Prepared, finishOwners, ownerSigners, prepareOwners, signerOptions } from "@/lib/safe/send";
+import { type Prepared, finishOwners, ownerSigners, prepareOwners } from "@/lib/safe/send";
 import { friendly } from "../Welcome";
 import { AppsIcon, Blockie, CheckIcon, DepositIcon, GearIcon, ScanIcon, SendIcon, Sheet, sheetOpen, TokenIcon, TrashIcon, copy, useToast } from "../bits";
 import { Receive } from "../Receive";
@@ -244,11 +244,10 @@ export function SafeApp({ link }: { link?: string } = {}) {
     refresh();
   };
   const top = Math.max(1, ...states.map(s => s.level));
-  // the settings button's "2/3": keys it takes to move everything / keys you have (on the chain at the top level)
+  // the settings button's "2/3": the Safe's threshold / its owners (on the chain at the top level)
   const topState = states.find(s => s.level === top);
-  const opts = topState && topState.threshold > 1 ? signerOptions(topState, account!) : [];
-  const keysHave = new Set(opts.flatMap(o => o.signers)).size || 1;
-  const keysNeed = opts.length ? Math.min(...opts.map(o => o.signers.length)) : 1;
+  const keysHave = topState?.owners.length || 1;
+  const keysNeed = topState?.threshold || 1;
   const feeTokenOn = (chainId: number): "usdc" | "eth" => {
     const usdcAddr = chainById(chainId)?.usdc?.toLowerCase();
     // USDC only when there's plenty for a fee there (Ethereum fees are dollars); else ETH

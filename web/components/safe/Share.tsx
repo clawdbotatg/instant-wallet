@@ -9,7 +9,7 @@ import { cardsPdfBlob } from "@/lib/claimBatch";
 import { amount as fmtAmount, usd } from "@/lib/format";
 import { transfer } from "@/lib/safe/core";
 import { Parked } from "@/lib/safe/pending";
-import { type FeeToken, type Stage, budgetSend, getQuote, ownersSend, plan, sendKind } from "@/lib/safe/send";
+import { type FeeToken, type Stage, budgetSend, getQuote, ownersSend, plan, sendKind, usesWedgie } from "@/lib/safe/send";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
@@ -172,7 +172,7 @@ export function Share({ account, states, assets, chainId: startChain, onDone }: 
       setStep("quote");
       const { calls, p, q, feeToken } = await prep(c);
       const onStage = (s: Stage) => setStep(s);
-      if (p.signers.includes("wedgie") && wedgieSupported()) wedgie = await Wedgie.connect(); // a phone: it parks for the computer
+      if (usesWedgie(account, st!, p.signers) && wedgieSupported()) wedgie = await Wedgie.connect(); // a phone: it parks for the computer
       if (p.path === "budget") await budgetSend({ account, state: st!, calls, feeToken, quote: q, onStage });
       else await ownersSend({ account, state: st!, calls, signers: p.signers, feeToken, wedgie, quote: q, onStage, label: `Share ${c.label}` });
       setStep("done");

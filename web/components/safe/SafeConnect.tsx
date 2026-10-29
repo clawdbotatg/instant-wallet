@@ -5,7 +5,7 @@ import { type Hash, formatUnits } from "viem";
 import { CHAINS, chainById } from "@/lib/chains";
 import { amount as fmtAmount, short } from "@/lib/format";
 import { siteCalls, siteGas, signForSite } from "@/lib/safe/connect";
-import { type FeeToken, type Prepared, type Signer, type Stage, finishOwners, ownerSigners, prepareOwners, signerOptions } from "@/lib/safe/send";
+import { type FeeToken, type Prepared, type Signer, type Stage, finishOwners, ownerSigners, prepareOwners, signerOptions, usesWedgie } from "@/lib/safe/send";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { type Pending, remember, respond } from "@/lib/walletconnect";
 import { ChainChip } from "../bits";
@@ -73,7 +73,7 @@ function SafeRequest({
   const options = st && st.threshold > 1 ? signerOptions(st, account) : [];
   const [chosen, setChosen] = useState<Signer[] | null>(null);
   const signers: Signer[] =
-    chosen && options.some(o => o.ready && o.signers.join() === chosen.join()) ? chosen : st ? ownerSigners(st, account) : ["burner"];
+    chosen && options.some(o => o.ready && o.signers.join() === chosen.join()) ? chosen : st ? ownerSigners(st, account) : [account.burnerSigner];
   const busy = stage !== null;
 
   let calls: ReturnType<typeof siteCalls> | null = null;
@@ -110,7 +110,7 @@ function SafeRequest({
       if (pending.kind === "calls" && prepared!.fee.until < Date.now() + 30_000) return setTick(t => t + 1); // stale quote: a fresh one, then tap again
       // the wedgie first, while it's still the tap: Chrome's port prompt needs one, and Face ID used it up
       // (10-27: "Must be handling a user gesture" on a Uniswap swap from the extension)
-      if (signers.includes("wedgie") && wedgieSupported() && (pending.kind === "calls" || pending.raw)) w = await Wedgie.connect();
+      if (st && usesWedgie(account, st, signers) && wedgieSupported() && (pending.kind === "calls" || pending.raw)) w = await Wedgie.connect();
       if (pending.kind === "calls") {
         if (!prepared) return;
         // answer the site the moment the relay has the hash, as any wallet does: the site watches the chain itself

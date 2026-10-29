@@ -6,10 +6,10 @@ import { brainKey, isXdai, oldBurnerKey } from "@/lib/brand";
 import { claimKey } from "@/lib/claim";
 import { CHAINS, chainById, explorerAddress, nativeSymbol } from "@/lib/chains";
 import { amount, short } from "@/lib/format";
-import { DAO, FEE_ALLOWANCE, RECOVERY_60D, VERIFIERS, VERIFIERS_SLOT2 } from "@/lib/safe/config";
-import { type Call, DEFAULT_BUDGET, abi, budgetCalls, deploySignerCall, feeAllowanceCalls, recoveryLayoutCalls, selfCall, setGuardianCalls } from "@/lib/safe/core";
-import { type FeeToken, type Prepared, type Signer, finishOwners, getQuote, ownerSigners, prepareOwners } from "@/lib/safe/send";
-import { type ChainState, type SafeAccount, hotOf, oldLayout, readChain, wedgieSigners } from "@/lib/safe/state";
+import { DAO, FEE_ALLOWANCE, RECOVERY_60D, VERIFIERS } from "@/lib/safe/config";
+import { type Call, DEFAULT_BUDGET, abi, budgetCalls, deploySignerCall, feeAllowanceCalls, recoveryLayoutCalls, selfCall } from "@/lib/safe/core";
+import { type FeeToken, type Prepared, type Signer, finishOwners, getQuote, howSigns, ownerSigners, prepareOwners, signerLabel, usesWedgie } from "@/lib/safe/send";
+import { type ChainState, type SafeAccount, daoDays, readChain, wedgieSigners } from "@/lib/safe/state";
 import { Wedgie, wedgieDrive, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
 import { AddressInput, Blockie, PencilIcon, TimedBar, copy } from "../bits";
@@ -20,14 +20,13 @@ import { friendly } from "../Welcome";
 import { ErrorLine } from "./WedgieButton";
 
 /**
- * Keys & safety, per chain (each chain's Safe is its own). Three things (Austin 10-14: no hot wallet any more):
- *   Instant     the passkey (Face ID). Alone at first; once the wedgie is on, it spends a daily limit.
- *   Wedgie      the hardware key, counts twice: big moves and settings need the wedgie + Instant (3 of 3).
- *   Recovery    replaces lost keys only, after a wait you can cancel in. Not a signer. Instant alone: the DAO, or
- *               any address you control (MetaMask, Ledger, ENS, a paper seed), 7 days. With the wedgie (Austin
- *               10-15): your own address waits 14 days, the DAO 60 (it mustn't get your money in two weeks).
- * Pairing the wedgie also gives the burner its daily budget (Zodiac Roles). A wallet that already has a hot wallet
- * (added before 10-14) keeps it: it's still an owner, so it's shown and can still sign.
+ * Settings, per chain (each chain's Safe is its own). A plain Safe multisig (Austin 10-28: no kinds of signer):
+ *   Signers     any addresses, M of N, add / remove / change M. How each one signs is worked out per address
+ *               (lib/safe/send.ts howSigns): this phone's Face ID, the wedgie (one signer; older wallets have it
+ *               twice), or a browser wallet.
+ *   Daily limit what Face ID alone can send once M > 1 (Zodiac Roles); set up when M goes past 1.
+ *   Recovery    the DAO only, when too many signers are lost: 7 days, or 60. You can cancel it in that time.
+ *               (Older wallets may still have their own recovery address on: it's shown.)
  */
 export function Keys({
   account,
@@ -51,15 +50,15 @@ export function Keys({
   const [busy, setBusy] = useState<string | null>(null);
   // an error shows in the step whose button caused it, next to where you tapped
   const [error, setErrorRaw] = useState<{ what: string; msg: string } | null>(null);
-  const [guardianIn, setGuardianIn] = useState<Address | null>(null);
+  const [signerIn, setSignerIn] = useState<Address | null>(null);
   const [recEdit, setRecEdit] = useState(false); // recovery: one line until Edit / learn more
+  const [keysEdit, setKeysEdit] = useState(false); // signers: the list until Edit
   const st = states.find(s => s.chainId === chainId);
   const usdc = chainById(chainId)?.usdc?.toLowerCase();
   const haveUsdc = assets.some(a => a.chainId === chainId && a.asset.toLowerCase() === usdc && BigInt(a.balance) >= (chainId === 1 ? 10_000_000n : 1_000_000n));
   const haveEth = assets.some(a => a.chainId === chainId && a.asset === zeroAddress && BigInt(a.balance) > 0n);
   const feeToken: FeeToken = haveUsdc ? "usdc" : "eth";
   const canPay = haveUsdc || haveEth || assets.some(a => a.chainId === chainId && a.asset.toLowerCase() === usdc && BigInt(a.balance) > 0n);
-  const hot = st ? hotOf(account, st) : account.hot;
 
   // the budget comes with the first second key (the wedgie; on older wallets maybe a hot wallet)
   // (with the fee's own allowance, so the relay's USDC fee doesn't come off the limit)
@@ -89,7 +88,7 @@ export function Keys({
     return recoveryLayoutCalls(account.address, s.modules, s.stored);
   };
   // a change the wedgie has to sign: connect it now, while this is still the tap (a port prompt needs one)
-  const wedgieFor = async (signers: Signer[]) => (signers.includes("wedgie") && wedgieSupported() ? await Wedgie.connect() : null);
+  const wedgieFor = async (s: ChainState, signers: Signer[]) => (usesWedgie(account, s, signers) && wedgieSupported() ? await Wedgie.connect() : null);
 
   // two taps: the first gets everything ready (MetaMask / the wedgie connect, the fee, the nonce); the second signs.
   // Face ID has to start straight from a tap: after a MetaMask popup or a network call, Safari and Chrome refuse it.
@@ -161,35 +160,68 @@ export function Keys({
     }
   }
 
-  const signLabel = (p: Prepared) =>
-    p.opts.signers.map(x => (x === "burner" ? "your Instant wallet" : x === "hot" ? "your hot wallet" : "the wedgie")).join(" + ");
+  const signLabel = (p: Prepared) => signerLabel(account, p.opts.state, p.opts.signers);
 
-  const setPaper = () =>
-    prep("paper", async () => {
+  /** An owners change (`calls` from the fresh chain state), confirmed with Yes like every other step. */
+  const ownersChange = (what: string, label: ReactNode, build: (s: ChainState) => Promise<Call[]> | Call[], settled: (s: ChainState) => boolean) =>
+    prep(what, async () => {
       const st = await fresh();
-      if (!guardianIn) throw new Error("Enter an address (0x…) or an ENS name.");
-      const paper = guardianIn;
-      if (st.owners.some(o => o.toLowerCase() === paper.toLowerCase())) throw new Error("That address is already one of your keys. Recovery must be separate.");
-      if (st.modules.includes(RECOVERY_60D) && paper.toLowerCase() === DAO.toLowerCase()) throw new Error("That's the DAO. It's already your 60-day recovery.");
-      if (!st.guardians) throw new Error("Couldn't read the current recovery address. Try again in a moment.");
+      const calls = await build(st);
       const signers = ownerSigners(st, account);
-      const w = await wedgieFor(signers);
+      const w = await wedgieFor(st, signers);
       try {
-        const p = await prepareOwners({ account, state: st, calls: setGuardianCalls(st.recoveryModule, st.guardians, paper), signers, feeToken, wedgie: w });
-        return {
-          label: <>Make <Addr a={paper} chainId={chainId} inline /> your recovery address</>,
-          p,
-          after: () => {
-            onAccount({ ...account, paper });
-          },
-          close: async () => w?.close(),
-          settled: s => s.guardians?.[0]?.toLowerCase() === paper.toLowerCase(),
-        };
+        const p = await prepareOwners({ account, state: st, calls, signers, feeToken, setup: true, wedgie: w, label: typeof label === "string" ? label : "Change the signers" });
+        return { label, p, settled, close: async () => w?.close() };
       } catch (e) {
         await w?.close();
         throw e;
       }
     });
+  const safeCall = (functionName: "addOwnerWithThreshold" | "removeOwner" | "changeThreshold", args: readonly unknown[]) =>
+    selfCall(account.address, encodeFunctionData({ abi: abi.safe, functionName, args } as any));
+  const same = (x: Address, y: Address) => x.toLowerCase() === y.toLowerCase();
+
+  const addSigner = () => {
+    const a = signerIn;
+    if (!a) return;
+    ownersChange(
+      "add",
+      <>Add <Addr a={a} chainId={chainId} inline /> as a signer</>,
+      st => {
+        if (st.owners.some(o => same(o, a))) throw new Error("That address is already a signer.");
+        if (same(a, account.address)) throw new Error("That's this wallet itself.");
+        return [safeCall("addOwnerWithThreshold", [a, BigInt(st.threshold)])];
+      },
+      s => s.owners.some(o => same(o, a)),
+    );
+  };
+
+  const removeSigner = (a: Address) =>
+    ownersChange(
+      `rm${a}`,
+      <>Remove <Addr a={a} chainId={chainId} inline />{same(a, account.burnerSigner) ? " (this phone's Face ID: it can't sign after this)" : ""}</>,
+      st => {
+        const i = st.owners.findIndex(o => same(o, a));
+        if (i < 0) throw new Error("That address isn't a signer any more.");
+        if (st.owners.length < 2) throw new Error("A wallet needs at least one signer.");
+        // getOwners is the Safe's linked list in order: the one before it, or the sentinel for the first
+        const prev = i === 0 ? "0x0000000000000000000000000000000000000001" : st.owners[i - 1];
+        return [safeCall("removeOwner", [prev, a, BigInt(Math.min(st.threshold, st.owners.length - 1))])];
+      },
+      s => !s.owners.some(o => same(o, a)),
+    );
+
+  const setThreshold = (t: number) =>
+    ownersChange(
+      "threshold",
+      `Need ${t} of ${st?.owners.length} signers`,
+      async st => [
+        // going past 1 of N: Face ID gets its daily limit in the same batch (it can't send alone any more)
+        ...(st.threshold <= 1 && t > 1 && st.owners.some(o => same(o, account.burnerSigner)) ? await budgetFirst(st) : []),
+        safeCall("changeThreshold", [BigInt(t)]),
+      ],
+      s => s.threshold === t,
+    );
 
   // a wallet that paired its wedgie before the 60-day layout: the same move on its own (the wedgie signs it too)
   const upgradeLayout = () =>
@@ -198,10 +230,10 @@ export function Keys({
       const calls = await toLayout(st);
       if (!calls.length) throw new Error("Already done.");
       const signers = ownerSigners(st, account);
-      const w = await wedgieFor(signers);
+      const w = await wedgieFor(st, signers);
       try {
         const p = await prepareOwners({ account, state: st, calls, signers, feeToken, setup: true, wedgie: w, label: "Recovery: DAO 60 days" });
-        return { label: "The DAO waits 60 days, your own address 14", p, settled: s => s.modules.includes(RECOVERY_60D), close: async () => w?.close() };
+        return { label: "The DAO waits 60 days", p, settled: s => s.modules.includes(RECOVERY_60D), close: async () => w?.close() };
       } catch (e) {
         await w?.close();
         throw e;
@@ -216,19 +248,17 @@ export function Keys({
         const st = await fresh();
         if (st.hasWedgie) throw new Error("The wedgie is already on this wallet here.");
         const key = await w.key();
-        const [w1, w2] = wedgieSigners(key);
-        // Instant alone (1 of 1) → 3 of 3: the wedgie + Instant. (An older wallet's Instant + hot, 2 of 2 → 3 of 4.)
-        // recovery moves to 14 + 60 days in the same batch (first: see recoveryLayoutCalls)
+        const [w1] = wedgieSigners(key);
+        // one more signer, and one more needed: Face ID alone (1 of 1) → Face ID + wedgie (2 of 2), with Face ID's
+        // daily limit; recovery moves to the DAO's 60 days in the same batch (first: see recoveryLayoutCalls)
         const calls = [
           ...(await toLayout(st)),
           ...(await budgetFirst(st)),
           deploySignerCall(key.x, key.y, VERIFIERS),
-          deploySignerCall(key.x, key.y, VERIFIERS_SLOT2),
-          selfCall(account.address, encodeFunctionData({ abi: abi.safe, functionName: "addOwnerWithThreshold", args: [w1, 2n] })),
-          selfCall(account.address, encodeFunctionData({ abi: abi.safe, functionName: "addOwnerWithThreshold", args: [w2, 3n] })),
+          safeCall("addOwnerWithThreshold", [w1, BigInt(st.threshold + 1)]),
         ];
         const p = await prepareOwners({ account, state: st, calls, signers: ownerSigners(st, account), feeToken, setup: true, wedgie: w });
-        return { label: "Add your wedgie (it counts twice)", p, after: () => onAccount({ ...account, wedgie: key }), settled: s => s.hasWedgie, close: () => w.close() };
+        return { label: "Add your wedgie as a signer", p, after: () => onAccount({ ...account, wedgie: key }), settled: s => s.hasWedgie, close: () => w.close() };
       } catch (e) {
         await w.close();
         throw e;
@@ -271,17 +301,84 @@ export function Keys({
     </>
   );
 
-  const current = st?.guardians?.[0];
-  const changed = !!guardianIn && guardianIn.toLowerCase() !== current?.toLowerCase();
-  const ownRecovery = !!st?.guardians && st.guardians.length > 0 && !st.guardians.some(g => g.toLowerCase() === DAO.toLowerCase());
-  const layout = !!st?.modules.includes(RECOVERY_60D); // with the wedgie: DAO 60 days, yours 14
+  const layout = !!st?.modules.includes(RECOVERY_60D);
+  const daoWait = st ? daoDays(st) : null;
+  const idle = !!busy || !!pending || !!wait || !canPay;
 
 
   return (
     <div className="stack">
       <h2>Instant Wallet is a Safe multisig</h2>
       <ChainSelect value={chainId} onChange={setChainId} />
-      {st && <Summary key={chainId} account={account} st={st} hot={hot} assets={assets} onRefresh={onRefresh} toast={toast} />}
+      {st && (
+        <Summary key={chainId} account={account} st={st} assets={assets} onRefresh={onRefresh} toast={toast}>
+          {st.owners.map(o => (
+            <div className="keyrow" key={o} style={{ padding: 0 }}>
+              <span className="row" style={{ gap: 8 }}>
+                <Addr a={o} chainId={chainId} />
+                <span className="fine">{({ faceid: "Face ID", wedgie: "wedgie", wallet: "" } as const)[howSigns(account, st, o)]}</span>
+              </span>
+              {keysEdit && st.owners.length > 1 && action(`rm${o}`, <button className="btn btn-sm" onClick={() => removeSigner(o)} disabled={idle}>Remove</button>)}
+            </div>
+          ))}
+          {!keysEdit ? (
+            <button className="btn btn-sm" onClick={() => setKeysEdit(true)}>
+              Edit signers
+            </button>
+          ) : (
+            <>
+              {st.owners.length > 1 && (
+                <div className="stack" style={{ gap: 6 }}>
+                  <b>Signatures needed</b>
+                  {action(
+                    "threshold",
+                    <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
+                      {st.owners.map((_, i) => (
+                        <button key={i} className={`pill ${st.threshold === i + 1 ? "on" : ""}`} disabled={idle || st.threshold === i + 1} onClick={() => setThreshold(i + 1)}>
+                          {i + 1} of {st.owners.length}
+                        </button>
+                      ))}
+                    </div>,
+                  )}
+                </div>
+              )}
+              <div className="stack" style={{ gap: 6 }}>
+                <b>Add a signer</b>
+                <p className="fine">
+                  Any address: MetaMask, a Ledger, another phone&apos;s wallet. No wallet for it? <a href="/paper">Make a 24-word seed on 3 paper cards</a>.
+                </p>
+                <AddressInput key={chainId} onChange={setSignerIn} />
+                {action(
+                  "add",
+                  <button className="btn btn-green wide" onClick={addSigner} disabled={idle || !signerIn}>
+                    {busy === "add" ? "Working…" : "Add signer"}
+                  </button>,
+                )}
+              </div>
+              {!st.hasWedgie && (
+                <div className="stack" style={{ gap: 6 }}>
+                  <b>Add a wedgie</b>
+                  <p className="fine">
+                    A hardware key. {wedgieDrive() ? "Plug it into this iPhone" : "Plug it into a computer (Chrome)"}, open its Safe signer app, then add it. Don&apos;t have one?{" "}
+                    <a href="https://wedgie.dev" target="_blank" rel="noreferrer">
+                      wedgie.dev
+                    </a>
+                  </p>
+                  {action(
+                    "wedgie",
+                    <button className="btn wide" onClick={addWedgie} disabled={idle || !wedgieSupported()}>
+                      {busy === "wedgie" ? "Check the wedgie…" : !wedgieSupported() ? "Needs Chrome on a computer" : "Connect and add the wedgie"}
+                    </button>,
+                  )}
+                </div>
+              )}
+              <button className="btn btn-sm" onClick={() => setKeysEdit(false)} disabled={!!busy}>
+                Done
+              </button>
+            </>
+          )}
+        </Summary>
+      )}
 
       {!st && <p className="fine">Loading…</p>}
       {!canPay ? (
@@ -299,23 +396,6 @@ export function Keys({
         st && !st.deployed && <p className="fine">The first change on {chainById(chainId)?.name} also sets up the wallet there.</p>
       )}
 
-      {!st?.hasWedgie && (
-        <Step title="Wedgie (hardware key)">
-          <p className="fine">Keeping more than about $100 here? Pair a wedgie. Instant then spends a daily limit, and anything bigger needs the wedgie too.</p>
-          <p className="fine">
-            {wedgieDrive() ? "Plug it into this iPhone" : "Plug it into a computer (Chrome)"}, open its Safe signer app, then add it. Don&apos;t have one?{" "}
-            <a href="https://wedgie.dev" target="_blank" rel="noreferrer">
-              Get one at wedgie.dev
-            </a>
-          </p>
-          {action(
-            "wedgie",
-            <button className="btn btn-green wide" onClick={addWedgie} disabled={!!busy || !!pending || !!wait || !canPay || !wedgieSupported()}>
-              {busy === "wedgie" ? "Check the wedgie…" : !wedgieSupported() ? "Needs Chrome on a computer" : "Connect and add the wedgie"}
-            </button>,
-          )}
-        </Step>
-      )}
 
 
       <div className="card stack" style={{ gap: 10 }}>
@@ -338,36 +418,22 @@ export function Keys({
         ) : (
           <>
             <p className="fine">
-              {layout
-                ? "If you lose a key, the DAO (dao.buidlguidl.eth) can replace it after 60 days."
-                : ownRecovery
-                  ? `Your own address can replace lost keys after ${st?.recoveryDays ?? 7} days.`
-                  : `If you lose a key, the DAO (dao.buidlguidl.eth) can replace it after ${st?.recoveryDays ?? 7} days.`}{" "}
-              {layout && (ownRecovery ? "Your own address can, after 14 days." : "Add your own address and it can, after 14 days.")} You can cancel any recovery.
-              {!layout && " Make the DAO wait 60 days to get more time to cancel a recovery you didn't start. Your own address then waits 14."}
+              If you lose too many signers to sign, the DAO (dao.buidlguidl.eth) can replace them after {daoWait ?? 7} days. You can cancel a recovery you didn&apos;t start
+              any time before then.
+              {!layout && " Make it wait 60 days to get more time to cancel."}
             </p>
-            {!ownRecovery && <p className="fine"><b>Make your own recovery: a wallet only you control.</b></p>}
             {st &&
               st.has60 &&
-              !st.modules.includes(RECOVERY_60D) &&
+              !layout &&
               action(
                 "layout",
-                <button className="btn wide" onClick={upgradeLayout} disabled={!!busy || !!pending || !!wait || !canPay}>
+                <button className="btn wide" onClick={upgradeLayout} disabled={idle}>
                   {busy === "layout" ? "Working…" : "Make the DAO wait 60 days"}
                 </button>,
               )}
-            <p className="fine">
-              No wallet for it yet? <a href="/paper">Make a 24-word seed on 3 paper cards</a>.
-            </p>
-            <div className="guardian">
-              <AddressInput key={chainId} initial={current} onChange={setGuardianIn} />
-            </div>
-            {action(
-              "paper",
-              <button className="btn btn-green wide" onClick={setPaper} disabled={!!busy || !!pending || !!wait || !canPay || !changed || (!!st && oldLayout(st) && st.has60)}>
-                {busy === "paper" ? "Working…" : "Save"}
-              </button>,
-            )}
+            <button className="btn btn-sm" onClick={() => setRecEdit(false)} disabled={!!busy}>
+              Done
+            </button>
           </>
         )}
       </div>
@@ -435,21 +501,11 @@ function OldBurner({ toast }: { toast: (m: string) => void }) {
 }
 
 
-/** This chain's Safe in three lines: the daily limit, M of N for the rest, the signers (the wedgie is 2 owner slots). */
-function Summary({ account, st, hot, assets, onRefresh, toast }: { account: SafeAccount; st: ChainState; hot?: Address; assets: Asset[]; onRefresh: () => void; toast: (m: string) => void }) {
+/** This chain's Safe: the daily limit (Face ID alone), M of N for anything else, then the signers (`children`). */
+function Summary({ account, st, assets, onRefresh, toast, children }: { account: SafeAccount; st: ChainState; assets: Asset[]; onRefresh: () => void; toast: (m: string) => void; children: ReactNode }) {
   const [edit, setEdit] = useState(false);
   const close = useCallback(() => setEdit(false), []); // stable: the editor's wait effect depends on it
   const coin = nativeSymbol(st.chainId);
-  const has = (x?: Address) => !!x && st.owners.some(o => o.toLowerCase() === x.toLowerCase());
-  const me = has(account.burnerSigner);
-  const hotOn = st.hasHot && has(hot);
-  const known = [account.burnerSigner, hotOn ? hot : undefined].filter(Boolean).map(x => x!.toLowerCase());
-  const rest = st.owners.filter(o => !known.includes(o.toLowerCase()));
-  const keys: { kind: string; a?: Address }[] = [
-    ...(me ? [{ kind: "Face ID", a: account.burnerSigner }] : []),
-    ...(st.hasWedgie && rest.length ? [{ kind: rest.length > 1 ? `Wedgie ×${rest.length}` : "Wedgie", a: st.wedgie }] : rest.map(a => ({ kind: "Other", a }))),
-    ...(hotOn ? [{ kind: "Hot wallet", a: hot }] : []),
-  ];
   const b = st.threshold > 1 ? st.budget : null;
   return (
     <div className="card stack" style={{ gap: 10 }}>
@@ -472,12 +528,7 @@ function Summary({ account, st, hot, assets, onRefresh, toast }: { account: Safe
           {st.threshold} of {st.owners.length}
         </b>
       </p>
-      {keys.map(k => (
-        <div className="keyrow" key={k.a ?? k.kind} style={{ padding: 0 }}>
-          <b>{k.kind}</b>
-          {k.a ? <Addr a={k.a} chainId={st.chainId} /> : <span className="fine">…</span>}
-        </div>
-      ))}
+      {children}
     </div>
   );
 }

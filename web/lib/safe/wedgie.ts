@@ -519,8 +519,8 @@ export class Wedgie {
     return { x: h.safe.x, y: h.safe.y };
   }
 
-  /** One A press signs `t`; returns the signature for both of the wedgie's owner slots. */
-  async sign(chainId: number, safe: Address, t: SafeTx, expectHash: Hex, slots: [Address, Address]): Promise<Sig[]> {
+  /** One A press signs `t`; returns its signature for each of the wedgie's owner slots given (1 or 2). */
+  async sign(chainId: number, safe: Address, t: SafeTx, expectHash: Hex, slots: Address[]): Promise<Sig[]> {
     const tx = {
       chainId,
       safe: getAddress(safe),
@@ -544,7 +544,7 @@ export class Wedgie {
 
   /** One A press signs a site's text message (personal_sign) for the Safe; `raw` = the message's bytes. The wedgie
    * shows the text and works out the SafeMessage hash itself; `expectHash` is ours, to check it signed the same. */
-  async signMessage(chainId: number, safe: Address, raw: Hex, expectHash: Hex, slots: [Address, Address]): Promise<Sig[]> {
+  async signMessage(chainId: number, safe: Address, raw: Hex, expectHash: Hex, slots: Address[]): Promise<Sig[]> {
     const msg = { type: "safe_message", chainId, safe: getAddress(safe), hex: raw };
     if (JSON.stringify({ id: 0, ...msg }).length > (this.drive ? DRIVE_LINE_MAX : LINE_MAX)) throw new Error("This message is too long for the wedgie.");
     try {
@@ -562,7 +562,7 @@ export class Wedgie {
     }
   }
 
-  private async signing(tx: Record<string, any>, t: SafeTx, expectHash: Hex, slots: [Address, Address]): Promise<Sig[]> {
+  private async signing(tx: Record<string, any>, t: SafeTx, expectHash: Hex, slots: Address[]): Promise<Sig[]> {
     let send: Record<string, unknown> = tx;
     activity({ what: "Sending it to your wedgie", p: 0.05 });
     const h = await this.safeHello();

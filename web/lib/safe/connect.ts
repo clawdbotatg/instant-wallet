@@ -3,9 +3,9 @@ import { publicClient } from "../chains";
 import { RECOVERY_MODULES, MULTICALL3 } from "./config";
 import { type Call, type Sig, abi, deploySafeCall, deploySignerCall, encodeSignatures, rolesAddress, safeMessageHash } from "./core";
 import { hotSignMessage } from "./hot";
-import { type Signer, type Stage } from "./send";
+import { type Signer, type Stage, howSigns } from "./send";
 import { passkeySign } from "./sign";
-import { type ChainState, type SafeAccount, hotOf, wedgieSigners } from "./state";
+import { type ChainState, type SafeAccount } from "./state";
 import { Wedgie, wedgieSupported } from "./wedgie";
 
 /**
@@ -49,27 +49,27 @@ export async function signForSite(
   const chainId = st.chainId;
   const h = safeMessageHash(chainId, a.address, hash);
   const sigs: Sig[] = [];
-  if (signers.includes("wedgie")) {
+  const face = signers.some(s => howSigns(a, st, s) === "faceid");
+  const wallets = signers.filter(s => howSigns(a, st, s) === "wallet");
+  const slots = signers.filter(s => howSigns(a, st, s) === "wedgie");
+  if (slots.length) {
     if (!raw) throw new Error("The wedgie can't show this kind of message (typed data) yet, so it won't sign it.");
     if (!wedgieSupported()) throw new Error("With the wedgie, connect the site on your computer or in the Instant Wallet app.");
   }
   let w: Wedgie | null = null;
   try {
-    for (const s of [...signers].sort((x, y) => (x === "burner" ? -1 : y === "burner" ? 1 : 0))) {
-      if (s === "burner") {
-        onStage?.("signing");
-        sigs.push(await passkeySign(a.credentialId, a.burnerSigner, h));
-      } else if (s === "hot") {
-        const hot = hotOf(a, st);
-        if (!hot) throw new Error("No hot wallet on this wallet yet.");
-        onStage?.("signing-hot");
-        sigs.push(await hotSignMessage(chainId, a.address, hash, hot));
-      } else {
-        const ww = wedgie ?? (w = await Wedgie.connect());
-        const key = a.wedgie ?? (await ww.key());
-        onStage?.("signing-wedgie");
-        sigs.push(...(await ww.signMessage(chainId, a.address, raw!, h, wedgieSigners(key))));
-      }
+    if (face) {
+      onStage?.("signing");
+      sigs.push(await passkeySign(a.credentialId, a.burnerSigner, h));
+    }
+    for (const x of wallets) {
+      onStage?.("signing-hot");
+      sigs.push(await hotSignMessage(chainId, a.address, hash, x));
+    }
+    if (slots.length) {
+      const ww = wedgie ?? (w = await Wedgie.connect());
+      onStage?.("signing-wedgie");
+      sigs.push(...(await ww.signMessage(chainId, a.address, raw!, h, slots)));
     }
   } finally {
     await w?.close();
@@ -78,7 +78,7 @@ export async function signForSite(
   // the Safe and this phone's passkey signer must exist for a site to check it: deploy them inside the signature
   const pc = publicClient(chainId);
   const pre: Call[] = [];
-  if (signers.includes("burner")) {
+  if (face) {
     const code = await pc.getCode({ address: a.burnerSigner }).catch(() => undefined);
     if (!code || code === "0x") pre.push(deploySignerCall(a.qx, a.qy));
   }

@@ -6,7 +6,7 @@ import { CHAINS, chainById, explorerAddress, explorerTx, publicClient, nativeSym
 import { amount as fmtAmount, short, usd } from "@/lib/format";
 import { abi } from "@/lib/safe/core";
 import type { Quote } from "@/lib/safe/fee";
-import { type FeeToken, type Signer, type Stage, getQuote, ownerSigners, ownersSend, sendKind, signerOptions } from "@/lib/safe/send";
+import { type FeeToken, type Signer, type Stage, getQuote, ownerSigners, ownersSend, sendKind, signerOptions, usesWedgie } from "@/lib/safe/send";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { POPULAR, type SwapRoute, type Token, swapCalls } from "@/lib/safe/swap";
 import { uniswapRoute } from "@/lib/safe/uniswap";
@@ -184,7 +184,7 @@ export function SafeSwap({
   const options = st && st.threshold > 1 ? signerOptions(st, account) : [];
   const [chosen, setChosen] = useState<Signer[] | null>(null);
   const signers: Signer[] =
-    chosen && options.some(o => o.ready && o.signers.join() === chosen.join()) ? chosen : st ? ownerSigners(st, account) : ["burner"];
+    chosen && options.some(o => o.ready && o.signers.join() === chosen.join()) ? chosen : st ? ownerSigners(st, account) : [account.burnerSigner];
   const needsComputer = options.length > 0 && !options.some(o => o.ready);
 
   // quotes: both sources at once, again every 20 s while the form is up
@@ -294,7 +294,7 @@ export function SafeSwap({
         setStage(s);
         if (h) setHash(h);
       };
-      if (signers.includes("wedgie") && wedgieSupported()) wedgie = await Wedgie.connect(); // a phone: it parks for the computer
+      if (st && usesWedgie(account, st, signers) && wedgieSupported()) wedgie = await Wedgie.connect(); // a phone: it parks for the computer
       const h = await ownersSend({
         account,
         state: st,

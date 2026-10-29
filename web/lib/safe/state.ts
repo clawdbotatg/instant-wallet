@@ -88,9 +88,11 @@ export type ChainState = {
   budget: { usdc: bigint; eth: bigint; usdcMax: bigint; ethMax: bigint; feeUsdc: bigint | null } | null;
   hasHot: boolean;
   hasWedgie: boolean;
-  hot?: Address; // the hot wallet's address, when there is one
+  hot?: Address; // the first owner that's an account (signs through a browser wallet), when there is one
   wedgie?: Address; // the wedgie's first owner slot, when it's on
-  level: 1 | 2 | 3; // how many signing keys: the Instant wallet, + a hot wallet, + the wedgie (any order; paper isn't a signer)
+  wedgieSlots: Address[]; // every owner the wedgie signs for (older wallets: 2 slots, newer: 1)
+  wallets: Address[]; // every owner that signs through a browser wallet (MetaMask, a Ledger, a paper seed in a wallet)
+  level: 1 | 2 | 3; // how many signing devices: this phone, + a browser wallet, + the wedgie
 };
 
 export async function readChain(chainId: number, a: SafeAccount): Promise<ChainState> {
@@ -121,6 +123,8 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
       budget: null,
       hasHot: false,
       hasWedgie: false,
+      wedgieSlots: [],
+      wallets: [],
       level: 1,
     };
   const read = (functionName: any, args: any[] = [], address: Address = safe, ab: any = abi.safe) =>
@@ -164,17 +168,18 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
   }
   const o = (owners as string[]).map(x => getAddress(x));
   const g = recs.find(r => r.module === rm)!.guardians;
-  // another device may have added the keys: the shape says it too (only the wedgie takes the threshold to 3)
-  const known = !!a.wedgie && wedgieSigners(a.wedgie).every(w => o.includes(w));
-  const hasWedgie = known || Number(threshold) >= 3;
-  // the hot wallet is the owner that's an account, not a passkey signer (the wedgie's slots are passkey signers,
-  // 236-byte proxies): so it's found even on a device that never paired the wedgie
-  const mine = [a.burnerSigner, ...(a.wedgie ? wedgieSigners(a.wedgie) : [])].map(x => x.toLowerCase());
-  const others = o.filter(x => !mine.includes(x.toLowerCase()));
-  const codes = await Promise.all(others.map(x => pc.getCode({ address: x }).catch(() => "0x00" as Hex)));
-  const hot = others.find((_, i) => !codes[i] || codes[i] === "0x" || size(codes[i]!) !== PASSKEY_SIGNER_SIZE);
+  // every owner but this phone's key: a passkey signer proxy (236 bytes) is the wedgie (this device may never have
+  // paired it), anything else signs through a browser wallet
+  const slots = a.wedgie ? wedgieSigners(a.wedgie).map(x => x.toLowerCase()) : [];
+  const others = o.filter(x => x.toLowerCase() !== a.burnerSigner.toLowerCase());
+  const codes = await Promise.all(others.map(x => (slots.includes(x.toLowerCase()) ? (`0x${"00".repeat(PASSKEY_SIGNER_SIZE)}` as Hex) : pc.getCode({ address: x }).catch(() => "0x00" as Hex))));
+  const isPasskey = (i: number) => !!codes[i] && codes[i] !== "0x" && size(codes[i]!) === PASSKEY_SIGNER_SIZE;
+  const wedgieSlots = others.filter((_, i) => isPasskey(i));
+  const wallets = others.filter((_, i) => !isPasskey(i));
+  const hasWedgie = wedgieSlots.length > 0;
+  const hot = wallets[0];
   const hasHot = !!hot;
-  const wedgie = known ? wedgieSigners(a.wedgie!)[0] : others.find((_, i) => !!codes[i] && size(codes[i]!) === PASSKEY_SIGNER_SIZE);
+  const wedgie = wedgieSlots[0];
   const level = (1 + Number(hasHot) + Number(hasWedgie)) as ChainState["level"];
   return {
     chainId,
@@ -198,7 +203,9 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
     hasHot,
     hasWedgie,
     hot,
-    wedgie: hasWedgie ? wedgie : undefined,
+    wedgie,
+    wedgieSlots,
+    wallets,
     level,
   };
 }
@@ -233,9 +240,9 @@ export async function readAll(a: SafeAccount): Promise<ChainState[]> {
   return Promise.all(CHAINS.map(c => readChain(c.id, a).catch(() => null))).then(r => r.filter((x): x is ChainState => !!x));
 }
 
-/** The hot wallet on this chain: the owner that's an account, not the burner or a wedgie slot. */
+/** The browser-wallet owner this device knows (else the first one on chain). */
 export function hotOf(a: SafeAccount, st: ChainState): Address | undefined {
-  if (a.hot && st.owners.some(o => o.toLowerCase() === a.hot!.toLowerCase())) return a.hot;
+  if (a.hot && st.wallets.some(o => o.toLowerCase() === a.hot!.toLowerCase())) return a.hot;
   return st.hot;
 }
 

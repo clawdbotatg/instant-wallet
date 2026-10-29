@@ -192,17 +192,15 @@ export function Select({
   );
 }
 
-const KEY_NAME: Record<Signer, string> = { burner: "Instant", hot: "Hot wallet", wedgie: "Wedgie" };
-export const signedByLabel = (s: Signer[]) => s.map(k => KEY_NAME[k]).join(" + ");
-
-/** Which keys sign, when there's more than one way: "Instant + Wedgie 3/3", "Hot wallet + Wedgie 3/3", … */
+/** Which owners sign, when there's more than one way: "Face ID + Wedgie 2/3", "Face ID + 0x12ab…cdef 2/3", … */
 export function SignerChoice({ options, value, onChange, disabled }: { options: SignerOption[]; value: Signer[]; onChange: (s: Signer[]) => void; disabled?: boolean }) {
-  const same = (a: Signer[], b: Signer[]) => a.length === b.length && a.every(k => b.includes(k));
-  const later = options.find(o => same(o.signers, value))?.later;
+  const same = (a: Signer[], b: Signer[]) => a.length === b.length && a.every(k => b.some(x => x.toLowerCase() === k.toLowerCase()));
+  const on = options.find(o => same(o.signers, value));
+  const later = on?.later;
   if (options.length < 2)
     return (
       <span className="stack" style={{ gap: 2, justifyItems: "end" }}>
-        <span>{signedByLabel(value)}</span>
+        <span>{on?.label ?? (value.length === 1 ? "Face ID" : "…")}</span>
         {later && <span className="fine">{later}</span>}
       </span>
     );
@@ -217,14 +215,14 @@ export function SignerChoice({ options, value, onChange, disabled }: { options: 
             disabled={disabled || !o.ready}
             onClick={() => onChange(o.signers)}
           >
-            {signedByLabel(o.signers)} <span className="fine">{o.signers.length}/{o.of}</span>
+            {o.label} <span className="fine">{o.signers.length}/{o.of}</span>
           </button>
         ))}
       </span>
       {later && <span className="fine">{later}</span>}
       {off.map(o => (
         <span key={o.signers.join("+")} className="fine">
-          {signedByLabel(o.signers)}: {o.why}
+          {o.label}: {o.why}
         </span>
       ))}
     </span>

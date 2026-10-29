@@ -39,6 +39,14 @@ Problems:
 5. **Other signers** (friends, more keys) are plain Safe owners. App work needed: a signer list, a rule
    picker, and a "sign this" link for someone else.
 
+## Built 10-28: a plain multisig
+
+- A signer is an address. No kinds. How it signs is worked out per address (`howSigns` in
+  `web/lib/safe/send.ts`): this phone's Face ID, the wedgie, or a browser wallet.
+- Settings: Edit signers → add any address, remove one, pick M of N. Going past 1 of N sets up Face ID's daily limit.
+- A new wedgie is one signer (2 of 2 with Face ID). Older wallets have it twice; remove one slot to fix.
+- Recovery is the DAO only (7 or 60 days). Own recovery addresses can't be added any more; old ones still show.
+
 ## Daily limit beyond sends (Roles)
 
 Roles can give any key (not just the phone) a limit, and can allow calls to set contracts with checked inputs.

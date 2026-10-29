@@ -5,7 +5,7 @@ import { formatUnits, parseUnits, zeroAddress } from "viem";
 import { chainById, nativeSymbol } from "@/lib/chains";
 import { FEE_ALLOWANCE } from "@/lib/safe/config";
 import { feeAllowanceCalls, setBudgetCalls } from "@/lib/safe/core";
-import { type Prepared, finishOwners, getQuote, ownerSigners, prepareOwners } from "@/lib/safe/send";
+import { type Prepared, finishOwners, getQuote, ownerSigners, prepareOwners, signerLabel, usesWedgie } from "@/lib/safe/send";
 import { type ChainState, type SafeAccount, readChain } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
@@ -13,7 +13,6 @@ import { TimedBar } from "../bits";
 import { friendly } from "../Welcome";
 import { ErrorLine } from "./WedgieButton";
 
-const SIGNER_NAME = { burner: "Face ID", wedgie: "wedgie", hot: "hot wallet" } as const; // who signs the change
 
 /**
  * One network's daily limit editor (settings, opened by the pencil on the limit line). Same two taps as everywhere: Save gets it ready (the wedgie connects, fee, nonce), Yes signs
@@ -60,7 +59,7 @@ export function ChainLimit({ account, st, assets, onRefresh, toast, onClose }: {
       if (!fresh.budget) throw new Error("Still loading");
       const signers = ownerSigners(fresh, account);
       // the wedgie connects now, while this is still the tap (a port prompt needs one)
-      w = signers.includes("wedgie") && wedgieSupported() ? await Wedgie.connect() : null;
+      w = usesWedgie(account, fresh, signers) && wedgieSupported() ? await Wedgie.connect() : null;
       const now = BigInt(Math.floor(Date.now() / 1000));
       const u = chainById(chainId)?.usdc;
       // the fee rule is set once (with the budget): re-send it only on a wallet from before it existed
@@ -110,7 +109,7 @@ export function ChainLimit({ account, st, assets, onRefresh, toast, onClose }: {
             Daily limit: {formatUnits(ready.usdc, 6)} USDC · {formatUnits(ready.eth, 18)} {coin}
           </b>
           <p className="fine">
-            Fee {fee}. Signed by {ready.p.opts.signers.map(k => SIGNER_NAME[k]).join(" + ")}.
+            Fee {fee}. Signed by {signerLabel(account, ready.p.opts.state, ready.p.opts.signers)}.
           </p>
           <button className="btn btn-green wide" onClick={sign} disabled={busy}>
             {busy ? "Signing and sending…" : "Yes"}

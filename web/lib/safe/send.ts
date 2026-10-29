@@ -18,11 +18,35 @@ import { type Quote, type SendKind } from "./fee";
 import { connectHot, hotAvailable, hotSend, hotSign } from "./hot";
 import { Parked, type Pending, parkPending } from "./pending";
 import { passkeySign, passkeySignRaw } from "./sign";
-import { type ChainState, type SafeAccount, hotOf, salt, wedgieSigners } from "./state";
+import { short } from "../format";
+import { type ChainState, type SafeAccount, salt, wedgieSigners } from "./state";
 import { Wedgie, wedgieSupported } from "./wedgie";
 
 export type FeeToken = "usdc" | "eth";
-export type Signer = "burner" | "hot" | "wedgie";
+/** A signer is an owner's address. How it signs is worked out per address (`howSigns`): there are no kinds of owner. */
+export type Signer = Address;
+export type How = "faceid" | "wedgie" | "wallet";
+const eq = (x: Address, y: Address) => x.toLowerCase() === y.toLowerCase();
+
+/** How this device gets `s`'s signature: this phone's passkey, the wedgie (a passkey signer that isn't this phone's),
+ * or a browser wallet (any other address: MetaMask, a Ledger, a paper seed loaded into a wallet). */
+export function howSigns(a: SafeAccount, st: ChainState, s: Signer): How {
+  if (eq(s, a.burnerSigner)) return "faceid";
+  if (st.wedgieSlots.some(w => eq(w, s))) return "wedgie";
+  return "wallet";
+}
+export const usesWedgie = (a: SafeAccount, st: ChainState, signers: Signer[]) => signers.some(s => howSigns(a, st, s) === "wedgie");
+
+/** Who signs, in words: "Face ID + Wedgie", "Face ID + 0x12ab…cdef". */
+export function signerLabel(a: SafeAccount, st: ChainState, signers: Signer[]): string {
+  const out: string[] = [];
+  for (const s of signers) {
+    const h = howSigns(a, st, s);
+    const name = h === "faceid" ? "Face ID" : h === "wedgie" ? "Wedgie" : short(s);
+    if (!out.includes(name)) out.push(name);
+  }
+  return out.join(" + ");
+}
 export type Stage = "quote" | "signing" | "signing-hot" | "signing-wedgie" | "sending" | "confirming";
 
 export async function getQuote(chainId: number, kind: SendKind, extraGas?: bigint): Promise<Quote> {
@@ -83,9 +107,9 @@ export type Prepared = { opts: OwnersOpts; t: SafeTx; h: Hex; fee: Quote };
 export async function prepareOwners(opts: OwnersOpts): Promise<Prepared> {
   const { account: a, state: st, signers } = opts;
   const chainId = st.chainId;
-  const signerCode = signers.includes("burner") ? await publicClient(chainId).getCode({ address: a.burnerSigner }).catch(() => undefined) : "0x01";
+  const signerCode = signers.some(s => eq(s, a.burnerSigner)) ? await publicClient(chainId).getCode({ address: a.burnerSigner }).catch(() => undefined) : "0x01";
   const fresh = !st.deployed || !signerCode || signerCode === "0x"; // the relay deploys the Safe and/or the burner's signer too
-  const kind = ownersKind(fresh, signers, opts);
+  const kind = ownersKind(fresh, usesWedgie(a, st, signers), opts);
   if (opts.self) {
     // anyone can send a signed Safe transaction; the relay only adds deploying the wallet on a new network
     if (fresh) throw new Error("Send one through the relay first on this network (it sets the wallet up there).");
@@ -104,40 +128,37 @@ export async function finishOwners(p: Prepared): Promise<Hash> {
   const { t, h } = p;
   const chainId = st.chainId;
   const stage = p.opts.onStage ?? (() => {});
+  const face = signers.some(s => howSigns(a, st, s) === "faceid");
+  const wallets = signers.filter(s => howSigns(a, st, s) === "wallet");
+  const slots = signers.filter(s => howSigns(a, st, s) === "wedgie");
   // everything that can fail without a signature fails first: never ask the wedgie to sign for a key that isn't here
-  const hot = signers.includes("hot") ? hotOf(a, st) : undefined;
-  if (signers.includes("hot") && (!hot || !hotAvailable())) throw new Error("Your hot wallet isn't here. Pick another way to sign.");
-  // without Face ID first (whose prompt must start straight from the tap), check the hot wallet is the right one
+  if (wallets.length && !hotAvailable()) throw new Error("No browser wallet here to sign. Pick another way to sign.");
+  // without Face ID first (whose prompt must start straight from the tap), check the browser wallet is the right one
   // before the wedgie is asked to press anything
-  if (hot && !signers.includes("burner")) {
+  if (wallets.length && !face) {
     const who = await connectHot();
-    if (who.toLowerCase() !== hot.toLowerCase()) throw new Error(`Switch your wallet to ${hot} (it's on ${who}).`);
+    if (!eq(who, wallets[0])) throw new Error(`Switch your wallet to ${wallets[0]} (it's on ${who}).`);
   }
-  const order = [...signers].sort((x, y) => (x === "burner" ? -1 : y === "burner" ? 1 : 0));
   // the wedgie can't plug in here (a phone): sign the rest, park it, and the computer with the wedgie finishes it
-  const later = signers.includes("wedgie") && !p.opts.wedgie && !wedgieSupported();
+  const later = slots.length > 0 && !p.opts.wedgie && !wedgieSupported();
   if (later && p.opts.self) throw new Error("With the wedgie, send it yourself from your computer.");
   if (later && p.opts.swapGas !== undefined) throw new Error("A swap with the wedgie has to start on your computer (prices move).");
   if (later && p.opts.dappGas !== undefined) throw new Error("With the wedgie, connect the site on your computer (the site waits for the answer).");
   const sigs: Sig[] = [];
   let ownWedgie: Wedgie | null = null;
   try {
-    for (const s of order) {
-      if (s === "wedgie" && later) continue;
-      if (s === "burner") {
-        stage("signing");
-        sigs.push(await passkeySign(a.credentialId, a.burnerSigner, h));
-      } else if (s === "hot") {
-        const hot = hotOf(a, st);
-        if (!hot) throw new Error("No hot wallet on this wallet yet.");
-        stage("signing-hot");
-        sigs.push(await hotSign(chainId, a.address, t, hot));
-      } else {
-        const w = p.opts.wedgie ?? (ownWedgie = await Wedgie.connect());
-        const key = a.wedgie ?? (await w.key());
-        stage("signing-wedgie");
-        sigs.push(...(await w.sign(chainId, a.address, t, h, wedgieSigners(key))));
-      }
+    if (face) {
+      stage("signing");
+      sigs.push(await passkeySign(a.credentialId, a.burnerSigner, h));
+    }
+    for (const w of wallets) {
+      stage("signing-hot");
+      sigs.push(await hotSign(chainId, a.address, t, w));
+    }
+    if (slots.length && !later) {
+      const w = p.opts.wedgie ?? (ownWedgie = await Wedgie.connect());
+      stage("signing-wedgie");
+      sigs.push(...(await w.sign(chainId, a.address, t, h, slots)));
     }
   } finally {
     await ownWedgie?.close();
@@ -151,7 +172,7 @@ export async function finishOwners(p: Prepared): Promise<Hash> {
   const signatures = encodeSignatures(sigs);
   const hash = p.opts.self
     ? await hotSend(chainId, a.address, execData(t, signatures))
-    : await post({ chainId, kind: "exec", safe: a.address, tx: t, signatures, burner: { x: a.qx, y: a.qy }, wedgie: signers.includes("wedgie") });
+    : await post({ chainId, kind: "exec", safe: a.address, tx: t, signatures, burner: { x: a.qx, y: a.qy }, wedgie: slots.length > 0 });
   stage("confirming", hash);
   await waitFor(chainId, hash);
   used.set(`${chainId}:${a.address}`, t.nonce);
@@ -165,9 +186,12 @@ const selfQuote = (chainId: number, kind: SendKind): Quote =>
 /** Finish a parked transaction on the computer: the wedgie signs (one A press), the relay sends. */
 export async function finishPending(pd: Pending, w: Wedgie, key: { x: Hex; y: Hex } | undefined, onStage?: (s: Stage, hash?: Hash) => void): Promise<Hash> {
   const stage = onStage ?? (() => {});
+  // whichever of the wedgie's slots are owners now (older wallets have 2, newer 1)
   const k = key ?? (await w.key());
+  const owners = (await publicClient(pd.chainId).readContract({ address: pd.safe, abi: abi.safe, functionName: "getOwners" })) as Address[];
+  const slots = wedgieSigners(k).filter(x => owners.some(o => eq(o, x)));
   stage("signing-wedgie");
-  const sigs = [...pd.sigs, ...(await w.sign(pd.chainId, pd.safe, pd.tx, pd.hash, wedgieSigners(k)))];
+  const sigs = [...pd.sigs, ...(await w.sign(pd.chainId, pd.safe, pd.tx, pd.hash, slots))];
   stage("sending");
   const hash = await post({ chainId: pd.chainId, kind: "exec", safe: pd.safe, tx: pd.tx, signatures: encodeSignatures(sigs), burner: pd.burner, wedgie: true });
   stage("confirming", hash);
@@ -184,11 +208,11 @@ export async function ownersSend(opts: OwnersOpts): Promise<Hash> {
   return finishOwners(await prepareOwners(opts));
 }
 
-function ownersKind(fresh: boolean, signers: Signer[], o: { setup?: boolean; swapGas?: bigint; dappGas?: bigint }): SendKind {
+function ownersKind(fresh: boolean, wedgie: boolean, o: { setup?: boolean; swapGas?: bigint; dappGas?: bigint }): SendKind {
   if (o.setup) return fresh ? "first-setup" : "setup";
-  if (o.dappGas !== undefined) return fresh ? "first-dapp" : signers.includes("wedgie") ? "dapp-wedgie" : "dapp";
-  if (o.swapGas !== undefined) return fresh ? "first-swap" : signers.includes("wedgie") ? "swap-wedgie" : "swap";
-  return fresh ? "first" : signers.includes("wedgie") ? "exec-wedgie" : "exec";
+  if (o.dappGas !== undefined) return fresh ? "first-dapp" : wedgie ? "dapp-wedgie" : "dapp";
+  if (o.swapGas !== undefined) return fresh ? "first-swap" : wedgie ? "swap-wedgie" : "swap";
+  return fresh ? "first" : wedgie ? "exec-wedgie" : "exec";
 }
 
 /** The kind of relayed send (and so the fee quote) a send will be. */
@@ -200,8 +224,8 @@ export async function sendKind(
   o: { swapGas?: bigint; dappGas?: bigint } = {},
 ): Promise<SendKind> {
   if (path === "budget") return "roles";
-  const code = signers.includes("burner") ? await publicClient(st.chainId).getCode({ address: a.burnerSigner }).catch(() => undefined) : "0x01";
-  return ownersKind(!st.deployed || !code || code === "0x", signers, o);
+  const code = signers.some(s => eq(s, a.burnerSigner)) ? await publicClient(st.chainId).getCode({ address: a.burnerSigner }).catch(() => undefined) : "0x01";
+  return ownersKind(!st.deployed || !code || code === "0x", usesWedgie(a, st, signers), o);
 }
 
 /** RPC nodes lag a block now and then: never reuse a nonce this page just used. */
@@ -239,47 +263,47 @@ export async function budgetSend(opts: {
 }
 
 /**
- * One way to reach the threshold: which keys sign, how many signatures they make, and whether this device can.
- * `of` = how many keys the wallet has (what the user sees: Instant + Wedgie is 2 of 3 keys, though the wedgie
- * makes 2 of the 3 signatures).
+ * One way to reach the threshold: which owners sign, and whether this device can get their signatures.
+ * `of` = how many owners the wallet has.
  */
-export type SignerOption = { signers: Signer[]; weight: number; threshold: number; of: number; ready: boolean; why?: string; later?: string };
+export type SignerOption = { signers: Signer[]; label: string; threshold: number; of: number; ready: boolean; why?: string; later?: string };
 
 /**
- * Every set of keys that can sign an owners transaction on this chain, read from the owners and threshold on chain
- * (keys come in any order; the wedgie counts twice). Only keys we can name: an owner we can't identify is never
- * asked for. Minimal sets only (no key that isn't needed), the ones this device can sign first.
+ * Every set of owners that can sign an owners transaction on this chain, read from the owners and threshold on chain.
+ * Owners are grouped by what signs for them (one wedgie press signs all its slots; each browser-wallet address is its
+ * own). Minimal sets only (no group that isn't needed), the ones this device can sign first.
  */
 export function signerOptions(st: ChainState, a: SafeAccount): SignerOption[] {
   const t = st.threshold;
-  const owners = st.owners.map(o => o.toLowerCase());
-  const w: Partial<Record<Signer, number>> = {};
-  if (owners.includes(a.burnerSigner.toLowerCase()) || !st.deployed) w.burner = 1;
-  if (st.hasWedgie) w.wedgie = a.wedgie ? wedgieSigners(a.wedgie).filter(x => owners.includes(x.toLowerCase())).length : 2;
-  if (st.hasHot && hotOf(a, st)) w.hot = 1;
-  const keys = (["burner", "wedgie", "hot"] as Signer[]).filter(k => w[k]);
-  const sum = (ks: Signer[]) => ks.reduce((n, k) => n + (w[k] ?? 0), 0);
+  const groups: Signer[][] = [];
+  if (st.owners.some(o => eq(o, a.burnerSigner)) || !st.deployed) groups.push([a.burnerSigner]);
+  if (st.wedgieSlots.length) groups.push(st.wedgieSlots);
+  for (const w of st.wallets) groups.push([w]);
   const out: SignerOption[] = [];
-  for (let m = 1; m < 1 << keys.length; m++) {
-    const ks = keys.filter((_, i) => m & (1 << i));
-    if (sum(ks) < t || ks.some(k => sum(ks.filter(x => x !== k)) >= t)) continue;
-    const why = ks.includes("hot") && !hotAvailable() ? "needs your hot wallet (a browser with it)" : undefined;
+  for (let m = 1; m < 1 << groups.length && groups.length <= 12; m++) {
+    const gs = groups.filter((_, i) => m & (1 << i));
+    const n = gs.reduce((k, g) => k + g.length, 0);
+    if (n < t || gs.some(g => n - g.length >= t)) continue;
+    const signers = gs.flat();
+    const wallets = signers.filter(s => howSigns(a, st, s) === "wallet");
+    const why = wallets.length > 1 ? "two browser wallets can't sign together here yet" : wallets.length && !hotAvailable() ? "needs a browser wallet here" : undefined;
     // the wedgie on a phone: sign here, finish on the computer (a send parks for it)
-    const later = ks.includes("wedgie") && !wedgieSupported() ? "the wedgie signs after, on your computer" : undefined;
-    out.push({ signers: ks, weight: sum(ks), threshold: t, of: keys.length, ready: !why, why, later });
+    const later = usesWedgie(a, st, signers) && !wedgieSupported() ? "the wedgie signs after, on your computer" : undefined;
+    out.push({ signers, label: signerLabel(a, st, signers), threshold: t, of: st.owners.length, ready: !why, why, later });
   }
-  return out.sort((x, y) => Number(y.ready) - Number(x.ready) || Number(!!x.later) - Number(!!y.later) || x.signers.length - y.signers.length || Number(y.signers.includes("burner")) - Number(x.signers.includes("burner")));
+  const face = (o: SignerOption) => Number(o.signers.some(s => eq(s, a.burnerSigner)));
+  return out.sort((x, y) => Number(y.ready) - Number(x.ready) || Number(!!x.later) - Number(!!y.later) || x.signers.length - y.signers.length || face(y) - face(x));
 }
 
 /** The keys to ask for by default: the first option this device can sign. */
 export function ownerSigners(st: ChainState, a: SafeAccount): Signer[] {
-  if (st.threshold <= 1) return ["burner"];
-  return signerOptions(st, a)[0]?.signers ?? ["burner"];
+  if (st.threshold <= 1 && (!st.deployed || st.owners.some(o => eq(o, a.burnerSigner)))) return [a.burnerSigner];
+  return signerOptions(st, a)[0]?.signers ?? [a.burnerSigner];
 }
 
 /** Which keys a send needs, given the wallet's shape on that chain and what's within the burner's budget. */
 export function plan(st: ChainState, a: SafeAccount, token: Address, amount: bigint, fee: bigint, feeIsSameToken: boolean) {
-  if (st.level === 1 || st.threshold === 1) return { path: "owners" as const, signers: ["burner"] as Signer[] };
+  if (st.threshold === 1) return { path: "owners" as const, signers: ownerSigners(st, a) };
   const usdc = chainById(st.chainId)?.usdc?.toLowerCase();
   const isEth = token === zeroAddress;
   const isUsdc = token.toLowerCase() === usdc;
@@ -287,8 +311,8 @@ export function plan(st: ChainState, a: SafeAccount, token: Address, amount: big
     const left = isEth ? st.budget.eth : st.budget.usdc;
     // a USDC fee on its own allowance doesn't come off the limit: the full limit can be sent
     const feeApart = isUsdc && feeIsSameToken && st.budget.feeUsdc !== null && fee <= st.budget.feeUsdc;
-    if (amount + (feeIsSameToken && !feeApart ? fee : 0n) <= left) return { path: "budget" as const, signers: ["burner"] as Signer[] };
+    if (amount + (feeIsSameToken && !feeApart ? fee : 0n) <= left) return { path: "budget" as const, signers: [a.burnerSigner] };
   }
-  // a big move: the owners. Burner + hot, or the wedgie + one more.
+  // a big move: enough owners for the threshold
   return { path: "owners" as const, signers: ownerSigners(st, a) };
 }

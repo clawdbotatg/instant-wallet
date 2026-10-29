@@ -14,6 +14,7 @@ import {
   ownerSigners,
   prepareOwners,
   sendKind,
+  usesWedgie,
 } from "@/lib/safe/send";
 import { Parked } from "@/lib/safe/pending";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
@@ -129,7 +130,7 @@ export function SendAll({
     set(chainId, { ...r, stage: "busy", error: undefined });
     let wedgie: Wedgie | null = null;
     try {
-      if (r.prepared.opts.signers.includes("wedgie") && wedgieSupported()) {
+      if (usesWedgie(r.prepared.opts.account, r.prepared.opts.state, r.prepared.opts.signers) && wedgieSupported()) {
         wedgie = await Wedgie.connect();
         r.prepared.opts.wedgie = wedgie;
       }

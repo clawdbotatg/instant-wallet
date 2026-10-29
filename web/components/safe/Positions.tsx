@@ -75,8 +75,9 @@ export function PositionList({
     };
   }, [address]);
 
-  // any balance change in the coins: ask Zerion again a few times
-  const sig = assets?.map(a => `${a.chainId}:${a.asset}:${a.balance}`).join(",");
+  // any balance change in the coins: ask Zerion again a few times. Balances are rounded to 6 digits: interest
+  // (aBasUSDC grows every block) would otherwise count as a move every 3 s and keep pushing the re-asks back
+  const sig = assets?.map(a => `${a.chainId}:${a.asset}:${Number(a.formatted).toPrecision(6)}`).join(",");
   const lastSig = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (sig === undefined) return;

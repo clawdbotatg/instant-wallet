@@ -344,7 +344,7 @@ export function Keys({
                   ? `Your own address can replace lost keys after ${st?.recoveryDays ?? 7} days.`
                   : `If you lose a key, the DAO (dao.buidlguidl.eth) can replace it after ${st?.recoveryDays ?? 7} days.`}{" "}
               {layout && (ownRecovery ? "Your own address can, after 14 days." : "Add your own address and it can, after 14 days.")} You can cancel any recovery.
-              {!layout && " Making the DAO wait 60 days gives you time to cancel. Your own address then waits 14."}
+              {!layout && " Make the DAO wait 60 days to get more time to cancel a recovery you didn't start. Your own address then waits 14."}
             </p>
             {!ownRecovery && <p className="fine"><b>Make your own recovery: a wallet only you control.</b></p>}
             {st &&

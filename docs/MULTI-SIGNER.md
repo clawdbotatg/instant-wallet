@@ -38,6 +38,11 @@ Home shows "Waiting for signatures" from the merged queue. Every tx (waiting or 
 - Sending: a "Face ID, then share" choice whenever more than one signature is needed. It signs, shares, and shows
   the link (`SharedDone`). Home: "Waiting for signatures" (our queue + this browser only: Safe's quota is shared).
 
+- Invites: Edit signers → Invite someone → a `/join#<id>` link (`components/safe/Join.tsx`, `/api/safe/invite`,
+  7 days). The friend uses their passkey (or makes one); its public key comes back; "Add <name>" deploys their
+  signer contract and adds it, per network. Named in this browser (`loadSigners`): an invited passkey shows as
+  them, not the wedgie, and they sign from the link (`howSigns` → "friend").
+
 ## Hard part
 
 A friend signing with a passkey in a fresh browser: a passkey sign-in doesn't give the public key. Sign-in already

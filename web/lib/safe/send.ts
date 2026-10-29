@@ -19,7 +19,7 @@ import { connectHot, hotAvailable, hotSend, hotSign } from "./hot";
 import { Parked, type Pending, parkPending } from "./pending";
 import { passkeySign, passkeySignRaw } from "./sign";
 import { short } from "../format";
-import { type ChainState, type SafeAccount, salt, wedgieSigners } from "./state";
+import { type ChainState, type SafeAccount, loadSigners, salt, wedgieSigners } from "./state";
 import { Wedgie, wedgieSupported } from "./wedgie";
 import { type Waiting, shareTx, sigHex } from "./share";
 
@@ -36,13 +36,15 @@ export class Shared extends Error {
 export type FeeToken = "usdc" | "eth";
 /** A signer is an owner's address. How it signs is worked out per address (`howSigns`): there are no kinds of owner. */
 export type Signer = Address;
-export type How = "faceid" | "wedgie" | "wallet";
+export type How = "faceid" | "wedgie" | "wallet" | "friend";
 const eq = (x: Address, y: Address) => x.toLowerCase() === y.toLowerCase();
 
 /** How this device gets `s`'s signature: this phone's passkey, the wedgie (a passkey signer that isn't this phone's),
- * or a browser wallet (any other address: MetaMask, a Ledger, a paper seed loaded into a wallet). */
+ * a browser wallet (any other address: MetaMask, a Ledger, a paper seed loaded into a wallet), or not here at all:
+ * someone else's passkey (a friend: they sign from the transaction's link). */
 export function howSigns(a: SafeAccount, st: ChainState, s: Signer): How {
   if (eq(s, a.burnerSigner)) return "faceid";
+  if (st.friends.some(f => eq(f, s))) return "friend";
   if (st.wedgieSlots.some(w => eq(w, s))) return "wedgie";
   return "wallet";
 }
@@ -53,7 +55,7 @@ export function signerLabel(a: SafeAccount, st: ChainState, signers: Signer[]): 
   const out: string[] = [];
   for (const s of signers) {
     const h = howSigns(a, st, s);
-    const name = h === "faceid" ? "Face ID" : h === "wedgie" ? "Wedgie" : short(s);
+    const name = h === "faceid" ? "Face ID" : h === "wedgie" ? "Wedgie" : (loadSigners(a.address)[s.toLowerCase()]?.name ?? short(s));
     if (!out.includes(name)) out.push(name);
   }
   return out.join(" + ");

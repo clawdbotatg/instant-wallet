@@ -90,6 +90,26 @@ export function saveWalletName(address: Address, name: string | null) {
     else localStorage.removeItem(`iws.name.${address.toLowerCase()}`);
   } catch {}
 }
+/**
+ * Signers this browser knows by name: people invited with their own passkey (components/safe/Join.tsx). A passkey
+ * signer that's in here is someone else's Face ID, not the wedgie. Per wallet, this browser only.
+ */
+export type SignerInfo = { name?: string; passkey?: boolean };
+export function loadSigners(safe: Address): Record<string, SignerInfo> {
+  try {
+    return JSON.parse(localStorage.getItem(`iws.signers.${safe.toLowerCase()}`) || "{}");
+  } catch {
+    return {};
+  }
+}
+export function saveSigner(safe: Address, signer: Address, info: SignerInfo) {
+  try {
+    const m = loadSigners(safe);
+    m[signer.toLowerCase()] = { ...m[signer.toLowerCase()], ...info };
+    localStorage.setItem(`iws.signers.${safe.toLowerCase()}`, JSON.stringify(m));
+  } catch {}
+}
+
 export const defaultWalletName = (usd: number) => (usd < 200 ? "Spending account" : "Savings account");
 
 export type Recovery = { newOwners: Address[]; newThreshold: number; executeAfter: number; approvals: number } | null;
@@ -122,6 +142,7 @@ export type ChainState = {
   wedgie?: Address; // the wedgie's first owner slot, when it's on
   wedgieSlots: Address[]; // every owner the wedgie signs for (older wallets: 2 slots, newer: 1)
   wallets: Address[]; // every owner that signs through a browser wallet (MetaMask, a Ledger, a paper seed in a wallet)
+  friends: Address[]; // other people's passkeys (invited: loadSigners), who sign from a transaction's link
   level: 1 | 2 | 3; // how many signing devices: this phone, + a browser wallet, + the wedgie
 };
 
@@ -155,6 +176,7 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
       hasWedgie: false,
       wedgieSlots: [],
       wallets: [],
+      friends: [],
       level: 1,
     };
   const read = (functionName: any, args: any[] = [], address: Address = safe, ab: any = abi.safe) =>
@@ -204,7 +226,10 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
   const others = o.filter(x => x.toLowerCase() !== a.burnerSigner.toLowerCase());
   const codes = await Promise.all(others.map(x => (slots.includes(x.toLowerCase()) ? (`0x${"00".repeat(PASSKEY_SIGNER_SIZE)}` as Hex) : pc.getCode({ address: x }).catch(() => "0x00" as Hex))));
   const isPasskey = (i: number) => !!codes[i] && codes[i] !== "0x" && size(codes[i]!) === PASSKEY_SIGNER_SIZE;
-  const wedgieSlots = others.filter((_, i) => isPasskey(i));
+  const known = typeof window === "undefined" ? {} : loadSigners(safe);
+  const friend = (x: Address) => !!known[x.toLowerCase()]?.passkey && !slots.includes(x.toLowerCase());
+  const friends = others.filter((x, i) => isPasskey(i) && friend(x));
+  const wedgieSlots = others.filter((x, i) => isPasskey(i) && !friend(x));
   const wallets = others.filter((_, i) => !isPasskey(i));
   const hasWedgie = wedgieSlots.length > 0;
   const hot = wallets[0];
@@ -236,6 +261,7 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
     wedgie,
     wedgieSlots,
     wallets,
+    friends,
     level,
   };
 }

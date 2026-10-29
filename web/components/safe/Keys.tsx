@@ -7,9 +7,11 @@ import { claimKey } from "@/lib/claim";
 import { CHAINS, chainById, explorerAddress, nativeSymbol } from "@/lib/chains";
 import { amount, short } from "@/lib/format";
 import { DAO, FEE_ALLOWANCE, RECOVERY_60D, VERIFIERS } from "@/lib/safe/config";
-import { type Call, DEFAULT_BUDGET, abi, budgetCalls, deploySignerCall, feeAllowanceCalls, recoveryLayoutCalls, selfCall } from "@/lib/safe/core";
-import { type FeeToken, type Prepared, type Signer, finishOwners, getQuote, howSigns, ownerSigners, prepareOwners, signerLabel, usesWedgie } from "@/lib/safe/send";
-import { type ChainState, type SafeAccount, daoDays, readChain, wedgieHome, wedgieSigners } from "@/lib/safe/state";
+import { type Call, DEFAULT_BUDGET, abi, signerAddress, budgetCalls, deploySignerCall, feeAllowanceCalls, recoveryLayoutCalls, selfCall } from "@/lib/safe/core";
+import type { Waiting } from "@/lib/safe/share";
+import { SharedDone } from "./Waiting";
+import { type FeeToken, type Prepared, Shared, type Signer, finishOwners, getQuote, howSigns, ownerSigners, prepareOwners, signerLabel, usesWedgie } from "@/lib/safe/send";
+import { type ChainState, type SafeAccount, daoDays, loadSigners, loadWalletName, readChain, saveSigner, wedgieHome, wedgieSigners } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
 import { AddressInput, Blockie, PencilIcon, TimedBar, copy } from "../bits";
@@ -53,7 +55,8 @@ export function Keys({
   const [signerIn, setSignerIn] = useState<Address | null>(null);
   const [recEdit, setRecEdit] = useState(false); // recovery: one line until Edit / learn more
   const [keysEdit, setKeysEdit] = useState(false); // signers: the list until Edit
-  const [wedgieOpen, setWedgieOpen] = useState(false); // the wedgie panel (status, find, install), under the signers
+  const [wedgieOpen, setWedgieOpen] = useState(false);
+  const [shared, setShared] = useState<Waiting | null>(null); // a change signed here that needs the others (its link) // the wedgie panel (status, find, install), under the signers
   const st = states.find(s => s.chainId === chainId);
   const usdc = chainById(chainId)?.usdc?.toLowerCase();
   const haveUsdc = assets.some(a => a.chainId === chainId && a.asset.toLowerCase() === usdc && BigInt(a.balance) >= (chainId === 1 ? 10_000_000n : 1_000_000n));
@@ -154,7 +157,10 @@ export function Keys({
       onRefresh();
     } catch (e: any) {
       setWait(null);
-      setErrorRaw({ what: pending.what, msg: friendly(e) });
+      if (e instanceof Shared) {
+        setShared(e.w); // a wallet with other people on it: they sign from the link
+        setPending(null);
+      } else setErrorRaw({ what: pending.what, msg: friendly(e) });
     } finally {
       await pending.close?.();
       setBusy(null);
@@ -164,7 +170,7 @@ export function Keys({
   const signLabel = (p: Prepared) => signerLabel(account, p.opts.state, p.opts.signers);
 
   /** An owners change (`calls` from the fresh chain state), confirmed with Yes like every other step. */
-  const ownersChange = (what: string, label: ReactNode, build: (s: ChainState) => Promise<Call[]> | Call[], settled: (s: ChainState) => boolean) =>
+  const ownersChange = (what: string, label: ReactNode, build: (s: ChainState) => Promise<Call[]> | Call[], settled: (s: ChainState) => boolean, after?: () => void) =>
     prep(what, async () => {
       const st = await fresh();
       const calls = await build(st);
@@ -172,7 +178,7 @@ export function Keys({
       const w = await wedgieFor(st, signers);
       try {
         const p = await prepareOwners({ account, state: st, calls, signers, feeToken, setup: true, wedgie: w, label: typeof label === "string" ? label : "Change the signers" });
-        return { label, p, settled, close: async () => w?.close() };
+        return { label, p, settled, after, close: async () => w?.close() };
       } catch (e) {
         await w?.close();
         throw e;
@@ -181,6 +187,71 @@ export function Keys({
   const safeCall = (functionName: "addOwnerWithThreshold" | "removeOwner" | "changeThreshold", args: readonly unknown[]) =>
     selfCall(account.address, encodeFunctionData({ abi: abi.safe, functionName, args } as any));
   const same = (x: Address, y: Address) => x.toLowerCase() === y.toLowerCase();
+
+  // invites (components/safe/Join.tsx): a link a friend opens to send their passkey's public key; once it's back,
+  // Add makes it a signer here (its signer contract is deployed in the same batch). Kept till dismissed, so the
+  // same person can be added on each network.
+  const IKEY = `iws.invites.${account.address.toLowerCase()}`;
+  type Inv = { id: string; at: number; answer?: { x: Hex; y: Hex; name?: string } };
+  const [invites, setInvites] = useState<Inv[]>([]);
+  const [newInvite, setNewInvite] = useState<string | null>(null);
+  const saveInvites = (l: Inv[]) => {
+    setInvites(l);
+    try {
+      localStorage.setItem(IKEY, JSON.stringify(l.map(({ id, at }) => ({ id, at }))));
+    } catch {}
+  };
+  useEffect(() => {
+    let l: Inv[] = [];
+    try {
+      l = JSON.parse(localStorage.getItem(IKEY) || "[]");
+    } catch {}
+    setInvites(l);
+  }, [IKEY]);
+  const waiting = invites.filter(i => !i.answer).map(i => i.id).join();
+  useEffect(() => {
+    if (!waiting) return;
+    const look = async () => {
+      const got = await Promise.all(
+        invites.map(async i => (i.answer ? i : { ...i, answer: (await fetch(`/api/safe/invite?id=${i.id}`).then(r => r.json()).catch(() => null))?.answer })),
+      );
+      if (got.some((g, k) => g.answer && !invites[k].answer)) setInvites(got);
+    };
+    look();
+    const t = setInterval(look, 5_000);
+    return () => clearInterval(t);
+  }, [waiting]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function invite() {
+    setErrorRaw(null);
+    try {
+      const r = await fetch("/api/safe/invite", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ safe: account.address, from: loadWalletName(account.address) ?? undefined }) });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || `invite: ${r.status}`);
+      saveInvites([...invites, { id: j.id, at: Date.now() }]);
+      setNewInvite(`${location.origin}/join#${j.id}`);
+    } catch (e: any) {
+      setErrorRaw({ what: "invite", msg: friendly(e) });
+    }
+  }
+  const dismiss = (id: string) => {
+    fetch(`/api/safe/invite?id=${id}`, { method: "DELETE" }).catch(() => {});
+    saveInvites(invites.filter(i => i.id !== id));
+  };
+  const addFriend = (i: Inv) => {
+    const { x, y, name } = i.answer!;
+    const who = signerAddress(x, y);
+    ownersChange(
+      `join${i.id}`,
+      <>Add {name ?? "them"} (<Addr a={who} chainId={chainId} inline />) as a signer</>,
+      st => {
+        if (st.owners.some(o => same(o, who))) throw new Error("Already a signer here.");
+        return [deploySignerCall(x, y, VERIFIERS), safeCall("addOwnerWithThreshold", [who, BigInt(st.threshold)])];
+      },
+      s => s.owners.some(o => same(o, who)),
+      () => saveSigner(account.address, who, { name, passkey: true }),
+    );
+  };
 
   const addSigner = () => {
     const a = signerIn;
@@ -307,6 +378,8 @@ export function Keys({
   const idle = !!busy || !!pending || !!wait || !canPay;
 
 
+  if (shared && st) return <SharedDone w={shared} need={st.threshold} onDone={() => setShared(null)} />;
+
   return (
     <div className="stack">
       <h2>Instant Wallet is a Safe multisig</h2>
@@ -330,6 +403,7 @@ export function Keys({
                   <Addr a={o} chainId={chainId} />
                 )}
                 {howSigns(account, st, o) === "faceid" && <span className="fine">Face ID</span>}
+                {howSigns(account, st, o) !== "faceid" && loadSigners(account.address)[o.toLowerCase()]?.name && <b>{loadSigners(account.address)[o.toLowerCase()].name}</b>}
                 {howSigns(account, st, o) === "wedgie" && (
                   <button className="pill row" style={{ gap: 4 }} onClick={() => setWedgieOpen(v => !v)} aria-expanded={wedgieOpen}>
                     <WedgieIcon size={26} /> wedgie
@@ -373,6 +447,62 @@ export function Keys({
                     {busy === "add" ? "Working…" : "Add signer"}
                   </button>,
                 )}
+              </div>
+              <div className="stack" style={{ gap: 6 }}>
+                <b>Invite someone</b>
+                <p className="fine">They open a link and use their own Face ID. Then they sign from the links you send them.</p>
+                <button className="btn wide" onClick={invite} disabled={!!busy}>
+                  Make an invite link
+                </button>
+                {error?.what === "invite" && <ErrorLine text={error.msg} />}
+                {newInvite && (
+                  <div className="row" style={{ gap: 6 }}>
+                    <span className="mono fine grow" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {newInvite}
+                    </span>
+                    <button
+                      className="btn btn-sm btn-green"
+                      onClick={async () => {
+                        if (navigator.share) return navigator.share({ url: newInvite, title: "Be a signer" }).catch(() => {});
+                        toast((await copy(newInvite)) ? "Link copied" : "Couldn't copy");
+                      }}
+                    >
+                      Share
+                    </button>
+                  </div>
+                )}
+                {invites.map(i => {
+                  const who = i.answer && signerAddress(i.answer.x, i.answer.y);
+                  const here = !!who && st.owners.some(o => same(o, who));
+                  return (
+                    <div key={i.id} className="stack" style={{ gap: 6 }}>
+                      <div className="keyrow" style={{ padding: 0 }}>
+                        {who ? (
+                          <span className="row" style={{ gap: 8 }}>
+                            <Addr a={who} chainId={chainId} />
+                            <b>{i.answer!.name ?? "Someone"}</b>
+                          </span>
+                        ) : (
+                          <span className="fine">Invite sent, waiting for them…</span>
+                        )}
+                        <button className="pill" onClick={() => dismiss(i.id)} aria-label="Remove this invite">
+                          ×
+                        </button>
+                      </div>
+                      {who &&
+                        (here ? (
+                          <span className="fine">A signer on {chainById(chainId)?.name}.</span>
+                        ) : (
+                          action(
+                            `join${i.id}`,
+                            <button className="btn btn-green wide" onClick={() => addFriend(i)} disabled={idle}>
+                              Add {i.answer!.name ?? "them"} on {chainById(chainId)?.name}
+                            </button>,
+                          )
+                        ))}
+                    </div>
+                  );
+                })}
               </div>
               {!st.hasWedgie && (
                 <>

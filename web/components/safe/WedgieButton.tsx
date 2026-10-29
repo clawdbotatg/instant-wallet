@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { type ChainState, type SafeAccount, wedgieSigners } from "@/lib/safe/state";
 import {
   type Latest,
@@ -20,7 +20,7 @@ import {
   wedgieSupported,
   WEDGIE_TAKEN,
 } from "@/lib/safe/wedgie";
-import { Blockie, Sheet } from "../bits";
+import { Blockie } from "../bits";
 
 /** The wedgie, drawn after the device render (design/brand/device-mark.png): white shell, a bill and a card behind, knob, screen, four buttons. */
 export function WedgieIcon({ size = 44, sad = false }: { size?: number; sad?: boolean }) {
@@ -193,16 +193,20 @@ function baseStatus(peek: Peek | null, account: SafeAccount, states: ChainState[
   if (mine && !same(mine, h.safe))
     return { tone: "bad", title: "A different wedgie", detail: "This wedgie's key isn't the one on this wallet. Plug in the one you added.", key: h.safe };
   if (!mine && !onWallet)
-    return { tone: "warn", title: "Wedgie ready", detail: "It isn't on this wallet yet. Add it and it counts twice: big moves need it + one more key.", key: h.safe };
+    return { tone: "warn", title: "Wedgie ready", detail: "It isn't a signer on this wallet yet.", key: h.safe };
   if (!mine && onWallet)
     return { tone: "ok", title: "Wedgie connected", detail: "This wallet has a wedgie (added on another device). Sign with this one and the wallet checks it.", key: h.safe };
   return { tone: "ok", title: "Wedgie connected", detail: "This is your wallet's wedgie. It signs big moves with one A press.", key: h.safe };
 }
 
-/** Bottom left: the wedgie. Solid when the wallet's wedgie is plugged in and ready; faded when there's none or something's off. */
-export function WedgieButton({ account, states, onKeys }: { account: SafeAccount; states: ChainState[]; onKeys: () => void }) {
+/**
+ * The wedgie, inside settings' signers (Austin 10-28: no wedgie button on the home screen): is it plugged in, the
+ * right app and key, up to date; find / install / update. `add`: the button that adds it as a signer, shown once a
+ * wedgie that isn't on this wallet is plugged in and ready.
+ */
+export function WedgiePanel({ account, states, add }: { account: SafeAccount; states: ChainState[]; add?: ReactNode }) {
   const [peek, setPeek] = useState<Peek | null>(null);
-  const [open, setOpen] = useState(false);
+  const open = true; // mounted = shown
   const [checking, setChecking] = useState(false);
   const [armed, setArmed] = useState(false);
   const [installing, setInstalling] = useState<{ what: string; p?: number } | null>(null);
@@ -277,29 +281,12 @@ export function WedgieButton({ account, states, onKeys }: { account: SafeAccount
   const chains = states.filter(s => s.hasWedgie).length;
 
   return (
-    <>
-      <button
-        className={`fab fab-wedgie ${st.tone}`}
-        aria-label={st.title}
-        title={st.title}
-        onClick={() => {
-          setOpen(true);
-          check();
-        }}
-      >
-        <WedgieIcon size={56} sad={peek?.kind === "taken"} />
-      </button>
-
-      {open && (
-        <Sheet onClose={() => setOpen(false)}>
-          <div className="wedgie-hero">
-            <WedgieIcon size={150} sad={peek?.kind === "taken"} />
-          </div>
+    <div className="stack" style={{ gap: 12 }}>
           <div className="stack" style={{ gap: 6 }}>
-            <h2 className="row" style={{ gap: 10 }}>
+            <b className="row" style={{ gap: 10 }}>
               <span className={`dot ${st.tone}`} />
               {checking && !peek ? "Looking for your wedgie…" : st.title}
-            </h2>
+            </b>
             {st.detail && <p className="fine">{st.detail}</p>}
             {wedgieDrive() && peek?.kind === "silent" && <Creep />}
             {st.update === "firmware" && hello && latest && (
@@ -392,17 +379,7 @@ export function WedgieButton({ account, states, onKeys }: { account: SafeAccount
                 Find my wedgie
               </button>
             )}
-            {st.tone === "warn" && st.key && !onWallet && (
-              <button
-                className="btn btn-green wide"
-                onClick={() => {
-                  setOpen(false);
-                  onKeys();
-                }}
-              >
-                Add it to this wallet
-              </button>
-            )}
+            {st.tone === "warn" && st.key && !onWallet && add}
             {((wedgieSerial() && armed) || (wedgieDrive() && plugged)) && !installing && (
               <button className="btn wide" onClick={() => check(true)} disabled={checking}>
                 {checking ? "Checking…" : "Check again"}
@@ -426,8 +403,6 @@ export function WedgieButton({ account, states, onKeys }: { account: SafeAccount
               </button>
             )}
           </div>
-        </Sheet>
-      )}
-    </>
+    </div>
   );
 }

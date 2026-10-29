@@ -10,14 +10,14 @@ import { DAO, FEE_ALLOWANCE, RECOVERY_60D, VERIFIERS } from "@/lib/safe/config";
 import { type Call, DEFAULT_BUDGET, abi, budgetCalls, deploySignerCall, feeAllowanceCalls, recoveryLayoutCalls, selfCall } from "@/lib/safe/core";
 import { type FeeToken, type Prepared, type Signer, finishOwners, getQuote, howSigns, ownerSigners, prepareOwners, signerLabel, usesWedgie } from "@/lib/safe/send";
 import { type ChainState, type SafeAccount, daoDays, readChain, wedgieSigners } from "@/lib/safe/state";
-import { Wedgie, wedgieDrive, wedgieSupported } from "@/lib/safe/wedgie";
+import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
 import { AddressInput, Blockie, PencilIcon, TimedBar, copy } from "../bits";
 import { Alerts } from "./Alerts";
 import { ChainSelect } from "./Pick";
 import { ChainLimit } from "./Limits";
 import { friendly } from "../Welcome";
-import { ErrorLine } from "./WedgieButton";
+import { ErrorLine, WedgieIcon, WedgiePanel } from "./WedgieButton";
 
 /**
  * Settings, per chain (each chain's Safe is its own). A plain Safe multisig (Austin 10-28: no kinds of signer):
@@ -53,6 +53,7 @@ export function Keys({
   const [signerIn, setSignerIn] = useState<Address | null>(null);
   const [recEdit, setRecEdit] = useState(false); // recovery: one line until Edit / learn more
   const [keysEdit, setKeysEdit] = useState(false); // signers: the list until Edit
+  const [wedgieOpen, setWedgieOpen] = useState(false); // the wedgie panel (status, find, install), under the signers
   const st = states.find(s => s.chainId === chainId);
   const usdc = chainById(chainId)?.usdc?.toLowerCase();
   const haveUsdc = assets.some(a => a.chainId === chainId && a.asset.toLowerCase() === usdc && BigInt(a.balance) >= (chainId === 1 ? 10_000_000n : 1_000_000n));
@@ -316,11 +317,17 @@ export function Keys({
             <div className="keyrow" key={o} style={{ padding: 0 }}>
               <span className="row" style={{ gap: 8 }}>
                 <Addr a={o} chainId={chainId} />
-                <span className="fine">{({ faceid: "Face ID", wedgie: "wedgie", wallet: "" } as const)[howSigns(account, st, o)]}</span>
+                {howSigns(account, st, o) === "faceid" && <span className="fine">Face ID</span>}
+                {howSigns(account, st, o) === "wedgie" && (
+                  <button className="pill row" style={{ gap: 4 }} onClick={() => setWedgieOpen(v => !v)} aria-expanded={wedgieOpen}>
+                    <WedgieIcon size={26} /> wedgie
+                  </button>
+                )}
               </span>
               {keysEdit && st.owners.length > 1 && action(`rm${o}`, <button className="btn btn-sm" onClick={() => removeSigner(o)} disabled={idle}>Remove</button>)}
             </div>
           ))}
+          {wedgieOpen && st.hasWedgie && <WedgiePanel account={account} states={states} />}
           {!keysEdit ? (
             <button className="btn btn-sm" onClick={() => setKeysEdit(true)}>
               Edit signers
@@ -356,21 +363,23 @@ export function Keys({
                 )}
               </div>
               {!st.hasWedgie && (
-                <div className="stack" style={{ gap: 6 }}>
-                  <b>Add a wedgie</b>
-                  <p className="fine">
-                    A hardware key. {wedgieDrive() ? "Plug it into this iPhone" : "Plug it into a computer (Chrome)"}, open its Safe signer app, then add it. Don&apos;t have one?{" "}
-                    <a href="https://wedgie.dev" target="_blank" rel="noreferrer">
-                      wedgie.dev
-                    </a>
-                  </p>
-                  {action(
-                    "wedgie",
-                    <button className="btn wide" onClick={addWedgie} disabled={idle || !wedgieSupported()}>
-                      {busy === "wedgie" ? "Check the wedgie…" : !wedgieSupported() ? "Needs Chrome on a computer" : "Connect and add the wedgie"}
-                    </button>,
+                <>
+                  <button className="btn btn-dark wide" onClick={() => setWedgieOpen(v => !v)} aria-expanded={wedgieOpen}>
+                    <WedgieIcon size={34} /> Add a wedgie
+                  </button>
+                  {wedgieOpen && (
+                    <WedgiePanel
+                      account={account}
+                      states={states}
+                      add={action(
+                        "wedgie",
+                        <button className="btn btn-green wide" onClick={addWedgie} disabled={idle}>
+                          {busy === "wedgie" ? "Check the wedgie…" : "Add it as a signer"}
+                        </button>,
+                      )}
+                    />
                   )}
-                </div>
+                </>
               )}
               <button className="btn btn-sm" onClick={() => setKeysEdit(false)} disabled={!!busy}>
                 Done

@@ -20,7 +20,7 @@ import { SafeSend } from "./SafeSend";
 import { SendAll } from "./SendAll";
 import { SafeSwap } from "./SafeSwap";
 import { type Confirm, SafeWelcome, signIn } from "./SafeWelcome";
-import { WedgieButton, WedgieProgress } from "./WedgieButton";
+import { WedgieProgress } from "./WedgieButton";
 import { PendingCards } from "./PendingCard";
 import { SafeConnectLayer } from "./SafeConnect";
 import { NftGrid } from "./Nfts";
@@ -32,7 +32,7 @@ import type { Session } from "../WalletConnect";
 
 type View = { kind: "home" } | { kind: "send"; asset?: Asset; scanned?: string } | { kind: "swap"; fund?: number } | { kind: "receive" } | { kind: "deposit" } | { kind: "keys" } | { kind: "share"; chainId: number } | { kind: "sendAll" };
 
-/** Instant Wallet on a Safe: a big balance, Deposit / Swap, the connected sites above the coins, the address pill opens Receive, settings bottom middle (keys needed / keys you have), a send button on each asset, a scan button (addresses, claim cards, WalletConnect QRs) and the wedgie (bottom left). */
+/** Instant Wallet on a Safe: a big balance, Deposit / Swap, the connected sites above the coins, the address pill opens Receive, settings bottom left (signatures needed / signers; the wedgie lives in there), a send button on each asset, a scan button (addresses, claim cards, WalletConnect QRs). */
 export function SafeApp({ link }: { link?: string } = {}) {
   const [account, setAccountState] = useState<SafeAccount | null | undefined>(undefined);
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
@@ -424,7 +424,6 @@ export function SafeApp({ link }: { link?: string } = {}) {
         <NftGrid address={account.address} />
       </div>
 
-      <WedgieButton account={account} states={states} onKeys={() => setView({ kind: "keys" })} />
       <button className="fab fab-settings" aria-label="Settings" onClick={() => setView({ kind: "keys" })}>
         <GearIcon />
         <span className="lvl">{keysNeed}/{keysHave}</span>

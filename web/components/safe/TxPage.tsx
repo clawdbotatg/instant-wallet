@@ -61,10 +61,14 @@ export function TxPage({ chainId, safe }: { chainId: number; safe: Address }) {
     load().catch(e => setError(friendly(e)));
   }, [load]);
 
-  async function add(s: Sig) {
+  // all of one press at once: a wedgie signs as two owners, and adding them one by one from the same `w` kept only the last
+  async function add(...ss: Sig[]) {
     if (!w || !chain) return;
-    if (!chain.owners.some(o => eq(o, s.signer))) throw new Error(`${short(s.signer)} isn't a signer on this wallet.`);
-    const next: Waiting = { ...w, sigs: [...w.sigs.filter(x => !eq(x.owner, s.signer)), { owner: s.signer, signature: sigHex(s) }] };
+    for (const s of ss) if (!chain.owners.some(o => eq(o, s.signer))) throw new Error(`${short(s.signer)} isn't a signer on this wallet.`);
+    const next: Waiting = {
+      ...w,
+      sigs: [...w.sigs.filter(x => !ss.some(s => eq(x.owner, s.signer))), ...ss.map(s => ({ owner: s.signer, signature: sigHex(s) }))],
+    };
     setW(next);
     await shareTx(next);
     setValid(await checkSigs(next).catch(() => valid));
@@ -108,7 +112,7 @@ export function TxPage({ chainId, safe }: { chainId: number; safe: Address }) {
       const slots = wedgieSigners(await wd.key()).filter(x => chain.owners.some(o => eq(o, x)));
       if (!slots.length) throw new Error("This wedgie isn't a signer on this wallet.");
       const sigs = await wd.sign(chainId, safe, w.tx, w.hash, slots);
-      for (const s of sigs) await add(s);
+      await add(...sigs);
     } finally {
       await wd.close();
     }

@@ -1,7 +1,7 @@
-import { type Address, type Hex, decodeFunctionData, formatUnits, getAddress } from "viem";
+import { type Address, type Hex, decodeFunctionData, encodeAbiParameters, encodeFunctionData, formatUnits, getAddress } from "viem";
 import { chainById, nativeSymbol } from "../chains";
 import { short } from "../format";
-import { KEY_ETH, KEY_FEE_USDC, KEY_USDC, MULTISEND_CALL_ONLY, RECOVERY_DAYS } from "./config";
+import { KEY_ETH, KEY_FEE_USDC, KEY_USDC, MODULE_FACTORY, MULTICALL3, MULTISEND_CALL_ONLY, MULTISEND_UNWRAPPER, RECOVERY_DAYS, ROLE_BURNER, ROLES_MASTERCOPY } from "./config";
 import { type Call, type SafeTx, abi, rolesAddress } from "./core";
 import { unpackMultiSend } from "./fee";
 
@@ -25,6 +25,10 @@ export function callsOf(tx: Pick<SafeTx, "to" | "value" | "data" | "operation">)
   }
   return [{ to: tx.to, value: tx.value, data: tx.data }];
 }
+
+/** A line that starts with this is a warning: the page shows it red (the wedgie's red). */
+export const WARN = "⚠️ ";
+const RELAY = "0x4cfab32186e65e2a39ec0e882e11380cbf2f8a2f"; // the relayer the fee rule names (wedgie-safe safe_book RELAY)
 
 /** One call, in words: a coin sent, a limit or signer change, else the contract and function. */
 export function describe(chainId: number, safe: Address, c: Call): string {
@@ -53,6 +57,7 @@ export function describe(chainId: number, safe: Address, c: Call): string {
       case "swapOwner":
         return `Swap signer ${short(a[1])} for ${short(a[2])}`;
       case "enableModule":
+        if (eq(a[0], rolesAddress(safe))) return "Turn on the daily limit";
         return RECOVERY_DAYS[getAddress(a[0])] ? `Turn on ${RECOVERY_DAYS[getAddress(a[0])]}-day recovery` : `Turn on module ${short(a[0])}`;
       case "disableModule":
         return RECOVERY_DAYS[getAddress(a[1])] ? `Turn off ${RECOVERY_DAYS[getAddress(a[1])]}-day recovery` : `Turn off module ${short(a[1])}`;
@@ -60,25 +65,11 @@ export function describe(chainId: number, safe: Address, c: Call): string {
     return `Change the wallet (${sel})`;
   }
 
-  if (eq(c.to, rolesAddress(safe))) {
-    const r = dec(abi.roles, d);
-    const a = r?.args ?? [];
-    switch (r?.functionName) {
-      case "setAllowance":
-        if (eq(a[0], KEY_USDC)) return `Daily limit: ${formatUnits(a[1], 6)} USDC`;
-        if (eq(a[0], KEY_ETH)) return `Daily limit: ${formatUnits(a[1], 18)} ${sym}`;
-        if (eq(a[0], KEY_FEE_USDC)) return `Fee budget: ${formatUnits(a[1], 6)} USDC a day`;
-        return `Set an allowance to ${a[1]}`;
-      case "scopeFunction":
-        return usdc && eq(a[1], usdc) ? "Fees come out of the fee budget, not your daily limit" : `Set a spending rule on ${short(a[1])}`;
-      case "assignRoles":
-        return a[2]?.[0] ? `Let ${short(a[0])} spend the daily limit` : `Stop ${short(a[0])} spending the daily limit`;
-      case "disableModule":
-        return `Remove ${short(a[1])} from the daily limit`;
-      case "enableModule":
-        return `Add ${short(a[0])} to the daily limit`;
-    }
-    return `Change the daily limit rules (${sel})`;
+  if (eq(c.to, rolesAddress(safe))) return roles(c, sym, usdc);
+  if (eq(c.to, MODULE_FACTORY)) {
+    const m = dec(abi.moduleFactory, d);
+    const init = encodeFunctionData({ abi: abi.roles, functionName: "setUp", args: [encodeAbiParameters([{ type: "address" }, { type: "address" }, { type: "address" }], [safe, safe, safe])] });
+    if (m && eq(m.args[0], ROLES_MASTERCOPY) && eq(m.args[1], init) && m.args[2] === 0n) return "Set up the daily limit";
   }
 
   if (RECOVERY_DAYS[getAddress(c.to)]) {
@@ -89,4 +80,76 @@ export function describe(chainId: number, safe: Address, c: Call): string {
   }
 
   return `Call ${short(c.to)} (${sel})${c.value ? ` with ${formatUnits(c.value, 18)} ${sym}` : ""}`;
+}
+
+/**
+ * Zodiac Roles (the daily limit), in words, with the wedgie's own checks (wedgie-safe safe_read.py _roles/_rule,
+ * audit 10-18): only Instant Wallet's role and keys, more than a day's spend at once, rules that aren't ours.
+ */
+function roles(c: Call, sym: string, usdc?: Address): string {
+  const r = dec(abi.roles, c.data);
+  const a = r?.args ?? [];
+  const what = (t: Address) => (usdc && eq(t, usdc) ? "USDC" : eq(t, MULTICALL3) ? `${sym} sends` : short(t));
+  const ours = (role: Hex) => eq(role, ROLE_BURNER);
+  switch (r?.functionName) {
+    case "setAllowance": {
+      const [key, bal, most, refill, per] = a as [Hex, bigint, bigint, bigint, bigint];
+      const lim = eq(key, KEY_USDC) ? ["Daily limit", 6, "USDC"] : eq(key, KEY_ETH) ? ["Daily limit", 18, sym] : eq(key, KEY_FEE_USDC) ? ["Fee limit", 6, "USDC"] : null;
+      if (!lim) return `${WARN}A limit of ${refill}: of what? Can't tell`;
+      const [name, d, s] = lim as [string, number, string];
+      const amt = (n: bigint) => `${formatUnits(n, d)} ${s}`;
+      if (bal > refill || most !== refill) return `${WARN}${name}: ${amt(bal > most ? bal : most)} can go at once, then ${amt(refill)}`;
+      return per === 86_400n ? `${name}: ${amt(refill)} a day` : `${WARN}${name}: ${amt(refill)} every ${per}s`;
+    }
+    case "assignRoles": {
+      const [mod, keys, on] = a as [Address, Hex[], boolean[]];
+      if (keys.length !== 1 || on.length !== 1 || !ours(keys[0])) return `${WARN}Changes roles: can't read it`;
+      return on[0] ? `Let ${short(mod)} spend the daily limit` : `${WARN}Stop ${short(mod)} spending the daily limit`;
+    }
+    case "enableModule":
+      return `Turn on the daily limit for ${short(a[0])}`;
+    case "disableModule":
+      return `${WARN}Turn off the daily limit for ${short(a[1])}`;
+    case "scopeTarget":
+      if (!ours(a[0])) return `${WARN}Another role: can't read it`;
+      return usdc && eq(a[1], usdc)  || eq(a[1], MULTICALL3) ? `Daily limit can spend ${what(a[1])}` : `${WARN}Daily limit can spend ${what(a[1])}`;
+    case "revokeTarget":
+      if (!ours(a[0])) return `${WARN}Another role: can't read it`;
+      return `${WARN}Daily limit can't spend ${what(a[1])}`;
+    case "scopeFunction":
+      if (!ours(a[0])) return `${WARN}Another role: can't read it`;
+      return rule(a as any, usdc, sym) ?? `${WARN}A daily-limit rule for ${what(a[1])}: can't read it`;
+    case "setTransactionUnwrapper":
+      return eq(a[0], MULTISEND_CALL_ONLY) && eq(a[1], "0x8d80ff0a") && eq(a[2], MULTISEND_UNWRAPPER)
+        ? "Daily limit works in batches"
+        : `${WARN}Daily limit reads batches with ${short(a[2])}`;
+  }
+  return `${WARN}Changes the daily limit: can't read it`;
+}
+
+type Cond = { parent: number; paramType: number; operator: number; compValue: Hex };
+/** The rules Instant Wallet sets for the daily limit's USDC and ETH (core.ts budgetCalls/feeAllowanceCalls), or null. */
+function rule([, target, sel, conds, opt]: [Hex, Address, Hex, readonly Cond[], number], usdc: Address | undefined, sym: string): string | null {
+  // ExecutionOptions: 0 none, 1 send ETH; 2/3 delegatecall would let the key run any code as the Safe
+  if (opt !== (eq(target, MULTICALL3) ? 1 : 0)) return null;
+  const c = conds.map(x => [x.parent, x.paramType, x.operator, x.compValue === "0x" ? "" : x.compValue.slice(2).toLowerCase()].join());
+  const k = (h: Hex) => h.slice(2).toLowerCase();
+  const is = (want: (string | number)[][]) => c.length === want.length && want.every((w, i) => w.join() === c[i]);
+  if (eq(sel, "0xa9059cbb")) {
+    if (!usdc || !eq(target, usdc)) return null;
+    if (is([[0, 5, 5, ""], [0, 1, 0, ""], [0, 1, 28, k(KEY_USDC)]])) return "Daily limit: USDC to anyone";
+    const fee = conds[3];
+    if (
+      c.length === 7 &&
+      is([[0, 0, 2, ""], [0, 5, 5, ""], [0, 5, 5, ""], [1, 1, 16, k(fee.compValue)], [1, 1, 28, k(KEY_FEE_USDC)], [2, 1, 0, ""], [2, 1, 28, k(KEY_USDC)]]) &&
+      fee.compValue.length === 66
+    ) {
+      const to = `0x${fee.compValue.slice(26)}`;
+      return eq(to, RELAY) ? "Fees get their own limit" : `${WARN}Fees to ${short(to as Address)} get their own limit`;
+    }
+    return null;
+  }
+  if (eq(target, MULTICALL3) && eq(sel, "0x174dea71") && is([[0, 5, 5, ""], [0, 4, 0, ""], [0, 0, 29, k(KEY_ETH)], [1, 3, 0, ""], [3, 1, 0, ""], [3, 1, 0, ""], [3, 1, 0, ""], [3, 2, 0, ""]]))
+    return `Daily limit: ${sym} to anyone`;
+  return null;
 }

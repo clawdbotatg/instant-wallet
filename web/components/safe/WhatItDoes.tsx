@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import type { Address } from "viem";
 import { short } from "@/lib/format";
-import { describe } from "@/lib/safe/describe";
+import { WARN, describe } from "@/lib/safe/describe";
 import type { Call } from "@/lib/safe/core";
 
 type Field = { label: string; value: string; address?: string };
@@ -43,7 +43,11 @@ export function WhatItDoes({ chainId, safe, calls }: { chainId: number; safe: Ad
         const t = told?.[i];
         return (
           <div key={i} className="stack" style={{ gap: 2 }}>
-            <span style={{ fontSize: 15, fontWeight: t ? 600 : undefined }}>{t ? t.what : describe(chainId, safe, c)}</span>
+            {t ? (
+              <span style={{ fontSize: 15, fontWeight: 600 }}>{t.what}</span>
+            ) : (
+              <Said text={describe(chainId, safe, c)} />
+            )}
             {t?.fields.map((f, j) => (
               <span key={j} className="fine">
                 {f.label}: {f.address ? <span className="mono">{short(f.address)}</span> : f.value}
@@ -54,4 +58,9 @@ export function WhatItDoes({ chainId, safe, calls }: { chainId: number; safe: Ad
       })}
     </>
   );
+}
+
+function Said({ text }: { text: string }) {
+  const warn = text.startsWith(WARN);
+  return <span style={{ fontSize: 15, color: warn ? "#c62828" : undefined, fontWeight: warn ? 600 : undefined }}>{text}</span>;
 }

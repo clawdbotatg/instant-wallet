@@ -61,8 +61,15 @@ export function SafeApp({ link }: { link?: string } = {}) {
 
   useEffect(() => {
     // ?watch=0x…: view any wallet, read only (not advertised; for debugging). Never saved, never signs.
+    // ?watch=atg.eth works too (resolved on Ethereum).
     const w = new URLSearchParams(window.location.search).get("watch");
-    if (w && isAddress(w)) setAccountState({ credentialId: WATCH, qx: "0x", qy: "0x", burnerSigner: zeroAddress, address: getAddress(w) });
+    const watch = (a: string) => setAccountState({ credentialId: WATCH, qx: "0x", qy: "0x", burnerSigner: zeroAddress, address: getAddress(a) });
+    if (w && isAddress(w)) watch(w);
+    else if (w?.includes("."))
+      fetch(`/api/ens?name=${encodeURIComponent(w)}`)
+        .then(r => r.json())
+        .then(j => (j?.address && isAddress(j.address) ? watch(j.address) : setAccountState(loadAccount())))
+        .catch(() => setAccountState(loadAccount()));
     else setAccountState(loadAccount());
     setHiddenState(loadHidden());
     setShownState(loadShown());

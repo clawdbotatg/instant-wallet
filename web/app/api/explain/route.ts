@@ -108,7 +108,7 @@ async function clear(chain: number, safe: string, c: Call): Promise<Told> {
 }
 
 type Sim = { pay: Move[]; get: Move[]; fee: Move[]; fails?: string } | null;
-type Move = { symbol: string; amount: string };
+type Move = { symbol: string; amount: string; usd?: number };
 const TRANSFER = toEventSelector("Transfer(address,address,uint256)");
 const NATIVE = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"; // eth_simulateV1 traceTransfers: native coin moves, as Transfer logs
 
@@ -142,11 +142,42 @@ async function simulate(chain: number, safe: string, calls: Call[]): Promise<Sim
     return t ? { symbol: t.symbol, amount: formatUnits(v, t.decimals) } : { symbol: `token ${tok.slice(0, 6)}…${tok.slice(-4)}`, amount: v.toString() };
   };
   const nz = [...net].filter(([, v]) => v !== 0n);
+  const get = await Promise.all(nz.filter(([, v]) => v > 0n).map(([t, v]) => move(t, v)));
+  await Promise.all(
+    nz
+      .filter(([, v]) => v > 0n)
+      .map(async ([t], i) => {
+        const p = await usd(chain, t).catch(() => null);
+        if (p !== null) get[i].usd = p * Number(get[i].amount);
+      }),
+  );
   return {
     pay: await Promise.all(nz.filter(([, v]) => v < 0n).map(([t, v]) => move(t, -v))),
-    get: await Promise.all(nz.filter(([, v]) => v > 0n).map(([t, v]) => move(t, v))),
+    get,
     fee: await Promise.all([...fee].map(([t, v]) => move(t, v))),
   };
+}
+
+/** A coin's dollar price (Alchemy): $1 only for the real USDC (by address), the native coin by symbol. */
+async function usd(chain: number, tok: string): Promise<number | null> {
+  const c = knownChain(chain);
+  if (c?.usdc && tok === c.usdc.toLowerCase()) return 1;
+  const key = process.env.ALCHEMY_API_KEY;
+  if (!key || !c) return null;
+  const base = `https://api.g.alchemy.com/prices/v1/${key}/tokens`;
+  const j =
+    tok === NATIVE
+      ? await getJson(`${base}/by-symbol?symbols=${c.native.symbol}`)
+      : c.alchemy
+        ? await fetch(`${base}/by-address`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ addresses: [{ network: c.alchemy, address: tok }] }),
+            signal: AbortSignal.timeout(10_000),
+          }).then(r => r.json())
+        : null;
+  const v = Number(j?.data?.[0]?.prices?.find((p: any) => p.currency === "usd")?.value);
+  return Number.isFinite(v) && v > 0 ? v : null;
 }
 
 export async function POST(req: NextRequest) {

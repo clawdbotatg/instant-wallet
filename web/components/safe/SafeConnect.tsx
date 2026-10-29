@@ -104,7 +104,7 @@ function SafeRequest({
     setPrepared(null);
     (async () => {
       const dappGas = await siteGas(st.chainId, account.address, calls!);
-      const p = await prepareOwners({ account, state: st, calls: calls!, signers, feeToken, dappGas, label: `${pending.dapp.name}: ${calls!.length} step${calls!.length > 1 ? "s" : ""}` });
+      const p = await prepareOwners({ account, state: st, calls: calls!, signers, feeToken, dappGas, label: pending.dapp.name });
       if (live) setPrepared(p);
     })().catch(e => live && setError(friendly(e)));
     return () => {

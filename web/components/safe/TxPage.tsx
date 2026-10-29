@@ -184,7 +184,6 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
       </p>
 
       <div className="card stack" style={{ gap: 6 }}>
-        <b>What it does</b>
         <WhatItDoes chainId={chainId} safe={safe} calls={calls} />
       </div>
 

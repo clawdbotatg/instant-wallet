@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from "react";
 import type { Address } from "viem";
-import { amount, short } from "@/lib/format";
+import { amount, short, usd } from "@/lib/format";
 import { WARN, describe, ours } from "@/lib/safe/describe";
 import type { Call } from "@/lib/safe/core";
 
 type Field = { label: string; value: string; address?: string };
 type Told = { what: string; fields: Field[] } | null;
-type Move = { symbol: string; amount: string };
+type Move = { symbol: string; amount: string; usd?: number };
 type Sim = { pay: Move[]; get: Move[]; fee: Move[]; fails?: string } | null;
 type Got = { calls: Told[] | null; sim: Sim };
 
@@ -43,6 +43,8 @@ export function WhatItDoes({ chainId, safe, calls }: { chainId: number; safe: Ad
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
   const sim = res?.sim;
   const many = calls.length > 1;
+  // coins in and out say it all; the steps show when no coins move (a signer, a limit), the run failed, or a step warns
+  const steps = !sim || !!sim.fails || (!sim.pay.length && !sim.get.length) || calls.some(c => describe(chainId, safe, c).startsWith(WARN));
   return (
     <>
       {!res ? (
@@ -51,14 +53,12 @@ export function WhatItDoes({ chainId, safe, calls }: { chainId: number; safe: Ad
         <Said text={`${WARN}This would fail right now (${sim.fails})`} />
       ) : sim ? (
         <div className="stack" style={{ gap: 4 }}>
-          {sim.pay.map((m, i) => <Line key={`p${i}`} label="You pay" m={m} />)}
-          {sim.get.map((m, i) => <Line key={`g${i}`} label="You get" m={m} />)}
-          {!sim.pay.length && !sim.get.length && <span style={{ fontSize: 15 }}>No coins leave your wallet</span>}
+          {sim.pay.map((m, i) => <Coin key={`p${i}`} m={m} />)}
+          {sim.get.map((m, i) => <Coin key={`g${i}`} m={m} get />)}
           {sim.fee.map((m, i) => <Line key={`f${i}`} label="Network fee" m={m} small />)}
         </div>
       ) : null}
-      {(sim || many) && <b style={{ marginTop: 8, fontSize: 14 }}>{many ? `${calls.length} steps` : "Step"}</b>}
-      {calls.map((c, i) => {
+      {steps && calls.map((c, i) => {
         const mine = ours(chainId, c);
         const t = mine ? null : res?.calls?.[i];
         return (
@@ -79,6 +79,16 @@ export function WhatItDoes({ chainId, safe, calls }: { chainId: number; safe: Ad
         );
       })}
     </>
+  );
+}
+
+function Coin({ m, get }: { m: Move; get?: boolean }) {
+  return (
+    <span style={{ fontSize: 20, fontWeight: 700, color: get ? "var(--mint-d)" : "var(--coral)" }}>
+      {get ? "+" : "−"}
+      {amount(m.amount)} {m.symbol}
+      {m.usd !== undefined && <span className="fine" style={{ fontWeight: 400 }}> ({usd(m.usd)})</span>}
+    </span>
   );
 }
 

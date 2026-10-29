@@ -21,13 +21,13 @@ import { passkeySign, passkeySignRaw } from "./sign";
 import { short } from "../format";
 import { type ChainState, type SafeAccount, loadSigners, salt, wedgieSigners } from "./state";
 import { Wedgie, wedgieSupported } from "./wedgie";
-import { type Waiting, shareTx, sigHex } from "./share";
+import { type Waiting, shareTx, sigHex, txLink } from "./share";
 
-/** Thrown by a send this device signed but that needs more signers: it's shared (lib/safe/share.ts) for them. */
+/** Thrown by a send this device signed but that needs more signers: it's shared (lib/safe/share.ts) and its page opens. */
 export class Shared extends Error {
   w: Waiting;
   constructor(w: Waiting) {
-    super("Signed here. It needs more signatures: share its link with the other signers.");
+    super("Signed. Opening the transaction…");
     this.name = "Shared";
     this.w = w;
   }
@@ -183,6 +183,8 @@ export async function finishOwners(p: Prepared): Promise<Hash> {
     const w: Waiting = { chainId, safe: a.address, tx: t, hash: h, sigs: sigs.map(s => ({ owner: s.signer, signature: sigHex(s) })), label: p.opts.label };
     const got = await shareTx(w);
     if (!got.safe && !got.queue) w.label = (w.label ? `${w.label} ` : "") + "(saved in this browser only)";
+    // one thing here: your signature. The rest (the wedgie, or a link for the others) happens on its page.
+    location.assign(txLink(w));
     throw new Shared(w);
   }
   if (later) {
@@ -323,8 +325,13 @@ export function signerOptions(st: ChainState, a: SafeAccount): SignerOption[] {
   );
 }
 
-/** The keys to ask for by default: the first option this device can sign. */
-export function ownerSigners(st: ChainState, a: SafeAccount): Signer[] {
+/** A wallet that needs 2+ signatures: this phone signs with Face ID, then the transaction's page (wedgie, or share). */
+export const signThenQueue = (st: ChainState, a: SafeAccount) => st.threshold > 1 && st.deployed && st.owners.some(o => eq(o, a.burnerSigner));
+
+/** The keys to ask for by default: Face ID then the queue; or, `inline` (a site waiting for the answer), the first
+ * option this device can sign. */
+export function ownerSigners(st: ChainState, a: SafeAccount, inline = false): Signer[] {
+  if (!inline && signThenQueue(st, a)) return [a.burnerSigner];
   if (st.threshold <= 1 && (!st.deployed || st.owners.some(o => eq(o, a.burnerSigner)))) return [a.burnerSigner];
   return signerOptions(st, a)[0]?.signers ?? [a.burnerSigner];
 }

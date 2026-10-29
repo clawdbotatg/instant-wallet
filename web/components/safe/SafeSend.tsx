@@ -11,7 +11,7 @@ import { parse } from "@/lib/parse";
 import { openWalletConnect } from "@/lib/walletconnect";
 import { transfer } from "@/lib/safe/core";
 import type { Quote } from "@/lib/safe/fee";
-import { type FeeToken, type Signer, type Stage, Shared, budgetSend, getQuote, ownersSend, plan, sendKind, signerOptions, usesWedgie } from "@/lib/safe/send";
+import { type FeeToken, type Signer, type Stage, Shared, budgetSend, getQuote, ownersSend, plan, sendKind, signThenQueue, signerOptions, usesWedgie } from "@/lib/safe/send";
 import type { Waiting } from "@/lib/safe/share";
 import { SharedDone } from "./Waiting";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
@@ -126,7 +126,7 @@ export function SafeSend({
   const feeLabel = quote ? (feeToken === "usdc" ? `${fmtAmount(formatUnits(fee, 6))} USDC` : `${fmtAmount(formatUnits(fee, 18))} ${nativeSymbol(chainId)}`) : "…";
   const p = st && asset && base !== null ? plan(st, account, asset.asset as Address, base, fee, sendingUsdc || sendingEth) : null;
   // which keys sign a big move: the first way this device can, unless the user picks another
-  const options = st && p?.path === "owners" && st.threshold > 1 ? signerOptions(st, account) : [];
+  const options = st && p?.path === "owners" && st.threshold > 1 && !signThenQueue(st, account) ? signerOptions(st, account) : [];
   const [chosen, setChosen] = useState<Signer[] | null>(null);
   const signers: Signer[] = p?.path === "owners" && chosen && options.some(o => o.ready && o.signers.join() === chosen.join()) ? chosen : (p?.signers ?? []);
   useEffect(() => {
@@ -361,7 +361,7 @@ export function SafeSend({
           </div>
           <div className="line">
             <span>Signed by</span>
-            {p ? <SignerChoice options={options} value={signers} onChange={setChosen} disabled={busy} /> : <span>…</span>}
+            {p ? <SignerChoice options={options} value={signers} onChange={setChosen} disabled={busy} note={st && signThenQueue(st, account) ? "then the wedgie or the others, on the next screen" : undefined} /> : <span>…</span>}
           </div>
           {!st?.deployed && (
             <div className="line">

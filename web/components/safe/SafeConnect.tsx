@@ -70,10 +70,10 @@ function SafeRequest({
   const [error, setError] = useState<string | null>(null);
   const [prepared, setPrepared] = useState<Prepared | null>(null);
   const [tick, setTick] = useState(0);
-  const options = st && st.threshold > 1 ? signerOptions(st, account) : [];
+  const options = st && st.threshold > 1 ? signerOptions(st, account).filter(o => !o.share) : []; // the site waits for the answer: all here
   const [chosen, setChosen] = useState<Signer[] | null>(null);
   const signers: Signer[] =
-    chosen && options.some(o => o.ready && o.signers.join() === chosen.join()) ? chosen : st ? ownerSigners(st, account) : [account.burnerSigner];
+    chosen && options.some(o => o.ready && o.signers.join() === chosen.join()) ? chosen : st ? ownerSigners(st, account, true) : [account.burnerSigner];
   const busy = stage !== null;
 
   let calls: ReturnType<typeof siteCalls> | null = null;

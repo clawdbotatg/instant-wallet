@@ -58,13 +58,19 @@ export function AppList({ onOpen }: { onOpen: (a: AppEntry) => void }) {
   );
 }
 
-/** A Safe App, full screen, talking to this wallet on one network (a Safe App can't switch: pick another and it reloads). */
+/** A Safe App, full screen (on a wide screen: left of the wallet), talking to this wallet on one network (a Safe App can't switch: pick another and it reloads). */
 export function AppFrame({ app, account, states, onClose }: { app: AppEntry; account: SafeAccount; states: ChainState[]; onClose: () => void }) {
   const [chainId, setChainId] = useState(app.chains[0]);
   const ref = useRef<HTMLIFrameElement>(null);
   const statesRef = useRef(states);
   statesRef.current = states;
   const ready = states.some(s => s.chainId === chainId);
+
+  // wide screens show the wallet beside the app (globals.css, html.app-side)
+  useEffect(() => {
+    document.documentElement.classList.add("app-side");
+    return () => document.documentElement.classList.remove("app-side");
+  }, []);
 
   // listen before the frame loads: the app asks for the Safe at once and gives up after 10 ms
   useEffect(() => {

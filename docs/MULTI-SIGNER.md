@@ -35,8 +35,9 @@ Home shows "Waiting for signatures" from the merged queue. Every tx (waiting or 
 - `web/app/api/safe/svc/route.ts`: Safe's Transaction Service with `SAFE_API_KEY` (Vercel + `.env.local`).
 - `/tx/<chain>/<safe>#<code>` (`components/safe/TxPage.tsx`): what it does, who signed, Sign (Face ID / wedgie /
   browser wallet), Send (relay, or your own wallet), Copy link, Open in Safe{Wallet}.
-- Sending: a "Face ID, then share" choice whenever more than one signature is needed. It signs, shares, and shows
-  the link (`SharedDone`). Home: "Waiting for signatures" (our queue + this browser only: Safe's quota is shared).
+- Sending, when more than one signature is needed: no choices. Face ID signs, then the tx page opens; the wedgie
+  signs or you share it from there (Austin, 10-28: "just gather their signature and take them to the queue";
+  `signThenQueue`). A site (WalletConnect) still signs inline: it waits for the answer. Home: "Waiting for signatures" (our queue + this browser only: Safe's quota is shared).
 
 - Invites: Edit signers → Invite someone → a `/join#<id>` link (`components/safe/Join.tsx`, `/api/safe/invite`,
   7 days). The friend uses their passkey (or makes one); its public key comes back; "Add <name>" deploys their

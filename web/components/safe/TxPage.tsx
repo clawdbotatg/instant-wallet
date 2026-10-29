@@ -155,6 +155,8 @@ export function TxPage({ chainId, safe }: { chainId: number; safe: Address }) {
 
   const done = w.tx.nonce < chain.nonce;
   const enough = valid.length >= chain.threshold;
+  const me = loadAccount();
+  const mineSigned = !!me && valid.some(s => eq(s.owner, me.burnerSigner)); // this browser's Face ID already signed
   const calls: Call[] = eq(w.tx.to, MULTISEND_CALL_ONLY) && w.tx.operation === 1 ? safeUnpack(w.tx.data) : [{ to: w.tx.to, value: w.tx.value, data: w.tx.data }];
   const app = safeAppTxLink(chainId, safe, w.hash);
 
@@ -216,14 +218,28 @@ export function TxPage({ chainId, safe }: { chainId: number; safe: Address }) {
         </>
       ) : (
         <>
-          <button className="btn btn-green wide" onClick={signFace} disabled={!!busy}>
-            {busy === "face" ? "Signing…" : "Sign with Face ID"}
-          </button>
-          {wedgieSupported() && (
+          {!mineSigned && (
+            <button className="btn btn-green wide" onClick={signFace} disabled={!!busy}>
+              {busy === "face" ? "Signing…" : "Sign with Face ID"}
+            </button>
+          )}
+          {wedgieSupported() ? (
             <button className="btn btn-dark wide" onClick={signWedgie} disabled={!!busy}>
               <WedgieIcon size={30} /> {busy === "wedgie" ? "Press A on the wedgie…" : "Sign with a wedgie"}
             </button>
+          ) : (
+            <p className="fine">To sign with a wedgie, open this link on your computer.</p>
           )}
+          <button
+            className={`btn wide ${mineSigned ? "btn-green" : ""}`}
+            onClick={async () => {
+              const link = txLink(w);
+              if (navigator.share) return navigator.share({ url: link, title: w.label ?? "Sign this" }).catch(() => {});
+              setToast((await copy(link)) ? "Link copied" : "Couldn't copy");
+            }}
+          >
+            Share with another signer
+          </button>
           {hotAvailable() && (
             <button className="btn wide" onClick={signWallet} disabled={!!busy}>
               {busy === "wallet" ? "Signing…" : "Sign with my wallet"}

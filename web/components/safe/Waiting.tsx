@@ -4,40 +4,16 @@ import { useEffect, useState } from "react";
 import { chainById } from "@/lib/chains";
 import { type Waiting, readWaiting, safeAppTxLink, txLink } from "@/lib/safe/share";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
-import { copy, useToast } from "../bits";
 
-/** After a send that needs other signers: its link to pass on (and Safe{Wallet}, which has it too). */
-export function SharedDone({ w, need, onDone }: { w: Waiting; need: number; onDone: () => void }) {
-  const [toast, setToast] = useToast();
-  const link = txLink(w);
-  const app = safeAppTxLink(w.chainId, w.safe, w.hash);
+/** After a send that needs other signers: its page is opening (finishOwners sent us there). */
+export function SharedDone({ w }: { w: Waiting; need?: number; onDone?: () => void }) {
+  useEffect(() => {
+    if (!location.pathname.startsWith("/tx/")) location.assign(txLink(w));
+  }, [w]);
   return (
     <div className="stack center">
-      <h2>Signed. Now the others.</h2>
-      <p>
-        {w.label ?? "This transaction"} needs {need - w.sigs.length} more signature{need - w.sigs.length === 1 ? "" : "s"}. Send them this link.
-      </p>
-      <button
-        className="btn btn-green wide"
-        onClick={async () => {
-          if (navigator.share) return navigator.share({ url: link, title: w.label ?? "Sign this" }).catch(() => {});
-          setToast((await copy(link)) ? "Link copied" : "Couldn't copy");
-        }}
-      >
-        Share the link
-      </button>
-      <button className="btn wide" onClick={async () => setToast((await copy(link)) ? "Link copied" : "Couldn't copy")}>
-        Copy the link
-      </button>
-      {app && (
-        <a className="btn btn-sm" href={app} target="_blank" rel="noreferrer">
-          Open in Safe&#123;Wallet&#125; ↗
-        </a>
-      )}
-      <button className="btn btn-sm" onClick={onDone}>
-        OK
-      </button>
-      {toast && <div className="toast">{toast}</div>}
+      <h2>Signed</h2>
+      <p className="fine">Opening the transaction…</p>
     </div>
   );
 }

@@ -316,3 +316,13 @@ html[data-brand="xdai"] .seedcard .word { background: #1d1d1d; border-color: var
 .appframe-bar .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .appframe-bar select.pill { max-width: 40%; }
 .appframe iframe { flex: 1; width: 100%; border: 0; background: #fff; }
+/* wide screens: the app on the left, the wallet (and its sheets, buttons, toasts) in a 512px column on the right */
+@media (min-width: 1000px) {
+  html.app-side .appframe { right: 512px; border-right: 1px solid var(--recess); }
+  html.app-side .app { margin: 0 0 0 auto; width: 512px; max-width: 512px; }
+  html.app-side .fab { right: 18px; }
+  html.app-side .fab-settings { right: auto; left: calc(100% - 512px + 18px); }
+  html.app-side .sheet-bg { left: auto; width: 512px; }
+  html.app-side .toast { left: calc(100% - 256px); }
+  html.app-side .wedgie-progress { left: calc(100% - 512px + 12px); }
+}

@@ -6,7 +6,7 @@ import { CHAINS, chainById, explorerAddress, explorerTx, publicClient, nativeSym
 import { amount as fmtAmount, short, usd } from "@/lib/format";
 import { abi } from "@/lib/safe/core";
 import type { Quote } from "@/lib/safe/fee";
-import { type FeeToken, type Signer, type Stage, getQuote, ownerSigners, ownersSend, sendKind, signerOptions, usesWedgie } from "@/lib/safe/send";
+import { type FeeToken, type Signer, type Stage, getQuote, ownerSigners, ownersSend, sendKind, signThenQueue, signerOptions, usesWedgie } from "@/lib/safe/send";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { POPULAR, type SwapRoute, type Token, swapCalls } from "@/lib/safe/swap";
 import { uniswapRoute } from "@/lib/safe/uniswap";
@@ -181,7 +181,7 @@ export function SafeSwap({
   const tooMuch = !!from && base !== null && base > BigInt(from.balance);
   const st = states.find(s => s.chainId === chainId);
   // which keys sign: the first way this device can, unless the user picks another
-  const options = st && st.threshold > 1 ? signerOptions(st, account) : [];
+  const options = st && st.threshold > 1 && !signThenQueue(st, account) ? signerOptions(st, account) : [];
   const [chosen, setChosen] = useState<Signer[] | null>(null);
   const signers: Signer[] =
     chosen && options.some(o => o.ready && o.signers.join() === chosen.join()) ? chosen : st ? ownerSigners(st, account) : [account.burnerSigner];
@@ -503,7 +503,7 @@ export function SafeSwap({
           </div>
           <div className="line">
             <span>Signed by</span>
-            <SignerChoice options={options} value={signers} onChange={setChosen} disabled={busy} />
+            <SignerChoice options={options} value={signers} onChange={setChosen} disabled={busy} note={st && signThenQueue(st, account) ? "then the wedgie or the others, on the next screen" : undefined} />
           </div>
           {!st?.deployed && (
             <div className="line">

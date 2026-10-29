@@ -56,6 +56,7 @@ export function Keys({
   const [recEdit, setRecEdit] = useState(false); // recovery: one line until Edit / learn more
   const [keysEdit, setKeysEdit] = useState(false); // signers: the list until Edit
   const [wedgieOpen, setWedgieOpen] = useState(false);
+  const [wedgieLook, setWedgieLook] = useState<{ tone: string; looking: boolean } | null>(null); // what the pill says
   const [shared, setShared] = useState<Waiting | null>(null); // a change signed here that needs the others (its link) // the wedgie panel (status, find, install), under the signers
   const st = states.find(s => s.chainId === chainId);
   const usdc = chainById(chainId)?.usdc?.toLowerCase();
@@ -431,8 +432,17 @@ export function Keys({
                   {howSigns(account, st, o) === "faceid" && <span className="fine">Face ID</span>}
                   {howSigns(account, st, o) !== "faceid" && loadSigners(account.address)[o.toLowerCase()]?.name && <b>{loadSigners(account.address)[o.toLowerCase()].name}</b>}
                   {howSigns(account, st, o) === "wedgie" && (
-                    <button className="pill row" style={{ gap: 4 }} onClick={() => setWedgieOpen(v => !v)} aria-expanded={wedgieOpen}>
-                      <WedgieIcon size={26} /> wedgie
+                    <button className="pill row" style={{ gap: 4 }} onClick={() => (setWedgieOpen(v => !v), setWedgieLook(null))} aria-expanded={wedgieOpen}>
+                      <WedgieIcon size={26} />
+                      {!wedgieOpen ? (
+                        "wedgie"
+                      ) : !wedgieLook || wedgieLook.looking ? (
+                        "finding…"
+                      ) : (
+                        <>
+                          <span className={`dot ${wedgieLook.tone}`} /> {wedgieLook.tone === "ok" ? "connected" : "wedgie"}
+                        </>
+                      )}
                     </button>
                   )}
                 </span>
@@ -456,7 +466,7 @@ export function Keys({
               </button>
             </div>
           ))}
-          {wedgieOpen && st.hasWedgie && <WedgiePanel account={account} states={states} />}
+          {wedgieOpen && st.hasWedgie && <WedgiePanel account={account} states={states} onStatus={setWedgieLook} />}
           {!keysEdit ? (
             <button className="btn btn-sm" onClick={() => setKeysEdit(true)}>
               Edit signers

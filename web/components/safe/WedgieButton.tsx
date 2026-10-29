@@ -204,7 +204,18 @@ function baseStatus(peek: Peek | null, account: SafeAccount, states: ChainState[
  * right app and key, up to date; find / install / update. `add`: the button that adds it as a signer, shown once a
  * wedgie that isn't on this wallet is plugged in and ready.
  */
-export function WedgiePanel({ account, states, add }: { account: SafeAccount; states: ChainState[]; add?: ReactNode }) {
+export function WedgiePanel({
+  account,
+  states,
+  add,
+  onStatus,
+}: {
+  account: SafeAccount;
+  states: ChainState[];
+  add?: ReactNode;
+  // quiet mode (the signer row's wedgie pill shows it): nothing renders while looking or once it's connected
+  onStatus?: (s: { tone: Status["tone"]; looking: boolean }) => void;
+}) {
   const [peek, setPeek] = useState<Peek | null>(null);
   const open = true; // mounted = shown
   const [checking, setChecking] = useState(false);
@@ -275,10 +286,13 @@ export function WedgiePanel({ account, states, add }: { account: SafeAccount; st
   }, [open, peek, check]);
 
   const st = statusOf(peek, account, states, latest);
+  const looking = !peek; // not asked yet (the first check is on its way)
+  useEffect(() => onStatus?.({ tone: st.tone, looking }), [onStatus, st.tone, looking]);
   const plugged = peek?.kind === "hello" || peek?.kind === "busy";
   const hello = peek?.kind === "hello" ? peek.hello : null;
   const onWallet = states.some(s => s.hasWedgie);
 
+  if (onStatus && (looking || st.tone === "ok")) return null;
   return (
     <div className="stack" style={{ gap: 12 }}>
           <div className="stack" style={{ gap: 6 }}>

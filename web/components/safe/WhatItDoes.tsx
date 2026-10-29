@@ -2,15 +2,18 @@
 
 import { useEffect, useState } from "react";
 import type { Address } from "viem";
-import { short } from "@/lib/format";
-import { WARN, describe } from "@/lib/safe/describe";
+import { amount, short } from "@/lib/format";
+import { WARN, describe, ours } from "@/lib/safe/describe";
 import type { Call } from "@/lib/safe/core";
 
 type Field = { label: string; value: string; address?: string };
 type Told = { what: string; fields: Field[] } | null;
+type Move = { symbol: string; amount: string };
+type Sim = { pay: Move[]; get: Move[]; fee: Move[]; fails?: string } | null;
+type Got = { calls: Told[] | null; sim: Sim };
 
 // one ask per set of calls, kept for the page's life
-const got = new Map<string, Promise<Told[] | null>>();
+const got = new Map<string, Promise<Got>>();
 function ask(chainId: number, safe: Address, calls: Call[]) {
   const body = JSON.stringify({ chain: chainId, safe, calls: calls.map(c => ({ to: c.to, value: String(c.value), data: c.data })) });
   if (!got.has(body))
@@ -18,35 +21,54 @@ function ask(chainId: number, safe: Address, calls: Call[]) {
       body,
       fetch("/api/explain", { method: "POST", headers: { "content-type": "application/json" }, body })
         .then(r => (r.ok ? r.json() : null))
-        .then(j => (Array.isArray(j?.calls) ? (j.calls as Told[]) : null))
-        .catch(() => null),
+        .then(j => ({ calls: Array.isArray(j?.calls) ? (j.calls as Told[]) : null, sim: (j?.sim as Sim) ?? null }))
+        .catch(() => ({ calls: null, sim: null })),
     );
   return got.get(body)!;
 }
 
-/** What a Safe tx does, call by call: clear signing (ERC-7730, the words the wedgie shows) where the registry has it,
- * else lib/safe/describe.ts. */
+/** What a Safe tx does: first what it does to your coins (the server runs it on the latest block: you pay, you get,
+ * the fee), then each step in words: ours (describe.ts `ours`: fee, approvals, swaps), else clear signing (ERC-7730,
+ * the words the wedgie shows) where the registry has it, else describe.ts. */
 export function WhatItDoes({ chainId, safe, calls }: { chainId: number; safe: Address; calls: Call[] }) {
-  const [told, setTold] = useState<Told[] | null>(null);
+  const [res, setRes] = useState<Got | null>(null);
   const key = `${chainId}|${calls.map(c => c.to + c.data + c.value).join()}`;
   useEffect(() => {
     let live = true;
-    setTold(null);
-    if (calls.length) ask(chainId, safe, calls).then(t => live && setTold(t));
+    setRes(null);
+    if (calls.length) ask(chainId, safe, calls).then(t => live && setRes(t));
     return () => {
       live = false;
     };
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  const sim = res?.sim;
+  const many = calls.length > 1;
   return (
     <>
+      {!res ? (
+        <span className="fine">Checking what it does…</span>
+      ) : sim?.fails ? (
+        <Said text={`${WARN}This would fail right now (${sim.fails})`} />
+      ) : sim ? (
+        <div className="stack" style={{ gap: 4 }}>
+          {sim.pay.map((m, i) => <Line key={`p${i}`} label="You pay" m={m} />)}
+          {sim.get.map((m, i) => <Line key={`g${i}`} label="You get" m={m} />)}
+          {!sim.pay.length && !sim.get.length && <span style={{ fontSize: 15 }}>No coins leave your wallet</span>}
+          {sim.fee.map((m, i) => <Line key={`f${i}`} label="Network fee" m={m} small />)}
+        </div>
+      ) : null}
+      {(sim || many) && <b style={{ marginTop: 8, fontSize: 14 }}>{many ? `${calls.length} steps` : "Step"}</b>}
       {calls.map((c, i) => {
-        const t = told?.[i];
+        const mine = ours(chainId, c);
+        const t = mine ? null : res?.calls?.[i];
         return (
           <div key={i} className="stack" style={{ gap: 2 }}>
-            {t ? (
-              <span style={{ fontSize: 15, fontWeight: 600 }}>{t.what}</span>
+            {mine ? (
+              <Said n={many ? i + 1 : 0} text={mine} />
+            ) : t ? (
+              <span style={{ fontSize: 15, fontWeight: 600 }}>{`${many ? `${i + 1}. ` : ""}${t.what}`}</span>
             ) : (
-              <Said text={describe(chainId, safe, c)} />
+              <Said n={many ? i + 1 : 0} text={describe(chainId, safe, c)} />
             )}
             {t?.fields.map((f, j) => (
               <span key={j} className="fine">
@@ -60,7 +82,20 @@ export function WhatItDoes({ chainId, safe, calls }: { chainId: number; safe: Ad
   );
 }
 
-function Said({ text }: { text: string }) {
+function Line({ label, m, small }: { label: string; m: Move; small?: boolean }) {
+  return (
+    <span style={{ fontSize: small ? 14 : 18, fontWeight: small ? 400 : 700 }} className={small ? "fine" : undefined}>
+      {label}: {amount(m.amount)} {m.symbol}
+    </span>
+  );
+}
+
+function Said({ text, n = 0 }: { text: string; n?: number }) {
   const warn = text.startsWith(WARN);
-  return <span style={{ fontSize: 15, color: warn ? "#c62828" : undefined, fontWeight: warn ? 600 : undefined }}>{text}</span>;
+  return (
+    <span style={{ fontSize: 15, color: warn ? "#c62828" : undefined, fontWeight: warn ? 600 : undefined }}>
+      {n ? `${n}. ` : ""}
+      {text}
+    </span>
+  );
 }

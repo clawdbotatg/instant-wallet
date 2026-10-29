@@ -1,4 +1,4 @@
-import { type Address, type Hex, decodeFunctionData, encodeAbiParameters, encodeFunctionData, formatUnits, getAddress } from "viem";
+import { type Address, type Hex, decodeFunctionData, encodeAbiParameters, encodeFunctionData, formatUnits, getAddress, parseAbi } from "viem";
 import { chainById, nativeSymbol } from "../chains";
 import { short } from "../format";
 import { KEY_ETH, KEY_FEE_USDC, KEY_USDC, MODULE_FACTORY, MULTICALL3, MULTISEND_CALL_ONLY, MULTISEND_UNWRAPPER, RECOVERY_DAYS, ROLE_BURNER, ROLES_MASTERCOPY } from "./config";
@@ -28,7 +28,44 @@ export function callsOf(tx: Pick<SafeTx, "to" | "value" | "data" | "operation">)
 
 /** A line that starts with this is a warning: the page shows it red (the wedgie's red). */
 export const WARN = "⚠️ ";
-const RELAY = "0x4cfab32186e65e2a39ec0e882e11380cbf2f8a2f"; // the relayer the fee rule names (wedgie-safe safe_book RELAY)
+export const RELAY = "0x4cfab32186e65e2a39ec0e882e11380cbf2f8a2f"; // the relayer the fee rule names (wedgie-safe safe_book RELAY)
+const PERMIT2 = "0x000000000022d473030f116ddee9f6b43ac78ba3";
+// Uniswap's Universal Routers (code checked on each chain, 10-29); any other address is named by its address
+const UNISWAP = [
+  "0xd6145b2d3f379919e8cdeda7b97e37c4b2ca9c40",
+  "0x6ff5693b99212da76ad316178a184ab56d299b43",
+  "0x66a9893cc07d91d95644aedd05d03f95e1dba8af",
+  "0xa51afafe0263b40edaef0df8781ea9aa03e381a3",
+  "0x851116d9223fabed8e56c0e6b8ad0c31d98b3507",
+  "0x1095692a6237d83c6a72f3f5efedb9a670c49223",
+];
+const MAX = 2n ** 160n - 1n; // Permit2's "any amount" is uint160; an ERC-20's is uint256 (anything this big counts)
+const permit2 = parseAbi(["function approve(address token, address spender, uint160 amount, uint48 expiration)"]);
+const who = (a: string) => (UNISWAP.some(u => eq(u, a)) ? "Uniswap" : eq(a, PERMIT2) ? "Permit2 (Uniswap's approvals)" : short(a));
+
+/** The calls we can say better than a registry descriptor: the relay's fee (checked to the byte, so a look-alike
+ * address can't pass as it), approvals, a Uniswap swap. null: anything else. */
+export function ours(chainId: number, c: Call): string | null {
+  const usdc = chainById(chainId)?.usdc;
+  const coin = (t: string) => (usdc && eq(t, usdc) ? "USDC" : `token ${short(t)}`);
+  if (c.data === "0x") return eq(c.to, RELAY) ? `Network fee: ${formatUnits(c.value, 18)} ${nativeSymbol(chainId)}` : null;
+  const sel = c.data.slice(0, 10).toLowerCase();
+  if (sel === "0x3593564c" || sel === "0x24856bc3") return UNISWAP.some(u => eq(u, c.to)) ? "Swap on Uniswap" : `Swap through ${short(c.to)}`;
+  const t = dec(abi.erc20, c.data);
+  if (t?.functionName === "transfer" && eq(t.args[0], RELAY)) return usdc && eq(c.to, usdc) ? `Network fee: ${formatUnits(t.args[1], 6)} USDC` : null;
+  if (t?.functionName === "approve") {
+    const [sp, amt] = t.args as [Address, bigint];
+    if (amt === 0n) return `Stop ${who(sp)} spending your ${coin(c.to)}`;
+    return `Let ${who(sp)} spend ${amt >= MAX ? "any amount of" : usdc && eq(c.to, usdc) ? `up to ${formatUnits(amt, 6)}` : "some of"} your ${coin(c.to)}`;
+  }
+  if (eq(c.to, PERMIT2) && sel === "0x87517c45") {
+    const p = dec(permit2, c.data);
+    if (!p) return null;
+    const [tok, sp, amt] = p.args as [Address, Address, bigint];
+    return `Let ${who(sp)} spend ${amt >= MAX ? "any amount of" : usdc && eq(tok, usdc) ? `up to ${formatUnits(amt, 6)}` : "some of"} your ${coin(tok)}`;
+  }
+  return null;
+}
 
 /** One call, in words: a coin sent, a limit or signer change, else the contract and function. */
 export function describe(chainId: number, safe: Address, c: Call): string {
@@ -36,6 +73,8 @@ export function describe(chainId: number, safe: Address, c: Call): string {
   const sel = d.slice(0, 10).toLowerCase();
   const sym = nativeSymbol(chainId);
   const usdc = chainById(chainId)?.usdc;
+  const o = ours(chainId, c);
+  if (o) return o;
   if (d === "0x") return `Send ${formatUnits(c.value, 18)} ${sym} to ${short(c.to)}`;
 
   const t = dec(abi.erc20, d);

@@ -78,14 +78,17 @@ export function SafeApp({ link }: { link?: string } = {}) {
   // (a recovered one asks first, on the sign-in screen). Picking one reloads the page, so nothing of the old
   // wallet (a balance read still in flight, its sites, its name) can land on the new one.
   const [switchConfirm, setSwitchConfirm] = useState<Confirm | null>(null);
+  const [switching, setSwitching] = useState(false); // covers the old wallet from the passkey prompt to the reload
   const openAccount = (a: SafeAccount) => {
     saveAccount(a);
     window.location.reload();
   };
   const anotherPasskey = async () => {
+    setSwitching(true);
     try {
       const r = await signIn();
       if (!("confirm" in r)) return openAccount(r.account);
+      setSwitching(false);
       setPortfolio(null);
       setStates([]);
       setPosUsd(null);
@@ -93,6 +96,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
       setSwitchConfirm(r.confirm);
       setAccount(null);
     } catch (e: any) {
+      setSwitching(false);
       setToast(friendly(e));
     }
   };
@@ -498,6 +502,12 @@ export function SafeApp({ link }: { link?: string } = {}) {
       {app && <AppFrame app={app} account={account} states={states} onClose={() => (setApp(null), refresh())} />}
       <SafeConnectLayer account={account} states={states} feeTokenOn={feeTokenOn} onSent={refresh} onSessions={setSites} />
       {toast && <div className="toast">{toast}</div>}
+      {switching && (
+        <div className="switching">
+          <span className="spinner" aria-label="Switching" />
+          <p>Switching account…</p>
+        </div>
+      )}
       <WedgieProgress />
     </>
   );

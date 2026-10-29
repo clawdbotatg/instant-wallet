@@ -161,6 +161,8 @@ div.asset:active { background: none; }
 .stale { opacity: .5; }
 .spinner { flex: none; width: 36px; height: 36px; border-radius: 50%; border: 4px solid rgba(0,0,0,.12); border-top-color: #1fa641; animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+/* switching accounts: hides the old wallet until the page reloads into the new one */
+.switching { position: fixed; inset: 0; z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: var(--paper); color: var(--ink); font-weight: 600; }
 
 .field { display: grid; gap: 6px; }
 .field label { font-size: 13px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }

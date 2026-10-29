@@ -221,6 +221,22 @@ export function SafeSend({
     }
   }
 
+  const clip = () => navigator.clipboard?.readText().then(t => t.trim()).catch(() => "") ?? Promise.resolve("");
+  // the send form with the clipboard in To (a payment link or claim card works like a scan)
+  async function pasteAddress() {
+    const t = await clip();
+    setScanning(false);
+    if (!t) return;
+    if (dropCode(t) || isClaimLink(t) || parse(t).kind === "pay") return onScan(t);
+    setToInput(t);
+  }
+  // the WalletConnect sheet with the clipboard in it: a valid code connects straight away
+  async function pasteWalletConnect() {
+    const t = await clip();
+    onDone();
+    openWalletConnect(t || undefined);
+  }
+
   useEffect(() => {
     if (scanned) onScan(scanned);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -368,12 +384,15 @@ export function SafeSend({
 
   return (
     <div className="stack">
-      <h2>Send</h2>
+      <h2>{scanning ? "Scan an address or WalletConnect" : "Send"}</h2>
       {scanning ? (
         <>
           <Scanner onResult={onScan} />
-          <button className="btn wide" onClick={() => setScanning(false)}>
-            Type it instead
+          <button className="btn wide" onClick={pasteAddress}>
+            Paste address
+          </button>
+          <button className="btn wide" onClick={pasteWalletConnect}>
+            Paste WalletConnect
           </button>
         </>
       ) : (

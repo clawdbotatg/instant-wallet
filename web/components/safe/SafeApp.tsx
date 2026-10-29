@@ -10,7 +10,7 @@ import { loadHidden, loadPortfolio, loadShown, saveHidden, savePortfolio, saveSh
 import { dropOtherBudgetsCalls } from "@/lib/safe/core";
 import { type Prepared, finishOwners, ownerSigners, prepareOwners, signerOptions } from "@/lib/safe/send";
 import { friendly } from "../Welcome";
-import { Blockie, ConnectIcon, DepositIcon, GearIcon, ScanIcon, SendIcon, Sheet, SwapIcon, sheetOpen, TokenIcon, TrashIcon, copy, useToast } from "../bits";
+import { Blockie, DepositIcon, GearIcon, ScanIcon, SendIcon, Sheet, SwapIcon, sheetOpen, TokenIcon, TrashIcon, copy, useToast } from "../bits";
 import { Receive } from "../Receive";
 import { Deposit } from "./Deposit";
 import { Keys } from "./Keys";
@@ -27,12 +27,12 @@ import { NftGrid } from "./Nfts";
 import { PositionList } from "./Positions";
 import { stashedCode } from "@/lib/dropClient";
 import { renamePasskey } from "@/lib/passkey";
-import { disconnect, openWalletConnect } from "@/lib/walletconnect";
+import { disconnect } from "@/lib/walletconnect";
 import type { Session } from "../WalletConnect";
 
 type View = { kind: "home" } | { kind: "send"; asset?: Asset; scanned?: string } | { kind: "swap"; fund?: number } | { kind: "receive" } | { kind: "deposit" } | { kind: "keys" } | { kind: "share"; chainId: number } | { kind: "sendAll" };
 
-/** Instant Wallet on a Safe: a big balance, Connect / Deposit / Swap, the connected sites above the coins, the address pill opens Receive, settings bottom middle (keys needed / keys you have), a send button on each asset, a scan button (addresses, claim cards, WalletConnect QRs) and the wedgie (bottom left). */
+/** Instant Wallet on a Safe: a big balance, Deposit / Swap, the connected sites above the coins, the address pill opens Receive, settings bottom middle (keys needed / keys you have), a send button on each asset, a scan button (addresses, claim cards, WalletConnect QRs) and the wedgie (bottom left). */
 export function SafeApp({ link }: { link?: string } = {}) {
   const [account, setAccountState] = useState<SafeAccount | null | undefined>(undefined);
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
@@ -329,9 +329,6 @@ export function SafeApp({ link }: { link?: string } = {}) {
             )}
           </div>
           <div className="actions">
-            <button className="btn" onClick={() => openWalletConnect()}>
-              <ConnectIcon /> Connect
-            </button>
             <button className="btn" onClick={() => setView({ kind: "deposit" })}>
               <DepositIcon /> Deposit
             </button>
@@ -432,7 +429,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
         <GearIcon />
         <span className="lvl">{keysNeed}/{keysHave}</span>
       </button>
-      <button className="fab" aria-label="Scan to send" onClick={() => setView({ kind: "send" })}>
+      <button className="fab" aria-label="Scan an address or WalletConnect" onClick={() => setView({ kind: "send" })}>
         <ScanIcon />
       </button>
 

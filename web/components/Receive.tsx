@@ -29,7 +29,7 @@ export function Receive({
   name?: string | null; // the wallet's name, as the title (tap to edit) when onName is given
   onName?: (name: string | null) => void; // null: back to the default name
   onSignOut?: () => void; // a "Sign out of this device" button at the bottom
-  onSwitch?: () => void; // a "Switch account" button at the top (another passkey's wallet)
+  onSwitch?: () => void; // a "Switch account" button at the top (opens the passkey prompt)
   onShare?: () => void; // "Share Instant Wallet" (the app's link as a QR) and "Share crypto" at the bottom
 }) {
   const [asking, setAsking] = useState(false);
@@ -65,7 +65,7 @@ export function Receive({
   return (
     <div className="stack">
       {onSwitch && (
-        <button className="btn btn-sm" style={{ alignSelf: "center" }} onClick={onSwitch}>
+        <button className="btn wide" onClick={onSwitch}>
           <SwitchIcon />
           Switch account
         </button>

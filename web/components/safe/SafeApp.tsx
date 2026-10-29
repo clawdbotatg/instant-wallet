@@ -5,13 +5,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Address } from "viem";
 import { CHAINS, chainById } from "@/lib/chains";
 import { amount, short, usd } from "@/lib/format";
-import { type ChainState, type SafeAccount, defaultWalletName, forgetKnown, knownAccounts, loadAccount, loadWalletName, readAll, saveAccount, saveWalletName } from "@/lib/safe/state";
+import { type ChainState, type SafeAccount, defaultWalletName, forgetKnown, loadAccount, loadWalletName, readAll, saveAccount, saveWalletName } from "@/lib/safe/state";
 import type { Asset, Portfolio } from "@/lib/types";
 import { loadHidden, loadPortfolio, loadShown, saveHidden, savePortfolio, saveShown } from "@/lib/store";
 import { dropOtherBudgetsCalls } from "@/lib/safe/core";
 import { type Prepared, finishOwners, ownerSigners, prepareOwners } from "@/lib/safe/send";
 import { friendly } from "../Welcome";
-import { AppsIcon, Blockie, CheckIcon, DepositIcon, GearIcon, ScanIcon, SendIcon, Sheet, sheetOpen, TokenIcon, TrashIcon, copy, useToast } from "../bits";
+import { AppsIcon, Blockie, DepositIcon, GearIcon, ScanIcon, SendIcon, Sheet, sheetOpen, TokenIcon, TrashIcon, copy, useToast } from "../bits";
 import { Receive } from "../Receive";
 import { Deposit } from "./Deposit";
 import { Keys } from "./Keys";
@@ -35,7 +35,7 @@ import { renamePasskey } from "@/lib/passkey";
 import { disconnect } from "@/lib/walletconnect";
 import type { Session } from "../WalletConnect";
 
-type View = { kind: "home" } | { kind: "send"; asset?: Asset; scanned?: string } | { kind: "swap"; fund?: number } | { kind: "apps" } | { kind: "receive" } | { kind: "switch" } | { kind: "deposit" } | { kind: "keys" } | { kind: "share"; chainId: number } | { kind: "sendAll" } | { kind: "tx"; chainId: number; safe: Address; code: string };
+type View = { kind: "home" } | { kind: "send"; asset?: Asset; scanned?: string } | { kind: "swap"; fund?: number } | { kind: "apps" } | { kind: "receive" } | { kind: "deposit" } | { kind: "keys" } | { kind: "share"; chainId: number } | { kind: "sendAll" } | { kind: "tx"; chainId: number; safe: Address; code: string };
 
 /** Instant Wallet on a Safe: a big balance, Deposit / Apps, the connected sites above the coins, the address pill opens Receive, settings bottom left (signatures needed / signers; the wedgie lives in there), a send button on each asset, a scan button (addresses, claim cards, WalletConnect QRs). */
 export function SafeApp({ link }: { link?: string } = {}) {
@@ -74,7 +74,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
     setAccountState(a);
     if (a) setSwitchConfirm(null);
   };
-  // the address page's Switch account: the wallets this browser knows (the open one checked), or another passkey
+  // the address page's Switch account goes straight to the passkey prompt
   // (a recovered one asks first, on the sign-in screen). Picking one reloads the page, so nothing of the old
   // wallet (a balance read still in flight, its sites, its name) can land on the new one.
   const [switchConfirm, setSwitchConfirm] = useState<Confirm | null>(null);
@@ -466,7 +466,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
               toast={setToast}
               name={walletName}
               onName={setName}
-              onSwitch={() => setView({ kind: "switch" })}
+              onSwitch={anotherPasskey}
               onShare={() => {
                 // start on the network with the most money on it
                 const top = [...assets].sort((x, y) => (y.usd ?? 0) - (x.usd ?? 0))[0];
@@ -480,32 +480,6 @@ export function SafeApp({ link }: { link?: string } = {}) {
                 setView({ kind: "home" });
               }}
             />
-          )}
-          {view.kind === "switch" && (
-            <div className="stack">
-              <h2>Switch account</h2>
-              {knownAccounts().map(a => {
-                const on = a.credentialId === account.credentialId && a.address.toLowerCase() === account.address.toLowerCase();
-                return (
-                  <button
-                    key={`${a.credentialId}:${a.address}`}
-                    className="card row"
-                    style={{ border: 0, textAlign: "left", cursor: "pointer", padding: "14px 18px", outline: on ? "2px solid var(--ink)" : undefined }}
-                    onClick={() => (on ? setView({ kind: "receive" }) : openAccount(a))}
-                  >
-                    <Blockie address={a.address} size={36} />
-                    <div className="grow">
-                      <div style={{ fontWeight: 600 }}>{(on ? walletName : loadWalletName(a.address)) ?? short(a.address)}</div>
-                      <div className="mono fine">{short(a.address)}</div>
-                    </div>
-                    {on && <CheckIcon size={24} />}
-                  </button>
-                );
-              })}
-              <button className="btn wide" onClick={anotherPasskey}>
-                Another passkey
-              </button>
-            </div>
           )}
           {view.kind === "share" && <Share account={account} states={states} assets={assets} chainId={view.chainId} onDone={close} />}
           {view.kind === "keys" && (

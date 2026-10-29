@@ -11,8 +11,8 @@ type Told = { what: string; fields: Field[] } | null;
 
 // one ask per set of calls, kept for the page's life
 const got = new Map<string, Promise<Told[] | null>>();
-function ask(chainId: number, calls: Call[]) {
-  const body = JSON.stringify({ chain: chainId, calls: calls.map(c => ({ to: c.to, value: String(c.value), data: c.data })) });
+function ask(chainId: number, safe: Address, calls: Call[]) {
+  const body = JSON.stringify({ chain: chainId, safe, calls: calls.map(c => ({ to: c.to, value: String(c.value), data: c.data })) });
   if (!got.has(body))
     got.set(
       body,
@@ -32,7 +32,7 @@ export function WhatItDoes({ chainId, safe, calls }: { chainId: number; safe: Ad
   useEffect(() => {
     let live = true;
     setTold(null);
-    if (calls.length) ask(chainId, calls).then(t => live && setTold(t));
+    if (calls.length) ask(chainId, safe, calls).then(t => live && setTold(t));
     return () => {
       live = false;
     };

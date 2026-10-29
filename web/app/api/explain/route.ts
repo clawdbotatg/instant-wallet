@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchPrebuiltRegistryIndex, format, isFieldGroup } from "@ethereum-sourcify/clear-signing";
-import type { ExternalDataProvider, RegistryIndex, TokenResult } from "@ethereum-sourcify/clear-signing";
-import { knownChain } from "@/lib/chains";
+import type { DescriptorResolver, ExternalDataProvider, RegistryIndex, TokenResult, TrustedTokens } from "@ethereum-sourcify/clear-signing";
+import { CHAINS, knownChain } from "@/lib/chains";
 import { rpc } from "@/lib/rpcServer";
 
 export const dynamic = "force-dynamic";
 
 /**
- * `POST /api/explain {chain, calls: [{to, value, data}]}` -> `{calls: [{what, fields: [{label, value, address?}]} | null]}`.
+ * `POST /api/explain {chain, safe, calls: [{to, value, data}]}` -> `{calls: [{what, fields: [{label, value, address?}]} | null]}`.
  * Clear signing (ERC-7730): each call in its contract's own words, from the public registry through Sourcify's
  * formatter. null: no descriptor for that call (the page falls back to lib/safe/describe.ts). Port of wedgie-dev
  * api/explain.ts tier 1 (no 🤖 tier).
+ * The same data the wedgie reads (wedgie-dev wire/release.py): the EF registry, then ours on top (OURS: staged
+ * there before a registry PR), USDC as a trusted ERC-20. A call to the Safe itself reads as the 0x5afe… "This Safe"
+ * binding. Its Roles module (the daily limit) has no descriptor yet: describe.ts reads it.
  */
 type Call = { to: string; value: string; data: string };
 type Field = { label: string; value: string; address?: string };
@@ -21,13 +24,54 @@ const HEX = /^0x[0-9a-fA-F]*$/;
 const MAX_CALLS = 20;
 const MAX_DATA = 40_000;
 
-// kept while this function instance is warm
-let index: Promise<RegistryIndex | undefined> | null = null;
-const registry = () =>
-  (index ||= fetchPrebuiltRegistryIndex().catch(() => {
-    index = null;
-    return undefined;
-  }));
+const REGISTRY = "https://raw.githubusercontent.com/ethereum/clear-signing-erc7730-registry/master/";
+const OURS = [
+  { repo: "clawdbotatg/clear-descriptors", dir: "registry/" },
+  { repo: "clawdbotatg/wedgie-dev", dir: "descriptors/" },
+];
+const THIS_SAFE = "0x5afe5afe5afe5afe5afe5afe5afe5afe5afe5afe";
+const TRUSTED: TrustedTokens = Object.fromEntries(CHAINS.filter(c => c.usdc).map(c => [c.id, { [c.usdc!]: "erc20" as const }]));
+
+const getJson = (url: string) =>
+  fetch(url, { signal: AbortSignal.timeout(10_000) }).then(r => {
+    if (!r.ok) throw new Error(`${r.status} ${url}`);
+    return r.json();
+  });
+
+/** Our descriptor files (GitHub trees), by raw URL. clear-descriptors wins over wedgie-dev for the same deployment. */
+async function ours(): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+  for (const { repo, dir } of [...OURS].reverse()) {
+    const tree = await getJson(`https://api.github.com/repos/${repo}/git/trees/main?recursive=1`).catch(() => null);
+    const files = (tree?.tree ?? []).map((t: any) => t.path as string).filter((p: string) => p.startsWith(dir) && /\/calldata-[^/]+\.json$/.test(p));
+    await Promise.all(
+      files.map(async (p: string) => {
+        const url = `https://raw.githubusercontent.com/${repo}/main/${p}`;
+        const d = await getJson(url).catch(() => null);
+        for (const x of d?.context?.contract?.deployments ?? []) out[`eip155:${x.chainId}:${String(x.address).toLowerCase()}`] = url;
+      }),
+    );
+  }
+  return out;
+}
+
+// kept while this function instance is warm (an hour: a new descriptor of ours shows up without a deploy)
+let built: { at: number; r: Promise<DescriptorResolver | undefined> } | null = null;
+function resolver() {
+  if (built && Date.now() - built.at < 3600_000) return built.r;
+  const r = Promise.all([fetchPrebuiltRegistryIndex(), ours()])
+    .then(([reg, our]): DescriptorResolver => {
+      const lower = Object.fromEntries(Object.entries(reg.calldataIndex).map(([k, v]) => [k.toLowerCase(), v]));
+      const index: RegistryIndex = { ...reg, calldataIndex: { ...lower, ...our } };
+      return { index, fetchDescriptor: path => getJson(path.startsWith("https://") ? path : REGISTRY + path) };
+    })
+    .catch(() => {
+      built = null;
+      return undefined;
+    });
+  built = { at: Date.now(), r };
+  return r;
+}
 const TOKENS = new Map<string, TokenResult | null>();
 
 async function token(chain: number, a: string): Promise<TokenResult | null> {
@@ -47,11 +91,14 @@ const provider = (chain: number): ExternalDataProvider => ({
   },
 });
 
-async function clear(chain: number, c: Call): Promise<Told> {
+async function clear(chain: number, safe: string, c: Call): Promise<Told> {
   try {
+    const res = await resolver();
+    if (!res) return null;
+    const to = c.to.toLowerCase() === safe.toLowerCase() ? THIS_SAFE : c.to;
     const m = await format(
-      { chainId: chain, to: c.to, data: c.data, value: BigInt(c.value || 0) },
-      { externalDataProvider: provider(chain), descriptorResolverOptions: { type: "github", index: await registry() } as any },
+      { chainId: chain, to, data: c.data, value: BigInt(c.value || 0), from: safe },
+      { externalDataProvider: provider(chain), descriptorResolverOptions: { type: "custom", resolver: res, trustedTokens: TRUSTED } },
     );
     if (!m.intent && !m.interpolatedIntent) return null;
     if (m.warnings?.some(w => w.code === "NO_DESCRIPTOR" || w.code === "CALLDATA_DECODE_ERROR" || w.code === "NO_FORMAT_MATCH")) return null;
@@ -72,6 +119,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "bad request" }, { status: 400 });
   }
   const chain = Number(b?.chain);
+  const safe = String(b?.safe || "");
+  if (!ADDR.test(safe)) return NextResponse.json({ error: "bad safe" }, { status: 400 });
   if (!knownChain(chain)) return NextResponse.json({ error: "no such chain" }, { status: 404 });
   if (!Array.isArray(b.calls) || !b.calls.length || b.calls.length > MAX_CALLS) return NextResponse.json({ error: "bad request" }, { status: 400 });
   const calls: Call[] = [];
@@ -82,5 +131,5 @@ export async function POST(req: NextRequest) {
     if (!ADDR.test(to) || !HEX.test(data) || data.length > MAX_DATA || !/^\d+$/.test(value)) return NextResponse.json({ error: "bad call" }, { status: 400 });
     calls.push({ to, data, value });
   }
-  return NextResponse.json({ calls: await Promise.all(calls.map(c => clear(chain, c))) });
+  return NextResponse.json({ calls: await Promise.all(calls.map(c => clear(chain, safe, c))) });
 }

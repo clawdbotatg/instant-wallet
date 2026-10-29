@@ -46,6 +46,7 @@ export type Position = {
   type: string; // deposit | staked | reward | loan, the biggest part's
   usd: number; // loans count against it
   tokens: string[];
+  receipts?: string[]; // tokens the wallet holds for this position on its chain (aBasUSDC), lowercase addresses
   icon?: string;
   url?: string;
 };

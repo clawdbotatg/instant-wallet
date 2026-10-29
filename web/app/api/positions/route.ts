@@ -63,9 +63,14 @@ export async function GET(req: NextRequest) {
     const id = at.group_id || x.id;
     const g = groups.get(id);
     const sym = at.fungible_info?.symbol;
+    // the token held for it (aBasUSDC for an Aave deposit), on this chain
+    const receipt: string | undefined = at.receipt?.fungible_info?.implementations
+      ?.find((i: { chain_id?: string; address?: string }) => i.chain_id === x.relationships?.chain?.data?.id)
+      ?.address?.toLowerCase();
     if (g) {
       g.usd += usd;
       if (sym && !g.tokens.includes(sym)) g.tokens.push(sym);
+      if (receipt && !g.receipts!.includes(receipt)) g.receipts!.push(receipt);
       if (v > g.top) Object.assign(g, { top: v, type: at.position_type });
     } else
       groups.set(id, {
@@ -76,6 +81,7 @@ export async function GET(req: NextRequest) {
         type: at.position_type || "",
         usd,
         tokens: sym ? [sym] : [],
+        receipts: receipt ? [receipt] : [],
         icon: at.application_metadata?.icon?.url,
         url: at.application_metadata?.url,
         top: v,

@@ -53,6 +53,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
   const [showHidden, setShowHidden] = useState(false); // the hidden tokens, under the coin list
   const [sites, setSites] = useState<Session[]>([]); // WalletConnect sites connected to this wallet
   const [posUsd, setPosUsd] = useState<number | null>(null); // DeFi positions, added to the big total (null: loading)
+  const [receipts, setReceipts] = useState<string[]>([]); // "chainId:address" of tokens a position stands for (aBasUSDC): not shown or counted as coins
   const [dropCode, setDropCode] = useState<string | null>(null); // a drop code scanned before this wallet existed
   useEffect(() => setDropCode(stashedCode()), []);
 
@@ -159,7 +160,9 @@ export function SafeApp({ link }: { link?: string } = {}) {
       roughRef.current = JSON.parse(localStorage.getItem(namedKey) || "null")?.rough ?? null;
     } catch {}
   }, [namedKey]);
-  const total = portfolio ? (portfolio.totalUsd ?? 0) + (posUsd ?? 0) : null;
+  const isReceipt = (a: Asset) => receipts.includes(`${a.chainId}:${a.asset}`.toLowerCase());
+  const receiptUsd = (portfolio?.assets ?? []).filter(isReceipt).reduce((t, a) => t + (a.usd ?? 0), 0);
+  const total = portfolio ? (portfolio.totalUsd ?? 0) - receiptUsd + (posUsd ?? 0) : null;
   const rough = total === null ? null : stickyRough(total, roughRef.current);
   roughRef.current = rough ?? roughRef.current;
   const walletName = customName ?? (rough === null ? null : defaultWalletName(rough));
@@ -235,7 +238,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
   if (!account) return <SafeWelcome onReady={setAccount} initialConfirm={switchConfirm} />;
 
   const keyOf = (a: Asset) => `${a.chainId}:${a.asset}`.toLowerCase();
-  const held = (portfolio?.assets ?? []).filter(a => BigInt(a.balance) > 0n);
+  const held = (portfolio?.assets ?? []).filter(a => BigInt(a.balance) > 0n && !isReceipt(a));
   const isCore = (a: Asset) => a.asset === "0x0000000000000000000000000000000000000000" || a.asset.toLowerCase() === chainById(a.chainId)?.usdc?.toLowerCase();
   // under 2¢ (or no price) and not the coin or USDC: almost always airdropped spam, so the send button becomes a trash can that hides it
   const isDust = (a: Asset) => (a.usd ?? 0) < 0.02 && !isCore(a);
@@ -341,7 +344,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
         <div className="card balance">
           <div className="total">
             <div className={fresh ? "big" : "big stale"} onClick={() => setShowUsd(!showUsd)}>
-              {portfolio ? (showUsd ? usd((portfolio.totalUsd ?? 0) + (posUsd ?? 0)) : `${assets.length} assets`) : <span className="loading-bar" aria-label="Loading" />}
+              {portfolio ? (showUsd ? usd(total ?? 0) : `${assets.length} assets`) : <span className="loading-bar" aria-label="Loading" />}
             </div>
             {portfolio && (!fresh || pulling) && <span className="spinner" aria-label="Updating" />}
             {fresh && !pulling && assets.length > 0 && (
@@ -444,7 +447,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
               </div>
             ))}
         </div>
-        <PositionList address={account.address} onTotal={setPosUsd} />
+        <PositionList address={account.address} onTotal={setPosUsd} onReceipts={setReceipts} />
         <NftGrid address={account.address} />
       </div>
 

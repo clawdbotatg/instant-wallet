@@ -28,6 +28,9 @@ const eq = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
  * Without a code (?h=<safeTxHash>) it's found in the shared queue. Inside the wallet (a sheet) it gets `code` and
  * leaves the address bar alone.
  */
+/** Tell whoever waits on this Safe tx (a site that asked for it, SafeConnect) the chain hash, the moment there is one. */
+const sentOut = (safeTx: Hex, hash: Hash) => window.dispatchEvent(new CustomEvent("iw:txsent", { detail: { safeTx, hash } }));
+
 export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; safe: Address; code?: string }) {
   const [w, setW] = useState<Waiting | null>(null);
   const [valid, setValid] = useState<Waiting["sigs"]>([]);
@@ -131,6 +134,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
     });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(j.error || `relay: ${r.status}`);
+    sentOut(w.hash, j.hash);
     await waitFor(chainId, j.hash);
     setSent(j.hash);
     load();
@@ -138,6 +142,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
   const sendSelf = run("self", async () => {
     if (!w) return;
     const h = await hotSend(chainId, safe, execData(w.tx, allSignatures({ ...w, sigs: valid })));
+    sentOut(w.hash, h);
     await waitFor(chainId, h);
     setSent(h);
     load();

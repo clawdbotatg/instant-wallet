@@ -5,16 +5,26 @@ import { type Hash, formatUnits } from "viem";
 import { CHAINS, chainById } from "@/lib/chains";
 import { amount as fmtAmount, short } from "@/lib/format";
 import { siteCalls, siteGas, signForSite } from "@/lib/safe/connect";
-import { type FeeToken, type Prepared, type Signer, type Stage, finishOwners, ownerSigners, prepareOwners, signerOptions, usesWedgie } from "@/lib/safe/send";
+import { type FeeToken, type Prepared, type Signer, type Stage, Shared, finishOwners, ownerSigners, prepareOwners, signThenQueue, signerLabel, usesWedgie } from "@/lib/safe/send";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { type Pending, remember, respond } from "@/lib/walletconnect";
 import { ChainChip } from "../bits";
 import { CallLine, ConnectLayer, DappHead, type Session } from "../WalletConnect";
 import { friendly } from "../Welcome";
-import { SignerChoice } from "./Pick";
 import { Progress } from "./Progress";
 import { ErrorLine } from "./WedgieButton";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
+
+/** A site's transaction that went to its page for more signatures: answer the site when that page sends it. */
+function answerWhenSent(safeTx: Hash, answer: (hash: Hash) => Promise<void>) {
+  const on = (e: Event) => {
+    const d = (e as CustomEvent<{ safeTx: Hash; hash: Hash }>).detail;
+    if (d.safeTx.toLowerCase() !== safeTx.toLowerCase()) return;
+    window.removeEventListener("iw:txsent", on);
+    answer(d.hash).catch(() => {});
+  };
+  window.addEventListener("iw:txsent", on);
+}
 
 /** WalletConnect for the Safe wallet: the shared connect layer, with a card that signs the Safe way. */
 export function SafeConnectLayer({
@@ -70,10 +80,10 @@ function SafeRequest({
   const [error, setError] = useState<string | null>(null);
   const [prepared, setPrepared] = useState<Prepared | null>(null);
   const [tick, setTick] = useState(0);
-  const options = st && st.threshold > 1 ? signerOptions(st, account).filter(o => !o.share) : []; // the site waits for the answer: all here
-  const [chosen, setChosen] = useState<Signer[] | null>(null);
-  const signers: Signer[] =
-    chosen && options.some(o => o.ready && o.signers.join() === chosen.join()) ? chosen : st ? ownerSigners(st, account, true) : [account.burnerSigner];
+  // no choosing who signs (Austin, 10-29): a transaction is Face ID, then its page, where any other signer adds theirs
+  // and the site gets its answer when it's sent; a message (the site needs it back here) is the first set that can sign
+  const queue = !!st && pending.kind === "calls" && signThenQueue(st, account);
+  const signers: Signer[] = st ? ownerSigners(st, account, !queue) : [account.burnerSigner];
   const busy = stage !== null;
 
   let calls: ReturnType<typeof siteCalls> | null = null;
@@ -120,18 +130,26 @@ function SafeRequest({
           remember(hash, pending.chainId);
           return (answered ??= respond(pending.topic, pending.id, pending.method === "wallet_sendCalls" ? { id: hash } : hash));
         };
-        const hash = await finishOwners({
-          ...prepared,
-          opts: {
-            ...prepared.opts,
-            wedgie: w ?? prepared.opts.wedgie,
-            onStage: (s, h) => {
-              setStage(s);
-              if (h) setHash(h);
-              if (s === "confirming" && h) answer(h).catch(() => {}); // a dropped socket shows again below
+        let hash: Hash;
+        try {
+          hash = await finishOwners({
+            ...prepared,
+            opts: {
+              ...prepared.opts,
+              wedgie: w ?? prepared.opts.wedgie,
+              onStage: (s, h) => {
+                setStage(s);
+                if (h) setHash(h);
+                if (s === "confirming" && h) answer(h).catch(() => {}); // a dropped socket shows again below
+              },
             },
-          },
-        });
+          });
+        } catch (e) {
+          if (!(e instanceof Shared)) throw e;
+          // signed with Face ID; its page is open (finishOwners), the others sign there and it answers the site
+          answerWhenSent(e.w.hash, answer);
+          return onDone();
+        }
         await answer(hash);
       } else {
         const sig = await signForSite(account, st, signers, pending.hash, s => setStage(s), pending.raw, w);
@@ -193,7 +211,10 @@ function SafeRequest({
         )}
         <div className="line">
           <span>Signed by</span>
-          <SignerChoice options={options} value={signers} onChange={setChosen} disabled={busy} />
+          <span className="stack" style={{ gap: 2, justifyItems: "end" }}>
+            <span>{st ? signerLabel(account, st, signers) : "Face ID"}</span>
+            {queue && <span className="fine">then the others, on the next screen</span>}
+          </span>
         </div>
       </div>
       {!st && <p className="err">This wallet isn&apos;t on {chainById(pending.chainId)?.name ?? "that network"} here.</p>}

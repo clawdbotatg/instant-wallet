@@ -38,13 +38,14 @@ export const viewport: Viewport = {
   themeColor: "#f4f4f1",
 };
 
-// If the app never draws (an old browser it can't run on), say so on screen with the error and the browser, instead of
-// a blank page. Plain ES5 in <head>, ahead of Next's own scripts, so it catches their errors too.
-const CRASH_SCRIPT = `(function(){var errs=[];function rec(m){errs.push(String(m).slice(0,300))}
+// If the app never draws (a browser too old for it), public/old/rescue.js says so on screen and offers to move an old
+// Burner key to a newer phone, instead of a blank page. Plain ES5 in <head>, ahead of Next's own scripts, so it catches
+// their errors too.
+const CRASH_SCRIPT = `(function(){var errs=window.__iwErrs=[];function rec(m){errs.push(String(m).slice(0,300))}
 addEventListener("error",function(e){var t=e.target;rec(t&&t.src?"failed to load "+t.src:e.message+(e.filename?" @ "+e.filename.split("/").pop()+":"+e.lineno+":"+e.colno:""))},true);
 addEventListener("unhandledrejection",function(e){var r=e.reason;rec("promise: "+(r&&r.message||r))});
 function drawn(){var b=document.body;if(!b)return false;if(b.querySelector("svg,img,canvas,input,button"))return true;var t=b.innerText||"",s=b.querySelector(".sr-only");if(s)t=t.replace(s.innerText||"","");return t.trim().length>0}
-function show(){if(drawn()||document.getElementById("iw-crash"))return;var d=document.createElement("div");d.id="iw-crash";d.style.cssText="position:fixed;top:0;left:0;right:0;bottom:0;padding:24px;background:#121212;color:#eee;font:16px/1.4 -apple-system,sans-serif;overflow:auto;z-index:99999";d.innerHTML="<b>This browser can't run the new wallet.</b><p>Your old wallet is safe. Nothing was changed.</p><pre style=white-space:pre-wrap;font-size:12px;color:#f99></pre>";d.querySelector("pre").textContent=(errs.length?errs.join("\\n"):"no error caught")+"\\n\\n"+navigator.userAgent;document.body.appendChild(d)}
+function show(){if(drawn()||document.getElementById("iw-crash"))return;var s=document.createElement("script");s.src="/old/rescue.js";document.head.appendChild(s)}
 setTimeout(function(){if(errs.length)show()},6000);setTimeout(show,15000)})();`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

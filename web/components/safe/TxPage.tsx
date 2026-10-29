@@ -9,7 +9,6 @@ import { MULTISEND_CALL_ONLY } from "@/lib/safe/config";
 import { type Call, type Sig, abi, execData, signerAddress } from "@/lib/safe/core";
 import { unpackMultiSend } from "@/lib/safe/fee";
 import { connectHot, hotAvailable, hotSend, hotSign } from "@/lib/safe/hot";
-import { describe } from "@/lib/safe/describe";
 import { waitFor } from "@/lib/safe/send";
 import { type Waiting, allSignatures, checkSigs, fromLink, readWaiting, safeAppTxLink, shareTx, sigHex, txLink } from "@/lib/safe/share";
 import { passkeySign } from "@/lib/safe/sign";
@@ -18,6 +17,7 @@ import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import { Blockie, GreenButton, copy, useToast } from "../bits";
 import { friendly } from "../Welcome";
 import { ErrorLine, WedgieIcon } from "./WedgieButton";
+import { WhatItDoes } from "./WhatItDoes";
 
 type Onchain = { owners: Address[]; threshold: number; nonce: bigint };
 const eq = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
@@ -180,11 +180,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
 
       <div className="card stack" style={{ gap: 6 }}>
         <b>What it does</b>
-        {calls.map((c, i) => (
-          <span key={i} className="fine">
-            {describe(chainId, safe, c)}
-          </span>
-        ))}
+        <WhatItDoes chainId={chainId} safe={safe} calls={calls} />
       </div>
 
       <div className="card stack" style={{ gap: 8 }}>

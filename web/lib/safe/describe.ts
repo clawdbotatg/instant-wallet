@@ -14,16 +14,16 @@ const dec = (a: any, data: Hex) => {
   }
 };
 
-/** A Safe tx, in plain words: one line per call (a MultiSend batch is opened up). */
-export function describeTx(chainId: number, safe: Address, tx: Pick<SafeTx, "to" | "value" | "data" | "operation">): string[] {
+/** The calls a Safe tx makes: a MultiSend batch opened up, or the one. */
+export function callsOf(tx: Pick<SafeTx, "to" | "value" | "data" | "operation">): Call[] {
   if (eq(tx.to, MULTISEND_CALL_ONLY) && tx.operation === 1) {
     try {
-      return unpackMultiSend(tx.data).map(c => describe(chainId, safe, c));
+      return unpackMultiSend(tx.data);
     } catch {
-      return ["A batch this app can't read"];
+      return [];
     }
   }
-  return [describe(chainId, safe, { to: tx.to, value: tx.value, data: tx.data })];
+  return [{ to: tx.to, value: tx.value, data: tx.data }];
 }
 
 /** One call, in words: a coin sent, a limit or signer change, else the contract and function. */

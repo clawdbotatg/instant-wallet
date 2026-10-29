@@ -15,6 +15,7 @@
   "dependencies": {
     "@adraffy/ens-normalize": "^1.11.1",
     "@coinbase/cdp-sdk": "^1.58.0",
+    "@ethereum-sourcify/clear-signing": "^0.2.2",
     "@noble/curves": "^2.4.0",
     "@noble/hashes": "^2.4.0",
     "@reown/walletkit": "^1.6.0",

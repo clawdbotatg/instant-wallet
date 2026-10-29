@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { chainById } from "@/lib/chains";
-import { describeTx } from "@/lib/safe/describe";
+import { callsOf } from "@/lib/safe/describe";
 import {
   type Waiting,
   openTx,
@@ -11,6 +11,7 @@ import {
   txLink,
 } from "@/lib/safe/share";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
+import { WhatItDoes } from "./WhatItDoes";
 
 /** After a send that needs other signers: its page is opening (finishOwners called openTx). */
 export function SharedDone(_: {
@@ -64,12 +65,8 @@ export function WaitingCards({
         const app = safeAppTxLink(w.chainId, w.safe, w.hash);
         return (
           <div key={w.hash} className="stack" style={{ gap: 8 }}>
-            <div className="recess stack" style={{ gap: 4 }}>
-              {describeTx(w.chainId, w.safe, w.tx).map((line, i) => (
-                <span key={i} style={{ fontSize: 15 }}>
-                  {line}
-                </span>
-              ))}
+            <div className="recess stack" style={{ gap: 8 }}>
+              <WhatItDoes chainId={w.chainId} safe={w.safe} calls={callsOf(w.tx)} />
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
               {app && (

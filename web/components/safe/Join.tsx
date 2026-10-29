@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import type { Address, Hex } from "viem";
 import { short } from "@/lib/format";
-import { createPasskey } from "@/lib/passkey";
+import { createPasskey, bio } from "@/lib/passkey";
 import { signerAddress } from "@/lib/safe/core";
 import { loadAccount } from "@/lib/safe/state";
 import { Blockie } from "../bits";
@@ -66,7 +66,7 @@ export function Join() {
         <Blockie address={done} size={64} />
         <p>
           Your signer is <span className="mono">{short(done)}</span>. {inv?.from ?? "The wallet's owner"} adds it next. After that, you sign from the links they send
-          you, with this Face ID.
+          you, with this {bio()}.
         </p>
       </div>
     );
@@ -96,7 +96,7 @@ export function Join() {
                 </button>
               )}
               <button className={`btn wide ${mine ? "" : "btn-green"}`} onClick={() => answer("signin")} disabled={!!busy}>
-                {busy === "signin" ? "Check Face ID…" : "Use my passkey (Face ID)"}
+                {busy === "signin" ? `Check ${bio()}…` : `Use my passkey (${bio()})`}
               </button>
               <button className="btn wide" onClick={() => answer("new")} disabled={!!busy}>
                 {busy === "new" ? "Making it…" : "Make a new passkey for this"}

@@ -14,6 +14,7 @@ import { friendly } from "../Welcome";
 import { Progress } from "./Progress";
 import { ErrorLine } from "./WedgieButton";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
+import { bio } from "@/lib/passkey";
 
 /** A site's transaction that went to its page for more signatures: answer the site when that page sends it. */
 function answerWhenSent(safeTx: Hash, answer: (hash: Hash) => Promise<void>) {
@@ -169,7 +170,7 @@ function SafeRequest({
   const feeLabel = fee === null ? "…" : feeToken === "usdc" ? `${fmtAmount(formatUnits(fee, 6))} USDC` : `${fmtAmount(formatUnits(fee, 18))} ETH`;
   const label: Record<string, string> = {
     quote: "Getting the fee…",
-    signing: "Face ID…",
+    signing: `${bio()}…`,
     "signing-hot": "Sign in your hot wallet…",
     "signing-wedgie": "Press green on the wedgie…",
     sending: "Sending…",
@@ -212,7 +213,7 @@ function SafeRequest({
         <div className="line">
           <span>Signed by</span>
           <span className="stack" style={{ gap: 2, justifyItems: "end" }}>
-            <span>{st ? signerLabel(account, st, signers) : "Face ID"}</span>
+            <span>{st ? signerLabel(account, st, signers) : bio()}</span>
             {queue && <span className="fine">then the others, on the next screen</span>}
           </span>
         </div>

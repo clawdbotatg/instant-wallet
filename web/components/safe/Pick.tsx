@@ -7,6 +7,7 @@ import { amount as fmtAmount, usd } from "@/lib/format";
 import type { Signer, SignerOption } from "@/lib/safe/send";
 import type { Asset } from "@/lib/types";
 import { ChainIcon, TokenIcon } from "../bits";
+import { bio } from "@/lib/passkey";
 
 /** A token you hold, as a select-box row: icon, symbol, and how much (in dollars too). */
 export const assetOpt = (a: Asset): Opt => ({
@@ -200,7 +201,7 @@ export function SignerChoice({ options, value, onChange, disabled, note }: { opt
   if (options.length < 2)
     return (
       <span className="stack" style={{ gap: 2, justifyItems: "end" }}>
-        <span>{on?.label ?? (value.length === 1 ? "Face ID" : "…")}</span>
+        <span>{on?.label ?? (value.length === 1 ? bio() : "…")}</span>
         {later && <span className="fine">{later}</span>}
       </span>
     );

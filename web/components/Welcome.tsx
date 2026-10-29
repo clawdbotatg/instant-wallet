@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { walletAddress, KIND_WEBAUTHN, signerIdOf } from "@/lib/address";
 import { CHAINS, publicClient } from "@/lib/chains";
-import { type Candidate, confirmKey, createPasskey, credentialIdHash, recoverKeys, walletAppBrowser, webauthnAvailable } from "@/lib/passkey";
+import { type Candidate, confirmKey, createPasskey, credentialIdHash, recoverKeys, walletAppBrowser, webauthnAvailable, bio } from "@/lib/passkey";
 import type { Account } from "@/lib/types";
 import { Band } from "./bits";
 
@@ -83,7 +83,7 @@ export function Welcome({ onReady }: { onReady: (a: Account) => void }) {
         <img className="mark" src="/mark.png" alt="" />
         <div className="stack">
           <h1>Instant Wallet</h1>
-          <p style={{ fontSize: 19, color: "#3b3d3b" }}>Your money, instantly. Face ID is the key. No seed phrase.</p>
+          <p style={{ fontSize: 19, color: "#3b3d3b" }}>Your money, instantly. {bio()} is the key. No seed phrase.</p>
         </div>
         <Band />
         {supported ? (

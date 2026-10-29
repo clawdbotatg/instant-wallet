@@ -26,6 +26,7 @@ import { short } from "@/lib/format";
 import type { Account } from "@/lib/types";
 import { type Call, type KeySigner, sendCalls } from "@/lib/wallet";
 import { friendly } from "./Welcome";
+import { bio } from "@/lib/passkey";
 
 const DAO: Address = "0xeF899e80aA814ab8D8e232f9Ed6403A633C727ec";
 
@@ -278,7 +279,7 @@ function Setup({
   return (
     <div className="card stack">
       <b>Set up cold storage</b>
-      <p className="fine">One Face ID: the wedgie becomes the owner, this passkey gets a daily limit, and anything bigger waits.</p>
+      <p className="fine">One {bio()}: the wedgie becomes the owner, this passkey gets a daily limit, and anything bigger waits.</p>
       <div className="field">
         <label>Wedgie public key</label>
         <div className="input">
@@ -339,7 +340,7 @@ function Setup({
           )
         }
       >
-        Set up with Face ID
+        Set up with {bio()}
       </button>
     </div>
   );

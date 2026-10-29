@@ -26,6 +26,7 @@ import {
 import { Blockie, ChainChip, Sheet, useToast } from "./bits";
 import { Scanner } from "./Scanner";
 import { friendly } from "./Welcome";
+import { bio } from "@/lib/passkey";
 
 export type Session = { topic: string; name: string; url: string; icon?: string };
 
@@ -319,7 +320,7 @@ function Connect({ proposal, onYes, onNo }: { proposal: WalletKitTypes.SessionPr
       {(scam || mismatch) && (
         <p className="err">{scam ? "Known scam site. Don't connect." : "This site isn't who it says it is. Check the address."}</p>
       )}
-      <p className="fine">It will see your address and can ask you to approve things. Nothing moves without Face ID.</p>
+      <p className="fine">It will see your address and can ask you to approve things. Nothing moves without {bio()}.</p>
       {error && <p className="err">{error}</p>}
       <button
         className={`btn wide ${scam ? "btn-red" : "btn-green"}`}
@@ -410,7 +411,7 @@ function Request({ pending, account, onDone, onNo }: { pending: Pending; account
       <DappHead {...pending.dapp} />
       {pending.kind === "calls" ? (
         <>
-          <h2>{pending.calls.length > 1 ? `${pending.calls.length} steps, one Face ID` : "Approve?"}</h2>
+          <h2>{pending.calls.length > 1 ? `${pending.calls.length} steps, one ${bio()}` : "Approve?"}</h2>
           <div className="card stack" style={{ gap: 12 }}>
             {pending.calls.map((c, i) => (
               <CallLine key={i} call={c} chainId={pending.chainId} />
@@ -446,7 +447,7 @@ function Request({ pending, account, onDone, onNo }: { pending: Pending; account
           }
         }}
       >
-        {stage === "signing" ? "Face ID…" : stage === "sending" ? "Sending…" : stage === "confirming" ? "Confirming…" : "Approve with Face ID"}
+        {stage === "signing" ? `${bio()}…` : stage === "sending" ? "Sending…" : stage === "confirming" ? "Confirming…" : `Approve with ${bio()}`}
       </button>
       {!busy && (
         <button className="btn wide" onClick={onNo}>

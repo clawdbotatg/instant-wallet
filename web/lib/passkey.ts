@@ -276,3 +276,14 @@ export async function signDigest(credentialId: string, digest: Hex): Promise<{ s
 }
 
 export { signerIdOf };
+
+/** What this device calls the passkey check, for every label: Face ID on an iPhone/iPad, Touch ID on a Mac, Windows
+ * Hello on Windows, else Fingerprint. */
+export function bio(): string {
+  if (typeof navigator === "undefined") return "Face ID";
+  const ua = navigator.userAgent;
+  if (/iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) return "Face ID";
+  if (/Macintosh/.test(ua)) return "Touch ID";
+  if (/Windows/.test(ua)) return "Windows Hello";
+  return "Fingerprint";
+}

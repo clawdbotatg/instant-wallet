@@ -9,6 +9,7 @@ import { short } from "@/lib/format";
 import { type SafeAccount, loadAccount } from "@/lib/safe/state";
 import { Qr, TimedBar, copy, useToast } from "./bits";
 import { friendly } from "./Welcome";
+import { bio } from "@/lib/passkey";
 
 type Drop = {
   id: string;
@@ -138,7 +139,7 @@ export function DropAdmin() {
           <p className="fine">A pot of money and codes for it: cards to print, or one QR for a crowd. Each code pays into a new Instant Wallet.</p>
           {account ? (
             <button className="btn btn-green wide" onClick={login} disabled={busy}>
-              {busy ? "…" : "Log in with Face ID"}
+              {busy ? "…" : `Log in with ${bio()}`}
             </button>
           ) : (
             <>

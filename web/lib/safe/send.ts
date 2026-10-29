@@ -22,6 +22,7 @@ import { short } from "../format";
 import { type ChainState, type SafeAccount, loadSigners, salt, wedgieSigners } from "./state";
 import { Wedgie, wedgieSupported } from "./wedgie";
 import { type Waiting, openTx, shareTx, sigHex } from "./share";
+import { bio } from "@/lib/passkey";
 
 /** Thrown by a send this device signed but that needs more signers: it's shared (lib/safe/share.ts) and its page opens. */
 export class Shared extends Error {
@@ -55,7 +56,7 @@ export function signerLabel(a: SafeAccount, st: ChainState, signers: Signer[]): 
   const out: string[] = [];
   for (const s of signers) {
     const h = howSigns(a, st, s);
-    const name = h === "faceid" ? "Face ID" : h === "wedgie" ? "Wedgie" : (loadSigners(a.address)[s.toLowerCase()]?.name ?? short(s));
+    const name = h === "faceid" ? bio() : h === "wedgie" ? "Wedgie" : (loadSigners(a.address)[s.toLowerCase()]?.name ?? short(s));
     if (!out.includes(name)) out.push(name);
   }
   return out.join(" + ");
@@ -317,7 +318,7 @@ export function signerOptions(st: ChainState, a: SafeAccount): SignerOption[] {
   }
   // always one more way: sign here, and the other signers sign from a link (wallets with other people on them)
   if (t > 1 && st.deployed && st.owners.some(o => eq(o, a.burnerSigner)))
-    out.push({ signers: [a.burnerSigner], label: "Face ID, then share", threshold: t, of: st.owners.length, ready: true, later: "the others sign from a link", share: true });
+    out.push({ signers: [a.burnerSigner], label: `${bio()}, then share`, threshold: t, of: st.owners.length, ready: true, later: "the others sign from a link", share: true });
   const face = (o: SignerOption) => Number(o.signers.some(s => eq(s, a.burnerSigner)));
   return out.sort(
     (x, y) =>

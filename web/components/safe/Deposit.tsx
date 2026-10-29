@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { assertChallenge } from "@/lib/passkey";
+import { assertChallenge, bio } from "@/lib/passkey";
 import { onrampChallenge } from "@/lib/onramp";
 import type { SafeAccount } from "@/lib/safe/state";
 import { ReceiveIcon, TokenIcon } from "../bits";
@@ -58,7 +58,7 @@ export function Deposit({ account, onReceive }: { account: SafeAccount; onReceiv
         (["USDC", "ETH"] as const).map(a => (
           <button key={a} className="btn wide" disabled={!!busy} onClick={() => go(a)}>
             <TokenIcon symbol={a} asset={a === "ETH" ? "0x0000000000000000000000000000000000000000" : "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"} chainId={8453} size={24} />
-            {busy === a ? "Face ID…" : `Buy ${a}`}
+            {busy === a ? `${bio()}…` : `Buy ${a}`}
           </button>
         ))
       )}

@@ -9,6 +9,7 @@ import { parse } from "@/lib/parse";
 import { loadAccount } from "@/lib/safe/state";
 import { Qr, copy, useToast } from "./bits";
 import { SafeApp } from "./safe/SafeApp";
+import { bio } from "@/lib/passkey";
 
 /**
  * A payment request opened as a web link (<origin>/ethereum:…, a phone camera's scan of a Receive QR, lib/parse.ts
@@ -73,7 +74,7 @@ export function PayLink() {
           Copy address
         </button>
         <a className="btn wide" href="/">
-          Make an Instant Wallet (Face ID, no app)
+          Make an Instant Wallet ({bio()}, no app)
         </a>
       </div>
       {toast && <div className="toast">{toast}</div>}

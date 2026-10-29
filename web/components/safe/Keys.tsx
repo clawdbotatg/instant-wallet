@@ -20,6 +20,7 @@ import { ChainSelect } from "./Pick";
 import { ChainLimit } from "./Limits";
 import { friendly } from "../Welcome";
 import { ErrorLine, WedgieIcon, WedgiePanel } from "./WedgieButton";
+import { bio } from "@/lib/passkey";
 
 /**
  * Settings, per chain (each chain's Safe is its own). A plain Safe multisig (Austin 10-28: no kinds of signer):
@@ -279,7 +280,7 @@ export function Keys({
         {gone.map(o => (
           <span key={o}>
             Remove <Addr a={o as Address} chainId={chainId} inline />
-            {same(o as Address, account.burnerSigner) ? " (this phone's Face ID)" : ""}
+            {same(o as Address, account.burnerSigner) ? ` (this device's ${bio()})` : ""}
           </span>
         ))}
         {plus.map(x => (
@@ -429,7 +430,7 @@ export function Keys({
                   ) : (
                     <Addr a={o} chainId={chainId} />
                   )}
-                  {howSigns(account, st, o) === "faceid" && <span className="fine">Face ID</span>}
+                  {howSigns(account, st, o) === "faceid" && <span className="fine">{bio()}</span>}
                   {howSigns(account, st, o) !== "faceid" && loadSigners(account.address)[o.toLowerCase()]?.name && <b>{loadSigners(account.address)[o.toLowerCase()].name}</b>}
                   {howSigns(account, st, o) === "wedgie" && (
                     <button className="pill row" style={{ gap: 4 }} onClick={() => (setWedgieOpen(v => !v), setWedgieLook(null))} aria-expanded={wedgieOpen}>

@@ -10,6 +10,7 @@ import { type SafeAccount, loadAccount, saveAccount } from "@/lib/safe/state";
 import { TimedBar } from "./bits";
 import { SafeWelcome } from "./safe/SafeWelcome";
 import { friendly } from "./Welcome";
+import { bio } from "@/lib/passkey";
 
 let ethPrice = 0;
 async function ethUsd(): Promise<number> {
@@ -173,7 +174,7 @@ export function Drop() {
           </>
         )}
         {error && <p className="err">{error}</p>}
-        {!busy && <p className="fine center">Face ID once more: it proves the wallet is yours.</p>}
+        {!busy && <p className="fine center">{bio()} once more: it proves the wallet is yours.</p>}
       </div>
     </div>
   );

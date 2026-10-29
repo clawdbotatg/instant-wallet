@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { assertChallenge } from "@/lib/passkey";
+import { assertChallenge, bio } from "@/lib/passkey";
 import type { SafeAccount } from "@/lib/safe/state";
 import { toWebAuthnSig } from "@/lib/safe/sign";
 import { keccak256, toBytes } from "viem";
@@ -156,7 +156,7 @@ export function Alerts({ account, toast }: { account: SafeAccount; toast: (m: st
             <span>🔔 This device gets notifications</span>
           ) : sub ? (
             <button className="btn btn-green wide" disabled={!!busy} onClick={async () => (await run("push", { op: "push", sub: sub.toJSON() }, "Notifications on")) && setSub(null)}>
-              {busy === "push" ? "…" : "Confirm with Face ID"}
+              {busy === "push" ? "…" : `Confirm with ${bio()}`}
             </button>
           ) : (
             <button className="btn wide" disabled={!!busy} onClick={allow}>

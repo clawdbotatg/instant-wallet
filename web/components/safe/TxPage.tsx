@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { type Address, type Hash, type Hex, getAddress, isAddress, zeroAddress } from "viem";
 import { chainById, explorerTx, publicClient } from "@/lib/chains";
 import { short } from "@/lib/format";
-import { recoverKeys } from "@/lib/passkey";
+import { recoverKeys, bio } from "@/lib/passkey";
 import { MULTISEND_CALL_ONLY } from "@/lib/safe/config";
 import { type Call, type Sig, abi, execData, signerAddress } from "@/lib/safe/core";
 import { unpackMultiSend } from "@/lib/safe/fee";
@@ -232,7 +232,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
         <>
           {!mineSigned && (
             <button className="btn btn-green wide" onClick={signFace} disabled={!!busy}>
-              {busy === "face" ? "Signing…" : "Sign with Face ID"}
+              {busy === "face" ? "Signing…" : `Sign with ${bio()}`}
             </button>
           )}
           {wedgieSupported() ? (

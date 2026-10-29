@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { type Address, createPublicClient, erc20Abi, formatUnits, getAddress, http, isAddress } from "viem";
 import { CHAINS, ETH, chainById } from "@/lib/chains";
 import { alchemyNetwork, rpc, upstreamRpc } from "@/lib/rpcServer";
@@ -22,15 +22,21 @@ export async function GET(req: NextRequest) {
   if (!a || !isAddress(a)) return NextResponse.json({ error: "address required" }, { status: 400 });
   const wallet = getAddress(a);
   // a slow chain shows nothing this round rather than holding up the other thirteen
-  const late = () => new Promise<Asset[]>(r => setTimeout(() => r([]), 6_000));
-  const perChain = await Promise.all(CHAINS.map(c => Promise.race([chainAssets(c.id, wallet).catch(() => [] as Asset[]), late()])));
-  const assets = perChain.flat();
+  // (it keeps running after the reply, so its scan is cached for the next poll; `late` tells the page to keep its last rows)
+  const LATE = Symbol();
+  const timer = () => new Promise<typeof LATE>(r => setTimeout(() => r(LATE), 6_000));
+  const work = CHAINS.map(c => chainAssets(c.id, wallet).catch(() => [] as Asset[]));
+  after(Promise.allSettled(work));
+  const perChain = await Promise.all(work.map(w => Promise.race([w, timer()])));
+  const late = CHAINS.filter((_, i) => perChain[i] === LATE).map(c => c.id);
+  const assets = perChain.flatMap(x => (x === LATE ? [] : x));
   await price(assets);
   assets.sort((x, y) => (y.usd ?? -1) - (x.usd ?? -1) || Number(y.formatted) - Number(x.formatted));
   const priced = assets.filter(x => x.usd !== null);
   const body: Portfolio = {
     totalUsd: priced.length ? priced.reduce((s, x) => s + (x.usd ?? 0), 0) : null,
     assets,
+    ...(late.length ? { late } : {}),
   };
   return NextResponse.json(body);
 }
@@ -71,39 +77,16 @@ async function chainAssets(chainId: number, wallet: Address): Promise<Asset[]> {
     }
     return out;
   }
-  // every page (100 tokens each): a wallet with hundreds of airdropped spam tokens had its real USDC on page 3
-  const all: { contractAddress: Address; tokenBalance: string | null }[] = [];
-  let pageKey: string | undefined;
-  for (let i = 0; i < 20; i++) {
-    const tb = await rpc<{ tokenBalances: typeof all; pageKey?: string }>(chainId, "alchemy_getTokenBalances", [wallet, "erc20", ...(pageKey ? [{ pageKey }] : [])]).catch(
-      () => null,
-    );
-    if (!tb) break;
-    all.push(...tb.tokenBalances);
-    if (!(pageKey = tb.pageKey)) break;
-  }
-  const isKnown = known(chainId);
-  const held = all
-    .map(t => ({ address: getAddress(t.contractAddress), balance: t.tokenBalance ? BigInt(t.tokenBalance) : 0n }))
-    .filter(t => t.balance > 0n)
-    .sort((x, y) => Number(isKnown.has(y.address.toLowerCase())) - Number(isKnown.has(x.address.toLowerCase())))
-    .slice(0, 100);
-  const metas = await Promise.all(
-    held.map(async t => {
-      const k = `${chainId}:${t.address}`;
-      if (!metaCache.has(k))
-        metaCache.set(
-          k,
-          await rpc<Meta>(chainId, "alchemy_getTokenMetadata", [t.address]).catch(() => ({
-            decimals: null,
-            logo: null,
-            name: null,
-            symbol: null,
-          })),
-        );
-      return metaCache.get(k)!;
-    }),
-  );
+  const held = await heldTokens(chainId, wallet);
+  // 25 at a time: a thousand at once gets rate-limited. A failed read isn't cached (it would hide a real coin for good).
+  const metas = await pool(held, 25, async t => {
+    const k = `${chainId}:${t.address}`;
+    const hit = metaCache.get(k);
+    if (hit) return hit;
+    const m = await rpc<Meta>(chainId, "alchemy_getTokenMetadata", [t.address]).catch(() => null);
+    if (m) metaCache.set(k, m);
+    return m ?? { decimals: null, logo: null, name: null, symbol: null };
+  });
   const dex = await dexscreener(chainId, held.filter((_, i) => !metas[i].logo).map(t => t.address));
   held.forEach((t, i) => {
     const m = metas[i];
@@ -113,7 +96,63 @@ async function chainAssets(chainId: number, wallet: Address): Promise<Asset[]> {
   return out;
 }
 
+/** `fn` over `items`, at most `n` at once, results in order. */
+async function pool<T, R>(items: T[], n: number, fn: (t: T) => Promise<R>): Promise<R[]> {
+  const out = new Array<R>(items.length);
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(n, items.length) }, async () => {
+      while (next < items.length) {
+        const i = next++;
+        out[i] = await fn(items[i]);
+      }
+    }),
+  );
+  return out;
+}
+
+const SCAN_MS = 5 * 60_000;
+const scans = new Map<string, { at: number; tokens: Address[]; busy?: boolean }>();
+
+/** Every ERC-20 the wallet holds: all of Alchemy's pages (100 each). */
+async function fullScan(chainId: number, wallet: Address) {
+  const all: { contractAddress: Address; tokenBalance: string | null }[] = [];
+  let pageKey: string | undefined;
+  let pages = 0;
+  for (; pages < 30; pages++) {
+    const tb = await rpc<{ tokenBalances: typeof all; pageKey?: string }>(chainId, "alchemy_getTokenBalances", [wallet, "erc20", ...(pageKey ? [{ pageKey }] : [])]);
+    all.push(...tb.tokenBalances);
+    if (!(pageKey = tb.pageKey)) break;
+  }
+  const held = all.map(t => ({ address: getAddress(t.contractAddress), balance: t.tokenBalance ? BigInt(t.tokenBalance) : 0n })).filter(t => t.balance > 0n);
+  // a one-page wallet (nearly everyone) just scans again on every poll; a big one is cached
+  if (pages > 0) scans.set(`${chainId}:${wallet}`, { at: Date.now(), tokens: held.map(t => t.address) });
+  return held;
+}
+
+/**
+ * The wallet's tokens with a balance, all of them: any cap cuts real coins once spam outnumbers it (atg.eth's FOLD was
+ * #157 of 278 on Ethereum; it holds 1,061 on Base). A wallet with more than one page is scanned in full every 5 min
+ * (15 pages = 7 s); polls in between re-read just those tokens + the well-known ones, 100 per call, in parallel.
+ */
+async function heldTokens(chainId: number, wallet: Address): Promise<{ address: Address; balance: bigint }[]> {
+  const s = scans.get(`${chainId}:${wallet}`);
+  if (!s) return fullScan(chainId, wallet);
+  if (Date.now() - s.at > SCAN_MS && !s.busy) {
+    s.busy = true;
+    after(fullScan(chainId, wallet).catch(() => void (s.busy = false)));
+  }
+  const list = [...new Set([...s.tokens, ...[...known(chainId)].filter(a => a !== ETH.toLowerCase()).map(a => getAddress(a))])];
+  const chunks = Array.from({ length: Math.ceil(list.length / 100) }, (_, i) => list.slice(i * 100, i * 100 + 100));
+  const res = await Promise.all(chunks.map(c => rpc<{ tokenBalances: { contractAddress: Address; tokenBalance: string | null }[] }>(chainId, "alchemy_getTokenBalances", [wallet, c])));
+  return res
+    .flatMap(r => r.tokenBalances)
+    .map(t => ({ address: getAddress(t.contractAddress), balance: t.tokenBalance ? BigInt(t.tokenBalance) : 0n }))
+    .filter(t => t.balance > 0n);
+}
+
 const PRICE_MS = 60_000;
+const NO_PRICE_MS = 30 * 60_000; // spam has no price; don't ask again every minute
 const priceCache = new Map<string, { at: number; v: number | null }>();
 
 async function price(assets: Asset[]) {
@@ -125,7 +164,7 @@ async function price(assets: Asset[]) {
     if (a.asset.toLowerCase() === chainById(a.chainId)?.usdc?.toLowerCase() || (STABLE.test(a.symbol) && known(a.chainId).has(a.asset.toLowerCase()))) a.price = 1;
     else {
       const hit = priceCache.get(`${a.chainId}:${a.asset}`);
-      if (hit && Date.now() - hit.at < PRICE_MS) a.price = hit.v;
+      if (hit && Date.now() - hit.at < (hit.v === null ? NO_PRICE_MS : PRICE_MS)) a.price = hit.v;
       else todo.push(a);
     }
   }
@@ -144,8 +183,11 @@ async function price(assets: Asset[]) {
       // Alchemy takes 25 per request
       const toks = todo.filter(a => a.asset !== ETH && alchemyNetwork(a.chainId));
       const byAddr = new Map<string, number>();
-      await Promise.all(
-        Array.from({ length: Math.ceil(toks.length / 25) }, async (_, i) => {
+      const answered = new Set<string>(); // a failed request isn't "no price": don't cache it
+      await pool(
+        Array.from({ length: Math.ceil(toks.length / 25) }, (_, i) => i),
+        5,
+        async i => {
           const j = await fetch(`https://api.g.alchemy.com/prices/v1/${key}/tokens/by-address`, {
             method: "POST",
             headers: { "content-type": "application/json" },
@@ -155,18 +197,17 @@ async function price(assets: Asset[]) {
             .then(r => r.json())
             .catch(() => null);
           for (const d of j?.data ?? []) {
+            answered.add(`${d.network}:${String(d.address).toLowerCase()}`);
             const v = Number(d?.prices?.find((p: any) => p.currency === "usd")?.value);
             if (Number.isFinite(v)) byAddr.set(`${d.network}:${String(d.address).toLowerCase()}`, v);
           }
-        }),
+        },
       );
       for (const a of todo) {
-        const v =
-          a.asset === ETH
-            ? nativeP.get(a.symbol.toUpperCase()) ?? null
-            : byAddr.get(`${alchemyNetwork(a.chainId)}:${a.asset.toLowerCase()}`) ?? null;
+        const k = `${alchemyNetwork(a.chainId)}:${a.asset.toLowerCase()}`;
+        const v = a.asset === ETH ? nativeP.get(a.symbol.toUpperCase()) ?? null : byAddr.get(k) ?? null;
         a.price = v;
-        priceCache.set(`${a.chainId}:${a.asset}`, { at: Date.now(), v });
+        if (v !== null || answered.has(k)) priceCache.set(`${a.chainId}:${a.asset}`, { at: Date.now(), v });
       }
     } catch {
       // no prices this round
@@ -174,14 +215,16 @@ async function price(assets: Asset[]) {
   }
   // long tail: DexScreener's most liquid pair
   const missing = assets.filter(a => a.price === null && a.asset !== ETH && alchemyNetwork(a.chainId));
-  for (const chainId of new Set(missing.map(a => a.chainId))) {
-    const dex = await dexscreener(chainId, missing.filter(a => a.chainId === chainId).map(a => a.asset));
-    for (const a of missing.filter(x => x.chainId === chainId)) {
-      const v = dex.get(a.asset.toLowerCase())?.priceUsd ?? null;
-      a.price = v;
-      priceCache.set(`${a.chainId}:${a.asset}`, { at: Date.now(), v });
-    }
-  }
+  await Promise.all(
+    [...new Set(missing.map(a => a.chainId))].map(async chainId => {
+      const dex = await dexscreener(chainId, missing.filter(a => a.chainId === chainId).map(a => a.asset));
+      for (const a of missing.filter(x => x.chainId === chainId)) {
+        const v = dex.get(a.asset.toLowerCase())?.priceUsd ?? null;
+        a.price = v;
+        if (v !== null || dexCache.has(`${chainId}:${a.asset.toLowerCase()}`)) priceCache.set(`${a.chainId}:${a.asset}`, { at: Date.now(), v });
+      }
+    }),
+  );
   for (const a of assets) a.usd = a.price === null ? null : Number(a.formatted) * a.price;
 }
 
@@ -196,26 +239,28 @@ async function dexscreener(chainId: number, tokens: Address[]): Promise<Map<stri
   const todo: string[] = [];
   for (const t of tokens.map(x => x.toLowerCase())) {
     const hit = dexCache.get(`${chainId}:${t}`);
-    if (hit && Date.now() - hit.at < DEX_MS) {
+    if (hit && Date.now() - hit.at < (hit.v ? DEX_MS : NO_PRICE_MS)) {
       if (hit.v) out.set(t, hit.v);
     } else todo.push(t);
   }
-  for (let i = 0; i < todo.length; i += 30) {
-    const batch = todo.slice(i, i + 30);
-    const pairs: any[] = await fetch(`https://api.dexscreener.com/tokens/v1/${slug}/${batch.join(",")}`, { cache: "no-store" })
-      .then(r => (r.ok ? r.json() : []))
-      .catch(() => []);
+  const batches = Array.from({ length: Math.ceil(todo.length / 30) }, (_, i) => todo.slice(i * 30, i * 30 + 30));
+  await Promise.all(batches.map(async batch => {
+    const pairs: any[] | null = await fetch(`https://api.dexscreener.com/tokens/v1/${slug}/${batch.join(",")}`, { cache: "no-store" })
+      .then(r => (r.ok ? r.json() : null))
+      .catch(() => null);
+    if (!pairs) return; // failed: not "no pair", so nothing cached
     for (const t of batch) {
       const mine = (Array.isArray(pairs) ? pairs : [])
         .filter(p => String(p?.baseToken?.address).toLowerCase() === t)
         .sort((a, b) => (b?.liquidity?.usd ?? 0) - (a?.liquidity?.usd ?? 0));
-      const price = Number(mine[0]?.priceUsd);
+      // a pool with almost nothing in it says any price (a spam token at $24 from a $0 pool): no price then
+      const price = (mine[0]?.liquidity?.usd ?? 0) >= 1_000 ? Number(mine[0]?.priceUsd) : NaN;
       const v = mine.length
         ? { image: mine.find(p => p?.info?.imageUrl)?.info.imageUrl as string | undefined, priceUsd: Number.isFinite(price) ? price : null }
         : null;
       dexCache.set(`${chainId}:${t}`, { at: Date.now(), v });
       if (v) out.set(t, v);
     }
-  }
+  }));
   return out;
 }

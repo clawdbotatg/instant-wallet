@@ -13,7 +13,15 @@ export type Asset = {
   logo?: string;
 };
 
-export type Portfolio = { totalUsd: number | null; assets: Asset[] };
+export type Portfolio = { totalUsd: number | null; assets: Asset[]; late?: number[] }; // late: chains that didn't answer in time (left out)
+
+/** A new read, with the rows of its late chains kept from the last one (so a slow chain doesn't blink out of the total). */
+export function keepLate(next: Portfolio, prev: Portfolio | null): Portfolio {
+  if (!next.late?.length || !prev) return next;
+  const kept = prev.assets.filter(a => next.late!.includes(a.chainId));
+  const assets = [...next.assets, ...kept].sort((x, y) => (y.usd ?? -1) - (x.usd ?? -1));
+  return { totalUsd: (next.totalUsd ?? 0) + kept.reduce((t, a) => t + (a.usd ?? 0), 0), assets, late: next.late };
+}
 
 /** This device's wallet: the passkey and the address it owns (same on every chain). */
 export type Account = {

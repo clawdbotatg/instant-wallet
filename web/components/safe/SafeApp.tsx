@@ -6,7 +6,7 @@ import { type Address, getAddress, isAddress, zeroAddress } from "viem";
 import { CHAINS, chainById } from "@/lib/chains";
 import { amount, short, usd } from "@/lib/format";
 import { type ChainState, type SafeAccount, defaultWalletName, forgetKnown, loadAccount, loadWalletName, readAll, saveAccount, saveWalletName } from "@/lib/safe/state";
-import type { Asset, Portfolio } from "@/lib/types";
+import { type Asset, type Portfolio, keepLate } from "@/lib/types";
 import { loadHidden, loadPortfolio, loadShown, saveHidden, savePortfolio, saveShown } from "@/lib/store";
 import { dropOtherBudgetsCalls } from "@/lib/safe/core";
 import { type Prepared, finishOwners, ownerSigners, prepareOwners } from "@/lib/safe/send";
@@ -122,9 +122,12 @@ export function SafeApp({ link }: { link?: string } = {}) {
     const p = await fetch(`/api/portfolio?address=${account.address}`, { cache: "no-store" }).then(r => r.json()).catch(() => null);
     busy.current = false;
     if (p?.assets) {
-      setPortfolio(p);
+      setPortfolio(prev => {
+        const m = keepLate(p, prev);
+        savePortfolio(account.address, m);
+        return m;
+      });
       setFresh(true);
-      savePortfolio(account.address, p);
     }
   }, [account]);
   const loadStates = useCallback(async () => {

@@ -2,6 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { Address } from "viem";
 import { CHAINS, chainById } from "@/lib/chains";
 import { amount, short, usd } from "@/lib/format";
 import { type ChainState, type SafeAccount, defaultWalletName, forgetKnown, knownAccounts, loadAccount, loadWalletName, readAll, saveAccount, saveWalletName } from "@/lib/safe/state";
@@ -24,6 +25,7 @@ import type { AppEntry } from "@/lib/apps";
 import { type Confirm, SafeWelcome, signIn } from "./SafeWelcome";
 import { WedgieProgress } from "./WedgieButton";
 import { PendingCards } from "./PendingCard";
+import { TxPage } from "./TxPage";
 import { WaitingCards } from "./Waiting";
 import { SafeConnectLayer } from "./SafeConnect";
 import { NftGrid } from "./Nfts";
@@ -33,7 +35,7 @@ import { renamePasskey } from "@/lib/passkey";
 import { disconnect } from "@/lib/walletconnect";
 import type { Session } from "../WalletConnect";
 
-type View = { kind: "home" } | { kind: "send"; asset?: Asset; scanned?: string } | { kind: "swap"; fund?: number } | { kind: "apps" } | { kind: "receive" } | { kind: "switch" } | { kind: "deposit" } | { kind: "keys" } | { kind: "share"; chainId: number } | { kind: "sendAll" };
+type View = { kind: "home" } | { kind: "send"; asset?: Asset; scanned?: string } | { kind: "swap"; fund?: number } | { kind: "apps" } | { kind: "receive" } | { kind: "switch" } | { kind: "deposit" } | { kind: "keys" } | { kind: "share"; chainId: number } | { kind: "sendAll" } | { kind: "tx"; chainId: number; safe: Address; code: string };
 
 /** Instant Wallet on a Safe: a big balance, Deposit / Apps, the connected sites above the coins, the address pill opens Receive, settings bottom left (signatures needed / signers; the wedgie lives in there), a send button on each asset, a scan button (addresses, claim cards, WalletConnect QRs). */
 export function SafeApp({ link }: { link?: string } = {}) {
@@ -216,6 +218,15 @@ export function SafeApp({ link }: { link?: string } = {}) {
     if (account === null || portfolio) (window as any).webkit?.messageHandlers?.ready?.postMessage(true);
   }, [account, portfolio]);
 
+  // a transaction that needs more signatures opens here, over the wallet (lib/safe/share.ts openTx), not as a new page
+  useEffect(() => {
+    const on = (e: Event) => {
+      e.preventDefault();
+      setView({ kind: "tx", ...(e as CustomEvent).detail });
+    };
+    window.addEventListener("iw:tx", on);
+    return () => window.removeEventListener("iw:tx", on);
+  }, []);
   if (account === undefined) return null;
   if (!account) return <SafeWelcome onReady={setAccount} initialConfirm={switchConfirm} />;
 
@@ -444,6 +455,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
       {view.kind !== "home" && (
         <Sheet onClose={close}>
           {view.kind === "send" && <SafeSend account={account} assets={assets} states={states} start={view.asset} scanned={view.scanned} onDone={close} />}
+          {view.kind === "tx" && <TxPage key={view.code} chainId={view.chainId} safe={view.safe} code={view.code} />}
           {view.kind === "sendAll" && <SendAll account={account} assets={assets} states={states} onDone={close} />}
           {view.kind === "apps" && <AppList onOpen={a => (a.url ? (setApp(a), close()) : setView({ kind: "swap" }))} />}
           {view.kind === "swap" && <SafeSwap account={account} assets={assets} states={states} fund={view.fund} onDone={close} />}

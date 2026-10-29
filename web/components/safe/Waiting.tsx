@@ -2,14 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { chainById } from "@/lib/chains";
-import { type Waiting, readWaiting, safeAppTxLink, txLink } from "@/lib/safe/share";
+import { type Waiting, openTx, readWaiting, safeAppTxLink, txLink } from "@/lib/safe/share";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 
-/** After a send that needs other signers: its page is opening (finishOwners sent us there). */
-export function SharedDone({ w }: { w: Waiting; need?: number; onDone?: () => void }) {
-  useEffect(() => {
-    if (!location.pathname.startsWith("/tx/")) location.assign(txLink(w));
-  }, [w]);
+/** After a send that needs other signers: its page is opening (finishOwners called openTx). */
+export function SharedDone(_: { w: Waiting; need?: number; onDone?: () => void }) {
   return (
     <div className="stack center">
       <h2>Signed</h2>
@@ -44,7 +41,15 @@ export function WaitingCards({ account, states }: { account: SafeAccount; states
         const app = safeAppTxLink(w.chainId, w.safe, w.hash);
         return (
           <div key={w.hash} className="keyrow" style={{ padding: 0, gap: 8 }}>
-            <a href={txLink(w).replace(location.origin, "")} className="grow" style={{ minWidth: 0 }}>
+            <a
+              href={txLink(w).replace(location.origin, "")}
+              className="grow"
+              style={{ minWidth: 0 }}
+              onClick={e => {
+                e.preventDefault();
+                openTx(w);
+              }}
+            >
               <b>{w.label ?? `Transaction #${w.tx.nonce}`}</b>
               <div className="fine">
                 {chainById(w.chainId)?.name} · {w.sigs.length} of {need} signed

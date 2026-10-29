@@ -171,6 +171,13 @@ export async function checkSigs(w: Waiting): Promise<Waiting["sigs"]> {
   return w.sigs.filter((_, i) => ok[i]);
 }
 
+/** Show a transaction's page: inside the wallet when it's open (SafeApp listens and takes it), else go to its link. */
+export function openTx(w: Waiting) {
+  const link = txLink(w);
+  const ev = new CustomEvent("iw:tx", { detail: { chainId: w.chainId, safe: w.safe, code: link.split("#")[1] }, cancelable: true });
+  if (window.dispatchEvent(ev)) location.assign(link);
+}
+
 /** The link: /tx/<chain>/<safe>#<tx and signatures>. Opened anywhere, it brings the tx with it. */
 export function txLink(w: Waiting): string {
   const code = btoa(JSON.stringify({ t: wire(w.tx), s: w.sigs.map(s => [s.owner, s.signature]), l: w.label }))

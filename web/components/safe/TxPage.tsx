@@ -24,9 +24,10 @@ const eq = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 /**
  * /tx/<chain>/<safe>#<code>: one Safe transaction anyone can open (docs/MULTI-SIGNER.md). What it does, who signed,
  * Sign with whatever you have (Face ID, a wedgie, a browser wallet), and Send once there are enough signatures.
- * Without a code (?h=<safeTxHash>) it's found in the shared queue.
+ * Without a code (?h=<safeTxHash>) it's found in the shared queue. Inside the wallet (a sheet) it gets `code` and
+ * leaves the address bar alone.
  */
-export function TxPage({ chainId, safe }: { chainId: number; safe: Address }) {
+export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; safe: Address; code?: string }) {
   const [w, setW] = useState<Waiting | null>(null);
   const [valid, setValid] = useState<Waiting["sigs"]>([]);
   const [chain, setChain] = useState<Onchain | null>(null);
@@ -45,9 +46,9 @@ export function TxPage({ chainId, safe }: { chainId: number; safe: Address }) {
       pc.readContract({ address: safe, abi: abi.safe, functionName: "nonce" }),
     ])) as [Address[], bigint, bigint];
     setChain({ owners: owners.map(o => getAddress(o)), threshold: Number(threshold), nonce });
-    const code = location.hash.slice(1);
+    const code = inWallet ?? location.hash.slice(1);
     const linked = code ? fromLink(chainId, safe, code) : null;
-    const h = (linked?.hash ?? new URLSearchParams(location.search).get("h") ?? "").toLowerCase();
+    const h = (linked?.hash ?? (inWallet ? "" : new URLSearchParams(location.search).get("h")) ?? "").toLowerCase();
     const queue = await readWaiting(chainId, safe, 0n).catch(() => [] as Waiting[]);
     const q = queue.find(x => x.hash.toLowerCase() === h);
     const m = linked ?? q ?? null;
@@ -56,7 +57,7 @@ export function TxPage({ chainId, safe }: { chainId: number; safe: Address }) {
     m.label ??= q?.label;
     setW({ ...m });
     setValid(await checkSigs(m).catch(() => []));
-  }, [chainId, safe]);
+  }, [chainId, safe, inWallet]);
   useEffect(() => {
     load().catch(e => setError(friendly(e)));
   }, [load]);
@@ -72,7 +73,7 @@ export function TxPage({ chainId, safe }: { chainId: number; safe: Address }) {
     setW(next);
     await shareTx(next);
     setValid(await checkSigs(next).catch(() => valid));
-    history.replaceState(null, "", txLink(next).replace(location.origin, ""));
+    if (!inWallet) history.replaceState(null, "", txLink(next).replace(location.origin, ""));
     setToast("Signed");
   }
 
@@ -166,6 +167,11 @@ export function TxPage({ chainId, safe }: { chainId: number; safe: Address }) {
 
   return (
     <div className="stack">
+      {!inWallet && me && (
+        <a className="fine" href="/">
+          ← My wallet
+        </a>
+      )}
       <h2>{w.label ?? `Transaction #${w.tx.nonce}`}</h2>
       <p className="fine row" style={{ gap: 8 }}>
         <Blockie address={safe} size={20} /> <span className="mono">{short(safe)}</span> on {name}

@@ -21,7 +21,7 @@ import { passkeySign, passkeySignRaw } from "./sign";
 import { short } from "../format";
 import { type ChainState, type SafeAccount, loadSigners, salt, wedgieSigners } from "./state";
 import { Wedgie, wedgieSupported } from "./wedgie";
-import { type Waiting, shareTx, sigHex, txLink } from "./share";
+import { type Waiting, openTx, shareTx, sigHex } from "./share";
 
 /** Thrown by a send this device signed but that needs more signers: it's shared (lib/safe/share.ts) and its page opens. */
 export class Shared extends Error {
@@ -184,7 +184,7 @@ export async function finishOwners(p: Prepared): Promise<Hash> {
     const got = await shareTx(w);
     if (!got.safe && !got.queue) w.label = (w.label ? `${w.label} ` : "") + "(saved in this browser only)";
     // one thing here: your signature. The rest (the wedgie, or a link for the others) happens on its page.
-    location.assign(txLink(w));
+    openTx(w);
     throw new Shared(w);
   }
   if (later) {

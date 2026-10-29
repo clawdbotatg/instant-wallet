@@ -62,6 +62,11 @@ export const abi = {
     "function changeThreshold(uint256 threshold)",
     "function approveHash(bytes32 hash)",
   ]),
+  // checking a signature someone else made (lib/safe/share.ts)
+  safeTxData: parseAbi([
+    "function encodeTransactionData(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address refundReceiver, uint256 _nonce) view returns (bytes)",
+    "function checkNSignatures(bytes32 dataHash, bytes data, bytes signatures, uint256 requiredSignatures) view",
+  ]),
   factory: parseAbi(["function createProxyWithNonce(address singleton, bytes initializer, uint256 saltNonce) returns (address)"]),
   signerFactory: parseAbi([
     "function createSigner(uint256 x, uint256 y, uint176 verifiers) returns (address)",

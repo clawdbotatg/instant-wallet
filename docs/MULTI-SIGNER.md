@@ -1,6 +1,6 @@
 # Multi-signer transactions (plan)
 
-Austin, 2026-10-28. Not built yet.
+Austin, 2026-10-28. First version built (below: what's in).
 
 An Instant Wallet can have signers who are different people. A transaction then needs a link anyone can open,
 see, and sign.
@@ -28,6 +28,15 @@ Port from wedgie-dev `src/pages/safe.ts`: `readQueue`, `share`, `txLink`, `takeL
   `https://app.safe.global/transactions/tx?safe=<chainKey>:<safe>&id=multisig_<safe>_<safeTxHash>`
 
 Home shows "Waiting for signatures" from the merged queue. Every tx (waiting or sent) gets the Safe{Wallet} button.
+
+## Built (10-28)
+
+- `web/lib/safe/share.ts`: the four places, `shareTx`, `readWaiting`, `checkSigs`, `txLink`.
+- `web/app/api/safe/svc/route.ts`: Safe's Transaction Service with `SAFE_API_KEY` (Vercel + `.env.local`).
+- `/tx/<chain>/<safe>#<code>` (`components/safe/TxPage.tsx`): what it does, who signed, Sign (Face ID / wedgie /
+  browser wallet), Send (relay, or your own wallet), Copy link, Open in Safe{Wallet}.
+- Sending: a "Face ID, then share" choice whenever more than one signature is needed. It signs, shares, and shows
+  the link (`SharedDone`). Home: "Waiting for signatures" (our queue + this browser only: Safe's quota is shared).
 
 ## Hard part
 

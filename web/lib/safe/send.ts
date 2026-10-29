@@ -21,6 +21,17 @@ import { passkeySign, passkeySignRaw } from "./sign";
 import { short } from "../format";
 import { type ChainState, type SafeAccount, salt, wedgieSigners } from "./state";
 import { Wedgie, wedgieSupported } from "./wedgie";
+import { type Waiting, shareTx, sigHex } from "./share";
+
+/** Thrown by a send this device signed but that needs more signers: it's shared (lib/safe/share.ts) for them. */
+export class Shared extends Error {
+  w: Waiting;
+  constructor(w: Waiting) {
+    super("Signed here. It needs more signatures: share its link with the other signers.");
+    this.name = "Shared";
+    this.w = w;
+  }
+}
 
 export type FeeToken = "usdc" | "eth";
 /** A signer is an owner's address. How it signs is worked out per address (`howSigns`): there are no kinds of owner. */
@@ -163,6 +174,15 @@ export async function finishOwners(p: Prepared): Promise<Hash> {
   } finally {
     await ownWedgie?.close();
   }
+  // not enough signatures for the Safe yet: the others sign from a link (the tx page)
+  if (!later && sigs.length < st.threshold) {
+    if (!st.deployed) throw new Error("Set the wallet up on this network first (one send it signs alone), then ask the others.");
+    stage("sending");
+    const w: Waiting = { chainId, safe: a.address, tx: t, hash: h, sigs: sigs.map(s => ({ owner: s.signer, signature: sigHex(s) })), label: p.opts.label };
+    const got = await shareTx(w);
+    if (!got.safe && !got.queue) w.label = (w.label ? `${w.label} ` : "") + "(saved in this browser only)";
+    throw new Shared(w);
+  }
   if (later) {
     stage("sending");
     await parkPending({ chainId, safe: a.address, tx: t, hash: h, sigs, burner: { x: a.qx, y: a.qy }, label: p.opts.label });
@@ -266,7 +286,7 @@ export async function budgetSend(opts: {
  * One way to reach the threshold: which owners sign, and whether this device can get their signatures.
  * `of` = how many owners the wallet has.
  */
-export type SignerOption = { signers: Signer[]; label: string; threshold: number; of: number; ready: boolean; why?: string; later?: string };
+export type SignerOption = { signers: Signer[]; label: string; threshold: number; of: number; ready: boolean; why?: string; later?: string; share?: boolean };
 
 /**
  * Every set of owners that can sign an owners transaction on this chain, read from the owners and threshold on chain.
@@ -291,8 +311,14 @@ export function signerOptions(st: ChainState, a: SafeAccount): SignerOption[] {
     const later = usesWedgie(a, st, signers) && !wedgieSupported() ? "the wedgie signs after, on your computer" : undefined;
     out.push({ signers, label: signerLabel(a, st, signers), threshold: t, of: st.owners.length, ready: !why, why, later });
   }
+  // always one more way: sign here, and the other signers sign from a link (wallets with other people on them)
+  if (t > 1 && st.deployed && st.owners.some(o => eq(o, a.burnerSigner)))
+    out.push({ signers: [a.burnerSigner], label: "Face ID, then share", threshold: t, of: st.owners.length, ready: true, later: "the others sign from a link", share: true });
   const face = (o: SignerOption) => Number(o.signers.some(s => eq(s, a.burnerSigner)));
-  return out.sort((x, y) => Number(y.ready) - Number(x.ready) || Number(!!x.later) - Number(!!y.later) || x.signers.length - y.signers.length || face(y) - face(x));
+  return out.sort(
+    (x, y) =>
+      Number(y.ready) - Number(x.ready) || Number(!!x.share) - Number(!!y.share) || Number(!!x.later) - Number(!!y.later) || x.signers.length - y.signers.length || face(y) - face(x),
+  );
 }
 
 /** The keys to ask for by default: the first option this device can sign. */

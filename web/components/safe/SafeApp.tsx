@@ -24,6 +24,7 @@ import type { AppEntry } from "@/lib/apps";
 import { type Confirm, SafeWelcome, signIn } from "./SafeWelcome";
 import { WedgieProgress } from "./WedgieButton";
 import { PendingCards } from "./PendingCard";
+import { WaitingCards } from "./Waiting";
 import { SafeConnectLayer } from "./SafeConnect";
 import { NftGrid } from "./Nfts";
 import { PositionList } from "./Positions";
@@ -282,6 +283,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
         </div>
 
         <PendingCards account={account} states={states} onDone={refresh} toast={setToast} />
+        <WaitingCards account={account} states={states} />
         {dropCode && (
           <div className="card stack">
             <b>You have money to claim</b>

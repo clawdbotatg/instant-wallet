@@ -453,7 +453,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
               </div>
             ))}
         </div>
-        <PositionList address={account.address} onTotal={setPosUsd} onReceipts={setReceipts} />
+        <PositionList address={account.address} assets={fresh ? portfolio?.assets : undefined} onTotal={setPosUsd} onReceipts={setReceipts} />
         <NftGrid address={account.address} />
       </div>
 

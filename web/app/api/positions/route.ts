@@ -28,7 +28,7 @@ const cache = new Map<string, { at: number; v: Position[] }>();
 
 /**
  * `GET /api/positions?address=0x…` — DeFi positions (pools, vaults, stakes, loans) on our chains, from Zerion,
- * one row per position with its tokens summed. Empty without ZERION_API_KEY.
+ * one row per position with its tokens summed. Empty without ZERION_API_KEY. `&fresh=1` skips the 60 s cache (after a move).
  */
 export async function GET(req: NextRequest) {
   const a = req.nextUrl.searchParams.get("address");
@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
   const key = process.env.ZERION_API_KEY;
   if (!key) return NextResponse.json({ positions: [] });
   const hit = cache.get(wallet);
-  if (hit && Date.now() - hit.at < CACHE_MS) return NextResponse.json({ positions: hit.v });
+  if (hit && Date.now() - hit.at < CACHE_MS && !req.nextUrl.searchParams.get("fresh")) return NextResponse.json({ positions: hit.v });
   const byZerion = new Map(CHAINS.filter(c => ZERION[c.id]).map(c => [ZERION[c.id], c.id]));
   const q = new URLSearchParams({
     "filter[positions]": "only_complex",

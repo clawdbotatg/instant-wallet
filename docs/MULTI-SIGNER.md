@@ -27,7 +27,21 @@ Port from wedgie-dev `src/pages/safe.ts`: `readQueue`, `share`, `txLink`, `takeL
 - Share link, and **Open in Safe{Wallet}**:
   `https://app.safe.global/transactions/tx?safe=<chainKey>:<safe>&id=multisig_<safe>_<safeTxHash>`
 
-Home shows "Waiting for signatures" from the merged queue. Every tx (waiting or sent) gets the Safe{Wallet} button.
+### What it does, in words (`components/safe/WhatItDoes.tsx`)
+
+Same as the wedgie: clear signing (ERC-7730) first, then our own reader.
+
+1. `/api/explain` formats each call with Sourcify's library from the EF registry plus ours,
+   [clawdbotatg/clear-descriptors](https://github.com/clawdbotatg/clear-descriptors) (the files its `show.json`
+   adds, read live, cached an hour: a new descriptor there shows here without a deploy). A call to the Safe itself
+   reads as `0x5afe…5afe` (ThisSafe: owners, threshold, modules). USDC is a trusted ERC-20 (sends, approvals).
+2. No descriptor, or one the library can't read (ERC-8362: Universal Router, MultiSend): `lib/safe/describe.ts`.
+   The daily limit (Zodiac Roles) is only here: a port of the wedgie's `safe_read.py` with its red warnings, which
+   a descriptor can't say yet.
+
+A new descriptor of ours: add it in clear-descriptors (its CLAUDE.md), never in this repo.
+
+Home shows "Waiting for signatures" from the merged queue, under the balance, with the same words. Every tx (waiting or sent) gets the Safe{Wallet} button.
 
 ## Built (10-28)
 

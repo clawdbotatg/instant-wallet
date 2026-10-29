@@ -141,6 +141,7 @@ export type ChainState = {
   hot?: Address; // the first owner that's an account (signs through a browser wallet), when there is one
   wedgie?: Address; // the wedgie's first owner slot, when it's on
   wedgieSlots: Address[]; // every owner the wedgie signs for (older wallets: 2 slots, newer: 1)
+  wedgieHomes: Record<string, Address>; // each wedgie slot (lowercase) → the address on that wedgie's own screen
   wallets: Address[]; // every owner that signs through a browser wallet (MetaMask, a Ledger, a paper seed in a wallet)
   friends: Address[]; // other people's passkeys (invited: loadSigners), who sign from a transaction's link
   level: 1 | 2 | 3; // how many signing devices: this phone, + a browser wallet, + the wedgie
@@ -175,6 +176,7 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
       hasHot: false,
       hasWedgie: false,
       wedgieSlots: [],
+      wedgieHomes: {},
       wallets: [],
       friends: [],
       level: 1,
@@ -231,6 +233,13 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
   const friends = others.filter((x, i) => isPasskey(i) && friend(x));
   const wedgieSlots = others.filter((x, i) => isPasskey(i) && !friend(x));
   const wallets = others.filter((_, i) => !isPasskey(i));
+  // the address the person sees on the wedgie: from the paired key, or read out of its signer contract's code
+  const wedgieHomes: Record<string, Address> = {};
+  wedgieSlots.forEach(x => {
+    const i = others.indexOf(x);
+    const k = slots.includes(x.toLowerCase()) ? a.wedgie : keyFromCode(codes[i]);
+    if (k) wedgieHomes[x.toLowerCase()] = wedgieHome(k);
+  });
   const hasWedgie = wedgieSlots.length > 0;
   const hot = wallets[0];
   const hasHot = !!hot;
@@ -260,6 +269,7 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
     hot,
     wedgie,
     wedgieSlots,
+    wedgieHomes,
     wallets,
     friends,
     level,
@@ -304,6 +314,13 @@ export function hotOf(a: SafeAccount, st: ChainState): Address | undefined {
 
 /** SafeWebAuthnSignerProxy's runtime size (the burner and both wedgie slots; checked on a Base fork 2026-10-06). */
 const PASSKEY_SIGNER_SIZE = 236;
+
+/** A passkey signer proxy's key, from its runtime code (immutables: x at byte 0x4d, y at 0x27). */
+function keyFromCode(code?: Hex): { x: Hex; y: Hex } | undefined {
+  if (!code || size(code) !== PASSKEY_SIGNER_SIZE) return undefined;
+  const at = (o: number) => `0x${code.slice(2 + o * 2, 2 + (o + 32) * 2)}` as Hex;
+  return { x: at(0x4d), y: at(0x27) };
+}
 
 export const salt = (): Hex => keccak256(toBytes(`${Date.now()}-${Math.random()}`));
 export { zeroAddress };

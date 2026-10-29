@@ -1,7 +1,7 @@
 "use client";
 
 import { type ReactNode, useCallback, useEffect, useState } from "react";
-import { type ChainState, type SafeAccount, wedgieSigners } from "@/lib/safe/state";
+import { type ChainState, type SafeAccount, wedgieHome } from "@/lib/safe/state";
 import {
   type Latest,
   OldFirmware,
@@ -315,8 +315,8 @@ export function WedgiePanel({ account, states, add }: { account: SafeAccount; st
               )}
               {st.key && (
                 <div>
-                  <span>Signs as</span>
-                  <b className="mono">{wedgieSigners(st.key)[0].slice(0, 10)}…</b>
+                  <span>On its screen</span>
+                  <b className="mono">{`${wedgieHome(st.key).slice(0, 6)}…${wedgieHome(st.key).slice(-4)}`}</b>
                 </div>
               )}
               <div>

@@ -11,7 +11,7 @@ import { type Call, DEFAULT_BUDGET, abi, signerAddress, budgetCalls, deploySigne
 import type { Waiting } from "@/lib/safe/share";
 import { SharedDone } from "./Waiting";
 import { type FeeToken, type Prepared, Shared, type Signer, finishOwners, getQuote, howSigns, ownerSigners, prepareOwners, signerLabel, usesWedgie } from "@/lib/safe/send";
-import { type ChainState, type SafeAccount, daoDays, loadSigners, loadWalletName, readChain, saveSigner, wedgieHome, wedgieSigners } from "@/lib/safe/state";
+import { type ChainState, type SafeAccount, daoDays, loadSigners, loadWalletName, readChain, saveSigner, wedgieSigners } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
 import { AddressInput, Blockie, PencilIcon, TimedBar, copy } from "../bits";
@@ -389,10 +389,10 @@ export function Keys({
           {st.owners.map(o => (
             <div className="keyrow" key={o} style={{ padding: 0 }}>
               <span className="row" style={{ gap: 8 }}>
-                {howSigns(account, st, o) === "wedgie" && account.wedgie ? (
+                {howSigns(account, st, o) === "wedgie" && st.wedgieHomes[o.toLowerCase()] ? (
                   // the wedgie by the address on its own home screen; the owner (its signer contract) when opened
                   <span className="stack" style={{ gap: 2 }}>
-                    <Addr a={wedgieHome(account.wedgie)} chainId={chainId} />
+                    <Addr a={st.wedgieHomes[o.toLowerCase()]} chainId={chainId} />
                     {wedgieOpen && (
                       <span className="fine">
                         signs through <Addr a={o} chainId={chainId} inline />

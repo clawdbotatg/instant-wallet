@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Address } from "viem";
+import { type Address, getAddress, isAddress, zeroAddress } from "viem";
 import { CHAINS, chainById } from "@/lib/chains";
 import { amount, short, usd } from "@/lib/format";
 import { type ChainState, type SafeAccount, defaultWalletName, forgetKnown, loadAccount, loadWalletName, readAll, saveAccount, saveWalletName } from "@/lib/safe/state";
@@ -35,6 +35,8 @@ import { renamePasskey } from "@/lib/passkey";
 import { disconnect } from "@/lib/walletconnect";
 import type { Session } from "../WalletConnect";
 
+const WATCH = "watch"; // credentialId of a ?watch= view
+
 type View = { kind: "home" } | { kind: "send"; asset?: Asset; scanned?: string } | { kind: "swap"; fund?: number } | { kind: "apps" } | { kind: "receive" } | { kind: "deposit" } | { kind: "keys" } | { kind: "share"; chainId: number } | { kind: "sendAll" } | { kind: "tx"; chainId: number; safe: Address; code: string };
 
 /** Instant Wallet on a Safe: a big balance, Deposit / Apps, the connected sites above the coins, the address pill opens Receive, settings bottom left (signatures needed / signers; the wedgie lives in there), a send button on each asset, a scan button (addresses, claim cards, WalletConnect QRs). */
@@ -58,7 +60,10 @@ export function SafeApp({ link }: { link?: string } = {}) {
   useEffect(() => setDropCode(stashedCode()), []);
 
   useEffect(() => {
-    setAccountState(loadAccount());
+    // ?watch=0x…: view any wallet, read only (not advertised; for debugging). Never saved, never signs.
+    const w = new URLSearchParams(window.location.search).get("watch");
+    if (w && isAddress(w)) setAccountState({ credentialId: WATCH, qx: "0x", qy: "0x", burnerSigner: zeroAddress, address: getAddress(w) });
+    else setAccountState(loadAccount());
     setHiddenState(loadHidden());
     setShownState(loadShown());
   }, []);
@@ -176,7 +181,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
       .catch(() => setEns(null));
   }, [account]);
   useEffect(() => {
-    if (!account || !fresh || posUsd === null || rough === null || !walletName || ens === undefined) return;
+    if (!account || account.credentialId === WATCH || !fresh || posUsd === null || rough === null || !walletName || ens === undefined) return;
     let last: { name: string } | null = null;
     try {
       last = JSON.parse(localStorage.getItem(namedKey) || "null");
@@ -284,6 +289,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
   return (
     <>
       <div className="app">
+        {account.credentialId === WATCH && <div className="fine" style={{ textAlign: "center" }}>View only</div>}
         <div className="top">
           <div className="brand">
             <img src="/mark-160.png" alt="" height={30} />

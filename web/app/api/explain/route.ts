@@ -11,8 +11,8 @@ export const dynamic = "force-dynamic";
  * Clear signing (ERC-7730): each call in its contract's own words, from the public registry through Sourcify's
  * formatter. null: no descriptor for that call (the page falls back to lib/safe/describe.ts). Port of wedgie-dev
  * api/explain.ts tier 1 (no 🤖 tier).
- * The same data the wedgie reads (wedgie-dev wire/release.py): the EF registry, then ours on top (OURS: staged
- * there before a registry PR), USDC as a trusted ERC-20. A call to the Safe itself reads as the 0x5afe… "This Safe"
+ * The same data the wedgie reads (wedgie-dev wire/release.py): the EF registry, then ours on top (OURS, clawdbotatg/clear-descriptors:
+ * staged there before a registry PR), USDC as a trusted ERC-20. A call to the Safe itself reads as the 0x5afe… "This Safe"
  * binding. Its Roles module (the daily limit) has no descriptor yet: describe.ts reads it.
  */
 type Call = { to: string; value: string; data: string };
@@ -25,10 +25,7 @@ const MAX_CALLS = 20;
 const MAX_DATA = 40_000;
 
 const REGISTRY = "https://raw.githubusercontent.com/ethereum/clear-signing-erc7730-registry/master/";
-const OURS = [
-  { repo: "clawdbotatg/clear-descriptors", dir: "registry/" },
-  { repo: "clawdbotatg/wedgie-dev", dir: "descriptors/" },
-];
+const OURS = "https://raw.githubusercontent.com/clawdbotatg/clear-descriptors/main/";
 const THIS_SAFE = "0x5afe5afe5afe5afe5afe5afe5afe5afe5afe5afe";
 const TRUSTED: TrustedTokens = Object.fromEntries(CHAINS.filter(c => c.usdc).map(c => [c.id, { [c.usdc!]: "erc20" as const }]));
 
@@ -38,20 +35,16 @@ const getJson = (url: string) =>
     return r.json();
   });
 
-/** Our descriptor files (GitHub trees), by raw URL. clear-descriptors wins over wedgie-dev for the same deployment. */
+/** Our descriptors: the files clear-descriptors' show.json adds (what wedgie.dev's build adds), by raw URL. */
 async function ours(): Promise<Record<string, string>> {
   const out: Record<string, string> = {};
-  for (const { repo, dir } of [...OURS].reverse()) {
-    const tree = await getJson(`https://api.github.com/repos/${repo}/git/trees/main?recursive=1`).catch(() => null);
-    const files = (tree?.tree ?? []).map((t: any) => t.path as string).filter((p: string) => p.startsWith(dir) && /\/calldata-[^/]+\.json$/.test(p));
-    await Promise.all(
-      files.map(async (p: string) => {
-        const url = `https://raw.githubusercontent.com/${repo}/main/${p}`;
-        const d = await getJson(url).catch(() => null);
-        for (const x of d?.context?.contract?.deployments ?? []) out[`eip155:${x.chainId}:${String(x.address).toLowerCase()}`] = url;
-      }),
-    );
-  }
+  const add: string[] = (await getJson(`${OURS}show.json`).catch(() => null))?.add ?? [];
+  await Promise.all(
+    add.map(async p => {
+      const d = await getJson(OURS + p).catch(() => null);
+      for (const x of d?.context?.contract?.deployments ?? []) out[`eip155:${x.chainId}:${String(x.address).toLowerCase()}`] = OURS + p;
+    }),
+  );
   return out;
 }
 

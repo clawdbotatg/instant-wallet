@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { type Address, type Hex, encodeFunctionData, formatUnits, zeroAddress } from "viem";
 import { brainKey, isXdai, oldBurnerKey } from "@/lib/brand";
 import { claimKey } from "@/lib/claim";
@@ -417,6 +417,7 @@ function OldBurner({ toast }: { toast: (m: string) => void }) {
 /** This chain's Safe in three lines: the daily limit, M of N for the rest, the signers (the wedgie is 2 owner slots). */
 function Summary({ account, st, hot, assets, onRefresh, toast }: { account: SafeAccount; st: ChainState; hot?: Address; assets: Asset[]; onRefresh: () => void; toast: (m: string) => void }) {
   const [edit, setEdit] = useState(false);
+  const close = useCallback(() => setEdit(false), []); // stable: the editor's wait effect depends on it
   const coin = nativeSymbol(st.chainId);
   const has = (x?: Address) => !!x && st.owners.some(o => o.toLowerCase() === x.toLowerCase());
   const me = has(account.burnerSigner);
@@ -443,7 +444,7 @@ function Summary({ account, st, hot, assets, onRefresh, toast }: { account: Safe
           )}
         </p>
       )}
-      {b && edit && <ChainLimit account={account} st={st} assets={assets} onRefresh={onRefresh} toast={toast} onClose={() => setEdit(false)} />}
+      {b && edit && <ChainLimit account={account} st={st} assets={assets} onRefresh={onRefresh} toast={toast} onClose={close} />}
       <p>
         {b ? "Anything else" : "Signers"}:{" "}
         <b>

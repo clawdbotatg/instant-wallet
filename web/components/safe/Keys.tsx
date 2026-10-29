@@ -1,11 +1,11 @@
 "use client";
 
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { type Address, type Hex, encodeFunctionData, zeroAddress } from "viem";
+import { type Address, type Hex, encodeFunctionData, formatUnits, zeroAddress } from "viem";
 import { brainKey, isXdai, oldBurnerKey } from "@/lib/brand";
 import { claimKey } from "@/lib/claim";
 import { CHAINS, chainById, explorerAddress, nativeSymbol } from "@/lib/chains";
-import { short } from "@/lib/format";
+import { amount, short } from "@/lib/format";
 import { DAO, FEE_ALLOWANCE, RECOVERY_60D, VERIFIERS, VERIFIERS_SLOT2 } from "@/lib/safe/config";
 import { type Call, DEFAULT_BUDGET, abi, budgetCalls, deploySignerCall, feeAllowanceCalls, recoveryLayoutCalls, selfCall, setGuardianCalls } from "@/lib/safe/core";
 import { type FeeToken, type Prepared, type Signer, finishOwners, getQuote, ownerSigners, prepareOwners } from "@/lib/safe/send";
@@ -297,11 +297,8 @@ export function Keys({
         st && !st.deployed && <p className="fine">The first change on {chainById(chainId)?.name} also sets up the wallet there.</p>
       )}
 
-      <h3>Your keys</h3>
-      <KeyRow kind="Instant wallet" a={account.burnerSigner} chainId={chainId} />
-      {st?.hasWedgie ? (
-        <KeyRow kind="Wedgie" a={st.wedgie} chainId={chainId} />
-      ) : (
+      {st && <Summary account={account} st={st} hot={hot} />}
+      {!st?.hasWedgie && (
         <Step title="Wedgie (hardware key)">
           <p className="fine">Keeping more than about $100 here? Pair a wedgie. Instant then spends a daily limit, and anything bigger needs the wedgie too.</p>
           <p className="fine">
@@ -319,9 +316,8 @@ export function Keys({
         </Step>
       )}
 
-      {st?.hasHot && <KeyRow kind="Hot wallet" a={hot} chainId={chainId} />}
       {st?.budget && st.threshold > 1 && (
-        <Step title="Daily limit" key={`limit${chainId}`}>
+        <Step title="Change the daily limit" key={`limit${chainId}`}>
           <ChainLimit account={account} st={st} assets={assets} onRefresh={onRefresh} toast={toast} />
         </Step>
       )}
@@ -423,12 +419,57 @@ function OldBurner({ toast }: { toast: (m: string) => void }) {
 }
 
 
-/** A key you have: what kind on the left, its address on the right. */
-function KeyRow({ kind, a, chainId }: { kind: string; a?: Address; chainId: number }) {
+/**
+ * What this chain's Safe is, in one read: M of N, what Face ID sends alone, and who signs the rest. N counts owner
+ * slots, so the wedgie shows as 2 votes (its two slots) and the numbers add up for anyone who knows multisigs.
+ */
+function Summary({ account, st, hot }: { account: SafeAccount; st: ChainState; hot?: Address }) {
+  const chain = chainById(st.chainId)?.name;
+  const coin = nativeSymbol(st.chainId);
+  const has = (x?: Address) => !!x && st.owners.some(o => o.toLowerCase() === x.toLowerCase());
+  const me = has(account.burnerSigner);
+  const hotOn = st.hasHot && has(hot);
+  const known = [account.burnerSigner, hotOn ? hot : undefined].filter(Boolean).map(x => x!.toLowerCase());
+  const rest = st.owners.filter(o => !known.includes(o.toLowerCase()));
+  const keys: { kind: string; a?: Address; votes: number }[] = [
+    ...(me ? [{ kind: "Instant wallet (Face ID)", a: account.burnerSigner, votes: 1 }] : []),
+    ...(st.hasWedgie && rest.length ? [{ kind: "Wedgie", a: st.wedgie, votes: rest.length }] : rest.map(a => ({ kind: "Other key", a, votes: 1 }))),
+    ...(hotOn ? [{ kind: "Hot wallet", a: hot, votes: 1 }] : []),
+  ];
+  const b = st.threshold > 1 ? st.budget : null;
   return (
-    <div className="card keyrow">
-      <b>{kind}</b>
-      {a ? <Addr a={a} chainId={chainId} /> : <span className="fine">…</span>}
+    <div className="card stack" style={{ gap: 10 }}>
+      <p>
+        On {chain}, your Instant Wallet is a{" "}
+        <b>
+          {st.threshold} of {st.owners.length}
+        </b>{" "}
+        Safe multisig.{!st.deployed && " (Not set up here yet.)"}
+      </p>
+      {st.threshold <= 1 ? (
+        <p>Face ID alone can send anything.</p>
+      ) : (
+        <p>
+          {b && (
+            <>
+              Face ID alone can send{" "}
+              <b>
+                {amount(formatUnits(b.usdcMax, 6))} USDC + {amount(formatUnits(b.ethMax, 18))} {coin}
+              </b>{" "}
+              a day (left today: {amount(formatUnits(b.usdc, 6))} USDC · {amount(formatUnits(b.eth, 18))} {coin}).{" "}
+            </>
+          )}
+          {b ? "Anything else" : "Every send"} needs <b>{st.threshold} votes</b> from these keys:
+        </p>
+      )}
+      {keys.map(k => (
+        <div className="keyrow" key={k.a ?? k.kind} style={{ padding: 0 }}>
+          <span>
+            <b>{k.kind}</b> <span className="fine">· {k.votes === 1 ? "1 vote" : `${k.votes} votes`}</span>
+          </span>
+          {k.a ? <Addr a={k.a} chainId={st.chainId} /> : <span className="fine">…</span>}
+        </div>
+      ))}
     </div>
   );
 }

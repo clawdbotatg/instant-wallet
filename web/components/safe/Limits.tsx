@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { formatUnits, parseUnits, zeroAddress } from "viem";
 import { chainById, nativeSymbol } from "@/lib/chains";
-import { amount } from "@/lib/format";
 import { FEE_ALLOWANCE } from "@/lib/safe/config";
 import { feeAllowanceCalls, setBudgetCalls } from "@/lib/safe/core";
 import { type Prepared, finishOwners, getQuote, ownerSigners, prepareOwners } from "@/lib/safe/send";
@@ -99,10 +98,6 @@ export function ChainLimit({ account, st, assets, onRefresh, toast }: { account:
   const fee = ready && (ready.p.opts.feeToken === "usdc" ? `${(Number(ready.p.fee.feeUsdc) / 1e6).toFixed(4)} USDC` : `${(Number(ready.p.fee.feeEth) / 1e18).toFixed(6)} ${coin}`);
   return (
     <>
-      <p className="fine">
-        What Face ID alone can send each day. Left today: {amount(formatUnits(b.usdc, 6))} USDC · {amount(formatUnits(b.eth, 18))} {coin}. More than that needs{" "}
-        {ownerSigners(st, account).map(k => SIGNER_NAME[k]).join(" + ")}.
-      </p>
       {wait ? (
         <div className="stack" style={{ gap: 6 }}>
           <p className="fine">{busy ? "Sending…" : `Waiting for ${chainById(chainId)?.name}…`}</p>

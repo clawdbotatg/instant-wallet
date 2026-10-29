@@ -2,11 +2,22 @@
 
 import { useEffect, useState } from "react";
 import { chainById } from "@/lib/chains";
-import { type Waiting, openTx, readWaiting, safeAppTxLink, txLink } from "@/lib/safe/share";
+import { describeTx } from "@/lib/safe/describe";
+import {
+  type Waiting,
+  openTx,
+  readWaiting,
+  safeAppTxLink,
+  txLink,
+} from "@/lib/safe/share";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 
 /** After a send that needs other signers: its page is opening (finishOwners called openTx). */
-export function SharedDone(_: { w: Waiting; need?: number; onDone?: () => void }) {
+export function SharedDone(_: {
+  w: Waiting;
+  need?: number;
+  onDone?: () => void;
+}) {
   return (
     <div className="stack center">
       <h2>Signed</h2>
@@ -16,15 +27,27 @@ export function SharedDone(_: { w: Waiting; need?: number; onDone?: () => void }
 }
 
 /** Home: transactions waiting for signatures, on every network where this wallet needs more than one. */
-export function WaitingCards({ account, states }: { account: SafeAccount; states: ChainState[] }) {
+export function WaitingCards({
+  account,
+  states,
+}: {
+  account: SafeAccount;
+  states: ChainState[];
+}) {
   const [list, setList] = useState<{ w: Waiting; need: number }[]>([]);
-  const multi = states.filter(s => s.deployed && s.threshold > 1);
-  const key = `${account.address}|${multi.map(s => `${s.chainId}:${s.nonce}`).join()}`;
+  const multi = states.filter((s) => s.deployed && s.threshold > 1);
+  const key = `${account.address}|${multi.map((s) => `${s.chainId}:${s.nonce}`).join()}`;
   useEffect(() => {
     let live = true;
     const load = () =>
-      Promise.all(multi.map(s => readWaiting(s.chainId, account.address, s.nonce, { svc: false }).then(ws => ws.map(w => ({ w, need: s.threshold }))).catch(() => [])))
-        .then(r => live && setList(r.flat()))
+      Promise.all(
+        multi.map((s) =>
+          readWaiting(s.chainId, account.address, s.nonce, { svc: false })
+            .then((ws) => ws.map((w) => ({ w, need: s.threshold })))
+            .catch(() => []),
+        ),
+      )
+        .then((r) => live && setList(r.flat()))
         .catch(() => {});
     load();
     const t = setInterval(load, 5 * 60_000);
@@ -40,26 +63,52 @@ export function WaitingCards({ account, states }: { account: SafeAccount; states
       {list.map(({ w, need }) => {
         const app = safeAppTxLink(w.chainId, w.safe, w.hash);
         return (
-          <div key={w.hash} style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
-            {app && (
-              <a className="btn btn-sm" href={app} target="_blank" rel="noreferrer" title="Open in Safe{Wallet}" style={{ height: "auto", flex: "none" }}>
-                Safe ↗
+          <div key={w.hash} className="stack" style={{ gap: 8 }}>
+            <div className="recess stack" style={{ gap: 4 }}>
+              {describeTx(w.chainId, w.safe, w.tx).map((line, i) => (
+                <span key={i} style={{ fontSize: 15 }}>
+                  {line}
+                </span>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
+              {app && (
+                <a
+                  className="btn btn-sm"
+                  href={app}
+                  target="_blank"
+                  rel="noreferrer"
+                  title="Open in Safe{Wallet}"
+                  style={{ height: "auto", flex: "none" }}
+                >
+                  Safe ↗
+                </a>
+              )}
+              <a
+                href={txLink(w).replace(location.origin, "")}
+                className="btn btn-green btn-sm"
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  height: "auto",
+                  minHeight: 52,
+                  flexDirection: "column",
+                  gap: 0,
+                  padding: "8px 14px",
+                  lineHeight: 1.2,
+                }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  openTx(w);
+                }}
+              >
+                <b>{w.label ?? `Transaction #${w.tx.nonce}`}</b>
+                <span style={{ fontSize: 12, opacity: 0.85 }}>
+                  {chainById(w.chainId)?.name} · {w.sigs.length} of {need}{" "}
+                  signed
+                </span>
               </a>
-            )}
-            <a
-              href={txLink(w).replace(location.origin, "")}
-              className="btn btn-green btn-sm"
-              style={{ flex: 1, minWidth: 0, height: "auto", minHeight: 52, flexDirection: "column", gap: 0, padding: "8px 14px", lineHeight: 1.2 }}
-              onClick={e => {
-                e.preventDefault();
-                openTx(w);
-              }}
-            >
-              <b>{w.label ?? `Transaction #${w.tx.nonce}`}</b>
-              <span style={{ fontSize: 12, opacity: 0.85 }}>
-                {chainById(w.chainId)?.name} · {w.sigs.length} of {need} signed
-              </span>
-            </a>
+            </div>
           </div>
         );
       })}

@@ -1,14 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { type Address, type Hash, type Hex, formatUnits, getAddress, isAddress, zeroAddress } from "viem";
-import { chainById, explorerTx, nativeSymbol, publicClient } from "@/lib/chains";
+import { type Address, type Hash, type Hex, getAddress, isAddress, zeroAddress } from "viem";
+import { chainById, explorerTx, publicClient } from "@/lib/chains";
 import { short } from "@/lib/format";
 import { recoverKeys } from "@/lib/passkey";
 import { MULTISEND_CALL_ONLY } from "@/lib/safe/config";
 import { type Call, type Sig, abi, execData, signerAddress } from "@/lib/safe/core";
 import { unpackMultiSend } from "@/lib/safe/fee";
 import { connectHot, hotAvailable, hotSend, hotSign } from "@/lib/safe/hot";
+import { describe } from "@/lib/safe/describe";
 import { waitFor } from "@/lib/safe/send";
 import { type Waiting, allSignatures, checkSigs, fromLink, readWaiting, safeAppTxLink, shareTx, sigHex, txLink } from "@/lib/safe/share";
 import { passkeySign } from "@/lib/safe/sign";
@@ -278,28 +279,6 @@ function safeUnpack(data: Hex): Call[] {
   } catch {
     return [];
   }
-}
-
-/** One call, in words: a coin sent, a signer change, else the contract and function. */
-function describe(chainId: number, safe: Address, c: Call): string {
-  const d = c.data;
-  const sel = d.slice(0, 10).toLowerCase();
-  const arg = (i: number) => `0x${d.slice(10 + i * 64, 10 + (i + 1) * 64)}`;
-  const addr = (i: number) => getAddress(`0x${arg(i).slice(26)}`);
-  if (d === "0x") return `Send ${formatUnits(c.value, 18)} ${nativeSymbol(chainId)} to ${short(c.to)}`;
-  if (sel === "0xa9059cbb") {
-    const usdc = chainById(chainId)?.usdc;
-    const amt = BigInt(arg(1));
-    return usdc && eq(c.to, usdc) ? `Send ${formatUnits(amt, 6)} USDC to ${short(addr(0))}` : `Send ${amt} of token ${short(c.to)} to ${short(addr(0))}`;
-  }
-  if (eq(c.to, safe)) {
-    if (sel === "0x0d582f13") return `Add signer ${short(addr(0))}, need ${BigInt(arg(1))}`;
-    if (sel === "0xf8dc5dd9") return `Remove signer ${short(addr(1))}, need ${BigInt(arg(2))}`;
-    if (sel === "0x694e80c3") return `Need ${BigInt(arg(0))} signatures`;
-    if (sel === "0xe318b52b") return `Swap signer ${short(addr(1))} for ${short(addr(2))}`;
-    return `Change the wallet (${sel})`;
-  }
-  return `Call ${short(c.to)} (${sel})${c.value ? ` with ${formatUnits(c.value, 18)} ${nativeSymbol(chainId)}` : ""}`;
 }
 
 export const isSafeRoute = (chain: string, safe: string) => /^\d+$/.test(chain) && isAddress(safe) && safe !== zeroAddress;

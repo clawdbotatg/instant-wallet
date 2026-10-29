@@ -1,15 +1,58 @@
 "use client";
 
-import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
-import { type Address, type Hex, encodeFunctionData, formatUnits, zeroAddress } from "viem";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import {
+  type Address,
+  type Hex,
+  encodeFunctionData,
+  formatUnits,
+  zeroAddress,
+} from "viem";
 import { brainKey, isXdai, oldBurnerKey } from "@/lib/brand";
 import { claimKey } from "@/lib/claim";
 import { CHAINS, chainById, explorerAddress, nativeSymbol } from "@/lib/chains";
 import { amount, short } from "@/lib/format";
-import { DAO, FEE_ALLOWANCE, RECOVERY_60D, VERIFIERS, VERIFIERS_SLOT2 } from "@/lib/safe/config";
-import { type Call, DEFAULT_BUDGET, abi, budgetCalls, deploySignerCall, feeAllowanceCalls, recoveryLayoutCalls, selfCall, setGuardianCalls } from "@/lib/safe/core";
-import { type FeeToken, type Prepared, type Signer, finishOwners, getQuote, ownerSigners, prepareOwners } from "@/lib/safe/send";
-import { type ChainState, type SafeAccount, hotOf, oldLayout, readChain, wedgieSigners } from "@/lib/safe/state";
+import {
+  DAO,
+  FEE_ALLOWANCE,
+  RECOVERY_60D,
+  VERIFIERS,
+  VERIFIERS_SLOT2,
+} from "@/lib/safe/config";
+import {
+  type Call,
+  DEFAULT_BUDGET,
+  abi,
+  budgetCalls,
+  deploySignerCall,
+  feeAllowanceCalls,
+  recoveryLayoutCalls,
+  selfCall,
+  setGuardianCalls,
+} from "@/lib/safe/core";
+import {
+  type FeeToken,
+  type Prepared,
+  type Signer,
+  finishOwners,
+  getQuote,
+  ownerSigners,
+  prepareOwners,
+} from "@/lib/safe/send";
+import {
+  type ChainState,
+  type SafeAccount,
+  hotOf,
+  oldLayout,
+  readChain,
+  wedgieSigners,
+} from "@/lib/safe/state";
 import { Wedgie, wedgieDrive, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
 import { AddressInput, Blockie, PencilIcon, TimedBar, copy } from "../bits";
@@ -46,18 +89,38 @@ export function Keys({
   onRefresh: () => Promise<void> | void;
   onFund: (chainId: number) => void;
 }) {
-
   const [chainId, setChainId] = useState(CHAINS[0].id);
   const [busy, setBusy] = useState<string | null>(null);
   // an error shows in the step whose button caused it, next to where you tapped
-  const [error, setErrorRaw] = useState<{ what: string; msg: string } | null>(null);
+  const [error, setErrorRaw] = useState<{ what: string; msg: string } | null>(
+    null,
+  );
   const [guardianIn, setGuardianIn] = useState<Address | null>(null);
-  const st = states.find(s => s.chainId === chainId);
+  const [recEdit, setRecEdit] = useState(false); // recovery: one line until Edit / learn more
+  const st = states.find((s) => s.chainId === chainId);
   const usdc = chainById(chainId)?.usdc?.toLowerCase();
-  const haveUsdc = assets.some(a => a.chainId === chainId && a.asset.toLowerCase() === usdc && BigInt(a.balance) >= (chainId === 1 ? 10_000_000n : 1_000_000n));
-  const haveEth = assets.some(a => a.chainId === chainId && a.asset === zeroAddress && BigInt(a.balance) > 0n);
+  const haveUsdc = assets.some(
+    (a) =>
+      a.chainId === chainId &&
+      a.asset.toLowerCase() === usdc &&
+      BigInt(a.balance) >= (chainId === 1 ? 10_000_000n : 1_000_000n),
+  );
+  const haveEth = assets.some(
+    (a) =>
+      a.chainId === chainId &&
+      a.asset === zeroAddress &&
+      BigInt(a.balance) > 0n,
+  );
   const feeToken: FeeToken = haveUsdc ? "usdc" : "eth";
-  const canPay = haveUsdc || haveEth || assets.some(a => a.chainId === chainId && a.asset.toLowerCase() === usdc && BigInt(a.balance) > 0n);
+  const canPay =
+    haveUsdc ||
+    haveEth ||
+    assets.some(
+      (a) =>
+        a.chainId === chainId &&
+        a.asset.toLowerCase() === usdc &&
+        BigInt(a.balance) > 0n,
+    );
   const hot = st ? hotOf(account, st) : account.hot;
 
   // the budget comes with the first second key (the wedgie; on older wallets maybe a hot wallet)
@@ -66,15 +129,33 @@ export function Keys({
   // (no USDC on this chain: fees are in its native coin, there's no USDC fee to keep apart)
   const feeApart = async () => {
     const u = chainById(chainId)?.usdc;
-    return u ? feeAllowanceCalls(account.address, u, (await getQuote(chainId, "setup")).relayer, FEE_ALLOWANCE[chainId] ?? 1_000_000n, now()) : [];
+    return u
+      ? feeAllowanceCalls(
+          account.address,
+          u,
+          (await getQuote(chainId, "setup")).relayer,
+          FEE_ALLOWANCE[chainId] ?? 1_000_000n,
+          now(),
+        )
+      : [];
   };
   const budgetFirst = async (s: ChainState): Promise<Call[]> =>
     s.threshold <= 1
       ? [
-          ...budgetCalls(account.address, chainById(chainId)?.usdc, account.burnerSigner, { usdc: DEFAULT_BUDGET.usdc, eth: chainById(chainId)?.nativeBudget ?? DEFAULT_BUDGET.eth }, now(), {
-            rolesDeployed: s.rolesDeployed,
-            rolesEnabled: !!s.roles,
-          }),
+          ...budgetCalls(
+            account.address,
+            chainById(chainId)?.usdc,
+            account.burnerSigner,
+            {
+              usdc: DEFAULT_BUDGET.usdc,
+              eth: chainById(chainId)?.nativeBudget ?? DEFAULT_BUDGET.eth,
+            },
+            now(),
+            {
+              rolesDeployed: s.rolesDeployed,
+              rolesEnabled: !!s.roles,
+            },
+          ),
           ...(await feeApart()),
         ]
       : [];
@@ -83,26 +164,53 @@ export function Keys({
   // (a chain without the 60-day module yet, HyperEVM: pairing leaves it as it is, the upgrade shows once it's there)
   const toLayout = async (s: ChainState): Promise<Call[]> => {
     if (s.modules.includes(RECOVERY_60D) || !s.has60) return [];
-    if (s.recovery) throw new Error("A recovery is running on this wallet. Cancel it or let it finish first.");
-    if (!s.stored) throw new Error("Couldn't read the recovery address. Try again in a moment.");
+    if (s.recovery)
+      throw new Error(
+        "A recovery is running on this wallet. Cancel it or let it finish first.",
+      );
+    if (!s.stored)
+      throw new Error(
+        "Couldn't read the recovery address. Try again in a moment.",
+      );
     return recoveryLayoutCalls(account.address, s.modules, s.stored);
   };
   // a change the wedgie has to sign: connect it now, while this is still the tap (a port prompt needs one)
-  const wedgieFor = async (signers: Signer[]) => (signers.includes("wedgie") && wedgieSupported() ? await Wedgie.connect() : null);
+  const wedgieFor = async (signers: Signer[]) =>
+    signers.includes("wedgie") && wedgieSupported()
+      ? await Wedgie.connect()
+      : null;
 
   // two taps: the first gets everything ready (MetaMask / the wedgie connect, the fee, the nonce); the second signs.
   // Face ID has to start straight from a tap: after a MetaMask popup or a network call, Safari and Chrome refuse it.
   // The confirm replaces the step's own button, in place.
-  type Ready = { label: ReactNode; p: Prepared; after?: () => void; close?: () => Promise<void>; settled?: (s: ChainState) => boolean };
-  const [pending, setPending] = useState<({ what: string } & Ready) | null>(null);
+  type Ready = {
+    label: ReactNode;
+    p: Prepared;
+    after?: () => void;
+    close?: () => Promise<void>;
+    settled?: (s: ChainState) => boolean;
+  };
+  const [pending, setPending] = useState<({ what: string } & Ready) | null>(
+    null,
+  );
   // the confirm can land below the fold (Austin: you couldn't tell there was a Yes to tap): scroll it to the middle
   const confirmRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (pending) confirmRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (pending)
+      confirmRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
   }, [pending?.what]); // eslint-disable-line react-hooks/exhaustive-deps
   // once it's sent: a progress bar in the step until the chain read shows the change (block time + RPC lag, ~5-30 s)
-  const [wait, setWait] = useState<{ what: string; chainId: number; since: number; ms: number; settled: (s: ChainState) => boolean } | null>(null);
-  const waitSt = wait && states.find(s => s.chainId === wait.chainId);
+  const [wait, setWait] = useState<{
+    what: string;
+    chainId: number;
+    since: number;
+    ms: number;
+    settled: (s: ChainState) => boolean;
+  } | null>(null);
+  const waitSt = wait && states.find((s) => s.chainId === wait.chainId);
   const waitDone = !!wait && !!waitSt && wait.settled(waitSt);
   useEffect(() => {
     if (!wait || busy) return;
@@ -144,8 +252,15 @@ export function Keys({
     setBusy(pending.what);
     setErrorRaw(null);
     const bt = chainById(chainId)?.chain.blockTime ?? 2_000;
-    const w = { what: pending.what, chainId, since: 0, ms: 2 * bt + 5_000, settled: pending.settled ?? (() => true) };
-    pending.p.opts.onStage = s => s === "sending" && setWait({ ...w, since: Date.now() });
+    const w = {
+      what: pending.what,
+      chainId,
+      since: 0,
+      ms: 2 * bt + 5_000,
+      settled: pending.settled ?? (() => true),
+    };
+    pending.p.opts.onStage = (s) =>
+      s === "sending" && setWait({ ...w, since: Date.now() });
     try {
       await finishOwners(pending.p);
       pending.after?.();
@@ -161,28 +276,60 @@ export function Keys({
   }
 
   const signLabel = (p: Prepared) =>
-    p.opts.signers.map(x => (x === "burner" ? "your Instant wallet" : x === "hot" ? "your hot wallet" : "the wedgie")).join(" + ");
+    p.opts.signers
+      .map((x) =>
+        x === "burner"
+          ? "your Instant wallet"
+          : x === "hot"
+            ? "your hot wallet"
+            : "the wedgie",
+      )
+      .join(" + ");
 
   const setPaper = () =>
     prep("paper", async () => {
       const st = await fresh();
-      if (!guardianIn) throw new Error("Enter an address (0x…) or an ENS name.");
+      if (!guardianIn)
+        throw new Error("Enter an address (0x…) or an ENS name.");
       const paper = guardianIn;
-      if (st.owners.some(o => o.toLowerCase() === paper.toLowerCase())) throw new Error("That address is already one of your keys. Recovery must be separate.");
-      if (st.modules.includes(RECOVERY_60D) && paper.toLowerCase() === DAO.toLowerCase()) throw new Error("That's the DAO. It's already your 60-day recovery.");
-      if (!st.guardians) throw new Error("Couldn't read the current recovery address. Try again in a moment.");
+      if (st.owners.some((o) => o.toLowerCase() === paper.toLowerCase()))
+        throw new Error(
+          "That address is already one of your keys. Recovery must be separate.",
+        );
+      if (
+        st.modules.includes(RECOVERY_60D) &&
+        paper.toLowerCase() === DAO.toLowerCase()
+      )
+        throw new Error("That's the DAO. It's already your 60-day recovery.");
+      if (!st.guardians)
+        throw new Error(
+          "Couldn't read the current recovery address. Try again in a moment.",
+        );
       const signers = ownerSigners(st, account);
       const w = await wedgieFor(signers);
       try {
-        const p = await prepareOwners({ account, state: st, calls: setGuardianCalls(st.recoveryModule, st.guardians, paper), signers, feeToken, wedgie: w });
+        const p = await prepareOwners({
+          account,
+          state: st,
+          calls: setGuardianCalls(st.recoveryModule, st.guardians, paper),
+          signers,
+          feeToken,
+          wedgie: w,
+        });
         return {
-          label: <>Make <Addr a={paper} chainId={chainId} inline /> your recovery address</>,
+          label: (
+            <>
+              Make <Addr a={paper} chainId={chainId} inline /> your recovery
+              address
+            </>
+          ),
           p,
           after: () => {
             onAccount({ ...account, paper });
           },
           close: async () => w?.close(),
-          settled: s => s.guardians?.[0]?.toLowerCase() === paper.toLowerCase(),
+          settled: (s) =>
+            s.guardians?.[0]?.toLowerCase() === paper.toLowerCase(),
         };
       } catch (e) {
         await w?.close();
@@ -199,8 +346,22 @@ export function Keys({
       const signers = ownerSigners(st, account);
       const w = await wedgieFor(signers);
       try {
-        const p = await prepareOwners({ account, state: st, calls, signers, feeToken, setup: true, wedgie: w, label: "Recovery: DAO 60 days" });
-        return { label: "The DAO waits 60 days, your own address 14", p, settled: s => s.modules.includes(RECOVERY_60D), close: async () => w?.close() };
+        const p = await prepareOwners({
+          account,
+          state: st,
+          calls,
+          signers,
+          feeToken,
+          setup: true,
+          wedgie: w,
+          label: "Recovery: DAO 60 days",
+        });
+        return {
+          label: "The DAO waits 60 days, your own address 14",
+          p,
+          settled: (s) => s.modules.includes(RECOVERY_60D),
+          close: async () => w?.close(),
+        };
       } catch (e) {
         await w?.close();
         throw e;
@@ -213,7 +374,8 @@ export function Keys({
       const w = await Wedgie.connect(); // first, while it's still the tap (the port prompt needs one)
       try {
         const st = await fresh();
-        if (st.hasWedgie) throw new Error("The wedgie is already on this wallet here.");
+        if (st.hasWedgie)
+          throw new Error("The wedgie is already on this wallet here.");
         const key = await w.key();
         const [w1, w2] = wedgieSigners(key);
         // Instant alone (1 of 1) → 3 of 3: the wedgie + Instant. (An older wallet's Instant + hot, 2 of 2 → 3 of 4.)
@@ -223,11 +385,39 @@ export function Keys({
           ...(await budgetFirst(st)),
           deploySignerCall(key.x, key.y, VERIFIERS),
           deploySignerCall(key.x, key.y, VERIFIERS_SLOT2),
-          selfCall(account.address, encodeFunctionData({ abi: abi.safe, functionName: "addOwnerWithThreshold", args: [w1, 2n] })),
-          selfCall(account.address, encodeFunctionData({ abi: abi.safe, functionName: "addOwnerWithThreshold", args: [w2, 3n] })),
+          selfCall(
+            account.address,
+            encodeFunctionData({
+              abi: abi.safe,
+              functionName: "addOwnerWithThreshold",
+              args: [w1, 2n],
+            }),
+          ),
+          selfCall(
+            account.address,
+            encodeFunctionData({
+              abi: abi.safe,
+              functionName: "addOwnerWithThreshold",
+              args: [w2, 3n],
+            }),
+          ),
         ];
-        const p = await prepareOwners({ account, state: st, calls, signers: ownerSigners(st, account), feeToken, setup: true, wedgie: w });
-        return { label: "Add your wedgie (it counts twice)", p, after: () => onAccount({ ...account, wedgie: key }), settled: s => s.hasWedgie, close: () => w.close() };
+        const p = await prepareOwners({
+          account,
+          state: st,
+          calls,
+          signers: ownerSigners(st, account),
+          feeToken,
+          setup: true,
+          wedgie: w,
+        });
+        return {
+          label: "Add your wedgie (it counts twice)",
+          p,
+          after: () => onAccount({ ...account, wedgie: key }),
+          settled: (s) => s.hasWedgie,
+          close: () => w.close(),
+        };
       } catch (e) {
         await w.close();
         throw e;
@@ -239,17 +429,26 @@ export function Keys({
     <>
       {wait?.what === what && wait.chainId === chainId ? (
         <div className="stack" style={{ gap: 8 }}>
-          <p className="fine">{busy ? "Sending…" : `Waiting for ${chainById(chainId)?.name}…`}</p>
+          <p className="fine">
+            {busy ? "Sending…" : `Waiting for ${chainById(chainId)?.name}…`}
+          </p>
           <TimedBar ms={wait.ms} />
         </div>
       ) : pending?.what === what ? (
         <div className="stack" style={{ gap: 8 }} ref={confirmRef}>
           <b>{pending.label}</b>
           <p className="fine">
-            Fee {pending.p.opts.feeToken === "usdc" ? `${(Number(pending.p.fee.feeUsdc) / 1e6).toFixed(4)} USDC` : `${(Number(pending.p.fee.feeEth) / 1e18).toFixed(6)} ${nativeSymbol(chainId)}`}. Signed by{" "}
-            {signLabel(pending.p)}.
+            Fee{" "}
+            {pending.p.opts.feeToken === "usdc"
+              ? `${(Number(pending.p.fee.feeUsdc) / 1e6).toFixed(4)} USDC`
+              : `${(Number(pending.p.fee.feeEth) / 1e18).toFixed(6)} ${nativeSymbol(chainId)}`}
+            . Signed by {signLabel(pending.p)}.
           </p>
-          <button className="btn btn-green wide" onClick={sign} disabled={!!busy}>
+          <button
+            className="btn btn-green wide"
+            onClick={sign}
+            disabled={!!busy}
+          >
             {busy ? "Signing and sending…" : "Yes"}
           </button>
           <button
@@ -271,90 +470,188 @@ export function Keys({
   );
 
   const current = st?.guardians?.[0];
-  const changed = !!guardianIn && guardianIn.toLowerCase() !== current?.toLowerCase();
-  const ownRecovery = !!st?.guardians && st.guardians.length > 0 && !st.guardians.some(g => g.toLowerCase() === DAO.toLowerCase());
+  const changed =
+    !!guardianIn && guardianIn.toLowerCase() !== current?.toLowerCase();
+  const ownRecovery =
+    !!st?.guardians &&
+    st.guardians.length > 0 &&
+    !st.guardians.some((g) => g.toLowerCase() === DAO.toLowerCase());
   const layout = !!st?.modules.includes(RECOVERY_60D); // with the wedgie: DAO 60 days, yours 14
-
 
   return (
     <div className="stack">
       <h2>Instant Wallet is a Safe multisig</h2>
       <ChainSelect value={chainId} onChange={setChainId} />
-      {st && <Summary key={chainId} account={account} st={st} hot={hot} assets={assets} onRefresh={onRefresh} toast={toast} />}
+      {st && (
+        <Summary
+          key={chainId}
+          account={account}
+          st={st}
+          hot={hot}
+          assets={assets}
+          onRefresh={onRefresh}
+          toast={toast}
+        />
+      )}
 
       {!st && <p className="fine">Loading…</p>}
       {!canPay ? (
         <div className="card stack" style={{ gap: 8 }}>
-          <p className="fine">Changes on {chainById(chainId)?.name} need a little gas there, and this wallet has none on it yet.</p>
-          {assets.some(a => a.chainId !== chainId && (a.usd ?? 0) >= 0.5) ? (
-            <button className="btn btn-green wide" onClick={() => onFund(chainId)}>
+          <p className="fine">
+            Changes on {chainById(chainId)?.name} need a little gas there, and
+            this wallet has none on it yet.
+          </p>
+          {assets.some((a) => a.chainId !== chainId && (a.usd ?? 0) >= 0.5) ? (
+            <button
+              className="btn btn-green wide"
+              onClick={() => onFund(chainId)}
+            >
               Add gas on {chainById(chainId)?.name}
             </button>
           ) : (
-            <p className="fine">Add a little USDC or {nativeSymbol(chainId)} on {chainById(chainId)?.name} first.</p>
+            <p className="fine">
+              Add a little USDC or {nativeSymbol(chainId)} on{" "}
+              {chainById(chainId)?.name} first.
+            </p>
           )}
         </div>
       ) : (
-        st && !st.deployed && <p className="fine">The first change on {chainById(chainId)?.name} also sets up the wallet there.</p>
+        st &&
+        !st.deployed && (
+          <p className="fine">
+            The first change on {chainById(chainId)?.name} also sets up the
+            wallet there.
+          </p>
+        )
       )}
 
       {!st?.hasWedgie && (
         <Step title="Wedgie (hardware key)">
-          <p className="fine">Keeping more than about $100 here? Pair a wedgie. Instant then spends a daily limit, and anything bigger needs the wedgie too.</p>
           <p className="fine">
-            {wedgieDrive() ? "Plug it into this iPhone" : "Plug it into a computer (Chrome)"}, open its Safe signer app, then add it. Don&apos;t have one?{" "}
+            Keeping more than about $100 here? Pair a wedgie. Instant then
+            spends a daily limit, and anything bigger needs the wedgie too.
+          </p>
+          <p className="fine">
+            {wedgieDrive()
+              ? "Plug it into this iPhone"
+              : "Plug it into a computer (Chrome)"}
+            , open its Safe signer app, then add it. Don&apos;t have one?{" "}
             <a href="https://wedgie.dev" target="_blank" rel="noreferrer">
               Get one at wedgie.dev
             </a>
           </p>
           {action(
             "wedgie",
-            <button className="btn btn-green wide" onClick={addWedgie} disabled={!!busy || !!pending || !!wait || !canPay || !wedgieSupported()}>
-              {busy === "wedgie" ? "Check the wedgie…" : !wedgieSupported() ? "Needs Chrome on a computer" : "Connect and add the wedgie"}
+            <button
+              className="btn btn-green wide"
+              onClick={addWedgie}
+              disabled={
+                !!busy || !!pending || !!wait || !canPay || !wedgieSupported()
+              }
+            >
+              {busy === "wedgie"
+                ? "Check the wedgie…"
+                : !wedgieSupported()
+                  ? "Needs Chrome on a computer"
+                  : "Connect and add the wedgie"}
             </button>,
           )}
         </Step>
       )}
 
-
-      <Step title="Recovery" done={ownRecovery}>
-        <p className="fine">
-          {layout
-            ? "If you lose a key, the DAO (dao.buidlguidl.eth) can replace it after 60 days."
-            : ownRecovery
-              ? `Your own address can replace lost keys after ${st?.recoveryDays ?? 7} days.`
-              : `If you lose a key, the DAO (dao.buidlguidl.eth) can replace it after ${st?.recoveryDays ?? 7} days.`}{" "}
-          {layout && (ownRecovery ? "Your own address can, after 14 days." : "Add your own address and it can, after 14 days.")} You can cancel any recovery.
-          {!st?.hasWedgie && " Pairing a wedgie makes the DAO wait 60 days and your own address 14."}
-        </p>
-        {!ownRecovery && <p className="fine"><b>Make your own recovery: a wallet only you control.</b></p>}
-        {st &&
-          oldLayout(st) &&
-          st.has60 &&
-          action(
-            "layout",
-            <button className="btn wide" onClick={upgradeLayout} disabled={!!busy || !!pending || !!wait || !canPay}>
-              {busy === "layout" ? "Working…" : "Make the DAO wait 60 days"}
-            </button>,
-          )}
-        <p className="fine">
-          No wallet for it yet? <a href="/paper">Make a 24-word seed on 3 paper cards</a>.
-        </p>
-        <div className="guardian">
-          <AddressInput key={chainId} initial={current} onChange={setGuardianIn} />
-        </div>
-        {action(
-          "paper",
-          <button className="btn btn-green wide" onClick={setPaper} disabled={!!busy || !!pending || !!wait || !canPay || !changed || (!!st && oldLayout(st) && st.has60)}>
-            {busy === "paper" ? "Working…" : "Save"}
-          </button>,
+      <div className="card stack" style={{ gap: 10 }}>
+        {st?.recoveries
+          .filter((r) => r.guardians?.length)
+          .map((r) => (
+            <div className="keyrow" key={r.module} style={{ padding: 0 }}>
+              <b>{r.days}-day recovery</b>
+              <span
+                className="row"
+                style={{ gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}
+              >
+                {r.guardians!.map((g) =>
+                  g.toLowerCase() === DAO.toLowerCase() ? (
+                    <span key={g}>dao.buidlguidl.eth</span>
+                  ) : (
+                    <Addr key={g} a={g} chainId={chainId} />
+                  ),
+                )}
+              </span>
+            </div>
+          ))}
+        {!recEdit ? (
+          <button className="btn btn-sm" onClick={() => setRecEdit(true)}>
+            Edit / learn more
+          </button>
+        ) : (
+          <>
+            <p className="fine">
+              {layout
+                ? "If you lose a key, the DAO (dao.buidlguidl.eth) can replace it after 60 days."
+                : ownRecovery
+                  ? `Your own address can replace lost keys after ${st?.recoveryDays ?? 7} days.`
+                  : `If you lose a key, the DAO (dao.buidlguidl.eth) can replace it after ${st?.recoveryDays ?? 7} days.`}{" "}
+              {layout &&
+                (ownRecovery
+                  ? "Your own address can, after 14 days."
+                  : "Add your own address and it can, after 14 days.")}{" "}
+              You can cancel any recovery.
+              {!layout &&
+                " Making the DAO wait 60 days gives you time to cancel. Your own address then waits 14."}
+            </p>
+            {!ownRecovery && (
+              <p className="fine">
+                <b>Make your own recovery: a wallet only you control.</b>
+              </p>
+            )}
+            {st &&
+              st.has60 &&
+              !st.modules.includes(RECOVERY_60D) &&
+              action(
+                "layout",
+                <button
+                  className="btn wide"
+                  onClick={upgradeLayout}
+                  disabled={!!busy || !!pending || !!wait || !canPay}
+                >
+                  {busy === "layout" ? "Working…" : "Make the DAO wait 60 days"}
+                </button>,
+              )}
+            <p className="fine">
+              No wallet for it yet?{" "}
+              <a href="/paper">Make a 24-word seed on 3 paper cards</a>.
+            </p>
+            <div className="guardian">
+              <AddressInput
+                key={chainId}
+                initial={current}
+                onChange={setGuardianIn}
+              />
+            </div>
+            {action(
+              "paper",
+              <button
+                className="btn btn-green wide"
+                onClick={setPaper}
+                disabled={
+                  !!busy ||
+                  !!pending ||
+                  !!wait ||
+                  !canPay ||
+                  !changed ||
+                  (!!st && oldLayout(st) && st.has60)
+                }
+              >
+                {busy === "paper" ? "Working…" : "Save"}
+              </button>,
+            )}
+          </>
         )}
-      </Step>
+      </div>
 
       <Step title="Recovery alerts" key="alerts">
         <Alerts account={account} toast={toast} />
       </Step>
-
 
       <OldBurner toast={toast} />
     </div>
@@ -379,11 +676,25 @@ function OldBurner({ toast }: { toast: (m: string) => void }) {
     if (!k) return toast("That's not a private key");
     window.location.href = `/pk#${k}`; // the claim screen: what's on it, then move it into this wallet
   };
-  const field = { autoComplete: "off", autoCorrect: "off", autoCapitalize: "none", spellCheck: false } as const;
+  const field = {
+    autoComplete: "off",
+    autoCorrect: "off",
+    autoCapitalize: "none",
+    spellCheck: false,
+  } as const;
   return (
     <>
       {key && (
-        <button className="btn wide" onClick={async () => toast((await copy(key)) ? "Old Burner private key copied" : "Couldn't copy")}>
+        <button
+          className="btn wide"
+          onClick={async () =>
+            toast(
+              (await copy(key))
+                ? "Old Burner private key copied"
+                : "Couldn't copy",
+            )
+          }
+        >
           Copy old Burner private key
         </button>
       )}
@@ -392,41 +703,86 @@ function OldBurner({ toast }: { toast: (m: string) => void }) {
           <b>Load old Burner Wallet</b>
           <div className="row">
             <div className="input grow">
-              <input {...field} placeholder="private key" value={pk} onChange={e => setPk(e.target.value)} />
+              <input
+                {...field}
+                placeholder="private key"
+                value={pk}
+                onChange={(e) => setPk(e.target.value)}
+              />
             </div>
-            <button className="btn btn-green btn-sm" disabled={!pk.trim()} onClick={() => load(claimKey(pk.trim(), true))}>
+            <button
+              className="btn btn-green btn-sm"
+              disabled={!pk.trim()}
+              onClick={() => load(claimKey(pk.trim(), true))}
+            >
               Load
             </button>
           </div>
           <div className="row">
             <div className="input grow">
-              <input {...field} type="password" placeholder="seed phrase" value={phrase} onChange={e => setPhrase(e.target.value)} />
+              <input
+                {...field}
+                type="password"
+                placeholder="seed phrase"
+                value={phrase}
+                onChange={(e) => setPhrase(e.target.value)}
+              />
             </div>
-            <button className="btn btn-green btn-sm" disabled={!phrase} onClick={() => load(brainKey(phrase))}>
+            <button
+              className="btn btn-green btn-sm"
+              disabled={!phrase}
+              onClick={() => load(brainKey(phrase))}
+            >
               Load
             </button>
           </div>
-          <p className="fine">Type the seed phrase exactly as you did in the old Burner Wallet, spaces and capitals too.</p>
+          <p className="fine">
+            Type the seed phrase exactly as you did in the old Burner Wallet,
+            spaces and capitals too.
+          </p>
         </div>
       )}
     </>
   );
 }
 
-
 /** This chain's Safe in three lines: the daily limit, M of N for the rest, the signers (the wedgie is 2 owner slots). */
-function Summary({ account, st, hot, assets, onRefresh, toast }: { account: SafeAccount; st: ChainState; hot?: Address; assets: Asset[]; onRefresh: () => void; toast: (m: string) => void }) {
+function Summary({
+  account,
+  st,
+  hot,
+  assets,
+  onRefresh,
+  toast,
+}: {
+  account: SafeAccount;
+  st: ChainState;
+  hot?: Address;
+  assets: Asset[];
+  onRefresh: () => void;
+  toast: (m: string) => void;
+}) {
   const [edit, setEdit] = useState(false);
   const close = useCallback(() => setEdit(false), []); // stable: the editor's wait effect depends on it
   const coin = nativeSymbol(st.chainId);
-  const has = (x?: Address) => !!x && st.owners.some(o => o.toLowerCase() === x.toLowerCase());
+  const has = (x?: Address) =>
+    !!x && st.owners.some((o) => o.toLowerCase() === x.toLowerCase());
   const me = has(account.burnerSigner);
   const hotOn = st.hasHot && has(hot);
-  const known = [account.burnerSigner, hotOn ? hot : undefined].filter(Boolean).map(x => x!.toLowerCase());
-  const rest = st.owners.filter(o => !known.includes(o.toLowerCase()));
+  const known = [account.burnerSigner, hotOn ? hot : undefined]
+    .filter(Boolean)
+    .map((x) => x!.toLowerCase());
+  const rest = st.owners.filter((o) => !known.includes(o.toLowerCase()));
   const keys: { kind: string; a?: Address }[] = [
     ...(me ? [{ kind: "Face ID", a: account.burnerSigner }] : []),
-    ...(st.hasWedgie && rest.length ? [{ kind: rest.length > 1 ? `Wedgie ×${rest.length}` : "Wedgie", a: st.wedgie }] : rest.map(a => ({ kind: "Other", a }))),
+    ...(st.hasWedgie && rest.length
+      ? [
+          {
+            kind: rest.length > 1 ? `Wedgie ×${rest.length}` : "Wedgie",
+            a: st.wedgie,
+          },
+        ]
+      : rest.map((a) => ({ kind: "Other", a }))),
     ...(hotOn ? [{ kind: "Hot wallet", a: hot }] : []),
   ];
   const b = st.threshold > 1 ? st.budget : null;
@@ -435,33 +791,69 @@ function Summary({ account, st, hot, assets, onRefresh, toast }: { account: Safe
       {b && (
         <p className="row" style={{ gap: 8 }}>
           <span>
-            Daily limit: <b>{amount(formatUnits(b.usdcMax, 6))} USDC + {amount(formatUnits(b.ethMax, 18))} {coin}</b>
+            Daily limit:{" "}
+            <b>
+              {amount(formatUnits(b.usdcMax, 6))} USDC +{" "}
+              {amount(formatUnits(b.ethMax, 18))} {coin}
+            </b>
           </span>
           {!edit && (
-            <button aria-label="Change the daily limit" onClick={() => setEdit(true)} style={{ border: 0, padding: 4, background: "none", color: "var(--muted)", cursor: "pointer", display: "flex" }}>
+            <button
+              aria-label="Change the daily limit"
+              onClick={() => setEdit(true)}
+              style={{
+                border: 0,
+                padding: 4,
+                background: "none",
+                color: "var(--muted)",
+                cursor: "pointer",
+                display: "flex",
+              }}
+            >
               <PencilIcon size={16} />
             </button>
           )}
         </p>
       )}
-      {b && edit && <ChainLimit account={account} st={st} assets={assets} onRefresh={onRefresh} toast={toast} onClose={close} />}
+      {b && edit && (
+        <ChainLimit
+          account={account}
+          st={st}
+          assets={assets}
+          onRefresh={onRefresh}
+          toast={toast}
+          onClose={close}
+        />
+      )}
       <p>
         {b ? "Anything else" : "Signers"}:{" "}
         <b>
           {st.threshold} of {st.owners.length}
         </b>
       </p>
-      {keys.map(k => (
+      {keys.map((k) => (
         <div className="keyrow" key={k.a ?? k.kind} style={{ padding: 0 }}>
           <b>{k.kind}</b>
-          {k.a ? <Addr a={k.a} chainId={st.chainId} /> : <span className="fine">…</span>}
+          {k.a ? (
+            <Addr a={k.a} chainId={st.chainId} />
+          ) : (
+            <span className="fine">…</span>
+          )}
         </div>
       ))}
     </div>
   );
 }
 
-function Step({ title, done, children }: { title: string; done?: boolean; children: React.ReactNode }) {
+function Step({
+  title,
+  done,
+  children,
+}: {
+  title: string;
+  done?: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <div className={`card step ${done ? "done" : ""}`}>
       <div className="row" style={{ justifyContent: "space-between" }}>
@@ -474,13 +866,34 @@ function Step({ title, done, children }: { title: string; done?: boolean; childr
 }
 
 /** An address: blockie + short link to the explorer (no chain chip: the chain is already picked above). inline: in a sentence */
-function Addr({ a, chainId, inline }: { a: Address; chainId: number; inline?: boolean }) {
+function Addr({
+  a,
+  chainId,
+  inline,
+}: {
+  a: Address;
+  chainId: number;
+  inline?: boolean;
+}) {
   const url = explorerAddress(chainId, a);
   return (
-    <span className="row" style={inline ? { display: "inline-flex", gap: 6, verticalAlign: "middle" } : { gap: 8 }}>
+    <span
+      className="row"
+      style={
+        inline
+          ? { display: "inline-flex", gap: 6, verticalAlign: "middle" }
+          : { gap: 8 }
+      }
+    >
       <Blockie address={a} size={inline ? 18 : 22} />
       {url ? (
-        <a className="mono" href={url} target="_blank" rel="noreferrer" style={inline ? undefined : { fontSize: 13 }}>
+        <a
+          className="mono"
+          href={url}
+          target="_blank"
+          rel="noreferrer"
+          style={inline ? undefined : { fontSize: 13 }}
+        >
           {short(a)}
         </a>
       ) : (

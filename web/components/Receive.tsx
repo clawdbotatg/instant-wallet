@@ -7,7 +7,7 @@ import { requestLink, requestUri } from "@/lib/parse";
 import { short } from "@/lib/format";
 import { loadRequestLink, saveRequestLink } from "@/lib/store";
 import type { Account } from "@/lib/types";
-import { Blockie, CopyIcon, PencilIcon, Qr, copy } from "./bits";
+import { Blockie, CopyIcon, PencilIcon, Qr, SwitchIcon, copy } from "./bits";
 import { ChainSelect } from "./safe/Pick";
 
 /**
@@ -66,6 +66,7 @@ export function Receive({
     <div className="stack">
       {onSwitch && (
         <button className="btn btn-sm" style={{ alignSelf: "center" }} onClick={onSwitch}>
+          <SwitchIcon />
           Switch account
         </button>
       )}

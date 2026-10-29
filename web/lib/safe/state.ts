@@ -48,6 +48,32 @@ export function saveAccount(a: SafeAccount | null) {
     if (a) localStorage.setItem(KEY, JSON.stringify(a));
     else localStorage.removeItem(KEY);
   } catch {}
+  if (a) saveKnown([a, ...knownAccounts().filter(k => !sameAccount(k, a))]);
+}
+
+/** Every wallet this browser has opened (Switch account lists them; the open one is checked). Public keys and
+ * addresses only: opening one still takes its passkey to sign. */
+const KNOWN = "iws.accounts";
+const sameAccount = (a: SafeAccount, b: SafeAccount) => a.credentialId === b.credentialId && a.address.toLowerCase() === b.address.toLowerCase();
+export function knownAccounts(): SafeAccount[] {
+  let list: SafeAccount[] = [];
+  try {
+    list = (JSON.parse(localStorage.getItem(KNOWN) || "[]") as SafeAccount[]).map(a => ({
+      ...a,
+      ...accountFor(a.credentialId, a.qx, a.qy, a.recovered ? a.address : undefined),
+    }));
+  } catch {}
+  const cur = loadAccount(); // the open wallet from before this list existed
+  if (cur && !list.some(k => sameAccount(k, cur))) list.unshift(cur);
+  return list;
+}
+function saveKnown(list: SafeAccount[]) {
+  try {
+    localStorage.setItem(KNOWN, JSON.stringify(list));
+  } catch {}
+}
+export function forgetKnown(a: SafeAccount) {
+  saveKnown(knownAccounts().filter(k => !sameAccount(k, a)));
 }
 
 /** The name the user gave this wallet (this browser only, private), or null: we name it (defaultWalletName). */

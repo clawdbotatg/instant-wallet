@@ -17,7 +17,7 @@ import { SharedDone } from "./Waiting";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { Blockie, ChainChip, ScanIcon, TokenIcon, useSheetBack } from "../bits";
+import { Blockie, ChainChip, GreenButton, ScanIcon, TokenIcon, useSheetBack } from "../bits";
 import { Scanner } from "../Scanner";
 import { Select, assetOpt } from "./Pick";
 import { friendly } from "../Welcome";
@@ -288,7 +288,7 @@ export function SafeSend({
         <WedgieIcon size={120} />
         <h2>Now the wedgie</h2>
         <p>
-          You signed {what} to {who}. Open Instant Wallet on your computer with the wedgie plugged in and press A to send it.
+          You signed {what} to {who}. Open Instant Wallet on your computer with the wedgie plugged in and press <GreenButton /> to send it.
         </p>
         {hash && <TxPicture hash={hash} />}
         <button className="btn btn-green wide" onClick={onDone}>

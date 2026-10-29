@@ -326,3 +326,6 @@ html[data-brand="xdai"] .seedcard .word { background: #1d1d1d; border-color: var
   html.app-side .toast { left: calc(100% - 256px); }
   html.app-side .wedgie-progress { left: calc(100% - 512px + 12px); }
 }
+
+/* the wedgie's green button, inline in a sentence */
+.green-key { display: inline-block; width: 0.95em; height: 0.95em; margin: 0 0.15em; vertical-align: -0.12em; border-radius: 50%; background: var(--mint); box-shadow: inset 0 -2px 0 var(--mint-d), 0 0 0 1.5px #fff; }

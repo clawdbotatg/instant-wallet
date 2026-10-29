@@ -179,7 +179,7 @@ function baseStatus(peek: Peek | null, account: SafeAccount, states: ChainState[
   if (peek.kind === "silent" && wedgieDrive()) // the drive is up but no answer yet: it keeps asking (no install advice)
     return { tone: "warn", title: "Waiting for your wedgie to answer", detail: "" };
   if (peek.kind === "silent")
-    return { tone: "bad", title: "Wedgie isn't answering", detail: "Unplug it, hold X while you plug it back in (that skips its app), then install the Safe signer.", install: true };
+    return { tone: "bad", title: "Wedgie isn't answering", detail: "Unplug it, plug it back in, then install the Safe signer.", install: true };
   const h = peek.hello;
   if (!("safe" in h))
     return {
@@ -188,7 +188,7 @@ function baseStatus(peek: Peek | null, account: SafeAccount, states: ChainState[
       detail: `It's running ${h.running ? `“${h.running}”` : "no app"}. This wallet needs the Safe signer.`,
       install: true,
     };
-  if (!h.safe) return { tone: "warn", title: "Wedgie has no key yet", detail: "Press A on its screen to make its Safe key. It never leaves the chip." };
+  if (!h.safe) return { tone: "warn", title: "Wedgie has no key yet", detail: "Press the green button to make its Safe key. It never leaves the chip." };
   const mine = account.wedgie;
   if (mine && !same(mine, h.safe))
     return { tone: "bad", title: "A different wedgie", detail: "This wedgie's key isn't the one on this wallet. Plug in the one you added.", key: h.safe };

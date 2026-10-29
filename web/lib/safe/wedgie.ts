@@ -655,13 +655,13 @@ export function behind(h: WedgieHello, l: Latest | null): { firmware?: boolean; 
   return { firmware: !!h.version && older(h.version, l.version), app: "safe" in h && !!l.safe && !!v && v !== l.safe };
 }
 
-/** Put the Safe signer on the plugged-in wedgie. step: what to say ("Press A on the wedgie", "Installing", p 0..1). */
+/** Put the Safe signer on the plugged-in wedgie. step: what to say ("Press the green button on the wedgie", "Installing", p 0..1). */
 export async function installSafeApp(step: (what: string, p?: number) => void): Promise<void> {
   if (!wedgieSerial()) throw new Error("Install the Safe signer from Chrome or Edge on a computer.");
   let w = await Wedgie.connect();
   try {
     const h = await w.request({ type: "hello" }, 2500).catch(() => null);
-    if (!h) throw new Error("The wedgie didn't answer. Unplug it, hold X while you plug it back in, then try again.");
+    if (!h) throw new Error("The wedgie didn't answer. Unplug it, plug it back in, then try again.");
     if (!h.jobs || !h.version || older(h.version, "0.3.12")) throw new OldFirmware("Its firmware is too old for this. Update it at wedgie.dev first.");
     const [m, rel] = await Promise.all([
       fetch(FW + "manifest.json", { cache: "no-cache" }).then(r => r.json() as Promise<Manifest>),
@@ -691,7 +691,7 @@ export async function installSafeApp(step: (what: string, p?: number) => void): 
     );
     files.catch(() => {});
 
-    step("Press A on the wedgie to install");
+    step("Press the green button on the wedgie to install");
     let bin = h.bin as number | undefined;
     const sent = Date.now();
     const go = await w

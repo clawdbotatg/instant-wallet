@@ -13,7 +13,7 @@ import { type FeeToken, type Stage, budgetSend, getQuote, ownersSend, plan, send
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { Qr } from "../bits";
+import { GreenButton, Qr } from "../bits";
 import { ChainSelect, Select, assetOpt } from "./Pick";
 import { WedgieIcon, ErrorLine } from "./WedgieButton";
 import { friendly } from "../Welcome";
@@ -201,7 +201,7 @@ export function Share({ account, states, assets, chainId: startChain, onDone }: 
       <div className="stack center">
         <WedgieIcon size={120} />
         <h2>Now the wedgie</h2>
-        <p>You signed {card.label}. Open Instant Wallet on your computer with the wedgie plugged in and press A to send it.</p>
+        <p>You signed {card.label}. Open Instant Wallet on your computer with the wedgie plugged in and press <GreenButton /> to send it.</p>
         <button className="btn btn-green wide" onClick={onDone}>
           OK
         </button>

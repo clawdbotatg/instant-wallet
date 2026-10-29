@@ -15,7 +15,7 @@ import { type Waiting, allSignatures, checkSigs, fromLink, readWaiting, safeAppT
 import { passkeySign } from "@/lib/safe/sign";
 import { loadAccount, wedgieSigners } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
-import { Blockie, copy, useToast } from "../bits";
+import { Blockie, GreenButton, copy, useToast } from "../bits";
 import { friendly } from "../Welcome";
 import { ErrorLine, WedgieIcon } from "./WedgieButton";
 
@@ -236,7 +236,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
           )}
           {wedgieSupported() ? (
             <button className="btn btn-dark wide" onClick={signWedgie} disabled={!!busy}>
-              <WedgieIcon size={30} /> {busy === "wedgie" ? "Press A on the wedgie…" : "Sign with a wedgie"}
+              <WedgieIcon size={30} /> {busy === "wedgie" ? <>Press <GreenButton /> on the wedgie…</> : "Sign with a wedgie"}
             </button>
           ) : (
             <p className="fine">To sign with a wedgie, open this link on your computer.</p>

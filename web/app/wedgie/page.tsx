@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { type Address, getAddress, isAddress, parseUnits } from "viem";
-import { Band, Qr, copy } from "@/components/bits";
+import { Band, GreenButton, Qr, copy } from "@/components/bits";
 import { Safety } from "@/components/Safety";
 import { friendly } from "@/components/Welcome";
 import { DEFAULT_CHAIN } from "@/lib/chains";
@@ -96,7 +96,7 @@ export default function StandInWedgie() {
                 }
               }}
             >
-              {busy ? "Signing…" : "Press A (sign)"}
+              {busy ? "Signing…" : <>Press <GreenButton /> to sign</>}
             </button>
           </div>
           <Safety account={acct} signer={rawSigner(sk)} who="wedgie" />

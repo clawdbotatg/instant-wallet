@@ -476,6 +476,11 @@ export function AddressInput({ initial, onChange, placeholder = "0x… or name.e
   );
 }
 
+/** The wedgie's green button, drawn inline in text. Never name the buttons A/B/X/Y: people see green and red. */
+export function GreenButton() {
+  return <span className="green-key" role="img" aria-label="the green button" />;
+}
+
 export function GearIcon({ size = 26 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">

@@ -20,7 +20,7 @@ import { Parked } from "@/lib/safe/pending";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { AddressInput, TokenIcon } from "../bits";
+import { AddressInput, GreenButton, TokenIcon } from "../bits";
 import { friendly } from "../Welcome";
 import { ErrorLine } from "./WedgieButton";
 
@@ -224,7 +224,7 @@ export function SendAll({
               </p>
             ) : r.stage === "parked" ? (
               <p className="fine">
-                Signed here. Press A on your wedgie on your computer to send it.
+                Signed here. Press <GreenButton /> on your wedgie on your computer to send it.
               </p>
             ) : (
               <button

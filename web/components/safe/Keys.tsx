@@ -416,8 +416,8 @@ export function Keys({
       <ChainSelect value={chainId} onChange={setChainId} />
       {st && (
         <Summary key={chainId} account={account} st={st} assets={assets} onRefresh={onRefresh} toast={toast}>
-          {/* one row per wedgie (older wallets have it in 2 slots); every slot while editing, so each can go */}
-          {st.owners.filter((o, i, all) => keysEdit || !st.wedgieHomes[o.toLowerCase()] || all.findIndex(x => st.wedgieHomes[x.toLowerCase()] === st.wedgieHomes[o.toLowerCase()]) === i).map(o => {
+          {/* every owner, so the rows match "N of M" (an older wallet's wedgie is in 2 slots: 2 rows) */}
+          {st.owners.map(o => {
             const gone = drop.includes(o.toLowerCase());
             return (
               <div className="keyrow" key={o} style={{ padding: 0, opacity: gone ? 0.45 : 1 }}>

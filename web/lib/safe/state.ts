@@ -27,6 +27,10 @@ export function wedgieSigners(w: { x: Hex; y: Hex }): [Address, Address] {
   return [signerAddress(w.x, w.y), signerAddress(w.x, w.y, VERIFIERS_SLOT2)];
 }
 
+/** The address the wedgie's Safe signer shows on its home screen (precompile only, no fallback: wedgie-safe
+ * safe_addr.py): not an owner here, but the blockie the person knows their wedgie by. */
+export const wedgieHome = (w: { x: Hex; y: Hex }): Address => signerAddress(w.x, w.y, 0x100n << 160n);
+
 const KEY = "iws.account";
 export function loadAccount(): SafeAccount | null {
   try {

@@ -9,7 +9,7 @@ import { amount, short } from "@/lib/format";
 import { DAO, FEE_ALLOWANCE, RECOVERY_60D, VERIFIERS } from "@/lib/safe/config";
 import { type Call, DEFAULT_BUDGET, abi, budgetCalls, deploySignerCall, feeAllowanceCalls, recoveryLayoutCalls, selfCall } from "@/lib/safe/core";
 import { type FeeToken, type Prepared, type Signer, finishOwners, getQuote, howSigns, ownerSigners, prepareOwners, signerLabel, usesWedgie } from "@/lib/safe/send";
-import { type ChainState, type SafeAccount, daoDays, readChain, wedgieSigners } from "@/lib/safe/state";
+import { type ChainState, type SafeAccount, daoDays, readChain, wedgieHome, wedgieSigners } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
 import { AddressInput, Blockie, PencilIcon, TimedBar, copy } from "../bits";
@@ -316,7 +316,19 @@ export function Keys({
           {st.owners.map(o => (
             <div className="keyrow" key={o} style={{ padding: 0 }}>
               <span className="row" style={{ gap: 8 }}>
-                <Addr a={o} chainId={chainId} />
+                {howSigns(account, st, o) === "wedgie" && account.wedgie ? (
+                  // the wedgie by the address on its own home screen; the owner (its signer contract) when opened
+                  <span className="stack" style={{ gap: 2 }}>
+                    <Addr a={wedgieHome(account.wedgie)} chainId={chainId} />
+                    {wedgieOpen && (
+                      <span className="fine">
+                        signs through <Addr a={o} chainId={chainId} inline />
+                      </span>
+                    )}
+                  </span>
+                ) : (
+                  <Addr a={o} chainId={chainId} />
+                )}
                 {howSigns(account, st, o) === "faceid" && <span className="fine">Face ID</span>}
                 {howSigns(account, st, o) === "wedgie" && (
                   <button className="pill row" style={{ gap: 4 }} onClick={() => setWedgieOpen(v => !v)} aria-expanded={wedgieOpen}>

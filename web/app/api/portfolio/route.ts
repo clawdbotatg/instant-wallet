@@ -3,6 +3,11 @@ import { type Address, createPublicClient, erc20Abi, formatUnits, getAddress, ht
 import { CHAINS, ETH, chainById } from "@/lib/chains";
 import { alchemyNetwork, rpc, upstreamRpc } from "@/lib/rpcServer";
 import type { Asset, Portfolio } from "@/lib/types";
+import { POPULAR } from "@/lib/safe/swap";
+
+/** The well-known tokens per chain (Swap's list), lowercase: read first, so spam can't push them out. */
+const known = (chainId: number) => new Set((POPULAR[chainId] ?? []).map(t => t.address.toLowerCase()));
+const STABLE = /^(USDC|USDT|DAI|USDBC|USDS|PYUSD)$/i;
 
 export const dynamic = "force-dynamic";
 
@@ -66,15 +71,23 @@ async function chainAssets(chainId: number, wallet: Address): Promise<Asset[]> {
     }
     return out;
   }
-  const tb = await rpc<{ tokenBalances: { contractAddress: Address; tokenBalance: string | null }[] }>(
-    chainId,
-    "alchemy_getTokenBalances",
-    [wallet, "erc20"],
-  ).catch(() => ({ tokenBalances: [] }));
-  const held = tb.tokenBalances
+  // every page (100 tokens each): a wallet with hundreds of airdropped spam tokens had its real USDC on page 3
+  const all: { contractAddress: Address; tokenBalance: string | null }[] = [];
+  let pageKey: string | undefined;
+  for (let i = 0; i < 20; i++) {
+    const tb = await rpc<{ tokenBalances: typeof all; pageKey?: string }>(chainId, "alchemy_getTokenBalances", [wallet, "erc20", ...(pageKey ? [{ pageKey }] : [])]).catch(
+      () => null,
+    );
+    if (!tb) break;
+    all.push(...tb.tokenBalances);
+    if (!(pageKey = tb.pageKey)) break;
+  }
+  const isKnown = known(chainId);
+  const held = all
     .map(t => ({ address: getAddress(t.contractAddress), balance: t.tokenBalance ? BigInt(t.tokenBalance) : 0n }))
     .filter(t => t.balance > 0n)
-    .slice(0, 60);
+    .sort((x, y) => Number(isKnown.has(y.address.toLowerCase())) - Number(isKnown.has(x.address.toLowerCase())))
+    .slice(0, 100);
   const metas = await Promise.all(
     held.map(async t => {
       const k = `${chainId}:${t.address}`;
@@ -108,7 +121,8 @@ async function price(assets: Asset[]) {
   const todo: Asset[] = [];
   for (const a of assets) {
     // $1 only for the real USDC: on BNB or Polygon anyone can mint a token called USDT
-    if (a.asset.toLowerCase() === chainById(a.chainId)?.usdc?.toLowerCase() || (a.chainId === 8453 || a.chainId === 1) && /^(USDC|USDT|DAI|USDBC|USDS|PYUSD)$/i.test(a.symbol)) a.price = 1;
+    // (by address: any token can call itself USDT, and one priced at $1 made a wallet worth $55B)
+    if (a.asset.toLowerCase() === chainById(a.chainId)?.usdc?.toLowerCase() || (STABLE.test(a.symbol) && known(a.chainId).has(a.asset.toLowerCase()))) a.price = 1;
     else {
       const hit = priceCache.get(`${a.chainId}:${a.asset}`);
       if (hit && Date.now() - hit.at < PRICE_MS) a.price = hit.v;
@@ -127,20 +141,25 @@ async function price(assets: Asset[]) {
           if (Number.isFinite(v)) nativeP.set(String(d.symbol).toUpperCase(), v);
         }
       }
-      const toks = todo.filter(a => a.asset !== ETH && alchemyNetwork(a.chainId)).slice(0, 25);
+      // Alchemy takes 25 per request
+      const toks = todo.filter(a => a.asset !== ETH && alchemyNetwork(a.chainId));
       const byAddr = new Map<string, number>();
-      if (toks.length) {
-        const j = await fetch(`https://api.g.alchemy.com/prices/v1/${key}/tokens/by-address`, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ addresses: toks.map(a => ({ network: alchemyNetwork(a.chainId), address: a.asset })) }),
-          cache: "no-store",
-        }).then(r => r.json());
-        for (const d of j?.data ?? []) {
-          const v = Number(d?.prices?.find((p: any) => p.currency === "usd")?.value);
-          if (Number.isFinite(v)) byAddr.set(`${d.network}:${String(d.address).toLowerCase()}`, v);
-        }
-      }
+      await Promise.all(
+        Array.from({ length: Math.ceil(toks.length / 25) }, async (_, i) => {
+          const j = await fetch(`https://api.g.alchemy.com/prices/v1/${key}/tokens/by-address`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ addresses: toks.slice(i * 25, i * 25 + 25).map(a => ({ network: alchemyNetwork(a.chainId), address: a.asset })) }),
+            cache: "no-store",
+          })
+            .then(r => r.json())
+            .catch(() => null);
+          for (const d of j?.data ?? []) {
+            const v = Number(d?.prices?.find((p: any) => p.currency === "usd")?.value);
+            if (Number.isFinite(v)) byAddr.set(`${d.network}:${String(d.address).toLowerCase()}`, v);
+          }
+        }),
+      );
       for (const a of todo) {
         const v =
           a.asset === ETH

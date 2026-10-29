@@ -524,8 +524,8 @@ export function Keys({
                 No address?{" "}
                 <a href="#" onClick={e => (e.preventDefault(), invite())}>
                   Invite by link
-                </a>{" "}
-                or <a href="/paper">make a paper seed</a>.
+                </a>
+                .
               </p>
               {error?.what === "invite" && <ErrorLine text={error.msg} />}
               {count > 1 && (

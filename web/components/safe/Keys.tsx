@@ -12,7 +12,7 @@ import { type FeeToken, type Prepared, type Signer, finishOwners, getQuote, owne
 import { type ChainState, type SafeAccount, hotOf, oldLayout, readChain, wedgieSigners } from "@/lib/safe/state";
 import { Wedgie, wedgieDrive, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { AddressInput, Blockie, TimedBar, copy } from "../bits";
+import { AddressInput, Blockie, PencilIcon, TimedBar, copy } from "../bits";
 import { Alerts } from "./Alerts";
 import { ChainSelect } from "./Pick";
 import { ChainLimit } from "./Limits";
@@ -280,7 +280,7 @@ export function Keys({
     <div className="stack">
       <h2>Instant Wallet is a Safe multisig</h2>
       <ChainSelect value={chainId} onChange={setChainId} />
-      {st && <Summary account={account} st={st} hot={hot} />}
+      {st && <Summary key={chainId} account={account} st={st} hot={hot} assets={assets} onRefresh={onRefresh} toast={toast} />}
 
       {!st && <p className="fine">Loading…</p>}
       {!canPay ? (
@@ -316,11 +316,6 @@ export function Keys({
         </Step>
       )}
 
-      {st?.budget && st.threshold > 1 && (
-        <Step title="Change the daily limit" key={`limit${chainId}`}>
-          <ChainLimit account={account} st={st} assets={assets} onRefresh={onRefresh} toast={toast} />
-        </Step>
-      )}
 
       <Step title="Recovery" done={ownRecovery}>
         <p className="fine">
@@ -420,7 +415,8 @@ function OldBurner({ toast }: { toast: (m: string) => void }) {
 
 
 /** This chain's Safe in three lines: the daily limit, M of N for the rest, the signers (the wedgie is 2 owner slots). */
-function Summary({ account, st, hot }: { account: SafeAccount; st: ChainState; hot?: Address }) {
+function Summary({ account, st, hot, assets, onRefresh, toast }: { account: SafeAccount; st: ChainState; hot?: Address; assets: Asset[]; onRefresh: () => void; toast: (m: string) => void }) {
+  const [edit, setEdit] = useState(false);
   const coin = nativeSymbol(st.chainId);
   const has = (x?: Address) => !!x && st.owners.some(o => o.toLowerCase() === x.toLowerCase());
   const me = has(account.burnerSigner);
@@ -436,10 +432,18 @@ function Summary({ account, st, hot }: { account: SafeAccount; st: ChainState; h
   return (
     <div className="card stack" style={{ gap: 10 }}>
       {b && (
-        <p>
-          Daily limit: <b>{amount(formatUnits(b.usdcMax, 6))} USDC + {amount(formatUnits(b.ethMax, 18))} {coin}</b>
+        <p className="row" style={{ gap: 8 }}>
+          <span>
+            Daily limit: <b>{amount(formatUnits(b.usdcMax, 6))} USDC + {amount(formatUnits(b.ethMax, 18))} {coin}</b>
+          </span>
+          {!edit && (
+            <button aria-label="Change the daily limit" onClick={() => setEdit(true)} style={{ border: 0, padding: 4, background: "none", color: "var(--muted)", cursor: "pointer", display: "flex" }}>
+              <PencilIcon size={16} />
+            </button>
+          )}
         </p>
       )}
+      {b && edit && <ChainLimit account={account} st={st} assets={assets} onRefresh={onRefresh} toast={toast} onClose={() => setEdit(false)} />}
       <p>
         {b ? "Anything else" : "Signers"}:{" "}
         <b>

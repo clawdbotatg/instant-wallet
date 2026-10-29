@@ -16,10 +16,10 @@ import { ErrorLine } from "./WedgieButton";
 const SIGNER_NAME = { burner: "Face ID", wedgie: "wedgie", hot: "hot wallet" } as const; // who signs the change
 
 /**
- * One network's daily limit (in settings, under its network picker). Same two taps as everywhere: Save gets it ready (the wedgie connects, fee, nonce), Yes signs
+ * One network's daily limit editor (settings, opened by the pencil on the limit line). Same two taps as everywhere: Save gets it ready (the wedgie connects, fee, nonce), Yes signs
  * (Face ID has to start straight from a tap), then a bar until the chain shows it.
  */
-export function ChainLimit({ account, st, assets, onRefresh, toast }: { account: SafeAccount; st: ChainState; assets: Asset[]; onRefresh: () => void; toast: (m: string) => void }) {
+export function ChainLimit({ account, st, assets, onRefresh, toast, onClose }: { account: SafeAccount; st: ChainState; assets: Asset[]; onRefresh: () => void; toast: (m: string) => void; onClose: () => void }) {
   const b = st.budget!;
   const chainId = st.chainId;
   const coin = nativeSymbol(chainId);
@@ -37,12 +37,13 @@ export function ChainLimit({ account, st, assets, onRefresh, toast }: { account:
     if (settled) {
       setWait(null);
       toast("Done");
+      onClose();
       return;
     }
     const since = Date.now();
     const t = setInterval(() => (Date.now() - since > wait.ms + 45_000 ? setWait(null) : onRefresh()), 2_000);
     return () => clearInterval(t);
-  }, [wait, settled, busy, onRefresh, toast]);
+  }, [wait, settled, busy, onRefresh, toast, onClose]);
 
   const usdcAddr = chainById(chainId)?.usdc?.toLowerCase();
   const haveUsdc = assets.some(a => a.chainId === chainId && a.asset.toLowerCase() === usdcAddr && BigInt(a.balance) >= (chainId === 1 ? 10_000_000n : 1_000_000n));
@@ -137,6 +138,9 @@ export function ChainLimit({ account, st, assets, onRefresh, toast }: { account:
           </div>
           <button className="btn btn-green wide" onClick={save} disabled={busy || !usdcIn || !ethIn}>
             {busy ? "Getting ready…" : "Save"}
+          </button>
+          <button className="btn wide" onClick={onClose} disabled={busy}>
+            Cancel
           </button>
         </>
       )}

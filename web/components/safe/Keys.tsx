@@ -452,7 +452,7 @@ export function Keys({
                 <b>Invite someone</b>
                 <p className="fine">They open a link and use their own Face ID. Then they sign from the links you send them.</p>
                 <button className="btn wide" onClick={invite} disabled={!!busy}>
-                  Make an invite link
+                  Invite signer
                 </button>
                 {error?.what === "invite" && <ErrorLine text={error.msg} />}
                 {newInvite && (

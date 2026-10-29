@@ -325,7 +325,9 @@ export function Keys({
             <div className="keyrow" key={r.module} style={{ padding: 0 }}>
               <b>{r.days}-day recovery</b>
               <span className="row" style={{ gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                {r.guardians!.map(g => (g.toLowerCase() === DAO.toLowerCase() ? <span key={g}>dao.buidlguidl.eth</span> : <Addr key={g} a={g} chainId={chainId} />))}
+                {r.guardians!.map(g => (
+                  <Addr key={g} a={g} chainId={chainId} name={g.toLowerCase() === DAO.toLowerCase() ? "dao.buidlguidl.eth" : undefined} />
+                ))}
               </span>
             </div>
           ))}
@@ -492,18 +494,18 @@ function Step({ title, done, children }: { title: string; done?: boolean; childr
   );
 }
 
-/** An address: blockie + short link to the explorer (no chain chip: the chain is already picked above). inline: in a sentence */
-function Addr({ a, chainId, inline }: { a: Address; chainId: number; inline?: boolean }) {
+/** An address: blockie + short link (or its name) to the explorer (no chain chip: the chain is already picked above). inline: in a sentence */
+function Addr({ a, chainId, inline, name }: { a: Address; chainId: number; inline?: boolean; name?: string }) {
   const url = explorerAddress(chainId, a);
   return (
     <span className="row" style={inline ? { display: "inline-flex", gap: 6, verticalAlign: "middle" } : { gap: 8 }}>
       <Blockie address={a} size={inline ? 18 : 22} />
       {url ? (
         <a className="mono" href={url} target="_blank" rel="noreferrer" style={inline ? undefined : { fontSize: 13 }}>
-          {short(a)}
+          {name ?? short(a)}
         </a>
       ) : (
-        <span className="mono">{short(a)}</span>
+        <span className="mono">{name ?? short(a)}</span>
       )}
     </span>
   );

@@ -238,62 +238,92 @@ export function Keys({
     fetch(`/api/safe/invite?id=${id}`, { method: "DELETE" }).catch(() => {});
     saveInvites(invites.filter(i => i.id !== id));
   };
-  const addFriend = (i: Inv) => {
-    const { x, y, name } = i.answer!;
-    const who = signerAddress(x, y);
+  // the edit is a draft: tap × to drop a signer, add any number, pick how many must sign; Save sends it all as
+  // one transaction (Austin 10-28: remove someone and set the threshold together)
+  type Add = { a: Address; key?: { x: Hex; y: Hex }; name?: string };
+  const [drop, setDrop] = useState<string[]>([]); // lowercase
+  const [adds, setAdds] = useState<Add[]>([]);
+  const [need, setNeed] = useState<number | null>(null);
+  const [inKey, setInKey] = useState(0); // remounts the address box after an add
+  const resetDraft = () => {
+    setDrop([]);
+    setAdds([]);
+    setNeed(null);
+    setSignerIn(null);
+    setInKey(k => k + 1);
+  };
+  useEffect(resetDraft, [chainId, keysEdit]); // eslint-disable-line react-hooks/exhaustive-deps
+  const count = st ? st.owners.length - drop.length + adds.length : 0;
+  const t = st ? Math.max(1, Math.min(need ?? st.threshold, count)) : 1;
+  const changed = !!st && (drop.length > 0 || adds.length > 0 || t !== st.threshold);
+  const stage = (x: Add) => {
+    if (!st) return;
+    if (st.owners.some(o => same(o, x.a)) || adds.some(y => same(y.a, x.a))) return setErrorRaw({ what: "stage", msg: "Already a signer." });
+    if (same(x.a, account.address)) return setErrorRaw({ what: "stage", msg: "That's this wallet itself." });
+    setErrorRaw(null);
+    setAdds([...adds, x]);
+    setSignerIn(null);
+    setInKey(k => k + 1);
+  };
+  const toggleDrop = (o: Address) => setDrop(d => (d.includes(o.toLowerCase()) ? d.filter(x => x !== o.toLowerCase()) : [...d, o.toLowerCase()]));
+
+  const save = () => {
+    const gone = drop.slice();
+    const plus = adds.slice();
+    const goal = t;
+    const faceIdGoes = gone.includes(account.burnerSigner.toLowerCase());
     ownersChange(
-      `join${i.id}`,
-      <>Add {name ?? "them"} (<Addr a={who} chainId={chainId} inline />) as a signer</>,
-      st => {
-        if (st.owners.some(o => same(o, who))) throw new Error("Already a signer here.");
-        return [deploySignerCall(x, y, VERIFIERS), safeCall("addOwnerWithThreshold", [who, BigInt(st.threshold)])];
+      "save",
+      <span className="stack" style={{ gap: 4 }}>
+        {gone.map(o => (
+          <span key={o}>
+            Remove <Addr a={o as Address} chainId={chainId} inline />
+            {same(o as Address, account.burnerSigner) ? " (this phone's Face ID)" : ""}
+          </span>
+        ))}
+        {plus.map(x => (
+          <span key={x.a}>
+            Add <Addr a={x.a} chainId={chainId} inline /> {x.name ?? ""}
+          </span>
+        ))}
+        <span>
+          Needs {goal} of {st!.owners.length - gone.length + plus.length}
+        </span>
+      </span>,
+      async st => {
+        const calls: Call[] = [];
+        let owners = [...st.owners];
+        let thr = st.threshold;
+        for (const x of plus) {
+          if (owners.some(o => same(o, x.a))) throw new Error(`${short(x.a)} is already a signer.`);
+          if (x.key) calls.push(deploySignerCall(x.key.x, x.key.y, VERIFIERS));
+          calls.push(safeCall("addOwnerWithThreshold", [x.a, BigInt(thr)]));
+          owners = [x.a, ...owners]; // the Safe puts a new owner first
+        }
+        for (const o of gone) {
+          const i = owners.findIndex(x => same(x, o as Address));
+          if (i < 0) throw new Error(`${short(o as Address)} isn't a signer any more.`);
+          if (owners.length < 2) throw new Error("A wallet needs at least one signer.");
+          // getOwners is the Safe's linked list in order: the one before it, or the sentinel for the first
+          const prev = i === 0 ? "0x0000000000000000000000000000000000000001" : owners[i - 1];
+          thr = Math.min(thr, owners.length - 1);
+          calls.push(safeCall("removeOwner", [prev, owners[i], BigInt(thr)]));
+          owners.splice(i, 1);
+        }
+        if (goal !== thr) {
+          // going past 1 of N: Face ID gets its daily limit in the same batch (it can't send alone any more)
+          if (st.threshold <= 1 && goal > 1 && !faceIdGoes && st.owners.some(o => same(o, account.burnerSigner))) calls.unshift(...(await budgetFirst(st)));
+          calls.push(safeCall("changeThreshold", [BigInt(goal)]));
+        }
+        return calls;
       },
-      s => s.owners.some(o => same(o, who)),
-      () => saveSigner(account.address, who, { name, passkey: true }),
+      s => s.threshold === goal && gone.every(o => !s.owners.some(x => same(x, o as Address))) && plus.every(x => s.owners.some(o => same(o, x.a))),
+      () => {
+        plus.filter(x => x.key).forEach(x => saveSigner(account.address, x.a, { name: x.name, passkey: true }));
+        resetDraft();
+      },
     );
   };
-
-  const addSigner = () => {
-    const a = signerIn;
-    if (!a) return;
-    ownersChange(
-      "add",
-      <>Add <Addr a={a} chainId={chainId} inline /> as a signer</>,
-      st => {
-        if (st.owners.some(o => same(o, a))) throw new Error("That address is already a signer.");
-        if (same(a, account.address)) throw new Error("That's this wallet itself.");
-        return [safeCall("addOwnerWithThreshold", [a, BigInt(st.threshold)])];
-      },
-      s => s.owners.some(o => same(o, a)),
-    );
-  };
-
-  const removeSigner = (a: Address) =>
-    ownersChange(
-      `rm${a}`,
-      <>Remove <Addr a={a} chainId={chainId} inline />{same(a, account.burnerSigner) ? " (this phone's Face ID: it can't sign after this)" : ""}</>,
-      st => {
-        const i = st.owners.findIndex(o => same(o, a));
-        if (i < 0) throw new Error("That address isn't a signer any more.");
-        if (st.owners.length < 2) throw new Error("A wallet needs at least one signer.");
-        // getOwners is the Safe's linked list in order: the one before it, or the sentinel for the first
-        const prev = i === 0 ? "0x0000000000000000000000000000000000000001" : st.owners[i - 1];
-        return [safeCall("removeOwner", [prev, a, BigInt(Math.min(st.threshold, st.owners.length - 1))])];
-      },
-      s => !s.owners.some(o => same(o, a)),
-    );
-
-  const setThreshold = (t: number) =>
-    ownersChange(
-      "threshold",
-      `Need ${t} of ${st?.owners.length} signers`,
-      async st => [
-        // going past 1 of N: Face ID gets its daily limit in the same batch (it can't send alone any more)
-        ...(st.threshold <= 1 && t > 1 && st.owners.some(o => same(o, account.burnerSigner)) ? await budgetFirst(st) : []),
-        safeCall("changeThreshold", [BigInt(t)]),
-      ],
-      s => s.threshold === t,
-    );
 
   // a wallet that paired its wedgie before the 60-day layout: the same move on its own (the wedgie signs it too)
   const upgradeLayout = () =>
@@ -387,24 +417,43 @@ export function Keys({
       {st && (
         <Summary key={chainId} account={account} st={st} assets={assets} onRefresh={onRefresh} toast={toast}>
           {/* one row per wedgie (older wallets have it in 2 slots); every slot while editing, so each can go */}
-          {st.owners.filter((o, i, all) => keysEdit || !st.wedgieHomes[o.toLowerCase()] || all.findIndex(x => st.wedgieHomes[x.toLowerCase()] === st.wedgieHomes[o.toLowerCase()]) === i).map(o => (
-            <div className="keyrow" key={o} style={{ padding: 0 }}>
-              <span className="row" style={{ gap: 8 }}>
-                {howSigns(account, st, o) === "wedgie" && st.wedgieHomes[o.toLowerCase()] ? (
-                  // the wedgie by the address on its own home screen
-                  <Addr a={st.wedgieHomes[o.toLowerCase()]} chainId={chainId} />
-                ) : (
-                  <Addr a={o} chainId={chainId} />
-                )}
-                {howSigns(account, st, o) === "faceid" && <span className="fine">Face ID</span>}
-                {howSigns(account, st, o) !== "faceid" && loadSigners(account.address)[o.toLowerCase()]?.name && <b>{loadSigners(account.address)[o.toLowerCase()].name}</b>}
-                {howSigns(account, st, o) === "wedgie" && (
-                  <button className="pill row" style={{ gap: 4 }} onClick={() => setWedgieOpen(v => !v)} aria-expanded={wedgieOpen}>
-                    <WedgieIcon size={26} /> wedgie
+          {st.owners.filter((o, i, all) => keysEdit || !st.wedgieHomes[o.toLowerCase()] || all.findIndex(x => st.wedgieHomes[x.toLowerCase()] === st.wedgieHomes[o.toLowerCase()]) === i).map(o => {
+            const gone = drop.includes(o.toLowerCase());
+            return (
+              <div className="keyrow" key={o} style={{ padding: 0, opacity: gone ? 0.45 : 1 }}>
+                <span className="row" style={{ gap: 8, textDecoration: gone ? "line-through" : undefined }}>
+                  {howSigns(account, st, o) === "wedgie" && st.wedgieHomes[o.toLowerCase()] ? (
+                    // the wedgie by the address on its own home screen
+                    <Addr a={st.wedgieHomes[o.toLowerCase()]} chainId={chainId} />
+                  ) : (
+                    <Addr a={o} chainId={chainId} />
+                  )}
+                  {howSigns(account, st, o) === "faceid" && <span className="fine">Face ID</span>}
+                  {howSigns(account, st, o) !== "faceid" && loadSigners(account.address)[o.toLowerCase()]?.name && <b>{loadSigners(account.address)[o.toLowerCase()].name}</b>}
+                  {howSigns(account, st, o) === "wedgie" && (
+                    <button className="pill row" style={{ gap: 4 }} onClick={() => setWedgieOpen(v => !v)} aria-expanded={wedgieOpen}>
+                      <WedgieIcon size={26} /> wedgie
+                    </button>
+                  )}
+                </span>
+                {keysEdit && (
+                  <button className="pill" onClick={() => toggleDrop(o)} disabled={idle || (!gone && count < 2)} aria-label={gone ? "Keep this signer" : "Remove this signer"}>
+                    {gone ? "Undo" : "×"}
                   </button>
                 )}
+              </div>
+            );
+          })}
+          {adds.map(x => (
+            <div className="keyrow" key={x.a} style={{ padding: 0 }}>
+              <span className="row" style={{ gap: 8 }}>
+                <Addr a={x.a} chainId={chainId} />
+                {x.name && <b>{x.name}</b>}
+                <span className="fine">new</span>
               </span>
-              {keysEdit && st.owners.length > 1 && action(`rm${o}`, <button className="btn btn-sm" onClick={() => removeSigner(o)} disabled={idle}>Remove</button>)}
+              <button className="pill" onClick={() => setAdds(adds.filter(y => y !== x))} disabled={idle} aria-label="Don't add">
+                ×
+              </button>
             </div>
           ))}
           {wedgieOpen && st.hasWedgie && <WedgiePanel account={account} states={states} />}
@@ -414,90 +463,75 @@ export function Keys({
             </button>
           ) : (
             <>
-              {st.owners.length > 1 && (
-                <div className="stack" style={{ gap: 6 }}>
-                  <b>Signatures needed</b>
-                  {action(
-                    "threshold",
-                    <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
-                      {st.owners.map((_, i) => (
-                        <button key={i} className={`pill ${st.threshold === i + 1 ? "on" : ""}`} disabled={idle || st.threshold === i + 1} onClick={() => setThreshold(i + 1)}>
-                          {i + 1} of {st.owners.length}
-                        </button>
-                      ))}
-                    </div>,
-                  )}
+              <div className="row" style={{ gap: 6 }}>
+                <div className="grow">
+                  <AddressInput key={`${chainId}-${inKey}`} onChange={setSignerIn} placeholder="Add: 0x… or name.eth" />
                 </div>
-              )}
-              <div className="stack" style={{ gap: 6 }}>
-                <b>Add a signer</b>
-                <p className="fine">
-                  Any address: MetaMask, a Ledger, another phone&apos;s wallet. No wallet for it? <a href="/paper">Make a 24-word seed on 3 paper cards</a>.
-                </p>
-                <AddressInput key={chainId} onChange={setSignerIn} />
-                {action(
-                  "add",
-                  <button className="btn btn-green wide" onClick={addSigner} disabled={idle || !signerIn}>
-                    {busy === "add" ? "Working…" : "Add signer"}
-                  </button>,
-                )}
-              </div>
-              <div className="stack" style={{ gap: 6 }}>
-                <b>Invite someone</b>
-                <p className="fine">They open a link and use their own Face ID. Then they sign from the links you send them.</p>
-                <button className="btn wide" onClick={invite} disabled={!!busy}>
-                  Invite signer
+                <button className="btn btn-sm" onClick={() => signerIn && stage({ a: signerIn })} disabled={idle || !signerIn}>
+                  Add
                 </button>
-                {error?.what === "invite" && <ErrorLine text={error.msg} />}
-                {newInvite && (
-                  <div className="row" style={{ gap: 6 }}>
-                    <span className="mono fine grow" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {newInvite}
-                    </span>
-                    <button
-                      className="btn btn-sm btn-green"
-                      onClick={async () => {
-                        if (navigator.share) return navigator.share({ url: newInvite, title: "Be a signer" }).catch(() => {});
-                        toast((await copy(newInvite)) ? "Link copied" : "Couldn't copy");
-                      }}
-                    >
-                      Share
+              </div>
+              {error?.what === "stage" && <ErrorLine text={error.msg} />}
+              {invites.map(i => {
+                const who = i.answer && signerAddress(i.answer.x, i.answer.y);
+                if (who && (st.owners.some(o => same(o, who)) || adds.some(x => same(x.a, who)))) return null;
+                return (
+                  <div key={i.id} className="keyrow" style={{ padding: 0 }}>
+                    {who ? (
+                      <span className="row" style={{ gap: 8 }}>
+                        <Addr a={who} chainId={chainId} />
+                        <b>{i.answer!.name ?? "Someone"}</b>
+                        <button className="pill go" onClick={() => stage({ a: who, key: { x: i.answer!.x, y: i.answer!.y }, name: i.answer!.name })} disabled={idle}>
+                          Add
+                        </button>
+                      </span>
+                    ) : (
+                      <span className="fine">Invite sent, waiting for them…</span>
+                    )}
+                    <button className="pill" onClick={() => dismiss(i.id)} aria-label="Remove this invite">
+                      ×
                     </button>
                   </div>
-                )}
-                {invites.map(i => {
-                  const who = i.answer && signerAddress(i.answer.x, i.answer.y);
-                  const here = !!who && st.owners.some(o => same(o, who));
-                  return (
-                    <div key={i.id} className="stack" style={{ gap: 6 }}>
-                      <div className="keyrow" style={{ padding: 0 }}>
-                        {who ? (
-                          <span className="row" style={{ gap: 8 }}>
-                            <Addr a={who} chainId={chainId} />
-                            <b>{i.answer!.name ?? "Someone"}</b>
-                          </span>
-                        ) : (
-                          <span className="fine">Invite sent, waiting for them…</span>
-                        )}
-                        <button className="pill" onClick={() => dismiss(i.id)} aria-label="Remove this invite">
-                          ×
-                        </button>
-                      </div>
-                      {who &&
-                        (here ? (
-                          <span className="fine">A signer on {chainById(chainId)?.name}.</span>
-                        ) : (
-                          action(
-                            `join${i.id}`,
-                            <button className="btn btn-green wide" onClick={() => addFriend(i)} disabled={idle}>
-                              Add {i.answer!.name ?? "them"} on {chainById(chainId)?.name}
-                            </button>,
-                          )
-                        ))}
-                    </div>
-                  );
-                })}
-              </div>
+                );
+              })}
+              {newInvite && (
+                <div className="row" style={{ gap: 6 }}>
+                  <span className="mono fine grow" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {newInvite}
+                  </span>
+                  <button
+                    className="btn btn-sm btn-green"
+                    onClick={async () => {
+                      if (navigator.share) return navigator.share({ url: newInvite, title: "Be a signer" }).catch(() => {});
+                      toast((await copy(newInvite)) ? "Link copied" : "Couldn't copy");
+                    }}
+                  >
+                    Share
+                  </button>
+                </div>
+              )}
+              <p className="fine">
+                No address?{" "}
+                <a href="#" onClick={e => (e.preventDefault(), invite())}>
+                  Invite by link
+                </a>{" "}
+                or <a href="/paper">make a paper seed</a>.
+              </p>
+              {error?.what === "invite" && <ErrorLine text={error.msg} />}
+              {count > 1 && (
+                <div className="row" style={{ gap: 8 }}>
+                  <span>Needs</span>
+                  <button className="pill" onClick={() => setNeed(t - 1)} disabled={idle || t <= 1} aria-label="Fewer">
+                    −
+                  </button>
+                  <b>
+                    {t} of {count}
+                  </b>
+                  <button className="pill" onClick={() => setNeed(t + 1)} disabled={idle || t >= count} aria-label="More">
+                    +
+                  </button>
+                </div>
+              )}
               {!st.hasWedgie && (
                 <>
                   <button className="btn btn-dark wide" onClick={() => setWedgieOpen(v => !v)} aria-expanded={wedgieOpen}>
@@ -517,9 +551,19 @@ export function Keys({
                   )}
                 </>
               )}
-              <button className="btn btn-sm" onClick={() => setKeysEdit(false)} disabled={!!busy}>
-                Done
-              </button>
+              {action(
+                "save",
+                changed && (
+                  <button className="btn btn-green wide" onClick={save} disabled={idle}>
+                    {busy === "save" ? "Working…" : "Save"}
+                  </button>
+                ),
+              )}
+              {!pending && !wait && (
+                <button className="btn btn-sm" onClick={() => setKeysEdit(false)} disabled={!!busy}>
+                  {changed ? "Cancel" : "Done"}
+                </button>
+              )}
             </>
           )}
         </Summary>

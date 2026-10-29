@@ -278,8 +278,9 @@ export function Keys({
 
   return (
     <div className="stack">
-      <h2>Keys &amp; safety</h2>
+      <h2>Instant Wallet is a Safe multisig</h2>
       <ChainSelect value={chainId} onChange={setChainId} />
+      {st && <Summary account={account} st={st} hot={hot} />}
 
       {!st && <p className="fine">Loading…</p>}
       {!canPay ? (
@@ -297,7 +298,6 @@ export function Keys({
         st && !st.deployed && <p className="fine">The first change on {chainById(chainId)?.name} also sets up the wallet there.</p>
       )}
 
-      {st && <Summary account={account} st={st} hot={hot} />}
       {!st?.hasWedgie && (
         <Step title="Wedgie (hardware key)">
           <p className="fine">Keeping more than about $100 here? Pair a wedgie. Instant then spends a daily limit, and anything bigger needs the wedgie too.</p>
@@ -419,54 +419,36 @@ function OldBurner({ toast }: { toast: (m: string) => void }) {
 }
 
 
-/**
- * What this chain's Safe is, in one read: M of N, what Face ID sends alone, and who signs the rest. N counts owner
- * slots, so the wedgie shows as 2 votes (its two slots) and the numbers add up for anyone who knows multisigs.
- */
+/** This chain's Safe in three lines: the daily limit, M of N for the rest, the signers (the wedgie is 2 owner slots). */
 function Summary({ account, st, hot }: { account: SafeAccount; st: ChainState; hot?: Address }) {
-  const chain = chainById(st.chainId)?.name;
   const coin = nativeSymbol(st.chainId);
   const has = (x?: Address) => !!x && st.owners.some(o => o.toLowerCase() === x.toLowerCase());
   const me = has(account.burnerSigner);
   const hotOn = st.hasHot && has(hot);
   const known = [account.burnerSigner, hotOn ? hot : undefined].filter(Boolean).map(x => x!.toLowerCase());
   const rest = st.owners.filter(o => !known.includes(o.toLowerCase()));
-  const keys: { kind: string; a?: Address; votes: number }[] = [
-    ...(me ? [{ kind: "Instant wallet (Face ID)", a: account.burnerSigner, votes: 1 }] : []),
-    ...(st.hasWedgie && rest.length ? [{ kind: "Wedgie", a: st.wedgie, votes: rest.length }] : rest.map(a => ({ kind: "Other key", a, votes: 1 }))),
-    ...(hotOn ? [{ kind: "Hot wallet", a: hot, votes: 1 }] : []),
+  const keys: { kind: string; a?: Address }[] = [
+    ...(me ? [{ kind: "Face ID", a: account.burnerSigner }] : []),
+    ...(st.hasWedgie && rest.length ? [{ kind: rest.length > 1 ? `Wedgie ×${rest.length}` : "Wedgie", a: st.wedgie }] : rest.map(a => ({ kind: "Other", a }))),
+    ...(hotOn ? [{ kind: "Hot wallet", a: hot }] : []),
   ];
   const b = st.threshold > 1 ? st.budget : null;
   return (
     <div className="card stack" style={{ gap: 10 }}>
-      <p>
-        On {chain}, your Instant Wallet is a{" "}
-        <b>
-          {st.threshold} of {st.owners.length}
-        </b>{" "}
-        Safe multisig.{!st.deployed && " (Not set up here yet.)"}
-      </p>
-      {st.threshold <= 1 ? (
-        <p>Face ID alone can send anything.</p>
-      ) : (
+      {b && (
         <p>
-          {b && (
-            <>
-              Face ID alone can send{" "}
-              <b>
-                {amount(formatUnits(b.usdcMax, 6))} USDC + {amount(formatUnits(b.ethMax, 18))} {coin}
-              </b>{" "}
-              a day (left today: {amount(formatUnits(b.usdc, 6))} USDC · {amount(formatUnits(b.eth, 18))} {coin}).{" "}
-            </>
-          )}
-          {b ? "Anything else" : "Every send"} needs <b>{st.threshold} votes</b> from these keys:
+          Daily limit: <b>{amount(formatUnits(b.usdcMax, 6))} USDC + {amount(formatUnits(b.ethMax, 18))} {coin}</b>
         </p>
       )}
+      <p>
+        {b ? "Anything else" : "Signers"}:{" "}
+        <b>
+          {st.threshold} of {st.owners.length}
+        </b>
+      </p>
       {keys.map(k => (
         <div className="keyrow" key={k.a ?? k.kind} style={{ padding: 0 }}>
-          <span>
-            <b>{k.kind}</b> <span className="fine">· {k.votes === 1 ? "1 vote" : `${k.votes} votes`}</span>
-          </span>
+          <b>{k.kind}</b>
           {k.a ? <Addr a={k.a} chainId={st.chainId} /> : <span className="fine">…</span>}
         </div>
       ))}

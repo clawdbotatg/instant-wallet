@@ -106,7 +106,7 @@ export function ChainLimit({ account, st, assets, onRefresh, toast, onClose }: {
       ) : ready ? (
         <div className="stack" style={{ gap: 8 }}>
           <b>
-            Daily limit: {formatUnits(ready.usdc, 6)} USDC · {formatUnits(ready.eth, 18)} {coin}
+            New daily limit: {formatUnits(ready.usdc, 6)} USDC + {formatUnits(ready.eth, 18)} {coin}
           </b>
           <p className="fine">
             Fee {fee}. Signed by {signerLabel(account, ready.p.opts.state, ready.p.opts.signers)}.

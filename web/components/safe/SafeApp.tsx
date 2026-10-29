@@ -10,7 +10,7 @@ import { loadHidden, loadPortfolio, loadShown, saveHidden, savePortfolio, saveSh
 import { dropOtherBudgetsCalls } from "@/lib/safe/core";
 import { type Prepared, finishOwners, ownerSigners, prepareOwners, signerOptions } from "@/lib/safe/send";
 import { friendly } from "../Welcome";
-import { Blockie, DepositIcon, GearIcon, ScanIcon, SendIcon, Sheet, SwapIcon, sheetOpen, TokenIcon, TrashIcon, copy, useToast } from "../bits";
+import { AppsIcon, Blockie, DepositIcon, GearIcon, ScanIcon, SendIcon, Sheet, sheetOpen, TokenIcon, TrashIcon, copy, useToast } from "../bits";
 import { Receive } from "../Receive";
 import { Deposit } from "./Deposit";
 import { Keys } from "./Keys";
@@ -19,6 +19,8 @@ import { RecoveryAlert } from "./RecoveryAlert";
 import { SafeSend } from "./SafeSend";
 import { SendAll } from "./SendAll";
 import { SafeSwap } from "./SafeSwap";
+import { AppFrame, AppList } from "./Apps";
+import type { AppEntry } from "@/lib/apps";
 import { type Confirm, SafeWelcome, signIn } from "./SafeWelcome";
 import { WedgieProgress } from "./WedgieButton";
 import { PendingCards } from "./PendingCard";
@@ -30,15 +32,16 @@ import { renamePasskey } from "@/lib/passkey";
 import { disconnect } from "@/lib/walletconnect";
 import type { Session } from "../WalletConnect";
 
-type View = { kind: "home" } | { kind: "send"; asset?: Asset; scanned?: string } | { kind: "swap"; fund?: number } | { kind: "receive" } | { kind: "deposit" } | { kind: "keys" } | { kind: "share"; chainId: number } | { kind: "sendAll" };
+type View = { kind: "home" } | { kind: "send"; asset?: Asset; scanned?: string } | { kind: "swap"; fund?: number } | { kind: "apps" } | { kind: "receive" } | { kind: "deposit" } | { kind: "keys" } | { kind: "share"; chainId: number } | { kind: "sendAll" };
 
-/** Instant Wallet on a Safe: a big balance, Deposit / Swap, the connected sites above the coins, the address pill opens Receive, settings bottom left (signatures needed / signers; the wedgie lives in there), a send button on each asset, a scan button (addresses, claim cards, WalletConnect QRs). */
+/** Instant Wallet on a Safe: a big balance, Deposit / Apps, the connected sites above the coins, the address pill opens Receive, settings bottom left (signatures needed / signers; the wedgie lives in there), a send button on each asset, a scan button (addresses, claim cards, WalletConnect QRs). */
 export function SafeApp({ link }: { link?: string } = {}) {
   const [account, setAccountState] = useState<SafeAccount | null | undefined>(undefined);
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
   const [fresh, setFresh] = useState(false); // false while portfolio is last open's, saved
   const [states, setStates] = useState<ChainState[]>([]);
   const [view, setView] = useState<View>({ kind: "home" });
+  const [app, setApp] = useState<AppEntry | null>(null); // a Safe App open full screen (components/safe/Apps.tsx)
   const [showUsd, setShowUsd] = useState(true);
   const [toast, setToast] = useToast();
   const [dropReady, setDropReady] = useState<Prepared | null>(null);
@@ -332,8 +335,8 @@ export function SafeApp({ link }: { link?: string } = {}) {
             <button className="btn" onClick={() => setView({ kind: "deposit" })}>
               <DepositIcon /> Deposit
             </button>
-            <button className="btn" onClick={() => setView({ kind: "swap" })}>
-              <SwapIcon /> Swap
+            <button className="btn" onClick={() => setView({ kind: "apps" })}>
+              <AppsIcon /> Apps
             </button>
           </div>
         </div>
@@ -436,6 +439,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
         <Sheet onClose={close}>
           {view.kind === "send" && <SafeSend account={account} assets={assets} states={states} start={view.asset} scanned={view.scanned} onDone={close} />}
           {view.kind === "sendAll" && <SendAll account={account} assets={assets} states={states} onDone={close} />}
+          {view.kind === "apps" && <AppList onOpen={a => (a.url ? (setApp(a), close()) : setView({ kind: "swap" }))} />}
           {view.kind === "swap" && <SafeSwap account={account} assets={assets} states={states} fund={view.fund} onDone={close} />}
           {view.kind === "deposit" && <Deposit account={account} onReceive={() => setView({ kind: "receive" })} />}
           {view.kind === "receive" && (
@@ -472,6 +476,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
           )}
         </Sheet>
       )}
+      {app && <AppFrame app={app} account={account} states={states} onClose={() => (setApp(null), refresh())} />}
       <SafeConnectLayer account={account} states={states} feeTokenOn={feeTokenOn} onSent={refresh} onSessions={setSites} />
       {toast && <div className="toast">{toast}</div>}
       <WedgieProgress />

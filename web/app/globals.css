@@ -308,3 +308,11 @@ html[data-brand="xdai"] .led.on { background: radial-gradient(circle at 35% 35%,
 html[data-brand="xdai"] .welcome .mark { filter: drop-shadow(0 12px 24px rgba(255,106,19,.35)); }
 /* QR codes stay black on white: scanners need the contrast */
 html[data-brand="xdai"] .seedcard .word { background: #1d1d1d; border-color: var(--line); }
+
+/* Apps (components/safe/Apps.tsx): the list, and a Safe App full screen under the sheets (40) so its requests show on top */
+.apps .app-chains { display: flex; gap: 3px; flex: none; }
+.appframe { position: fixed; inset: 0; z-index: 35; background: var(--paper); display: flex; flex-direction: column; }
+.appframe-bar { display: flex; align-items: center; gap: 10px; padding: calc(8px + env(safe-area-inset-top)) 12px 8px; border-bottom: 1px solid var(--recess); }
+.appframe-bar .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.appframe-bar select.pill { max-width: 40%; }
+.appframe iframe { flex: 1; width: 100%; border: 0; background: #fff; }

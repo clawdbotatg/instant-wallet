@@ -40,6 +40,7 @@ still sign (`hotOf`, the `"hot"` signer in `lib/safe/send.ts`).
   works out the hash itself (Safe Signer safe-29+); typed data it can't show, so it won't sign that. A wedgie
   transaction can't park from a phone (the site waits). Calls into the wallet itself are refused.
   `web/lib/safe/connect.ts`, `web/components/safe/SafeConnect.tsx` (the connection is shared with v3).
+- **Apps** (10-28): the home screen's Apps button. Swap, our own Safe Apps (ENS, Morpho) and other Safe Apps in a frame, all signing on the same card as WalletConnect. `docs/APP-STORE.md`.
 - **Browser extension** (10-27): [clawdbotatg/instant-wallet-extension](https://github.com/clawdbotatg/instant-wallet-extension). Any site on a computer sees "Instant Wallet" in its wallet list (or, switched on,
   as MetaMask); its requests land in the open Instant Wallet tab on the same card as WalletConnect's. No keys in it.
   Page side: `web/lib/extension.ts`.

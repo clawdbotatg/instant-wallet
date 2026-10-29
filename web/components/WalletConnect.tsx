@@ -7,6 +7,7 @@ import { type Hex, decodeFunctionData, erc20Abi, formatEther, formatUnits } from
 import { chainById, publicClient } from "@/lib/chains";
 import { short } from "@/lib/format";
 import { serveExtension } from "@/lib/extension";
+import { serveApps } from "@/lib/safeapps";
 import type { Account } from "@/lib/types";
 import {
   type Kit,
@@ -144,6 +145,21 @@ export function ConnectLayer({
       }
     });
   }, [address, chainIds?.join()]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // a Safe App in our frame (lib/safeapps.ts): its calls and messages, into the same queue
+  useEffect(
+    () =>
+      serveApps(r => {
+        try {
+          const p = toPending(r.topic, 0, r.method, r.params as any[], r.chainId, r.dapp, chainIds ?? WC_CHAIN_IDS);
+          if (!p) throw Object.assign(new Error(`${r.method} is not supported`), { code: 4200 });
+          setQueue(q => [...q, p]);
+        } catch (err: any) {
+          respondError(r.topic, 0, err?.message || "Not supported", err?.code ?? 4200).catch(() => {});
+        }
+      }),
+    [chainIds?.join()], // eslint-disable-line react-hooks/exhaustive-deps
+  );
 
   // openWalletConnect(uri?) from the scan button or a link
   useEffect(() => {

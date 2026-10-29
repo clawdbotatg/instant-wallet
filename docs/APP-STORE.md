@@ -1,5 +1,36 @@
 # App store: Safe Apps inside Instant Wallet (research, 2026-10-28)
 
+## Built (2026-10-28)
+
+The **Apps** button (where Swap was) opens a list. Swap is first and opens our own sheet. Everything else is a Safe App
+in a full-screen frame, talking to the wallet on one network (picker in the frame's top bar). There's also a box to
+paste any Safe App's link.
+
+- Host: `web/lib/safeapps.ts` (answers the app; calls and messages go to the same card as WalletConnect, topic
+  `app:<n>`). List: `web/lib/apps.ts`. Screens: `web/components/safe/Apps.tsx`.
+- Our own apps: [clawdbotatg/instant-wallet-apps](https://github.com/clawdbotatg/instant-wallet-apps), live at
+  https://instant-wallet-apps.vercel.app (`/ens`, `/morpho`). Deploy: `vercel deploy --prod` from that repo with
+  `VERCEL_ORG_ID`/`VERCEL_PROJECT_ID` (the Vercel GitHub app can't see the repo yet, so pushes don't deploy).
+- **ENS moved to v2 on mainnet (block 26,282,117, 10-26).** Names are paid in USDC (~$8/yr), each name gets its own
+  resolver. Our ENS app does: reserve → wait 60 s → one batch (approve USDC, deploy resolver, register, set primary
+  name). The app's README has the addresses and how they were checked.
+
+**Which listed apps really connect** (opened in our frame on a Base fork, `web/tools/apps-connect-probe.mjs`). Headers
+said 32 were open; the code says fewer:
+
+| connects | doesn't (hard-coded app.safe.global) | never asks for a Safe |
+|---|---|---|
+| Aerodrome, Balancer, Venus, Superfluid, Teller, Zodiac, Transaction Builder | Aave, CoW Swap, Revoke, LlamaPay, Lagoon | Spark, Velora, DeFi Saver, Snapshot |
+
+Ethereum-only apps (Lido, Curve, …) aren't tested yet. Test before adding to the list.
+
+Tests (fork + `next dev`, setup in each file's header):
+- `web/tools/safe-apps-e2e.mjs`: 13/13. getSafeInfo answers in under 1 ms (wagmi waits 10), rpcCall, a 2-call batch, getTxBySafeTxHash, signMessage, a call into the wallet refused.
+- `web/tools/apps-ours-e2e.mjs`:
+  - `MODE=morpho`: a 5 USDC deposit on Base.
+  - `MODE=ens`: a name registered on Ethereum. It resolves to the Safe and is the Safe's primary name.
+
+
 **Answer: yes, it works without asking Safe for anything.** A Safe App is a normal website that talks to its parent
 page through `postMessage` (the Safe Apps SDK). Any page that answers those messages is a Safe, as far as the app
 knows. Our wallet *is* a real Safe, so we can answer them with real data. Nothing is built yet.

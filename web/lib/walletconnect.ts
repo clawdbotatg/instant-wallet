@@ -19,6 +19,7 @@ import { factoryAbi } from "./abi";
 import { KIND_WEBAUTHN } from "./address";
 import { CHAINS, FACTORY, SENDABLE, publicClient } from "./chains";
 import { extRespond, isExt } from "./extension";
+import { appRespond, isApp } from "./safeapps";
 import { signDigest } from "./passkey";
 import type { Account } from "./types";
 import { type Call, isDeployed, sendCalls } from "./wallet";
@@ -123,12 +124,14 @@ export function dappOf(k: Kit, topic: string): Dapp {
 
 export async function respond(topic: string, id: number, result: unknown) {
   if (isExt(topic)) return extRespond(topic, { result }); // the browser extension's request (lib/extension.ts)
+  if (isApp(topic)) return appRespond(topic, { result }); // a Safe App in our frame (lib/safeapps.ts)
   const k = await getKit();
   await k.respondSessionRequest({ topic, response: { id, jsonrpc: "2.0", result } });
 }
 
 export async function respondError(topic: string, id: number, message = "User rejected", code = 4001) {
   if (isExt(topic)) return extRespond(topic, { error: { code, message } });
+  if (isApp(topic)) return appRespond(topic, { error: { code, message } });
   const k = await getKit();
   await k.respondSessionRequest({ topic, response: { id, jsonrpc: "2.0", error: { code, message } } });
 }

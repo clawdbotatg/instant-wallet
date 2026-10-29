@@ -12,7 +12,7 @@ export const APPS_URL = process.env.NEXT_PUBLIC_APPS_URL || "https://instant-wal
 const SAFE_ICON = (id: string) => `https://safe-transaction-assets.safe.global/safe_apps/${id}/icon.png`;
 
 const ALL: AppEntry[] = [
-  { id: "swap", name: "Swap", what: "Trade any coin on any network", chains: CHAINS.map(c => c.id) },
+  { id: "swap", name: "Swap", what: "Best price from Uniswap or LI.FI, any network", chains: CHAINS.map(c => c.id) },
   { id: "ens", name: "ENS", what: "Get a name like alice.eth", chains: [1], url: `${APPS_URL}/ens`, icon: `${APPS_URL}/ens/icon.svg` },
   { id: "morpho", name: "Morpho", what: "Earn interest on USDC", chains: [8453, 1], url: `${APPS_URL}/morpho`, icon: `${APPS_URL}/morpho/icon.svg` },
   // tested in our frame on a Base fork, 10-28 (tools/apps-connect-probe.mjs): these connect. Aave, CoW Swap, Revoke,

@@ -294,7 +294,6 @@ export function SafeApp({ link }: { link?: string } = {}) {
         </div>
 
         <PendingCards account={account} states={states} onDone={refresh} toast={setToast} />
-        <WaitingCards account={account} states={states} />
         {dropCode && (
           <div className="card stack">
             <b>You have money to claim</b>
@@ -357,6 +356,8 @@ export function SafeApp({ link }: { link?: string } = {}) {
             </button>
           </div>
         </div>
+
+        <WaitingCards account={account} states={states} />
 
         {sites.length > 0 && (
           <div className="card assets sites">

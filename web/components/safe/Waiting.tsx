@@ -40,26 +40,26 @@ export function WaitingCards({ account, states }: { account: SafeAccount; states
       {list.map(({ w, need }) => {
         const app = safeAppTxLink(w.chainId, w.safe, w.hash);
         return (
-          <div key={w.hash} className="keyrow" style={{ padding: 0, gap: 8 }}>
+          <div key={w.hash} style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
+            {app && (
+              <a className="btn btn-sm" href={app} target="_blank" rel="noreferrer" title="Open in Safe{Wallet}" style={{ height: "auto", flex: "none" }}>
+                Safe ↗
+              </a>
+            )}
             <a
               href={txLink(w).replace(location.origin, "")}
-              className="grow"
-              style={{ minWidth: 0 }}
+              className="btn btn-green btn-sm"
+              style={{ flex: 1, minWidth: 0, height: "auto", minHeight: 52, flexDirection: "column", gap: 0, padding: "8px 14px", lineHeight: 1.2 }}
               onClick={e => {
                 e.preventDefault();
                 openTx(w);
               }}
             >
               <b>{w.label ?? `Transaction #${w.tx.nonce}`}</b>
-              <div className="fine">
+              <span style={{ fontSize: 12, opacity: 0.85 }}>
                 {chainById(w.chainId)?.name} · {w.sigs.length} of {need} signed
-              </div>
+              </span>
             </a>
-            {app && (
-              <a className="pill" href={app} target="_blank" rel="noreferrer" title="Open in Safe{Wallet}">
-                Safe ↗
-              </a>
-            )}
           </div>
         );
       })}

@@ -379,7 +379,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
           </div>
         </div>
 
-        <WaitingCards account={account} states={states} />
+        <WaitingCards account={account} states={states} feeTokenOn={feeTokenOn} />
 
         {sites.length > 0 && (
           <div className="card assets sites">

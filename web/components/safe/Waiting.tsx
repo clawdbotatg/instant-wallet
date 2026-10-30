@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { chainById } from "@/lib/chains";
-import { callsOf } from "@/lib/safe/describe";
+import { callsOf, relayFee } from "@/lib/safe/describe";
+import { type FeeToken, type Prepared, Shared, finishOwners, ownerSigners, prepareOwners } from "@/lib/safe/send";
 import { passkeySign } from "@/lib/safe/sign";
 import {
   type Waiting,
@@ -37,12 +38,46 @@ export function SharedDone(_: {
 export function WaitingCards({
   account,
   states,
+  feeTokenOn,
 }: {
   account: SafeAccount;
   states: ChainState[];
+  feeTokenOn: (chainId: number) => FeeToken;
 }) {
   const [list, setList] = useState<{ w: Waiting; need: number }[]>([]);
   const [removing, setRemoving] = useState<string | null>(null);
+  // Reject: a transaction of just the fee, at the same number, so the waiting one can never run (wedgie.dev's Reject).
+  // Two taps: get it ready, then sign (Face ID must start straight from a tap).
+  const [rejecting, setRejecting] = useState<{ hash: string; ready?: Prepared } | null>(null);
+  const reject = async (w: Waiting) => {
+    const st = states.find(s => s.chainId === w.chainId);
+    if (!st) return;
+    setError(null);
+    if (rejecting?.hash !== w.hash || !rejecting.ready) {
+      setRejecting({ hash: w.hash });
+      try {
+        const ready = await prepareOwners({ account, state: st, calls: [], signers: ownerSigners(st, account), feeToken: feeTokenOn(w.chainId), label: `Reject: ${w.label ?? "transaction"}`, nonce: w.tx.nonce });
+        setRejecting({ hash: w.hash, ready });
+      } catch (e: any) {
+        setRejecting(null);
+        setError(friendly(e));
+      }
+      return;
+    }
+    try {
+      await finishOwners(rejecting.ready);
+      setList(l => l.filter(x => !(x.w.chainId === w.chainId && x.w.tx.nonce === w.tx.nonce)));
+    } catch (e: any) {
+      // signed here; its page is open for the other signers
+      if (!(e instanceof Shared)) setError(friendly(e));
+    } finally {
+      setRejecting(null);
+    }
+  };
+  const isReject = (w: Waiting) => {
+    const cs = callsOf(w.tx);
+    return cs.length > 0 && cs.every(c => relayFee(w.chainId, c));
+  };
   const [error, setError] = useState<string | null>(null);
   // Remove: this phone's Face ID signs Safe's delete message (it's an owner on every wallet it opens)
   const remove = async (w: Waiting) => {
@@ -84,6 +119,9 @@ export function WaitingCards({
       <b>Waiting for signatures</b>
       {list.map(({ w, need }) => {
         const enough = w.sigs.length >= need;
+        // nothing to reject: it is a Reject, or one is already waiting at its number
+        const rejectable = !isReject(w) && !list.some(x => x.w.chainId === w.chainId && x.w.tx.nonce === w.tx.nonce && isReject(x.w));
+        const r = rejecting?.hash === w.hash ? rejecting : null;
         const app = safeAppTxLink(w.chainId, w.safe, w.hash);
         return (
           <div key={w.hash} className="stack" style={{ gap: 8 }}>
@@ -114,6 +152,11 @@ export function WaitingCards({
               >
                 {removing === w.hash ? "…" : "✕"}
               </button>
+              {rejectable && (
+                <button className="btn btn-sm" style={{ flex: "none" }} disabled={!!rejecting && !r?.ready} onClick={() => reject(w)}>
+                  {r ? (r.ready ? "Sign to reject" : "…") : "Reject"}
+                </button>
+              )}
               <a
                 href={txLink(w).replace(location.origin, "")}
                 className="btn btn-green btn-sm"

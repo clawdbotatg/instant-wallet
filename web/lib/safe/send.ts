@@ -110,6 +110,7 @@ type OwnersOpts = {
   quote?: Quote; // the one the user saw, if still fresh and for the same kind of send
   label?: string; // what it does, in words: shown on the computer that finishes it with the wedgie
   self?: boolean; // your own browser wallet sends it and pays the gas: no relay, no fee
+  nonce?: bigint; // this number, not the next free one (Reject: takes a waiting tx's number so it can never run)
   onStage?: (s: Stage, hash?: Hash) => void;
 };
 export type Prepared = { opts: OwnersOpts; t: SafeTx; h: Hex; fee: Quote };
@@ -128,11 +129,11 @@ export async function prepareOwners(opts: OwnersOpts): Promise<Prepared> {
     // anyone can send a signed Safe transaction; the relay only adds deploying the wallet on a new network
     if (fresh) throw new Error("Send one through the relay first on this network (it sets the wallet up there).");
     if (!hotAvailable()) throw new Error("No browser wallet here to send it.");
-    const t: SafeTx = batch(opts.calls, await freshNonce(chainId, a.address, st));
+    const t: SafeTx = batch(opts.calls, opts.nonce ?? (await freshNonce(chainId, a.address, st)));
     return { opts, t, h: safeTxHash(chainId, a.address, t), fee: selfQuote(chainId, kind) };
   }
   const q = opts.quote && opts.quote.kind === kind && opts.quote.until > Date.now() + 30_000 ? opts.quote : await getQuote(chainId, kind, opts.swapGas ?? opts.dappGas);
-  const t: SafeTx = batch([...opts.calls, feeCall(q, opts.feeToken)], await freshNonce(chainId, a.address, st));
+  const t: SafeTx = batch([...opts.calls, feeCall(q, opts.feeToken)], opts.nonce ?? (await freshNonce(chainId, a.address, st)));
   return { opts, t, h: safeTxHash(chainId, a.address, t), fee: q };
 }
 

@@ -55,6 +55,8 @@ export function WhatItDoes({ chainId, safe, calls, tx }: { chainId: number; safe
   const known = [...Object.keys(RECOVERY_DAYS), rolesAddress(safe)].map(a => a.toLowerCase());
   const warns = calls.length || tx ? dangers(safe, tx ?? asSafeTx(calls), known) : [];
   const danger = warns.length > 0;
+  // only the relay's fee: a Reject, which takes another transaction's number so that one can never run
+  const reject = calls.length > 0 && calls.every(c => relayFee(chainId, c));
   const key = `${chainId}|${tx?.operation ?? 0}|${tx?.to ?? ""}|${calls.map(c => c.to + c.data + c.value).join()}`;
   useEffect(() => {
     let live = true;
@@ -78,6 +80,7 @@ export function WhatItDoes({ chainId, safe, calls, tx }: { chainId: number; safe
       {warns.map((w, i) => (
         <Said key={`d${i}`} text={WARN + w} />
       ))}
+      {reject && <Said text="Reject: the other transaction at this number can never run." />}
       {!res ? (
         <span className="fine">Checking what it does…</span>
       ) : sim?.fails ? (

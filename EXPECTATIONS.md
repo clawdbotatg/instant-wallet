@@ -28,6 +28,8 @@ Where it lives: `WhatItDoes`, `<Money>`, clear-signing-safe-kit (`dangers`, `sim
 - A feature asked for in one place goes everywhere that thing shows. Never make Austin ask twice.
 - One shared component per thing: `<Money>`, `<Eject>` (always a new window), `<CopyLink>` (a tx's link for the other signers, never a pop-out), `<Who>` (an address),
   `WhatItDoes`. Signing says Sign, declining says Reject, removing is the red ✕ on the far left.
+- Button colors (10-30): green = the one obvious action. Dark gray = the next likely one (copy the link). Red =
+  anything that ends or removes something (✕, cancel, close, disconnect, sign out). White = the rest, Reject too.
 - Instant Wallet and wedgie.dev share their code through clear-signing-safe-kit, so both say the same.
 
 ## 3. A wedgie is shown as itself

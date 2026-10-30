@@ -390,7 +390,7 @@ export function WedgiePanel({
             )}
             {wedgieSerial() && armed && st.tone === "bad" && (
               <button
-                className="pill"
+                className="pill stop"
                 style={{ justifySelf: "center" }}
                 onClick={async () => {
                   await Wedgie.forget();

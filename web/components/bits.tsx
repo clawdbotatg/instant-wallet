@@ -345,6 +345,15 @@ export function CopyLink({ link }: { link: string }) {
   );
 }
 
+/** Remove / delete / end: the small red ✕, always on the far left of its row (EXPECTATIONS #2). */
+export function RemoveX({ onClick, disabled, label = "Remove", busy }: { onClick: () => void; disabled?: boolean; label?: string; busy?: boolean }) {
+  return (
+    <button className="pill stop" style={{ width: 38, padding: 0, justifyContent: "center", flex: "none" }} aria-label={label} title={label} disabled={disabled} onClick={onClick}>
+      {busy ? "…" : "✕"}
+    </button>
+  );
+}
+
 export function ScanIcon({ size = 34 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">

@@ -393,7 +393,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
                   <div className="sym">{x.name || "A site"}</div>
                   <div className="fine">{x.url.replace(/^https?:\/\//, "")}</div>
                 </a>
-                <button className="pill" onClick={() => disconnect(x.topic).catch(() => {})}>
+                <button className="pill stop" onClick={() => disconnect(x.topic).catch(() => {})}>
                   Disconnect
                 </button>
               </div>

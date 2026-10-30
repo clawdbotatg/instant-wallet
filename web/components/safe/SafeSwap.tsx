@@ -338,6 +338,10 @@ export function SafeSwap({
   const outFmt = (r: SwapRoute, v: string) => `${fmtAmount(formatUnits(BigInt(v), r.to.decimals))} ${r.to.symbol}`;
   const toName = chainById(toChain)?.name;
 
+  const fromUsd = from?.price && amountIn ? Number(amountIn) * from.price : route?.fromUsd;
+  const toPrice = route?.to.priceUsd ?? other?.to.priceUsd ?? to?.priceUsd;
+  const toUsd = route ? (route.toUsd ?? (toPrice ? Number(formatUnits(BigInt(route.toAmount), route.to.decimals)) * toPrice : undefined)) : undefined;
+
   if (stage === "done" && route) {
     const url = hash && explorerTx(chainId, hash);
     const landed = !crossChain || arrival?.status === "DONE";
@@ -347,8 +351,8 @@ export function SafeSwap({
         <div style={{ fontSize: 64 }}>{failed ? "!" : landed ? "✓" : "⇄"}</div>
         <h2>{failed ? "The bridge failed" : landed ? "Swapped" : `On its way to ${toName}`}</h2>
         <div className="stack" style={{ gap: 4 }}>
-          <Money amount={amountIn} symbol={route.from.symbol} />
-          <Money amount={formatUnits(BigInt(route.toAmount), route.to.decimals)} symbol={`${route.to.symbol}${crossChain ? ` on ${toName}` : ""}`} get />
+          <Money amount={amountIn} symbol={route.from.symbol} usd={fromUsd} />
+          <Money amount={formatUnits(BigInt(route.toAmount), route.to.decimals)} symbol={`${route.to.symbol}${crossChain ? ` on ${toName}` : ""}`} usd={toUsd} get />
         </div>
         {crossChain && !landed && !failed && <p className="fine">Usually about {Math.max(1, Math.round(route.seconds / 60))} min. You can close this.</p>}
         {failed && <p className="fine">{arrival?.substatus === "REFUNDED" ? `Refunded to your wallet on ${chainById(chainId)?.name}.` : "Check the explorer; LI.FI usually refunds."}</p>}
@@ -370,9 +374,6 @@ export function SafeSwap({
     sending: "Swapping…",
     confirming: "Confirming…",
   };
-  const fromUsd = from?.price && amountIn ? Number(amountIn) * from.price : route?.fromUsd;
-  const toPrice = route?.to.priceUsd ?? other?.to.priceUsd ?? to?.priceUsd;
-  const toUsd = route ? (route.toUsd ?? (toPrice ? Number(formatUnits(BigInt(route.toAmount), route.to.decimals)) * toPrice : undefined)) : undefined;
   const lost = fromUsd && toUsd ? 1 - toUsd / fromUsd : null;
   const ready = !!route && !!fee && !feeShort && !needsComputer && !quoting;
 

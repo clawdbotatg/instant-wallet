@@ -120,7 +120,7 @@ export function Receive({
             <input type="checkbox" checked={withLink} onChange={e => toggleLink(e.target.checked)} />
             Include {window.location.host} link (any phone camera opens it)
           </label>
-          <button className="btn wide" onClick={() => (setAsking(false), setAmount(""))}>
+          <button className="btn btn-red wide" onClick={() => (setAsking(false), setAmount(""))}>
             Cancel
           </button>
         </>
@@ -132,7 +132,7 @@ export function Receive({
         </button>
       )}
       {onSignOut && !asking && (
-        <button className="btn wide" onClick={onSignOut}>
+        <button className="btn btn-red wide" onClick={onSignOut}>
           Sign out of this device
         </button>
       )}

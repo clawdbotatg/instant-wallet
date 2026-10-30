@@ -107,7 +107,7 @@ export default function TestGuardian() {
                   {describeCall(getAddress(wallet), c)}
                 </span>
               ))}
-              <button className="pill" disabled={!!busy} onClick={() => tx("Cancel", "guardianCancel", [q.id])}>
+              <button className="pill stop" disabled={!!busy} onClick={() => tx("Cancel", "guardianCancel", [q.id])}>
                 Cancel it
               </button>
             </div>

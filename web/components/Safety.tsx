@@ -23,6 +23,7 @@ import {
   upgradeCalls,
 } from "@/lib/cold";
 import { short } from "@/lib/format";
+import { RemoveX } from "./bits";
 import type { Account } from "@/lib/types";
 import { type Call, type KeySigner, sendCalls } from "@/lib/wallet";
 import { friendly } from "./Welcome";
@@ -161,21 +162,17 @@ export function Safety({ account, signer, who }: { account: Account; signer?: Ke
           <b>Keys</b>
           {s.signers.map(k => (
             <div key={k.id} className="row" style={{ justifyContent: "space-between" }}>
-              <span>
+              <span className="row">
+                {amOwner && k.role !== ROLE_OWNER && <RemoveX disabled={!!busy} label="Remove this key" onClick={() => run("remove", removeSignerCalls(account.address, k.id))} />}
+                <span>
                 {k.kind === 1 ? "🔑 wedgie" : "📱 passkey"} <span className="mono fine">{short(k.id)}</span>
                 {k.id.toLowerCase() === me.toLowerCase() && <b> · you</b>}
-              </span>
-              <span className="row">
-                <span className="fine">
-                  {k.role === ROLE_OWNER
-                    ? "owner"
-                    : `limit ${(s.limits[k.id] ?? []).map(l => `${Number(l.limit) / 1e6}`).join(", ") || "0"}/day`}
                 </span>
-                {amOwner && k.role !== ROLE_OWNER && (
-                  <button className="pill" disabled={!!busy} onClick={() => run("remove", removeSignerCalls(account.address, k.id))}>
-                    Remove
-                  </button>
-                )}
+              </span>
+              <span className="fine">
+                {k.role === ROLE_OWNER
+                  ? "owner"
+                  : `limit ${(s.limits[k.id] ?? []).map(l => `${Number(l.limit) / 1e6}`).join(", ") || "0"}/day`}
               </span>
             </div>
           ))}
@@ -237,7 +234,7 @@ function QueueCard({
       ))}
       <div className="row" style={{ flexWrap: "wrap" }}>
         {isKey && (
-          <button className="pill" disabled={!!busy} onClick={() => onRun("cancel", cancelCalls(wallet, q.id))}>
+          <button className="pill stop" disabled={!!busy} onClick={() => onRun("cancel", cancelCalls(wallet, q.id))}>
             Cancel
           </button>
         )}

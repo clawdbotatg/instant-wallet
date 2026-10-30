@@ -296,7 +296,7 @@ function Manage({
               <div className="grow">
                 <DappHead name={s.name} url={s.url} icon={s.icon} />
               </div>
-              <button className="pill" onClick={() => onDrop(s.topic)}>
+              <button className="pill stop" onClick={() => onDrop(s.topic)}>
                 Disconnect
               </button>
             </div>

@@ -265,7 +265,7 @@ export function Share({ account, states, assets, chainId: startChain, onDone }: 
           QR code
         </button>
         {nfc && (
-          <button className="btn btn-green wide" onClick={() => make("nfc")}>
+          <button className="btn btn-dark wide" onClick={() => make("nfc")}>
             NFC card
           </button>
         )}

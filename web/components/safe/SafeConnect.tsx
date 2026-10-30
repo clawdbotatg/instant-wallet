@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { type Hash, formatUnits } from "viem";
-import { CHAINS, chainById } from "@/lib/chains";
+import { CHAINS, chainById, nativeSymbol } from "@/lib/chains";
 import { amount as fmtAmount, short } from "@/lib/format";
 import { siteCalls, siteGas, signForSite } from "@/lib/safe/connect";
 import { type FeeToken, type Prepared, type Signer, type Stage, Shared, finishOwners, ownerSigners, prepareOwners, signThenQueue, signerLabel, usesWedgie } from "@/lib/safe/send";
@@ -168,7 +168,7 @@ function SafeRequest({
   }
 
   const fee = prepared ? BigInt(feeToken === "usdc" ? prepared.fee.feeUsdc : prepared.fee.feeEth) : null;
-  const feeLabel = fee === null ? "…" : feeToken === "usdc" ? `${fmtAmount(formatUnits(fee, 6))} USDC` : `${fmtAmount(formatUnits(fee, 18))} ETH`;
+  const feeLabel = fee === null ? "…" : feeToken === "usdc" ? `${fmtAmount(formatUnits(fee, 6))} USDC` : `${fmtAmount(formatUnits(fee, 18))} ${nativeSymbol(pending.chainId)}`;
   const label: Record<string, React.ReactNode> = {
     quote: "Getting the fee…",
     signing: `${bio()}…`,

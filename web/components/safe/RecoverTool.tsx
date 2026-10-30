@@ -135,8 +135,8 @@ export function RecoverTool() {
         <div className="input">
           <input value={newKey} onChange={e => setNewKey(e.target.value)} placeholder="0x… the owner's new key (from their new phone)" autoCapitalize="none" spellCheck={false} />
         </div>
-        {info?.mods.map(m => (
-          <button key={m.module} className="btn btn-green wide" disabled={!startData || !info.deployed} onClick={() => startData && run(m.module, startData, "Start")}>
+        {info?.mods.map((m, i) => (
+          <button key={m.module} className={`btn ${i === 0 ? "btn-green" : ""} wide`} disabled={!startData || !info.deployed} onClick={() => startData && run(m.module, startData, "Start")}>
             Start as {m.guardians.map(name).join(" or ")} ({RECOVERY_DAYS[m.module]} days)
           </button>
         ))}

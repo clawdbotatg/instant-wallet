@@ -159,7 +159,7 @@ export function DropAdmin() {
     <div className="app">
       <div className="row" style={{ justifyContent: "space-between" }}>
         <h1>Drops</h1>
-        <button className={`btn ${making ? "" : "btn-green"}`} onClick={() => setMaking(!making)}>
+        <button className={`btn ${making ? "btn-red" : open ? "" : "btn-green"}`} onClick={() => setMaking(!making)}>
           {making ? "Cancel" : "New drop"}
         </button>
       </div>
@@ -347,7 +347,7 @@ function DropCard({ id, toast, onClose }: { id: string; toast: (m: string) => vo
     <div className="card stack">
       <div className="row" style={{ justifyContent: "space-between", gap: 8 }}>
         <b>{drop.name}</b>
-        <button className="pill" onClick={onClose}>Close</button>
+        <button className="pill stop" onClick={onClose}>Close</button>
       </div>
       <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
         <span className="pill on">{st}</span>
@@ -432,7 +432,7 @@ function DropCard({ id, toast, onClose }: { id: string; toast: (m: string) => vo
           </button>
         )}
         {!drop.ended && (
-          <button className="pill" onClick={() => confirm("End this drop? Every code stops working. You can still take back what's left.") && act("end", "set", { ended: true })} disabled={!!busy}>
+          <button className="pill stop" onClick={() => confirm("End this drop? Every code stops working. You can still take back what's left.") && act("end", "set", { ended: true })} disabled={!!busy}>
             End
           </button>
         )}

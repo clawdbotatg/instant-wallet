@@ -218,7 +218,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
       </p>
 
       <div className="card stack" style={{ gap: 6 }}>
-        <WhatItDoes chainId={chainId} safe={safe} calls={calls} />
+        <WhatItDoes chainId={chainId} safe={safe} calls={calls} tx={w.tx} />
       </div>
 
       <div className="card stack" style={{ gap: 8 }}>

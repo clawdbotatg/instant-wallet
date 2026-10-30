@@ -40,6 +40,7 @@ export const UNISWAP = [
   "0x1095692a6237d83c6a72f3f5efedb9a670c49223",
 ];
 const MAX = 2n ** 160n - 1n; // Permit2's "any amount" is uint160; an ERC-20's is uint256 (anything this big counts)
+const guardAbi = parseAbi(["function setGuard(address guard)", "function setFallbackHandler(address handler)"]);
 const permit2 = parseAbi(["function approve(address token, address spender, uint160 amount, uint48 expiration)"]);
 const who = (a: string) => (UNISWAP.some(u => eq(u, a)) ? "Uniswap" : eq(a, PERMIT2) ? "Permit2 (Uniswap's approvals)" : short(a));
 
@@ -107,11 +108,13 @@ export function describe(chainId: number, safe: Address, c: Call): string {
         return `Swap signer ${short(a[1])} for ${short(a[2])}`;
       case "enableModule":
         if (eq(a[0], rolesAddress(safe))) return "Turn on the daily limit";
-        return RECOVERY_DAYS[getAddress(a[0])] ? `Turn on ${RECOVERY_DAYS[getAddress(a[0])]}-day recovery` : `Turn on module ${short(a[0])}`;
+        return RECOVERY_DAYS[getAddress(a[0])] ? `Turn on ${RECOVERY_DAYS[getAddress(a[0])]}-day recovery` : `${WARN}Turn on module ${short(a[0])}: it could move everything, with no signatures`;
       case "disableModule":
         return RECOVERY_DAYS[getAddress(a[1])] ? `Turn off ${RECOVERY_DAYS[getAddress(a[1])]}-day recovery` : `Turn off module ${short(a[1])}`;
     }
-    return `Change the wallet (${sel})`;
+    if (sel === "0xe19a9dd9") return `${WARN}Set a guard (${short(dec(guardAbi, d)?.args[0] ?? "?")}): it can block every transaction`;
+    if (sel === "0xf08a0323") return `${WARN}Set a fallback handler (${short(dec(guardAbi, d)?.args[0] ?? "?")}): it answers for your wallet`;
+    return `${WARN}Change the wallet (${sel})`;
   }
 
   if (eq(c.to, rolesAddress(safe))) return roles(c, sym, usdc);

@@ -87,7 +87,7 @@ function One({ p, account, onGone, toast }: { p: Pending; account: SafeAccount; 
         </div>
       </div>
       <div className="recess stack" style={{ gap: 6 }}>
-        <WhatItDoes chainId={p.chainId} safe={p.safe} calls={callsOf(p.tx)} />
+        <WhatItDoes chainId={p.chainId} safe={p.safe} calls={callsOf(p.tx)} tx={p.tx} />
       </div>
       <TxPicture hash={p.hash} />
       {!here && <p className="fine">Open Instant Wallet on your computer with the wedgie plugged in. It&apos;s there, ready to send.</p>}

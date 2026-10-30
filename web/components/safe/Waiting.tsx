@@ -101,7 +101,7 @@ export function WaitingCards({
                   <Eject href={txLink(w)} title="Open its own page" />
                 </span>
               </div>
-              <WhatItDoes chainId={w.chainId} safe={w.safe} calls={callsOf(w.tx)} />
+              <WhatItDoes chainId={w.chainId} safe={w.safe} calls={callsOf(w.tx)} tx={w.tx} />
             </div>
             <div style={{ display: "flex", gap: 8 }}>
               <button

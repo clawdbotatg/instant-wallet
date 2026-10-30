@@ -4,7 +4,7 @@ import type { DescriptorResolver, ExternalDataProvider, RegistryIndex, TokenResu
 import { formatUnits, toEventSelector } from "viem";
 import { CHAINS, knownChain } from "@/lib/chains";
 import { RELAY, UNISWAP } from "@/lib/safe/describe";
-import { uniswapWords } from "@/lib/safe/urWords";
+import { type Swap, uniswapWords } from "@/lib/safe/urWords";
 import { rpc } from "@/lib/rpcServer";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +21,7 @@ export const dynamic = "force-dynamic";
  */
 type Call = { to: string; value: string; data: string };
 type Field = { label: string; value: string; address?: string };
-type Told = { what: string; fields: Field[] } | null;
+type Told = { what: string; fields: Field[]; swap?: Pick<Swap, "pay" | "get"> } | null;
 
 const ADDR = /^0x[0-9a-fA-F]{40}$/;
 const HEX = /^0x[0-9a-fA-F]*$/;
@@ -101,7 +101,7 @@ async function clear(chain: number, safe: string, c: Call): Promise<Told> {
     if (sel === "0x3593564c" || sel === "0x24856bc3") {
       const k = knownChain(chain);
       const w = await uniswapWords(c.data as `0x${string}`, k?.native.symbol ?? "ETH", WETH[chain], a => token(chain, a));
-      if (w) return { what: UNISWAP.includes(c.to.toLowerCase()) ? `${w} on Uniswap` : `${w} through ${c.to.slice(0, 6)}…${c.to.slice(-4)}`, fields: [] };
+      if (w) return { what: UNISWAP.includes(c.to.toLowerCase()) ? `${w.text} on Uniswap` : `${w.text} through ${c.to.slice(0, 6)}…${c.to.slice(-4)}`, fields: [], swap: { pay: w.pay, get: w.get } };
     }
     const res = await resolver();
     if (!res) return null;

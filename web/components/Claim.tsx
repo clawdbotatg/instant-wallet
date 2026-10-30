@@ -381,7 +381,9 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
       ) : (
         <>
           <div className="fine">{done !== null ? "It's in your wallet" : empty ? "This card" : burner ? "Your old Burner Wallet has" : "Someone sent you"}</div>
-          <div className="big" style={{ fontSize: 56, fontWeight: 700 }}>{done !== null ? usd(done) : onChain === null || (ethTotal > 0n && !nativeUsd) ? "…" : usd(value)}</div>
+          <div className="big" style={{ fontSize: 56, fontWeight: 700, color: empty ? undefined : "var(--mint-d)" }}>
+            {done !== null ? `+${usd(done)}` : onChain === null || (ethTotal > 0n && !nativeUsd) ? "…" : empty ? usd(value) : `+${usd(value)}`}
+          </div>
           {done === null && !empty && onChain && (parts.length > 1 || !onlyDollars) && <div className="fine">{parts.join(" + ")}</div>}
         </>
       )}

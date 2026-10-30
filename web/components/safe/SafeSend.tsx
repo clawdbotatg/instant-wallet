@@ -17,7 +17,7 @@ import { SharedDone } from "./Waiting";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { Blockie, ChainChip, GreenButton, ScanIcon, TokenIcon, useSheetBack } from "../bits";
+import { Blockie, ChainChip, GreenButton, Money, ScanIcon, TokenIcon, useSheetBack } from "../bits";
 import { Scanner } from "../Scanner";
 import { Select, assetOpt } from "./Pick";
 import { friendly } from "../Welcome";
@@ -347,9 +347,7 @@ export function SafeSend({
           )}
           <div className="line">
             <span>Amount</span>
-            <b>
-              {what} {asset.price && <span className="fine">≈ {usd(Number(amountIn) * asset.price)}</span>}
-            </b>
+            <Money amount={amountIn} symbol={asset.symbol} usd={asset.price ? Number(amountIn) * asset.price : null} size={17} />
           </div>
           <div className="line">
             <span>Network</span>

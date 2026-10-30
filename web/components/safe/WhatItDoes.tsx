@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 import type { Address } from "viem";
-import { amount, short, usd } from "@/lib/format";
+import { amount, short } from "@/lib/format";
+import { Money } from "../bits";
 import { WARN, describe, ours } from "@/lib/safe/describe";
 import type { Call } from "@/lib/safe/core";
 
 type Field = { label: string; value: string; address?: string };
-type Told = { what: string; fields: Field[] } | null;
+type Told = { what: string; fields: Field[]; swap?: { pay: Move & { most?: boolean }; get: Move & { least?: boolean } } } | null;
 type Move = { symbol: string; amount: string; usd?: number };
 type Sim = { pay: Move[]; get: Move[]; fee: Move[]; fails?: string } | null;
 type Got = { calls: Told[] | null; sim: Sim };
@@ -43,7 +44,9 @@ export function WhatItDoes({ chainId, safe, calls }: { chainId: number; safe: Ad
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
   const sim = res?.sim;
   // the relay's fee isn't a step worth reading (the coins line shows it when the run works)
-  const shown = calls.map((c, i) => ({ c, i })).filter(({ c }) => !ours(chainId, c)?.startsWith("Network fee"));
+  // nor a swap whose in and out are already shown above it
+  const shown = calls.map((c, i) => ({ c, i })).filter(({ c, i }) => !ours(chainId, c)?.startsWith("Network fee") && !res?.calls?.[i]?.swap);
+  const swaps = (res?.calls ?? []).flatMap(t => (t?.swap ? [t.swap] : []));
   const many = shown.length > 1;
   // coins in and out say it all; the steps show when no coins move (a signer, a limit), the run failed, or a step warns
   const steps = !sim || !!sim.fails || (!sim.pay.length && !sim.get.length) || calls.some(c => describe(chainId, safe, c).startsWith(WARN));
@@ -52,13 +55,22 @@ export function WhatItDoes({ chainId, safe, calls }: { chainId: number; safe: Ad
       {!res ? (
         <span className="fine">Checking what it does…</span>
       ) : sim?.fails ? (
-        <span title={sim.fails}>
-          <Said text={`${WARN}Would fail now`} />
-        </span>
+        <div className="stack" style={{ gap: 4 }}>
+          {/* what the swap would do, read from its calldata, when the run can't say */}
+          {swaps.map((s, i) => (
+            <div key={i} className="stack" style={{ gap: 4 }}>
+              <Money amount={s.pay.amount} symbol={s.pay.symbol} />
+              <Money amount={s.get.amount} symbol={s.get.symbol} least={s.get.least} get />
+            </div>
+          ))}
+          <span title={sim.fails}>
+            <Said text={`${WARN}Would fail now`} />
+          </span>
+        </div>
       ) : sim ? (
         <div className="stack" style={{ gap: 4 }}>
-          {sim.pay.map((m, i) => <Coin key={`p${i}`} m={m} />)}
-          {sim.get.map((m, i) => <Coin key={`g${i}`} m={m} get />)}
+          {sim.pay.map((m, i) => <Money key={`p${i}`} amount={m.amount} symbol={m.symbol} usd={m.usd} />)}
+          {sim.get.map((m, i) => <Money key={`g${i}`} amount={m.amount} symbol={m.symbol} usd={m.usd} get />)}
           {sim.fee.map((m, i) => <Line key={`f${i}`} label="Network fee" m={m} small />)}
         </div>
       ) : null}
@@ -83,16 +95,6 @@ export function WhatItDoes({ chainId, safe, calls }: { chainId: number; safe: Ad
         );
       })}
     </>
-  );
-}
-
-function Coin({ m, get }: { m: Move; get?: boolean }) {
-  return (
-    <span style={{ fontSize: 20, fontWeight: 700, color: get ? "var(--mint-d)" : "var(--coral)" }}>
-      {get ? "+" : "−"}
-      {amount(m.amount)} {m.symbol}
-      {m.usd !== undefined && <span className="fine" style={{ fontWeight: 400 }}> ({usd(m.usd)})</span>}
-    </span>
   );
 }
 

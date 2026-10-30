@@ -6,7 +6,7 @@ import { blo } from "blo";
 import QRCode from "qrcode";
 import { type Address, getAddress, isAddress } from "viem";
 import { chainById } from "@/lib/chains";
-import { short } from "@/lib/format";
+import { amount as fmtAmount, short, usd as fmtUsd } from "@/lib/format";
 import { parse } from "@/lib/parse";
 import { Scanner } from "./Scanner";
 
@@ -201,6 +201,21 @@ export function Sheet({ onClose, children }: { onClose: () => void; children: Re
         </div>
       </div>
     </SheetBack.Provider>
+  );
+}
+
+/**
+ * Money moving, the same everywhere: out is red with −, in is green with +, dollars after it in grey. `least`: a
+ * minimum (a swap's "at least"), shown as "or more". Every screen that shows what a transaction pays or gets uses this.
+ */
+export function Money({ amount: a, symbol, usd: u, get, least, size = 20 }: { amount: string; symbol: string; usd?: number | null; get?: boolean; least?: boolean; size?: number }) {
+  return (
+    <span style={{ fontSize: size, fontWeight: 700, color: get ? "var(--mint-d)" : "var(--coral)" }}>
+      {get ? "+" : "−"}
+      {fmtAmount(a)} {symbol}
+      {least ? " or more" : ""}
+      {u !== undefined && u !== null && <span className="fine" style={{ fontWeight: 400 }}> ({fmtUsd(u)})</span>}
+    </span>
   );
 }
 

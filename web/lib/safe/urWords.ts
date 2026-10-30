@@ -68,7 +68,9 @@ function legs(commands: Hex, inputs: readonly Hex[]): { legs: Leg[]; unwrap: boo
   return { legs: out, unwrap, wrap, min };
 }
 
-export async function uniswapWords(data: Hex, native: string, wrapped: string | undefined, token: (a: string) => Promise<Tok>): Promise<string | null> {
+export type Swap = { text: string; pay: { symbol: string; amount: string; most?: boolean }; get: { symbol: string; amount: string; least?: boolean } };
+
+export async function uniswapWords(data: Hex, native: string, wrapped: string | undefined, token: (a: string) => Promise<Tok>): Promise<Swap | null> {
   let d;
   try {
     d = decodeFunctionData({ abi: ur, data });
@@ -89,6 +91,12 @@ export async function uniswapWords(data: Hex, native: string, wrapped: string | 
   const [ti, to] = await Promise.all([name(first.tin, wrap), name(last.tout, unwrap)]);
   if (!ti || !to) return null;
   const f = (v: bigint, t: NonNullable<Tok>) => `${Number(formatUnits(v, t.decimals)).toLocaleString("en-US", { maximumSignificantDigits: 6 })} ${t.symbol}`;
-  if (first.exactIn && lim === 0n) return `Swap ${f(amt, ti)} for ${to.symbol} (no minimum)`;
-  return first.exactIn ? `Swap ${f(amt, ti)} for at least ${f(lim, to)}` : `Swap at most ${f(lim, ti)} for ${f(amt, to)}`;
+  const u = (v: bigint, t: NonNullable<Tok>) => formatUnits(v, t.decimals);
+  if (first.exactIn)
+    return {
+      text: lim === 0n ? `Swap ${f(amt, ti)} for ${to.symbol} (no minimum)` : `Swap ${f(amt, ti)} for at least ${f(lim, to)}`,
+      pay: { symbol: ti.symbol, amount: u(amt, ti) },
+      get: { symbol: to.symbol, amount: u(lim, to), least: true },
+    };
+  return { text: `Swap at most ${f(lim, ti)} for ${f(amt, to)}`, pay: { symbol: ti.symbol, amount: u(lim, ti), most: true }, get: { symbol: to.symbol, amount: u(amt, to) } };
 }

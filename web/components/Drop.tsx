@@ -120,7 +120,7 @@ export function Drop() {
     <div className="stack center">
       {account && <img className="mark" src="/mark.png" alt="" style={{ width: 96, margin: "0 auto" }} />}
       <div className="fine">{done ? "It's in your wallet" : info?.closed ? info.name : "You get"}</div>
-      <div className="big" style={{ fontSize: 56, fontWeight: 700 }}>{value}</div>
+      <div className="big" style={{ fontSize: 56, fontWeight: 700, color: "var(--mint-d)" }}>{info ? `+${value}` : value}</div>
       {info && !info.closed && <div className="fine">{`${dropAmount(info)} on ${net}`}</div>}
     </div>
   );

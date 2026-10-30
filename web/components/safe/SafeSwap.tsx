@@ -12,7 +12,7 @@ import { POPULAR, type SwapRoute, type Token, swapCalls } from "@/lib/safe/swap"
 import { uniswapRoute } from "@/lib/safe/uniswap";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { TokenIcon } from "../bits";
+import { Money, TokenIcon } from "../bits";
 import { ChainSelect, type Opt, Select, SignerChoice, assetOpt } from "./Pick";
 import { Progress } from "./Progress";
 import { friendly } from "../Welcome";
@@ -346,10 +346,10 @@ export function SafeSwap({
       <div className="stack center">
         <div style={{ fontSize: 64 }}>{failed ? "!" : landed ? "✓" : "⇄"}</div>
         <h2>{failed ? "The bridge failed" : landed ? "Swapped" : `On its way to ${toName}`}</h2>
-        <p>
-          {fmtAmount(amountIn)} {route.from.symbol} → ≈ {outFmt(route, route.toAmount)}
-          {crossChain && ` on ${toName}`}
-        </p>
+        <div className="stack" style={{ gap: 4 }}>
+          <Money amount={amountIn} symbol={route.from.symbol} />
+          <Money amount={formatUnits(BigInt(route.toAmount), route.to.decimals)} symbol={`${route.to.symbol}${crossChain ? ` on ${toName}` : ""}`} get />
+        </div>
         {crossChain && !landed && !failed && <p className="fine">Usually about {Math.max(1, Math.round(route.seconds / 60))} min. You can close this.</p>}
         {failed && <p className="fine">{arrival?.substatus === "REFUNDED" ? `Refunded to your wallet on ${chainById(chainId)?.name}.` : "Check the explorer; LI.FI usually refunds."}</p>}
         {arrival?.substatus === "PARTIAL" && <p className="fine">It arrived as a different token than planned (the bridge's fallback).</p>}
@@ -452,17 +452,15 @@ export function SafeSwap({
       {from && (
         // always the same rows, so nothing below jumps while a price loads: blanks until there's a route
         <div className={`card confirm${route ? "" : " pending"}`}>
-          <div className="line">
-            <span>You get</span>
-            <b className="get">
-              {route ? (
-                <>
-                  ≈ {outFmt(route, route.toAmount)} {toUsd ? <span className="fine">{usd(toUsd)}</span> : null}
-                </>
-              ) : (
-                "—"
-              )}
-            </b>
+          <div className="stack" style={{ gap: 4, paddingBottom: 8 }}>
+            {route ? (
+              <>
+                <Money amount={amountIn} symbol={route.from.symbol} usd={fromUsd} />
+                <Money amount={formatUnits(BigInt(route.toAmount), route.to.decimals)} symbol={route.to.symbol} usd={toUsd} get />
+              </>
+            ) : (
+              <span className="fine">—</span>
+            )}
           </div>
           <div className="line">
             <span>At least</span>

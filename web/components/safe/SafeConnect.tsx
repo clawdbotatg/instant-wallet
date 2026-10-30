@@ -9,10 +9,11 @@ import { type FeeToken, type Prepared, type Signer, type Stage, Shared, finishOw
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { type Pending, remember, respond } from "@/lib/walletconnect";
 import { ChainChip } from "../bits";
-import { CallLine, ConnectLayer, DappHead, type Session } from "../WalletConnect";
+import { ConnectLayer, DappHead, type Session } from "../WalletConnect";
 import { friendly } from "../Welcome";
 import { Progress } from "./Progress";
 import { ErrorLine } from "./WedgieButton";
+import { WhatItDoes } from "./WhatItDoes";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import { bio } from "@/lib/passkey";
 
@@ -182,14 +183,11 @@ function SafeRequest({
     <div className="stack confirm">
       <DappHead {...pending.dapp} />
       {pending.kind === "calls" ? (
-        <>
-          <h2>{pending.calls.length > 1 ? `${pending.calls.length} steps, all or nothing` : "Approve?"}</h2>
-          <div className="card stack" style={{ gap: 12 }}>
-            {pending.calls.map((c, i) => (
-              <CallLine key={i} call={c} chainId={pending.chainId} />
-            ))}
+        calls && (
+          <div className="card stack" style={{ gap: 8 }}>
+            <WhatItDoes chainId={pending.chainId} safe={account.address} calls={calls} />
           </div>
-        </>
+        )
       ) : (
         <>
           <h2>Sign this?</h2>
@@ -223,7 +221,7 @@ function SafeRequest({
       {error && <ErrorLine text={error} />}
       {!refused && (
         <button className="btn btn-green wide" disabled={busy || !ready} onClick={go}>
-          {busy ? label[stage!] ?? "…" : pending.kind === "calls" ? (prepared ? "Approve" : "Getting the fee…") : "Sign"}
+          {busy ? label[stage!] ?? "…" : pending.kind === "calls" ? (prepared ? "Sign" : "Getting the fee…") : "Sign"}
         </button>
       )}
       <Progress stage={stage} chainId={pending.chainId} hash={hash} />

@@ -204,6 +204,25 @@ export function Sheet({ onClose, children }: { onClose: () => void; children: Re
   );
 }
 
+/**
+ * The one way out to another page: a small pill that always opens a NEW window (the wallet stays where it was).
+ * Use it everywhere something "ejects" — a tx's own page, Safe{Wallet}, an explorer — so it looks and acts the same.
+ * No children: the eject icon. With children: that text and ↗.
+ */
+export function Eject({ href, title, children }: { href: string; title: string; children?: React.ReactNode }) {
+  return (
+    <a className="pill" href={href} target="_blank" rel="noopener noreferrer" title={title} aria-label={title} style={{ height: 32, padding: "0 10px", fontSize: 13, flex: "none" }}>
+      {children ? (
+        <>{children} ↗</>
+      ) : (
+        <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" />
+        </svg>
+      )}
+    </a>
+  );
+}
+
 export function ScanIcon({ size = 34 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">

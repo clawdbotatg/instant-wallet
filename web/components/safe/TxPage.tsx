@@ -14,7 +14,7 @@ import { type Waiting, allSignatures, checkSigs, fromLink, readWaiting, safeAppT
 import { passkeySign } from "@/lib/safe/sign";
 import { loadAccount, loadSigners, wedgieSigners } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
-import { Blockie, GreenButton, copy, useToast } from "../bits";
+import { Blockie, Eject, GreenButton, copy, useToast } from "../bits";
 import { friendly } from "../Welcome";
 import { ErrorLine } from "./WedgieButton";
 import { WhatItDoes } from "./WhatItDoes";
@@ -196,7 +196,17 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
           ← My wallet
         </a>
       )}
-      <h2>{w.label ?? `Transaction #${w.tx.nonce}`}</h2>
+      <div className="row" style={{ justifyContent: "space-between", gap: 8 }}>
+        <h2>{w.label ?? `Transaction #${w.tx.nonce}`}</h2>
+        <span className="row" style={{ gap: 6 }}>
+          {app && (
+            <Eject href={app} title="Open in Safe{Wallet}">
+              Safe
+            </Eject>
+          )}
+          {inWallet && <Eject href={txLink(w)} title="Open its own page" />}
+        </span>
+      </div>
       <p className="fine row" style={{ gap: 8 }}>
         <Blockie address={safe} size={20} /> <span className="mono">{short(safe)}</span> on {name}
       </p>
@@ -266,15 +276,9 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
             Share
           </a>
         )}
-        {inWallet && <a href={txLink(w)}>Own page ↗</a>}
         {enough && !done && !sent && hotAvailable() && (
           <a href="#" onClick={e => (e.preventDefault(), sendSelf())}>
             {busy === "self" ? "Sending…" : "Send from my wallet (I pay gas)"}
-          </a>
-        )}
-        {app && (
-          <a href={app} target="_blank" rel="noreferrer">
-            Safe&#123;Wallet&#125; ↗
           </a>
         )}
       </p>

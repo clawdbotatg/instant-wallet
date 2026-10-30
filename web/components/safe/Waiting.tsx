@@ -16,6 +16,7 @@ import {
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { ErrorLine } from "./WedgieButton";
 import { friendly } from "../Welcome";
+import { Eject } from "../bits";
 import { WhatItDoes } from "./WhatItDoes";
 
 /** After a send that needs other signers: its page is opening (finishOwners called openTx). */
@@ -93,13 +94,11 @@ export function WaitingCards({
                 </span>
                 <span className="row" style={{ gap: 6 }}>
                   {app && (
-                    <a className="pill" href={app} target="_blank" rel="noreferrer" title="Open in Safe{Wallet}" style={{ height: 32, padding: "0 10px", fontSize: 13 }}>
-                      Safe ↗
-                    </a>
+                    <Eject href={app} title="Open in Safe{Wallet}">
+                      Safe
+                    </Eject>
                   )}
-                  <a className="pill" href={txLink(w)} title="Its own page" aria-label="Its own page" style={{ height: 32, padding: "0 10px", fontSize: 15 }}>
-                    ⏏
-                  </a>
+                  <Eject href={txLink(w)} title="Open its own page" />
                 </span>
               </div>
               <WhatItDoes chainId={w.chainId} safe={w.safe} calls={callsOf(w.tx)} />

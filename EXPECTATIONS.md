@@ -6,6 +6,10 @@ What Instant Wallet must always do. If a change breaks one, it doesn't ship. In 
 
 - The highest expectation. A wedgie that runs out of memory, freezes or stops answering is a failure, on any
   transaction, from Instant Wallet or wedgie.dev.
+- Short on memory, the wedgie shows less (no extras), never an error.
+- Every wedgie release: test it with the memory squeezed (safechip `--frag`) and with a real Instant Wallet
+  swap. A real wedgie has less memory than the virtual one.
+- Never hide an error to make it go away. Find why.
 
 ## 1. You know exactly what you sign
 

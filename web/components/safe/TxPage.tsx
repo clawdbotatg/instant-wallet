@@ -257,7 +257,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
           return (
             <div key={o} className="keyrow" style={{ padding: 0, minHeight: 42 }}>
               <span className="row" style={{ gap: 8 }}>
-                <Who address={shown} chain={chainId} label={NAMES[k]} plain={k === "wedgie" || k === "wedgieFar"} />
+                <Who address={shown} chain={chainId} label={k === "face" ? bio() : NAMES[k]} plain={k === "wedgie" || k === "wedgieFar"} />
               </span>
               {signed ? (
                 <span>✓ signed</span>
@@ -313,13 +313,14 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
 }
 
 type Kind = "face" | "wedgie" | "wedgieFar" | "wallet" | "other" | "person";
+// what this device calls its passkey check (Touch ID on a Mac), like every other label
 const NAMES: Record<Kind, string> = {
-  face: "Face ID",
+  face: "",
   wedgie: "Wedgie",
   wedgieFar: "Wedgie (sign on a computer)",
   wallet: "Browser wallet",
   other: "Browser wallet",
-  person: "Someone's Face ID",
+  person: "Someone's passkey",
 };
 
 function safeUnpack(data: Hex): Call[] {

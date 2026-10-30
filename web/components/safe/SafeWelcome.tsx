@@ -171,7 +171,7 @@ export function SafeWelcome({ onReady, initialConfirm }: { onReady: (a: SafeAcco
               setConfirm(null);
             }}
           >
-            No
+            Not mine
           </button>
         </div>
       </div>

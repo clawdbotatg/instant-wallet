@@ -284,8 +284,8 @@ export function SafeSend({
           You signed {what} to {who}. Open Instant Wallet on your computer with the wedgie plugged in and press <GreenButton /> to execute it.
         </p>
         {hash && <TxPicture hash={hash} />}
-        <button className="btn btn-green wide" onClick={onDone}>
-          OK
+        <button className="btn btn-red wide" onClick={onDone}>
+          Done
         </button>
       </div>
     );

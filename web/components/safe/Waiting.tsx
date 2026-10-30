@@ -17,7 +17,7 @@ import {
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { ErrorLine } from "./WedgieButton";
 import { friendly } from "../Welcome";
-import { CopyLink, Eject } from "../bits";
+import { CopyLink, Eject, RemoveX } from "../bits";
 import { WhatItDoes } from "./WhatItDoes";
 
 /** Home: transactions waiting for signatures, on every network where this wallet needs more than one. */
@@ -128,16 +128,7 @@ export function WaitingCards({
               <WhatItDoes chainId={w.chainId} safe={w.safe} calls={callsOf(w.tx)} tx={w.tx} />
             </div>
             <div style={{ display: "flex", gap: 8 }}>
-              <button
-                className="btn btn-red btn-sm"
-                style={{ flex: "none", width: 52, padding: 0, fontSize: 18 }}
-                aria-label="Remove"
-                title="Remove"
-                disabled={!!removing}
-                onClick={() => remove(w)}
-              >
-                {removing === w.hash ? "…" : "✕"}
-              </button>
+              <RemoveX disabled={!!removing} busy={removing === w.hash} onClick={() => remove(w)} />
               {rejectable && (
                 <button className="btn btn-sm" style={{ flex: "none" }} disabled={!!rejecting && !r?.ready} onClick={() => reject(w)}>
                   {r ? (r.ready ? "Sign to reject" : "…") : "Reject"}

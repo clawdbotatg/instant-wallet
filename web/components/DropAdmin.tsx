@@ -7,7 +7,7 @@ import { cardsPdf } from "@/lib/claimBatch";
 import { type DropInfo, dropAmount, dropSig, dropUrl } from "@/lib/dropClient";
 import { short } from "@/lib/format";
 import { type SafeAccount, loadAccount } from "@/lib/safe/state";
-import { CopyAddress, CopyLink, Eject, Qr, TimedBar, copy, useToast } from "./bits";
+import { CopyAddress, CopyLink, Eject, Qr, TimedBar, Who, copy, useToast } from "./bits";
 import { friendly } from "./Welcome";
 import { bio } from "@/lib/passkey";
 
@@ -446,7 +446,7 @@ function DropCard({ id, toast, onClose }: { id: string; toast: (m: string) => vo
           <summary className="fine">{d.claims.length} claims</summary>
           {[...d.claims].reverse().map(c => (
             <div key={c.tx} className="row fine" style={{ justifyContent: "space-between", padding: "4px 0", gap: 8 }}>
-              <span className="mono">{short(c.wallet)}</span>
+              <Who address={c.wallet} chain={drop.chainId} size={18} inline />
               <span>{new Date(c.at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
               {explorerTx(drop.chainId, c.tx) && <Eject href={explorerTx(drop.chainId, c.tx)!} title="See it on the explorer" />}
             </div>

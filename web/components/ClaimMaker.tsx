@@ -7,7 +7,7 @@ import { CHAINS } from "@/lib/chains";
 import { claimUrl } from "@/lib/claim";
 import { type CardBalance, cardBalances, cardsPdf, fillWithWallet, fmtUsdc } from "@/lib/claimBatch";
 import { short } from "@/lib/format";
-import { CopyAddress, CopyLink, Qr, copy, useToast } from "./bits";
+import { CopyAddress, CopyLink, Qr, Who, copy, useToast } from "./bits";
 
 /**
  * /claim/new: make claim cards (docs/CLAIM.md). A card goes empty → ready → claimed:
@@ -295,7 +295,7 @@ export function ClaimMaker() {
             {state === "claimed" && (
               <div className="row" style={{ justifyContent: "space-between", gap: 8 }}>
                 <span>
-                  <b>Claimed</b> <span className="fine mono">{short(a)}</span>
+                  <b>Claimed</b> <Who address={a} size={18} inline />
                 </span>
                 <button className="pill stop" onClick={() => forget([c], "This card")}>
                   Delete

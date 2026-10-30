@@ -325,7 +325,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
           {busy === "send" ? "Executing…" : "Execute"}
         </button>
       ) : (
-        <button className="btn wide" onClick={share}>
+        <button className="btn btn-dark wide" onClick={share}>
           Share with another signer
         </button>
       )}

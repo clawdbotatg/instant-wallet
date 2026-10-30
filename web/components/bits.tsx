@@ -369,7 +369,7 @@ export async function shareOrCopy(url: string, title: string): Promise<string | 
   return (await copy(url)) ? "Link copied" : "Couldn't copy";
 }
 
-/** Remove / delete / end: the small red ✕, always on the far left of its row (EXPECTATIONS #2). */
+/** Remove / delete / end: the small red ✕ (EXPECTATIONS #2): far left when a green button follows it, else on the right. */
 export function RemoveX({ onClick, disabled, label = "Remove", busy }: { onClick: () => void; disabled?: boolean; label?: string; busy?: boolean }) {
   return (
     <button className="pill stop" style={{ width: 38, padding: 0, justifyContent: "center", flex: "none" }} aria-label={label} title={label} disabled={disabled} onClick={onClick}>

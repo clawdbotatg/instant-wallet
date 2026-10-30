@@ -14,7 +14,7 @@ import { getQuote, waitFor } from "@/lib/safe/send";
 import { createPasskey } from "@/lib/passkey";
 import { type SafeAccount, accountFor, loadAccount, saveAccount } from "@/lib/safe/state";
 import type { Asset, Nft } from "@/lib/types";
-import { CopyAddress, TimedBar } from "./bits";
+import { CopyAddress, Money, TimedBar } from "./bits";
 import { SafeWelcome } from "./safe/SafeWelcome";
 import { friendly } from "./Welcome";
 
@@ -334,17 +334,17 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
     ...natives.map(c => `${Number(formatUnits(c.eth, 18)).toFixed(c.chainId === 100 ? 2 : 6)} ${nativeSymbol(c.chainId)}`),
   ].filter(Boolean) as string[];
   const chainName = (id: number) => CHAINS.find(c => c.id === id)?.name ?? "";
-  const rows: { k: string; amount: string; chain: string; usd?: number }[] = [
+  const rows: { k: string; amount: string; symbol: string; chain: string; usd?: number }[] = [
     ...(onChain ?? []).flatMap(c => [
-      ...(c.eth > 0n ? [{ k: `n${c.chainId}`, amount: `${Number(formatUnits(c.eth, 18)).toFixed(c.chainId === 100 ? 2 : 6)} ${nativeSymbol(c.chainId)}`, chain: chainName(c.chainId), usd: nativeUsd?.[c.chainId] ? nativeValue(c.chainId, c.eth) : undefined }] : []),
-      ...(c.usdc > 0n ? [{ k: `u${c.chainId}`, amount: `${formatUnits(c.usdc, 6)} USDC`, chain: chainName(c.chainId) }] : []),
+      ...(c.eth > 0n ? [{ k: `n${c.chainId}`, amount: Number(formatUnits(c.eth, 18)).toFixed(c.chainId === 100 ? 2 : 6), symbol: nativeSymbol(c.chainId), chain: chainName(c.chainId), usd: nativeUsd?.[c.chainId] ? nativeValue(c.chainId, c.eth) : undefined }] : []),
+      ...(c.usdc > 0n ? [{ k: `u${c.chainId}`, amount: formatUnits(c.usdc, 6), symbol: "USDC", usd: Number(formatUnits(c.usdc, 6)), chain: chainName(c.chainId) }] : []),
     ]),
-    ...movable.map(t => ({ k: `${t.chainId}:${t.asset}`, amount: `${fmtAmount(t.formatted)} ${t.symbol}`, chain: chainName(t.chainId), usd: t.usd ?? undefined })),
-    ...(uni && !uniStuck ? [{ k: "uni", amount: `${Number(formatUnits(BigInt(uni.amount), 18)).toFixed(0)} UNI (airdrop)`, chain: "Ethereum" }] : []),
-    ...safesMovable.map(x => ({ k: `safe${x.address}`, amount: `${Number(formatUnits(x.wei, 18)).toFixed(2)} xDAI`, chain: "old Safe", usd: nativeUsd?.[100] ? nativeValue(100, x.wei) : undefined })),
+    ...movable.map(t => ({ k: `${t.chainId}:${t.asset}`, amount: t.formatted, symbol: t.symbol, chain: chainName(t.chainId), usd: t.usd ?? undefined })),
+    ...(uni && !uniStuck ? [{ k: "uni", amount: Number(formatUnits(BigInt(uni.amount), 18)).toFixed(0), symbol: "UNI (airdrop)", chain: "Ethereum" }] : []),
+    ...safesMovable.map(x => ({ k: `safe${x.address}`, amount: Number(formatUnits(x.wei, 18)).toFixed(2), symbol: "xDAI", chain: "old Safe", usd: nativeUsd?.[100] ? nativeValue(100, x.wei) : undefined })),
     ...[...new Set(nftsMovable.map(n => n.chainId))].map(id => {
       const k = nftsMovable.filter(n => n.chainId === id).length;
-      return { k: `nft${id}`, amount: `${k} NFT${k === 1 ? "" : "s"}`, chain: chainName(id) };
+      return { k: `nft${id}`, amount: String(k), symbol: `NFT${k === 1 ? "" : "s"}`, chain: chainName(id) };
     }),
   ];
   const onlyDollars = movable.length === 0 && natives.every(c => c.chainId === 100) && (usdcTotal === 0n || natives.length === 0);
@@ -372,10 +372,7 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
           ) : (
             rows.map(r => (
               <div key={r.k} className="row" style={{ justifyContent: "space-between" }}>
-                <b style={{ color: "var(--mint-d)" }}>
-                  +{r.amount}
-                  {r.usd !== undefined && <span className="fine" style={{ fontWeight: 400 }}> ({usd(r.usd)})</span>}
-                </b>
+                <Money amount={r.amount} symbol={r.symbol} usd={r.usd} get size={16} />
                 <span className="fine">{r.chain}</span>
               </div>
             ))

@@ -2,7 +2,7 @@
 
 import { callsOf } from "@/lib/safe/describe";
 import { WhatItDoes } from "./WhatItDoes";
-import { GreenButton } from "../bits";
+import { GreenButton, RemoveX } from "../bits";
 import { useCallback, useEffect, useState } from "react";
 import { type Hash } from "viem";
 import { chainById } from "@/lib/chains";
@@ -93,20 +93,14 @@ function One({ p, account, onGone, toast }: { p: Pending; account: SafeAccount; 
       {!here && <p className="fine">Open Instant Wallet on your computer with the wedgie plugged in. It&apos;s there, ready to send.</p>}
       {error && <ErrorLine text={error} />}
       <div style={{ display: "flex", gap: 8 }}>
-        <button
-          className="btn btn-red btn-sm"
-          style={{ flex: "none", width: 52, padding: 0, fontSize: 18 }}
-          aria-label="Remove"
-          title="Remove"
+        <RemoveX
           disabled={!!stage}
           onClick={async () => {
             await cancelPending(p);
             toast("Removed");
             onGone();
           }}
-        >
-          ✕
-        </button>
+        />
         {here && (
           <button className="btn btn-green btn-sm" style={{ flex: 1, minWidth: 0 }} onClick={sign} disabled={!!stage}>
             {stage ? STAGE[stage] ?? "…" : "Sign and execute"}

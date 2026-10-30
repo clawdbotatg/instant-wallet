@@ -208,6 +208,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
     );
 
   const done = w.tx.nonce < chain.nonce;
+  const behind = w.tx.nonce > chain.nonce; // the wallet runs them in order: the one before it goes first (or is rejected)
   const enough = valid.length >= chain.threshold;
   // a Reject is just the relay's fee at another one's number: nothing to reject in it
   const fees = callsOf(w.tx).map(c => relayFee(chainId, c));
@@ -318,6 +319,8 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
         </p>
       ) : done ? (
         <p className="fine">This wallet already used number #{w.tx.nonce.toString()}: this one was sent or replaced.</p>
+      ) : enough && behind ? (
+        <p className="fine">Signed. It runs after #{chain.nonce.toString()}{w.tx.nonce - chain.nonce > 1n ? ` (and the others before it)` : ""}: execute or reject that one first.</p>
       ) : enough ? (
         <button className="btn btn-green wide" onClick={sendRelay} disabled={!!busy}>
           {busy === "send" ? "Executing…" : "Execute"}
@@ -340,7 +343,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
             {busy === "reject" ? "Getting ready…" : "Reject"}
           </a>
         )}
-        {enough && !done && !sent && hotAvailable() && (
+        {enough && !done && !behind && !sent && hotAvailable() && (
           <a href="#" onClick={e => (e.preventDefault(), sendSelf())}>
             {busy === "self" ? "Sending…" : "Execute from my wallet (I pay gas)"}
           </a>

@@ -172,6 +172,11 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
   const me = loadAccount();
   const calls: Call[] = eq(w.tx.to, MULTISEND_CALL_ONLY) && w.tx.operation === 1 ? safeUnpack(w.tx.data) : [{ to: w.tx.to, value: w.tx.value, data: w.tx.data }];
   const app = safeAppTxLink(chainId, safe, w.hash);
+  const share = async () => {
+    const link = txLink(w);
+    if (navigator.share) return navigator.share({ url: link, title: w.label ?? "Sign this" }).catch(() => {});
+    setToast((await copy(link)) ? "Link copied" : "Couldn't copy");
+  };
   const friends = loadSigners(safe);
   const mySlots = me?.wedgie ? wedgieSigners(me.wedgie).map(x => x.toLowerCase()) : [];
   // this phone's key, someone's Face ID (invited, or any passkey when this browser has no wallet), a wedgie, a browser wallet
@@ -249,20 +254,19 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
           {busy === "send" ? "Sending…" : "Send it"}
         </button>
       ) : (
-        <button
-          className="btn wide"
-          onClick={async () => {
-            const link = txLink(w);
-            if (navigator.share) return navigator.share({ url: link, title: w.label ?? "Sign this" }).catch(() => {});
-            setToast((await copy(link)) ? "Link copied" : "Couldn't copy");
-          }}
-        >
+        <button className="btn wide" onClick={share}>
           Share with another signer
         </button>
       )}
       {error && <ErrorLine text={error} />}
 
       <p className="fine row" style={{ gap: 16, justifyContent: "center", flexWrap: "wrap" }}>
+        {(enough || done || sent) && (
+          <a href="#" onClick={e => (e.preventDefault(), share())}>
+            Share
+          </a>
+        )}
+        {inWallet && <a href={txLink(w)}>Own page ↗</a>}
         {enough && !done && !sent && hotAvailable() && (
           <a href="#" onClick={e => (e.preventDefault(), sendSelf())}>
             {busy === "self" ? "Sending…" : "Send from my wallet (I pay gas)"}

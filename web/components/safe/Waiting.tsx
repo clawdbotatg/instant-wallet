@@ -9,6 +9,7 @@ import {
   deleteHash,
   dropTx,
   openTx,
+  safeAppTxLink,
   readWaiting,
   txLink,
 } from "@/lib/safe/share";
@@ -82,6 +83,7 @@ export function WaitingCards({
       <b>Waiting for signatures</b>
       {list.map(({ w, need }) => {
         const enough = w.sigs.length >= need;
+        const app = safeAppTxLink(w.chainId, w.safe, w.hash);
         return (
           <div key={w.hash} className="stack" style={{ gap: 8 }}>
             <div className="recess stack" style={{ gap: 6 }}>
@@ -101,6 +103,11 @@ export function WaitingCards({
               >
                 {removing === w.hash ? "…" : "✕"}
               </button>
+              {app && (
+                <a className="btn btn-sm" href={app} target="_blank" rel="noreferrer" title="Open in Safe{Wallet}" style={{ flex: "none", padding: "0 14px" }}>
+                  Safe ↗
+                </a>
+              )}
               <a
                 href={txLink(w).replace(location.origin, "")}
                 className="btn btn-green btn-sm"

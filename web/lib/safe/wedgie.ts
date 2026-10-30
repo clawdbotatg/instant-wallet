@@ -1,5 +1,5 @@
 import { type Address, type Hex, getAddress } from "viem";
-import { clearBundle } from "clear-signing-safe-kit";
+import { SIM_DEFAULT, clearBundle, simulate } from "clear-signing-safe-kit";
 import { type SafeTx, type Sig, encodeWebAuthn } from "./core";
 
 /**
@@ -226,7 +226,7 @@ const arm = () => {
 };
 
 /** What a plugged-in wedgie said when asked hello (nothing signs, nothing shows on its screen). */
-export type WedgieHello = { version?: string; short?: string; running?: string | null; carts?: { mod: string; v?: string | null }[]; safe?: { x: Hex; y: Hex } | null; safe_chunk?: number; safe_clear?: string | null };
+export type WedgieHello = { version?: string; short?: string; running?: string | null; carts?: { mod: string; v?: string | null }[]; safe?: { x: Hex; y: Hex } | null; safe_chunk?: number; safe_clear?: string | null; safe_sim?: string };
 const LINE_MAX = 5800; // the wedgie's USB line is 6 KB
 // a tx over this goes in safe_data pieces, as wedgie.dev sends it: one 3.4 KB line needed a block that big on a
 // wedgie whose memory was broken up (10-27, a Uniswap swap + fee: MemoryError)
@@ -563,7 +563,6 @@ export class Wedgie {
   }
 
   private async signing(tx: Record<string, any>, t: SafeTx, expectHash: Hex, slots: Address[]): Promise<Sig[]> {
-    let send: Record<string, unknown> = tx;
     activity({ what: "Sending it to your wedgie", p: 0.05 });
     const h = await this.safeHello();
     let chunk = h.safe_chunk;
@@ -579,7 +578,12 @@ export class Wedgie {
       if (a?.type !== "safe_clear")
         throw new Error(`Your wedgie couldn't take what this transaction does (${a?.error || "no answer"}). Update its Safe signer from the wedgie button, then try again.`);
     }
-    if (JSON.stringify({ id: 0, type: "safe_sign", tx }).length > (this.drive ? DRIVE_LINE_MAX : chunk ? SIGN_LINE_MAX : LINE_MAX)) {
+    // what it does to your coins, signed by clear-sim with a nonce the wedgie just picked: the wedgie checks the
+    // signature against its own list of simulators and shows it first (Safe Signer safe-28+; a batch: safe-47+,
+    // older ones show the usual pages). The simulator the wedgie trusts, not this page's setting. None: the usual pages.
+    const sim = h.safe_sim === "p256" ? await this.simFor(tx).catch(() => null) : null;
+    let send: Record<string, unknown> = sim ? { ...tx, sim } : tx;
+    if (JSON.stringify({ id: 0, type: "safe_sign", tx: send }).length > (this.drive ? DRIVE_LINE_MAX : chunk ? SIGN_LINE_MAX : LINE_MAX)) {
       if (!chunk) throw new Error("This one is too big for the wedgie's Safe app. Update it at wedgie.dev, then try again.");
       const hex = t.data.slice(2);
       let at = 0;
@@ -589,7 +593,7 @@ export class Wedgie {
         at = r.have;
         activity({ what: "Sending it to your wedgie", p: 0.05 + (0.85 * Math.min(i + chunk, hex.length)) / hex.length });
       }
-      send = { ...tx, data: "@" };
+      send = { ...send, data: "@" };
     }
     activity({ what: "Press the green button on your wedgie", p: 0.92, press: true });
     const g = await this.request({ type: "safe_sign", tx: send }, 300_000); // a big one takes the wedgie a while to hash
@@ -597,6 +601,12 @@ export class Wedgie {
     if (String(g.safeTxHash).toLowerCase() !== expectHash.toLowerCase()) throw new Error("The wedgie signed a different transaction. Not sending.");
     const data = encodeWebAuthn({ authenticatorData: g.authenticatorData, clientDataFields: g.clientDataFields, r: BigInt(g.r), s: BigInt(g.s) });
     return slots.map(signer => ({ signer, data, kind: "contract" as const }));
+  }
+
+  private async simFor(tx: Record<string, any>) {
+    const n = await this.request({ type: "safe_nonce" }, 5000);
+    if (n?.type !== "safe_nonce") return null;
+    return simulate({ chain: tx.chainId, safe: tx.safe, tx: { to: tx.to, value: BigInt(tx.value), data: tx.data, operation: tx.operation }, url: SIM_DEFAULT, nonce: n.nonce, check: false, timeout: 15_000 });
   }
 
   async close() {

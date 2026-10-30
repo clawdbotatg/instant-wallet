@@ -82,7 +82,7 @@ export function forgetKnown(a: SafeAccount) {
   saveKnown(knownAccounts().filter(k => !sameAccount(k, a)));
 }
 
-/** The name the user gave this wallet (this browser only, private), or null: we name it (defaultWalletName). */
+/** The name the user gave this wallet (synced encrypted to its passkey's devices: lib/walletName.ts), or null: we name it (defaultWalletName). */
 export function loadWalletName(address: Address): string | null {
   try {
     return localStorage.getItem(`iws.name.${address.toLowerCase()}`);

@@ -33,6 +33,7 @@ import { NftGrid } from "./Nfts";
 import { PositionList } from "./Positions";
 import { stashedCode } from "@/lib/dropClient";
 import { renamePasskey } from "@/lib/passkey";
+import { pullWalletName, pushWalletName } from "@/lib/walletName";
 import { disconnect } from "@/lib/walletconnect";
 import type { Session } from "../WalletConnect";
 
@@ -158,11 +159,30 @@ export function SafeApp({ link }: { link?: string } = {}) {
   // the wallet's name: the user's own once they set one (we never rename it then), else Spending / Savings account
   // by the rough balance below (under ~$200 is spending money)
   const [customName, setCustomName] = useState<string | null>(null);
-  useEffect(() => setCustomName(account ? loadWalletName(account.address) : null), [account]);
+  // synced across the passkey's devices (lib/walletName.ts): theirs wins; one saved before sync goes up
+  useEffect(() => {
+    setCustomName(account ? loadWalletName(account.address) : null);
+    if (!account || account.credentialId === WATCH) return;
+    let live = true;
+    pullWalletName(account.credentialId, account.address).then(n => {
+      if (!live) return;
+      const mine = loadWalletName(account.address);
+      if (n === undefined) {
+        if (mine) pushWalletName(account.credentialId, account.address, mine);
+        return;
+      }
+      saveWalletName(account.address, n);
+      setCustomName(n);
+    });
+    return () => {
+      live = false;
+    };
+  }, [account]);
   const setName = (n: string | null) => {
     if (!account) return;
     saveWalletName(account.address, n);
     setCustomName(n);
+    if (account.credentialId !== WATCH) pushWalletName(account.credentialId, account.address, n);
   };
   // the passkey's name in the password manager tracks the wallet: "Savings account · atg.eth · ~$50". Every
   // rename can pop a system notification, so the balance is rough (1-2-5 steps) and sticky: it only moves when the

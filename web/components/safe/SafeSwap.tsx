@@ -6,7 +6,7 @@ import { CHAINS, chainById, explorerAddress, explorerTx, publicClient, nativeSym
 import { amount as fmtAmount, short, usd } from "@/lib/format";
 import { abi } from "@/lib/safe/core";
 import type { Quote } from "@/lib/safe/fee";
-import { type FeeToken, type Signer, type Stage, getQuote, ownerSigners, ownersSend, sendKind, signThenQueue, signerOptions, usesWedgie } from "@/lib/safe/send";
+import { type FeeToken, type Signer, type Stage, Shared, getQuote, ownerSigners, ownersSend, sendKind, signThenQueue, signerOptions, usesWedgie } from "@/lib/safe/send";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { POPULAR, type SwapRoute, type Token, swapCalls } from "@/lib/safe/swap";
 import { uniswapRoute } from "@/lib/safe/uniswap";
@@ -309,6 +309,7 @@ export function SafeSwap({
       setHash(h);
       setStage("done");
     } catch (e: any) {
+      if (e instanceof Shared) return; // its page has the sheet now
       setError(friendly(e));
       setStage("form");
     } finally {

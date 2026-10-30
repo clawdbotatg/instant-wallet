@@ -9,6 +9,7 @@ import { hotAvailable } from "@/lib/safe/hot";
 import {
   type FeeToken,
   type Prepared,
+  Shared,
   finishOwners,
   getQuote,
   ownerSigners,
@@ -138,6 +139,7 @@ export function SendAll({
       set(chainId, { ...r, stage: "done", hash });
     } catch (e: any) {
       if (e instanceof Parked) set(chainId, { ...r, stage: "parked" });
+      else if (e instanceof Shared) set(chainId, { stage: "idle" }); // its page has the sheet now
       else set(chainId, { stage: "idle", error: friendly(e) }); // get a fresh fee and nonce next time
     } finally {
       await wedgie?.close();

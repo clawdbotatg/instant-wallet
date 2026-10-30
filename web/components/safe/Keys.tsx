@@ -9,8 +9,6 @@ import { CHAINS, chainById, explorerAddress, nativeSymbol } from "@/lib/chains";
 import { amount, short } from "@/lib/format";
 import { DAO, FEE_ALLOWANCE, RECOVERY_60D, VERIFIERS } from "@/lib/safe/config";
 import { type Call, DEFAULT_BUDGET, abi, signerAddress, budgetCalls, deploySignerCall, feeAllowanceCalls, recoveryLayoutCalls, selfCall } from "@/lib/safe/core";
-import type { Waiting } from "@/lib/safe/share";
-import { SharedDone } from "./Waiting";
 import { type FeeToken, type Prepared, Shared, type Signer, finishOwners, getQuote, howSigns, ownerSigners, prepareOwners, signerLabel, usesWedgie } from "@/lib/safe/send";
 import { type ChainState, type SafeAccount, daoDays, loadSigners, loadWalletName, readChain, saveSigner, wedgieSigners, shownAs } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
@@ -59,7 +57,6 @@ export function Keys({
   const [keysEdit, setKeysEdit] = useState(false); // signers: the list until Edit
   const [wedgieOpen, setWedgieOpen] = useState(false);
   const [wedgieLook, setWedgieLook] = useState<{ tone: string; looking: boolean } | null>(null); // what the pill says
-  const [shared, setShared] = useState<Waiting | null>(null); // a change signed here that needs the others (its link) // the wedgie panel (status, find, install), under the signers
   const st = states.find(s => s.chainId === chainId);
   const usdc = chainById(chainId)?.usdc?.toLowerCase();
   const haveUsdc = assets.some(a => a.chainId === chainId && a.asset.toLowerCase() === usdc && BigInt(a.balance) >= (chainId === 1 ? 10_000_000n : 1_000_000n));
@@ -160,10 +157,8 @@ export function Keys({
       onRefresh();
     } catch (e: any) {
       setWait(null);
-      if (e instanceof Shared) {
-        setShared(e.w); // a wallet with other people on it: they sign from the link
-        setPending(null);
-      } else setErrorRaw({ what: pending.what, msg: friendly(e) });
+      if (e instanceof Shared) setPending(null); // its page has the sheet now
+      else setErrorRaw({ what: pending.what, msg: friendly(e) });
     } finally {
       await pending.close?.();
       setBusy(null);
@@ -411,7 +406,6 @@ export function Keys({
   const idle = !!busy || !!pending || !!wait || !canPay;
 
 
-  if (shared && st) return <SharedDone w={shared} need={st.threshold} onDone={() => setShared(null)} />;
 
   return (
     <div className="stack">

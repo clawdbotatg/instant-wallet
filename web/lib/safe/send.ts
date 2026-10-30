@@ -21,7 +21,7 @@ import { passkeySign, passkeySignRaw } from "./sign";
 import { short } from "../format";
 import { type ChainState, type SafeAccount, loadSigners, salt, wedgieSigners } from "./state";
 import { Wedgie, wedgieSupported } from "./wedgie";
-import { type Waiting, openTx, shareTx, sigHex } from "./share";
+import { type Waiting, openTx, readWaiting, shareTx, sigHex } from "./share";
 import { bio } from "@/lib/passkey";
 
 /** Thrown by a send this device signed but that needs more signers: it's shared (lib/safe/share.ts) and its page opens. */
@@ -185,7 +185,9 @@ export async function finishOwners(p: Prepared): Promise<Hash> {
     const w: Waiting = { chainId, safe: a.address, tx: t, hash: h, sigs: sigs.map(s => ({ owner: s.signer, signature: sigHex(s) })), label: p.opts.label };
     const got = await shareTx(w);
     if (!got.safe && !got.queue) w.label = (w.label ? `${w.label} ` : "") + "(saved in this browser only)";
-    // one thing here: your signature. The rest (the wedgie, or a link for the others) happens on its page.
+    used.set(`${chainId}:${a.address}`, t.nonce);
+    // one thing here: your signature. The rest (the wedgie, or a link for the others) happens on its page. Callers
+    // treat Shared as done (no error, nothing left ready to sign): the sheet is already the transaction's.
     openTx(w);
     throw new Shared(w);
   }
@@ -254,11 +256,13 @@ export async function sendKind(
   return ownersKind(!st.deployed || !code || code === "0x", usesWedgie(a, st, signers), o);
 }
 
-/** RPC nodes lag a block now and then: never reuse a nonce this page just used. */
+/** RPC nodes lag a block now and then: never reuse a nonce this page just used. A wallet that needs 2+ signatures
+ * goes after what's waiting (as Safe{Wallet} does): two waiting with one number, sending one kills the other. */
 const used = new Map<string, bigint>();
 async function freshNonce(chainId: number, safe: Address, st: ChainState): Promise<bigint> {
   let n = st.nonce;
   if (st.deployed) n = await publicClient(chainId).readContract({ address: safe, abi: abi.safe, functionName: "nonce" }).catch(() => st.nonce);
+  if (st.deployed && st.threshold > 1) for (const w of await readWaiting(chainId, safe, n).catch(() => [])) if (w.tx.nonce >= n) n = w.tx.nonce + 1n;
   const last = used.get(`${chainId}:${safe}`);
   return last !== undefined && last >= n ? last + 1n : n;
 }

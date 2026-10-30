@@ -9,7 +9,7 @@ import { cardsPdfBlob } from "@/lib/claimBatch";
 import { amount as fmtAmount, usd } from "@/lib/format";
 import { transfer } from "@/lib/safe/core";
 import { Parked } from "@/lib/safe/pending";
-import { type FeeToken, type Stage, budgetSend, getQuote, ownersSend, plan, sendKind, usesWedgie } from "@/lib/safe/send";
+import { type FeeToken, type Stage, Shared, budgetSend, getQuote, ownersSend, plan, sendKind, usesWedgie } from "@/lib/safe/send";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
@@ -178,6 +178,7 @@ export function Share({ account, states, assets, chainId: startChain, onDone }: 
       setStep("done");
     } catch (e: any) {
       if (e instanceof Parked) return setStep("parked");
+      if (e instanceof Shared) return; // its page has the sheet now
       setError(friendly(e));
       setStep("unfunded");
     } finally {

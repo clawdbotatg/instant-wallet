@@ -9,7 +9,7 @@ import { type ChainState, type SafeAccount, defaultWalletName, forgetKnown, load
 import { type Asset, type Portfolio, keepLate } from "@/lib/types";
 import { loadHidden, loadPortfolio, loadShown, saveHidden, savePortfolio, saveShown } from "@/lib/store";
 import { dropOtherBudgetsCalls } from "@/lib/safe/core";
-import { type Prepared, finishOwners, ownerSigners, prepareOwners } from "@/lib/safe/send";
+import { type Prepared, Shared, finishOwners, ownerSigners, prepareOwners } from "@/lib/safe/send";
 import { friendly } from "../Welcome";
 import { AppsIcon, Blockie, DepositIcon, GearIcon, ScanIcon, SendIcon, Sheet, sheetOpen, TokenIcon, TrashIcon, copy, useToast } from "../bits";
 import { Receive } from "../Receive";
@@ -293,6 +293,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
       setToast("The old phone's budget is off");
       refresh();
     } catch (e: any) {
+      if (e instanceof Shared) return setDropReady(null); // its page has the sheet now
       setToast(friendly(e));
     }
   }

@@ -5,7 +5,7 @@ import { type Address, encodeFunctionData } from "viem";
 import { chainById, explorerAddress } from "@/lib/chains";
 import { short } from "@/lib/format";
 import { abi } from "@/lib/safe/core";
-import { type Prepared, finishOwners, ownerSigners, prepareOwners } from "@/lib/safe/send";
+import { type Prepared, Shared, finishOwners, ownerSigners, prepareOwners } from "@/lib/safe/send";
 import type { ChainState, RecoveryOn, SafeAccount } from "@/lib/safe/state";
 import { SAFE_SVC } from "@/lib/safe/share";
 import { Eject, Who } from "../bits";
@@ -62,6 +62,7 @@ export function RecoveryAlert({
       setReady(null);
       onDone();
     } catch (e: any) {
+      if (e instanceof Shared) return setReady(null); // its page has the sheet now
       setError(friendly(e));
     } finally {
       setBusy(false);

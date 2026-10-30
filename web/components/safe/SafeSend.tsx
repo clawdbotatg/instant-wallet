@@ -12,8 +12,6 @@ import { openWalletConnect } from "@/lib/walletconnect";
 import { transfer } from "@/lib/safe/core";
 import type { Quote } from "@/lib/safe/fee";
 import { type FeeToken, type Signer, type Stage, Shared, budgetSend, getQuote, ownersSend, plan, sendKind, signThenQueue, signerOptions, usesWedgie } from "@/lib/safe/send";
-import type { Waiting } from "@/lib/safe/share";
-import { SharedDone } from "./Waiting";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
@@ -62,8 +60,7 @@ export function SafeSend({
   const [amountIn, setAmountIn] = useState(""); // always the token amount; in dollar mode it's worked out from usdIn
   const [inUsd, setInUsd] = useState(true); // type dollars (the default) or the token
   const [usdIn, setUsdIn] = useState("");
-  const [stage, setStage] = useState<"form" | "review" | Stage | "done" | "parked" | "shared">("form");
-  const [shared, setShared] = useState<Waiting | null>(null); // signed here, the other signers sign from its link
+  const [stage, setStage] = useState<"form" | "review" | Stage | "done" | "parked">("form");
   const [quote, setQuote] = useState<Quote | null>(null);
   const [hash, setHash] = useState<Hash>();
   const [error, setError] = useState<string | null>(null);
@@ -262,10 +259,7 @@ export function SafeSend({
       setHash(h);
       setStage("done");
     } catch (e: any) {
-      if (e instanceof Shared) {
-        setShared(e.w);
-        return setStage("shared");
-      }
+      if (e instanceof Shared) return; // its page has the sheet now
       if (e instanceof Parked) {
         setHash(e.hash as Hash);
         return setStage("parked");
@@ -280,7 +274,6 @@ export function SafeSend({
   const what = asset && amountIn ? `${fmtAmount(amountIn)} ${asset.symbol}` : "";
   const who = resolved ? (toInput.includes(".") ? toInput : short(resolved)) : "";
 
-  if (stage === "shared" && shared && st) return <SharedDone w={shared} need={st.threshold} onDone={onDone} />;
 
   if (stage === "parked")
     return (

@@ -6,7 +6,7 @@ import { amount as fmtAmount } from "@/lib/format";
 import { chainById, nativeSymbol } from "@/lib/chains";
 import { FEE_ALLOWANCE } from "@/lib/safe/config";
 import { feeAllowanceCalls, setBudgetCalls } from "@/lib/safe/core";
-import { type Prepared, finishOwners, getQuote, ownerSigners, prepareOwners, signerLabel, usesWedgie } from "@/lib/safe/send";
+import { type Prepared, Shared, finishOwners, getQuote, ownerSigners, prepareOwners, signerLabel, usesWedgie } from "@/lib/safe/send";
 import { type ChainState, type SafeAccount, readChain } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
@@ -89,6 +89,7 @@ export function ChainLimit({ account, st, assets, onRefresh, toast, onClose }: {
       onRefresh();
     } catch (e: any) {
       setWait(null);
+      if (e instanceof Shared) return setReady(null); // its page has the sheet now
       setError(friendly(e));
     } finally {
       await ready.close();

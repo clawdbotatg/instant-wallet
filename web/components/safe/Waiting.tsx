@@ -20,20 +20,6 @@ import { friendly } from "../Welcome";
 import { CopyLink, Eject } from "../bits";
 import { WhatItDoes } from "./WhatItDoes";
 
-/** After a send that needs other signers: its page is opening (finishOwners called openTx). */
-export function SharedDone(_: {
-  w: Waiting;
-  need?: number;
-  onDone?: () => void;
-}) {
-  return (
-    <div className="stack center">
-      <h2>Signed</h2>
-      <p className="fine">Opening the transaction…</p>
-    </div>
-  );
-}
-
 /** Home: transactions waiting for signatures, on every network where this wallet needs more than one. */
 export function WaitingCards({
   account,

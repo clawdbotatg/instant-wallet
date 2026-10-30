@@ -1,4 +1,4 @@
-import { type Address, type Hex, getAddress, isAddress, slice, zeroAddress } from "viem";
+import { type Address, type Hex, getAddress, hashTypedData, isAddress, slice, zeroAddress } from "viem";
 import { publicClient } from "../chains";
 import { type SafeTx, type Sig, abi, encodeSignatures, safeTxHash } from "./core";
 
@@ -149,6 +149,30 @@ export async function readWaiting(c: number, a: Address, nonce: bigint, o: { svc
   saveLocal(c, a, l);
   for (const h of dropped) all.delete(h);
   return [...all.values()].sort((x, y) => Number(x.tx.nonce - y.tx.nonce));
+}
+
+/** What an owner signs to take a tx off the queue: Safe's Transaction Service's DeleteRequest (this hour's totp), the
+ * one /api/safe/queue DELETE checks. */
+export const deleteHash = (w: Waiting) =>
+  hashTypedData({
+    domain: { name: "Safe Transaction Service", version: "1.0", chainId: w.chainId, verifyingContract: w.safe },
+    types: { DeleteRequest: [{ name: "safeTxHash", type: "bytes32" }, { name: "totp", type: "uint256" }] },
+    primaryType: "DeleteRequest",
+    message: { safeTxHash: w.hash, totp: BigInt(Math.floor(Date.now() / 3600_000)) },
+  });
+
+/** Off the queue, with an owner's signature of `deleteHash`: gone here and in this browser, hidden from Safe's service's
+ * copy. No tx on chain: it could still run until another tx takes its number. */
+export async function dropTx(w: Waiting, s: Sig) {
+  const r = await fetch("/api/safe/queue", {
+    method: "DELETE",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ chainId: w.chainId, safe: w.safe, hash: w.hash, nonce: w.tx.nonce.toString(), signature: encodeSignatures([s]) }),
+  });
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `queue: ${r.status}`);
+  const l = loadLocal(w.chainId, w.safe);
+  delete l[w.hash.toLowerCase()];
+  saveLocal(w.chainId, w.safe, l);
 }
 
 /** Which of these signatures the Safe takes as its owners' (one eth_call each). */

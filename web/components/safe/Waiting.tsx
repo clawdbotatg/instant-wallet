@@ -3,14 +3,19 @@
 import { useEffect, useState } from "react";
 import { chainById } from "@/lib/chains";
 import { callsOf } from "@/lib/safe/describe";
+import { passkeySign } from "@/lib/safe/sign";
 import {
   type Waiting,
+  deleteHash,
+  dropTx,
   openTx,
   readWaiting,
   safeAppTxLink,
   txLink,
 } from "@/lib/safe/share";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
+import { ErrorLine } from "./WedgieButton";
+import { friendly } from "../Welcome";
 import { WhatItDoes } from "./WhatItDoes";
 
 /** After a send that needs other signers: its page is opening (finishOwners called openTx). */
@@ -36,6 +41,21 @@ export function WaitingCards({
   states: ChainState[];
 }) {
   const [list, setList] = useState<{ w: Waiting; need: number }[]>([]);
+  const [removing, setRemoving] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  // Remove: this phone's Face ID signs Safe's delete message (it's an owner on every wallet it opens)
+  const remove = async (w: Waiting) => {
+    setRemoving(w.hash);
+    setError(null);
+    try {
+      await dropTx(w, await passkeySign(account.credentialId, account.burnerSigner, deleteHash(w)));
+      setList((l) => l.filter((x) => x.w.hash !== w.hash));
+    } catch (e: any) {
+      setError(friendly(e));
+    } finally {
+      setRemoving(null);
+    }
+  };
   const multi = states.filter((s) => s.deployed && s.threshold > 1);
   const key = `${account.address}|${multi.map((s) => `${s.chainId}:${s.nonce}`).join()}`;
   useEffect(() => {
@@ -69,6 +89,14 @@ export function WaitingCards({
               <WhatItDoes chainId={w.chainId} safe={w.safe} calls={callsOf(w.tx)} />
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
+              <button
+                className="btn btn-red btn-sm"
+                style={{ height: "auto", flex: "none" }}
+                disabled={!!removing}
+                onClick={() => remove(w)}
+              >
+                {removing === w.hash ? "…" : "Remove"}
+              </button>
               {app && (
                 <a
                   className="btn btn-sm"
@@ -109,6 +137,7 @@ export function WaitingCards({
           </div>
         );
       })}
+      {error && <ErrorLine text={error} />}
     </div>
   );
 }

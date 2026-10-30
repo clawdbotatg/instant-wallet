@@ -7,15 +7,16 @@ import { Money } from "../bits";
 import { WARN, describe, ours, relayFee } from "@/lib/safe/describe";
 import type { Call } from "@/lib/safe/core";
 import { type Sim, asSafeTx, moves, simulate } from "@/lib/safe/sim";
-import { MULTISEND_CALL_ONLY } from "@/lib/safe/config";
+import { RECOVERY_DAYS } from "@/lib/safe/config";
+import { rolesAddress } from "@/lib/safe/core";
+import { dangers } from "clear-signing-safe-kit";
 
 type SafeTxLike = { to: Address; value: bigint; data: Hex; operation: 0 | 1 };
-const eq = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
 type Field = { label: string; value: string; address?: string };
 type Told = { what: string; fields: Field[]; swap?: { pay: Move & { most?: boolean }; get: Move & { least?: boolean } } } | null;
 type Move = { symbol: string; amount: string; usd?: number };
-type Got = { calls: Told[] | null; sim: Sim };
+type Got = { calls: Told[] | null; sim: Sim | null };
 
 // one ask per set of calls, kept for the page's life
 const got = new Map<string, Promise<Got>>();
@@ -49,8 +50,11 @@ function ask(chainId: number, safe: Address, calls: Call[], tx?: SafeTxLike) {
  * the words the wedgie shows) where the registry has it, else describe.ts. */
 export function WhatItDoes({ chainId, safe, calls, tx }: { chainId: number; safe: Address; calls: Call[]; tx?: SafeTxLike }) {
   const [res, setRes] = useState<Got | null>(null);
-  // a delegatecall that isn't our own MultiSend batch of plain calls lets that contract run any code as the Safe
-  const danger = !!tx && tx.operation === 1 && (!eq(tx.to, MULTISEND_CALL_ONLY) || !calls.length);
+  // what could take everything (clear-signing-safe-kit, the same rules wedgie.dev uses): a delegatecall that isn't a
+  // plain batch, a module that isn't ours, a guard, a fallback handler
+  const known = [...Object.keys(RECOVERY_DAYS), rolesAddress(safe)].map(a => a.toLowerCase());
+  const warns = calls.length || tx ? dangers(safe, tx ?? asSafeTx(calls), known) : [];
+  const danger = warns.length > 0;
   const key = `${chainId}|${tx?.operation ?? 0}|${tx?.to ?? ""}|${calls.map(c => c.to + c.data + c.value).join()}`;
   useEffect(() => {
     let live = true;
@@ -71,9 +75,9 @@ export function WhatItDoes({ chainId, safe, calls, tx }: { chainId: number; safe
   const steps = danger || !sim || !!sim.fails || (!sim.pay.length && !sim.get.length) || calls.some(c => describe(chainId, safe, c).startsWith(WARN));
   return (
     <>
-      {danger && (
-        <Said text={`${WARN}Lets ${short(tx!.to)} run any code as your wallet. It could take everything. Only sign if you know exactly why.`} />
-      )}
+      {warns.map((w, i) => (
+        <Said key={`d${i}`} text={WARN + w} />
+      ))}
       {!res ? (
         <span className="fine">Checking what it does…</span>
       ) : sim?.fails ? (

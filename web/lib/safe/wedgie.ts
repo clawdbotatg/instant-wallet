@@ -1,5 +1,5 @@
 import { type Address, type Hex, getAddress } from "viem";
-import { clearBundle } from "./clear";
+import { clearBundle } from "clear-signing-safe-kit";
 import { type SafeTx, type Sig, encodeWebAuthn } from "./core";
 
 /**
@@ -569,7 +569,7 @@ export class Wedgie {
     let chunk = h.safe_chunk;
     if (chunk && this.drive) chunk = Math.min(chunk, DRIVE_CHUNK);
     // what the ERC-7730 registry says about its calls, sent ahead: the wedgie checks it against its own roots
-    const cb = h.safe_clear && chunk ? await clearBundle(h.safe_clear, tx.chainId, t).catch(() => null) : null;
+    const cb = h.safe_clear && chunk ? await clearBundle(h.safe_clear, tx.chainId, { ...t, safe: tx.safe }).catch(() => null) : null;
     // the first piece says the whole size (n): Safe Signer safe-32+ reserves one block for it then, instead of joining
     // the pieces at sign time (a real wedgie on a phone, 10-27: MemoryError, 1784 bytes). Older ones ignore n.
     for (let o = 0; cb && chunk && o < cb.length; o += chunk) {

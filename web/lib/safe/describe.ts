@@ -4,6 +4,7 @@ import { short } from "../format";
 import { KEY_ETH, KEY_FEE_USDC, KEY_USDC, MODULE_FACTORY, MULTICALL3, MULTISEND_CALL_ONLY, MULTISEND_UNWRAPPER, RECOVERY_DAYS, ROLE_BURNER, ROLES_MASTERCOPY } from "./config";
 import { type Call, type SafeTx, abi, rolesAddress } from "./core";
 import { unpackMultiSend } from "./fee";
+import { UNIVERSAL_ROUTERS } from "clear-signing-safe-kit";
 
 const eq = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 const dec = (a: any, data: Hex) => {
@@ -30,15 +31,7 @@ export function callsOf(tx: Pick<SafeTx, "to" | "value" | "data" | "operation">)
 export const WARN = "⚠️ ";
 export const RELAY = "0x4cfab32186e65e2a39ec0e882e11380cbf2f8a2f"; // the relayer the fee rule names (wedgie-safe safe_book RELAY)
 const PERMIT2 = "0x000000000022d473030f116ddee9f6b43ac78ba3";
-// Uniswap's Universal Routers (code checked on each chain, 10-29); any other address is named by its address
-export const UNISWAP = [
-  "0xd6145b2d3f379919e8cdeda7b97e37c4b2ca9c40",
-  "0x6ff5693b99212da76ad316178a184ab56d299b43",
-  "0x66a9893cc07d91d95644aedd05d03f95e1dba8af",
-  "0xa51afafe0263b40edaef0df8781ea9aa03e381a3",
-  "0x851116d9223fabed8e56c0e6b8ad0c31d98b3507",
-  "0x1095692a6237d83c6a72f3f5efedb9a670c49223",
-];
+export const UNISWAP = UNIVERSAL_ROUTERS;
 const MAX = 2n ** 160n - 1n; // Permit2's "any amount" is uint160; an ERC-20's is uint256 (anything this big counts)
 const guardAbi = parseAbi(["function setGuard(address guard)", "function setFallbackHandler(address handler)"]);
 const permit2 = parseAbi(["function approve(address token, address spender, uint160 amount, uint48 expiration)"]);
@@ -108,12 +101,12 @@ export function describe(chainId: number, safe: Address, c: Call): string {
         return `Swap signer ${short(a[1])} for ${short(a[2])}`;
       case "enableModule":
         if (eq(a[0], rolesAddress(safe))) return "Turn on the daily limit";
-        return RECOVERY_DAYS[getAddress(a[0])] ? `Turn on ${RECOVERY_DAYS[getAddress(a[0])]}-day recovery` : `${WARN}Turn on module ${short(a[0])}: it could move everything, with no signatures`;
+        return RECOVERY_DAYS[getAddress(a[0])] ? `Turn on ${RECOVERY_DAYS[getAddress(a[0])]}-day recovery` : `Turn on module ${short(a[0])}`;
       case "disableModule":
         return RECOVERY_DAYS[getAddress(a[1])] ? `Turn off ${RECOVERY_DAYS[getAddress(a[1])]}-day recovery` : `Turn off module ${short(a[1])}`;
     }
-    if (sel === "0xe19a9dd9") return `${WARN}Set a guard (${short(dec(guardAbi, d)?.args[0] ?? "?")}): it can block every transaction`;
-    if (sel === "0xf08a0323") return `${WARN}Set a fallback handler (${short(dec(guardAbi, d)?.args[0] ?? "?")}): it answers for your wallet`;
+    if (sel === "0xe19a9dd9") return `Set a guard (${short(dec(guardAbi, d)?.args[0] ?? "?")})`;
+    if (sel === "0xf08a0323") return `Set a fallback handler (${short(dec(guardAbi, d)?.args[0] ?? "?")})`;
     return `${WARN}Change the wallet (${sel})`;
   }
 

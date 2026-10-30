@@ -10,19 +10,21 @@ import { type Call, type Sig, abi, batch, execData, safeTxHash, signerAddress } 
 import { callsOf, relayFee } from "@/lib/safe/describe";
 import { unpackMultiSend } from "@/lib/safe/fee";
 import { connectHot, hotAvailable, hotSend, hotSign } from "@/lib/safe/hot";
-import { feeCall, getQuote, waitFor } from "@/lib/safe/send";
+import { feeCall, getQuote, ownerSigners, usesWedgie, waitFor } from "@/lib/safe/send";
+import { signForSite } from "@/lib/safe/connect";
 import { type Waiting, allSignatures, checkSigs, fromLink, openTx, readWaiting, safeAppTxLink, shareTx, sigHex, txLink } from "@/lib/safe/share";
 import { passkeySign } from "@/lib/safe/sign";
-import { keyFromCode, loadAccount, loadSigners, wedgieHome, wedgieSigners } from "@/lib/safe/state";
+import { type ChainState, keyFromCode, loadAccount, loadSigners, readChain, wedgieHome, wedgieSigners } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import { BioSigner, Blockie, CopyLink, Eject, GreenButton, Who, copy, useToast } from "../bits";
 import { friendly } from "../Welcome";
 import { ErrorLine } from "./WedgieButton";
 import { WhatItDoes } from "./WhatItDoes";
 
-type Onchain = { owners: Address[]; threshold: number; nonce: bigint; passkeys: Address[]; homes: Record<string, Address> };
+type Onchain = { owners: Address[]; threshold: number; nonce: bigint; passkeys: Address[]; contracts: Address[]; homes: Record<string, Address> };
 const PASSKEY_SIGNER_SIZE = 236; // a passkey signer proxy (lib/safe/state.ts): a phone's Face ID or a wedgie
 const eq = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+const ERC6492 = "6492".repeat(16); // the ERC-6492 suffix: a signature that deploys first (useless to a Safe)
 
 /**
  * /tx/<chain>/<safe>#<code>: one Safe transaction anyone can open (docs/MULTI-SIGNER.md). What it does, who signed,
@@ -41,6 +43,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState<Hash | null>(null);
   const [missing, setMissing] = useState(false);
+  const [mine, setMine] = useState<ChainState | null>(null);
   const [toast, setToast] = useToast();
 
   // the Safe from the chain, the tx from the link (or the queue), its signatures from everywhere, each checked
@@ -59,7 +62,15 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
       const k = keyFromCode(codes[i]);
       if (k) homes[o.toLowerCase()] = wedgieHome(k);
     });
-    setChain({ owners: os, threshold: Number(threshold), nonce, passkeys: os.filter((_, i) => !!codes[i] && codes[i] !== "0x" && size(codes[i]!) === PASSKEY_SIGNER_SIZE), homes });
+    const isCode = (i: number) => !!codes[i] && codes[i] !== "0x";
+    setChain({
+      owners: os,
+      threshold: Number(threshold),
+      nonce,
+      passkeys: os.filter((_, i) => isCode(i) && size(codes[i]!) === PASSKEY_SIGNER_SIZE),
+      contracts: os.filter((_, i) => isCode(i) && size(codes[i]!) !== PASSKEY_SIGNER_SIZE),
+      homes,
+    });
     const code = inWallet ?? location.hash.slice(1);
     const linked = code ? fromLink(chainId, safe, code) : null;
     const h = (linked?.hash ?? (inWallet ? "" : new URLSearchParams(location.search).get("h")) ?? "").toLowerCase();
@@ -71,6 +82,9 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
     m.label ??= q?.label;
     setW({ ...m });
     setValid(await checkSigs(m).catch(() => []));
+    // this browser's own wallet is a signer here: read what it signs now, so Face ID starts straight from the tap
+    const me = loadAccount();
+    if (me && os.some(o => eq(o, me.address))) setMine(await readChain(chainId, me).catch(() => null));
   }, [chainId, safe, inWallet]);
   useEffect(() => {
     load().catch(e => setError(friendly(e)));
@@ -131,6 +145,19 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
     } finally {
       await wd.close();
     }
+  });
+
+  // this browser's Instant Wallet is the signer: its own keys sign for it (ERC-1271, as for a site), nothing is sent
+  const signMine = run("mine", async () => {
+    const me = loadAccount();
+    if (!w || !me || !mine) return;
+    const st = mine;
+    if (!st.deployed) throw new Error(`Your wallet isn't on ${chainById(chainId)?.name ?? "this chain"} yet. Send anything from it there first.`);
+    const signers = ownerSigners(st, me, true);
+    if (usesWedgie(me, st, signers)) throw new Error("Your wallet needs its wedgie too, and a wedgie can't sign for another wallet yet.");
+    const sig = await signForSite(me, st, signers, w.hash);
+    if (sig.endsWith(ERC6492)) throw new Error(`Your ${bio()} key isn't on ${chainById(chainId)?.name ?? "this chain"} yet. Send anything from your wallet there first.`);
+    await add({ signer: me.address, data: sig, kind: "contract" });
   });
 
   // enough signatures: the relay sends it (a fee is in an Instant Wallet batch), or your own wallet (you pay the gas)
@@ -209,6 +236,8 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
   // this phone's key, someone's Face ID (invited, or any passkey when this browser has no wallet), a wedgie, a browser wallet
   const kind = (o: Address): Kind => {
     if (me && eq(o, me.burnerSigner)) return "face";
+    if (me && eq(o, me.address)) return "mine";
+    if (chain.contracts.some(c => eq(c, o))) return "safe";
     if (!chain.passkeys.some(p => eq(p, o))) return hotAvailable() ? "wallet" : "other";
     if (mySlots.includes(o.toLowerCase())) return wedgieSupported() ? "wedgie" : "wedgieFar";
     if (friends[o.toLowerCase()]?.passkey) return me ? "person" : "face";
@@ -253,7 +282,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
           const shown = (k === "wedgie" || k === "wedgieFar") && chain.homes[o.toLowerCase()] ? chain.homes[o.toLowerCase()] : o;
           // one wedgie press signs all its slots: the button sits on the first one waiting
           const firstWedgie = chain.owners.find(x => kind(x) === "wedgie" && !valid.some(s => eq(s.owner, x)));
-          const act = signed || done || enough ? null : k === "face" ? signFace : k === "wedgie" && firstWedgie === o ? signWedgie : k === "wallet" ? signWallet : null;
+          const act = signed || done || enough ? null : k === "face" ? signFace : k === "mine" && mine ? signMine : k === "wedgie" && firstWedgie === o ? signWedgie : k === "wallet" ? signWallet : null;
           return (
             <div key={o} className="keyrow" style={{ padding: 0, minHeight: 42 }}>
               <span className="row" style={{ gap: 8 }}>
@@ -316,7 +345,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
   );
 }
 
-type Kind = "face" | "wedgie" | "wedgieFar" | "wallet" | "other" | "person";
+type Kind = "face" | "mine" | "safe" | "wedgie" | "wedgieFar" | "wallet" | "other" | "person";
 // face: <BioSigner> (this device's name for it, Touch ID on a Mac)
 const NAMES: Record<Kind, string> = {
   face: "",
@@ -325,6 +354,8 @@ const NAMES: Record<Kind, string> = {
   wallet: "Browser wallet",
   other: "Browser wallet",
   person: "Someone's passkey",
+  mine: "My wallet",
+  safe: "Another wallet", // a Safe: it signs from its own app (open this link there)
 };
 
 function safeUnpack(data: Hex): Call[] {

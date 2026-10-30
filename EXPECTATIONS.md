@@ -2,6 +2,11 @@
 
 What Instant Wallet must always do. If a change breaks one, it doesn't ship. In this order:
 
+## 0. I should never see memory errors coming from the wedgie
+
+- The highest expectation. A wedgie that runs out of memory, freezes or stops answering is a failure, on any
+  transaction, from Instant Wallet or wedgie.dev.
+
 ## 1. You know exactly what you sign
 
 - Every transaction says what it does in plain English. Never hex, never a function name.

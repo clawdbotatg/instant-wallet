@@ -120,7 +120,7 @@ export function WhatItDoes({ chainId, safe, calls, tx }: { chainId: number; safe
   // coins in and out say it all; the steps show when no coins move (a signer, a limit), the run failed, or a step warns
   const steps = danger || !sim || !!sim.fails || (!sim.pay.length && !sim.get.length) || calls.some(c => describe(chainId, safe, c).startsWith(WARN));
   return (
-    <>
+    <div data-what style={{ display: "contents" }}>
       {warns.map((w, i) => (
         <Said key={`d${i}`} text={WARN + w} />
       ))}
@@ -183,7 +183,7 @@ export function WhatItDoes({ chainId, safe, calls, tx }: { chainId: number; safe
           </div>
         );
       })}
-    </>
+    </div>
   );
 }
 

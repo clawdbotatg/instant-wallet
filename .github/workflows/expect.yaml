@@ -1,0 +1,25 @@
+name: Expectations
+
+# EXPECTATIONS.md, checked on the live site after each push to main (web/tools/expect-check.mjs): no hex on screen,
+# one green button per page, money with − or +. After the push, not before (ship first, test after).
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Wait for Vercel to deploy it
+        run: sleep 240
+      - name: Check the live site
+        run: |
+          mkdir -p /tmp/x && cp web/tools/expect-check.mjs /tmp/x/ && cd /tmp/x
+          npm init -y >/dev/null && npm i playwright-core@1 >/dev/null
+          CHROME=$(which google-chrome) node expect-check.mjs

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { type Address, type Hash, type Hex, getAddress, isAddress, zeroAddress } from "viem";
+import { type Address, type Hash, type Hex, getAddress, isAddress, size, zeroAddress } from "viem";
 import { chainById, explorerTx, publicClient } from "@/lib/chains";
 import { short } from "@/lib/format";
 import { recoverKeys, bio } from "@/lib/passkey";
@@ -12,14 +12,15 @@ import { connectHot, hotAvailable, hotSend, hotSign } from "@/lib/safe/hot";
 import { waitFor } from "@/lib/safe/send";
 import { type Waiting, allSignatures, checkSigs, fromLink, readWaiting, safeAppTxLink, shareTx, sigHex, txLink } from "@/lib/safe/share";
 import { passkeySign } from "@/lib/safe/sign";
-import { loadAccount, wedgieSigners } from "@/lib/safe/state";
+import { loadAccount, loadSigners, wedgieSigners } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import { Blockie, GreenButton, copy, useToast } from "../bits";
 import { friendly } from "../Welcome";
-import { ErrorLine, WedgieIcon } from "./WedgieButton";
+import { ErrorLine } from "./WedgieButton";
 import { WhatItDoes } from "./WhatItDoes";
 
-type Onchain = { owners: Address[]; threshold: number; nonce: bigint };
+type Onchain = { owners: Address[]; threshold: number; nonce: bigint; passkeys: Address[] };
+const PASSKEY_SIGNER_SIZE = 236; // a passkey signer proxy (lib/safe/state.ts): a phone's Face ID or a wedgie
 const eq = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
 /**
@@ -49,7 +50,9 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
       pc.readContract({ address: safe, abi: abi.safe, functionName: "getThreshold" }),
       pc.readContract({ address: safe, abi: abi.safe, functionName: "nonce" }),
     ])) as [Address[], bigint, bigint];
-    setChain({ owners: owners.map(o => getAddress(o)), threshold: Number(threshold), nonce });
+    const os = owners.map(o => getAddress(o));
+    const codes = await Promise.all(os.map(o => pc.getCode({ address: o }).catch(() => undefined)));
+    setChain({ owners: os, threshold: Number(threshold), nonce, passkeys: os.filter((_, i) => !!codes[i] && codes[i] !== "0x" && size(codes[i]!) === PASSKEY_SIGNER_SIZE) });
     const code = inWallet ?? location.hash.slice(1);
     const linked = code ? fromLink(chainId, safe, code) : null;
     const h = (linked?.hash ?? (inWallet ? "" : new URLSearchParams(location.search).get("h")) ?? "").toLowerCase();
@@ -167,9 +170,19 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
   const done = w.tx.nonce < chain.nonce;
   const enough = valid.length >= chain.threshold;
   const me = loadAccount();
-  const mineSigned = !!me && valid.some(s => eq(s.owner, me.burnerSigner)); // this browser's Face ID already signed
   const calls: Call[] = eq(w.tx.to, MULTISEND_CALL_ONLY) && w.tx.operation === 1 ? safeUnpack(w.tx.data) : [{ to: w.tx.to, value: w.tx.value, data: w.tx.data }];
   const app = safeAppTxLink(chainId, safe, w.hash);
+  const friends = loadSigners(safe);
+  const mySlots = me?.wedgie ? wedgieSigners(me.wedgie).map(x => x.toLowerCase()) : [];
+  // this phone's key, someone's Face ID (invited, or any passkey when this browser has no wallet), a wedgie, a browser wallet
+  const kind = (o: Address): Kind => {
+    if (me && eq(o, me.burnerSigner)) return "face";
+    if (!chain.passkeys.some(p => eq(p, o))) return hotAvailable() ? "wallet" : "other";
+    if (mySlots.includes(o.toLowerCase())) return wedgieSupported() ? "wedgie" : "wedgieFar";
+    if (friends[o.toLowerCase()]?.passkey) return me ? "person" : "face";
+    // an unknown passkey signer: a wedgie this browser never paired, or (on a phone with no wallet here) your Face ID
+    return wedgieSupported() ? "wedgie" : me ? "wedgieFar" : "face";
+  };
 
   return (
     <div className="stack">
@@ -193,15 +206,30 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
         </b>
         {chain.owners.map(o => {
           const signed = valid.some(s => eq(s.owner, o));
+          const k = kind(o);
+          // one wedgie press signs all its slots: the button sits on the first one waiting
+          const firstWedgie = chain.owners.find(x => kind(x) === "wedgie" && !valid.some(s => eq(s.owner, x)));
+          const act = signed || done || enough ? null : k === "face" ? signFace : k === "wedgie" && firstWedgie === o ? signWedgie : k === "wallet" ? signWallet : null;
           return (
-            <div key={o} className="keyrow" style={{ padding: 0 }}>
+            <div key={o} className="keyrow" style={{ padding: 0, minHeight: 42 }}>
               <span className="row" style={{ gap: 8 }}>
                 <Blockie address={o} size={22} />
-                <span className="mono" style={{ fontSize: 13 }}>
-                  {short(o)}
+                <span className="stack" style={{ gap: 0 }}>
+                  <span style={{ fontSize: 15, fontWeight: 600 }}>{NAMES[k]}</span>
+                  <span className="mono fine" style={{ fontSize: 12 }}>
+                    {short(o)}
+                  </span>
                 </span>
               </span>
-              <span className={signed ? "" : "fine"}>{signed ? "✓ signed" : "waiting"}</span>
+              {signed ? (
+                <span>✓ signed</span>
+              ) : act ? (
+                <button className="btn btn-sm btn-green" onClick={act} disabled={!!busy}>
+                  {busy === k ? (k === "wedgie" ? <>Press <GreenButton /></> : "Signing…") : k === "face" ? bio() : "Sign"}
+                </button>
+              ) : (
+                <span className="fine">waiting</span>
+              )}
             </div>
           );
         })}
@@ -217,61 +245,49 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
       ) : done ? (
         <p className="fine">This wallet already used number #{w.tx.nonce.toString()}: this one was sent or replaced.</p>
       ) : enough ? (
-        <>
-          <button className="btn btn-green wide" onClick={sendRelay} disabled={!!busy}>
-            {busy === "send" ? "Sending…" : "Send it"}
-          </button>
-          {hotAvailable() && (
-            <button className="btn wide" onClick={sendSelf} disabled={!!busy}>
-              {busy === "self" ? "Sending…" : "Send from my wallet (I pay the gas)"}
-            </button>
-          )}
-        </>
+        <button className="btn btn-green wide" onClick={sendRelay} disabled={!!busy}>
+          {busy === "send" ? "Sending…" : "Send it"}
+        </button>
       ) : (
-        <>
-          {!mineSigned && (
-            <button className="btn btn-green wide" onClick={signFace} disabled={!!busy}>
-              {busy === "face" ? "Signing…" : `Sign with ${bio()}`}
-            </button>
-          )}
-          {wedgieSupported() ? (
-            <button className="btn btn-dark wide" onClick={signWedgie} disabled={!!busy}>
-              <WedgieIcon size={30} /> {busy === "wedgie" ? <>Press <GreenButton /> on the wedgie…</> : "Sign with a wedgie"}
-            </button>
-          ) : (
-            <p className="fine">To sign with a wedgie, open this link on your computer.</p>
-          )}
-          <button
-            className={`btn wide ${mineSigned ? "btn-green" : ""}`}
-            onClick={async () => {
-              const link = txLink(w);
-              if (navigator.share) return navigator.share({ url: link, title: w.label ?? "Sign this" }).catch(() => {});
-              setToast((await copy(link)) ? "Link copied" : "Couldn't copy");
-            }}
-          >
-            Share with another signer
-          </button>
-          {hotAvailable() && (
-            <button className="btn wide" onClick={signWallet} disabled={!!busy}>
-              {busy === "wallet" ? "Signing…" : "Sign with my wallet"}
-            </button>
-          )}
-        </>
+        <button
+          className="btn wide"
+          onClick={async () => {
+            const link = txLink(w);
+            if (navigator.share) return navigator.share({ url: link, title: w.label ?? "Sign this" }).catch(() => {});
+            setToast((await copy(link)) ? "Link copied" : "Couldn't copy");
+          }}
+        >
+          Share with another signer
+        </button>
       )}
       {error && <ErrorLine text={error} />}
 
-      <button className="btn btn-sm" onClick={async () => setToast((await copy(txLink(w))) ? "Link copied" : "Couldn't copy")}>
-        Copy link for the other signers
-      </button>
-      {app && (
-        <a className="btn btn-sm" href={app} target="_blank" rel="noreferrer">
-          Open in Safe&#123;Wallet&#125; ↗
-        </a>
-      )}
+      <p className="fine row" style={{ gap: 16, justifyContent: "center", flexWrap: "wrap" }}>
+        {enough && !done && !sent && hotAvailable() && (
+          <a href="#" onClick={e => (e.preventDefault(), sendSelf())}>
+            {busy === "self" ? "Sending…" : "Send from my wallet (I pay gas)"}
+          </a>
+        )}
+        {app && (
+          <a href={app} target="_blank" rel="noreferrer">
+            Safe&#123;Wallet&#125; ↗
+          </a>
+        )}
+      </p>
       {toast && <div className="toast">{toast}</div>}
     </div>
   );
 }
+
+type Kind = "face" | "wedgie" | "wedgieFar" | "wallet" | "other" | "person";
+const NAMES: Record<Kind, string> = {
+  face: "Face ID",
+  wedgie: "Wedgie",
+  wedgieFar: "Wedgie (sign on a computer)",
+  wallet: "Browser wallet",
+  other: "Browser wallet",
+  person: "Someone's Face ID",
+};
 
 function safeUnpack(data: Hex): Call[] {
   try {

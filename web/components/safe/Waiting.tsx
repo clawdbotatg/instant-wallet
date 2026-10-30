@@ -166,7 +166,7 @@ export function WaitingCards({
                   openTx(w);
                 }}
               >
-                {enough ? "Send it" : `Sign · ${w.sigs.length} of ${need}`}
+                {enough ? "Execute" : `Sign · ${w.sigs.length} of ${need}`}
               </a>
             </div>
           </div>

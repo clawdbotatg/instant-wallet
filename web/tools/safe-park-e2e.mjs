@@ -191,7 +191,7 @@ await page.evaluate(() => localStorage.removeItem("test.phone"));
 await page.reload();
 await page.getByText("Sign with your wedgie").waitFor({ timeout: 30000 });
 await page.screenshot({ path: `${OUT}/p4-computer-card.png` });
-await page.getByRole("button", { name: "Sign and send" }).tap();
+await page.getByRole("button", { name: "Sign and execute" }).tap();
 await page.waitForTimeout(20000);
 const errs = await page.locator(".err").allTextContents();
 if (errs.length) console.log("on screen:", errs);

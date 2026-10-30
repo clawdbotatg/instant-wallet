@@ -306,7 +306,7 @@ export function SafeSend({
         {asset && <Money amount={amountIn} symbol={asset.symbol} usd={asset.price ? Number(amountIn) * asset.price : null} />}
         <p>to {toInput.includes(".") ? toInput : short(resolved)}</p>
         {url && <Eject href={url} title="See it on the explorer">Explorer</Eject>}
-        <button className="btn btn-green wide" onClick={onDone}>
+        <button className="btn btn-red wide" onClick={onDone}>
           Done
         </button>
       </div>
@@ -376,7 +376,7 @@ export function SafeSend({
         </button>
         <Progress stage={stage} chainId={chainId} hash={hash} />
         {!busy && (
-          <button className="btn wide" onClick={() => setStage("form")}>
+          <button className="btn btn-red wide" onClick={() => setStage("form")}>
             Back
           </button>
         )}

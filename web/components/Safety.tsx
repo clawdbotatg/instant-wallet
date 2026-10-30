@@ -162,17 +162,17 @@ export function Safety({ account, signer, who }: { account: Account; signer?: Ke
           <b>Keys</b>
           {s.signers.map(k => (
             <div key={k.id} className="row" style={{ justifyContent: "space-between" }}>
-              <span className="row">
-                {amOwner && k.role !== ROLE_OWNER && <RemoveX disabled={!!busy} label="Remove this key" onClick={() => run("remove", removeSignerCalls(account.address, k.id))} />}
-                <span>
+              <span>
                 {k.kind === 1 ? "🔑 wedgie" : "📱 passkey"} <span className="mono fine">{short(k.id)}</span>
                 {k.id.toLowerCase() === me.toLowerCase() && <b> · you</b>}
-                </span>
               </span>
-              <span className="fine">
-                {k.role === ROLE_OWNER
-                  ? "owner"
-                  : `limit ${(s.limits[k.id] ?? []).map(l => `${Number(l.limit) / 1e6}`).join(", ") || "0"}/day`}
+              <span className="row">
+                <span className="fine">
+                  {k.role === ROLE_OWNER
+                    ? "owner"
+                    : `limit ${(s.limits[k.id] ?? []).map(l => `${Number(l.limit) / 1e6}`).join(", ") || "0"}/day`}
+                </span>
+                {amOwner && k.role !== ROLE_OWNER && <RemoveX disabled={!!busy} label="Remove this key" onClick={() => run("remove", removeSignerCalls(account.address, k.id))} />}
               </span>
             </div>
           ))}

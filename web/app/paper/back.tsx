@@ -4,7 +4,7 @@
 export function PaperBack() {
   const back = () => (history.length > 1 ? history.back() : location.assign("/"));
   return (
-    <button className="btn wide noprint" onClick={back}>
+    <button className="btn btn-red wide noprint" onClick={back}>
       Back
     </button>
   );

@@ -109,7 +109,7 @@ function One({ p, account, onGone, toast }: { p: Pending; account: SafeAccount; 
         </button>
         {here && (
           <button className="btn btn-green btn-sm" style={{ flex: 1, minWidth: 0 }} onClick={sign} disabled={!!stage}>
-            {stage ? STAGE[stage] ?? "…" : "Sign and send"}
+            {stage ? STAGE[stage] ?? "…" : "Sign and execute"}
           </button>
         )}
       </div>

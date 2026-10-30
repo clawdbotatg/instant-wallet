@@ -109,16 +109,16 @@ export function Alerts({ account, toast }: { account: SafeAccount; toast: (m: st
       {info.channels.email && (
         <div className="stack" style={{ gap: 8 }}>
           {c.email ? (
-            <div className="row">
-              <RemoveX disabled={!!busy} busy={busy === "email"} label="Remove email alerts" onClick={() => run("email", { op: "email-off" }, "Email alerts off")} />
+            <div className="row" style={{ justifyContent: "space-between" }}>
               <span>📧 {c.email}</span>
+              <RemoveX disabled={!!busy} busy={busy === "email"} label="Remove email alerts" onClick={() => run("email", { op: "email-off" }, "Email alerts off")} />
             </div>
           ) : (
             <div className="row">
               <div className="input grow">
                 <input type="email" inputMode="email" autoCapitalize="none" placeholder="you@email.com" value={email} onChange={e => setEmail(e.target.value.trim())} />
               </div>
-              <button className={`btn ${tgLink || sub ? "" : "btn-green"}`} disabled={!!busy || !/^\S+@\S+\.\S+$/.test(email)} onClick={async () => (await run("email", { op: "email", email }, "Check your email")) && setEmail("")}>
+              <button className="btn btn-green" disabled={!!busy || !/^\S+@\S+\.\S+$/.test(email)} onClick={async () => (await run("email", { op: "email", email }, "Check your email")) && setEmail("")}>
                 {busy === "email" ? "…" : "Save"}
               </button>
             </div>
@@ -130,9 +130,9 @@ export function Alerts({ account, toast }: { account: SafeAccount; toast: (m: st
       {info.channels.telegram && (
         <div className="stack" style={{ gap: 8 }}>
           {c.telegram ? (
-            <div className="row">
-              <RemoveX disabled={!!busy} busy={busy === "tg"} label="Remove Telegram alerts" onClick={() => run("tg", { op: "telegram-off" }, "Telegram alerts off")} />
+            <div className="row" style={{ justifyContent: "space-between" }}>
               <span>✈️ Telegram</span>
+              <RemoveX disabled={!!busy} busy={busy === "tg"} label="Remove Telegram alerts" onClick={() => run("tg", { op: "telegram-off" }, "Telegram alerts off")} />
             </div>
           ) : tgLink ? (
             <a className="btn btn-green wide" href={tgLink} target="_blank" rel="noreferrer" onClick={() => setTimeout(load, 8000)}>
@@ -152,7 +152,7 @@ export function Alerts({ account, toast }: { account: SafeAccount; toast: (m: st
           {here ? (
             <span>🔔 This device gets notifications</span>
           ) : sub ? (
-            <button className={`btn ${tgLink ? "" : "btn-green"} wide`} disabled={!!busy} onClick={async () => (await run("push", { op: "push", sub: sub.toJSON() }, "Notifications on")) && setSub(null)}>
+            <button className="btn btn-green wide" disabled={!!busy} onClick={async () => (await run("push", { op: "push", sub: sub.toJSON() }, "Notifications on")) && setSub(null)}>
               {busy === "push" ? "…" : `Confirm with ${bio()}`}
             </button>
           ) : (

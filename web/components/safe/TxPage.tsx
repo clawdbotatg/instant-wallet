@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { type Address, type Hash, type Hex, getAddress, isAddress, size, zeroAddress } from "viem";
+import { type Address, type Hash, type Hex, getAddress, isAddress, parseAbi, size, zeroAddress } from "viem";
 import { chainById, explorerTx, publicClient } from "@/lib/chains";
 import { short } from "@/lib/format";
 import { recoverKeys, bio } from "@/lib/passkey";
@@ -21,9 +21,10 @@ import { friendly } from "../Welcome";
 import { ErrorLine } from "./WedgieButton";
 import { WhatItDoes } from "./WhatItDoes";
 
-type Onchain = { owners: Address[]; threshold: number; nonce: bigint; passkeys: Address[]; contracts: Address[]; homes: Record<string, Address> };
+type Onchain = { owners: Address[]; threshold: number; nonce: bigint; passkeys: Address[]; contracts: Address[]; version: string; homes: Record<string, Address> };
 const PASSKEY_SIGNER_SIZE = 236; // a passkey signer proxy (lib/safe/state.ts): a phone's Face ID or a wedgie
 const eq = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+const SAFE_VERSION = parseAbi(["function VERSION() view returns (string)"]);
 const ERC6492 = "6492".repeat(16); // the ERC-6492 suffix: a signature that deploys first (useless to a Safe)
 
 /**
@@ -49,11 +50,12 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
   // the Safe from the chain, the tx from the link (or the queue), its signatures from everywhere, each checked
   const load = useCallback(async () => {
     const pc = publicClient(chainId);
-    const [owners, threshold, nonce] = (await Promise.all([
+    const [owners, threshold, nonce, version] = (await Promise.all([
       pc.readContract({ address: safe, abi: abi.safe, functionName: "getOwners" }),
       pc.readContract({ address: safe, abi: abi.safe, functionName: "getThreshold" }),
       pc.readContract({ address: safe, abi: abi.safe, functionName: "nonce" }),
-    ])) as [Address[], bigint, bigint];
+      pc.readContract({ address: safe, abi: SAFE_VERSION, functionName: "VERSION" }).catch(() => ""),
+    ])) as [Address[], bigint, bigint, string];
     const os = owners.map(o => getAddress(o));
     const codes = await Promise.all(os.map(o => pc.getCode({ address: o }).catch(() => undefined)));
     // each passkey signer's home address (what a wedgie shows on its screen), read from its contract's key
@@ -69,6 +71,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
       nonce,
       passkeys: os.filter((_, i) => isCode(i) && size(codes[i]!) === PASSKEY_SIGNER_SIZE),
       contracts: os.filter((_, i) => isCode(i) && size(codes[i]!) !== PASSKEY_SIGNER_SIZE),
+      version,
       homes,
     });
     const code = inWallet ?? location.hash.slice(1);
@@ -150,7 +153,10 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
   // this browser's Instant Wallet is the signer: its own keys sign for it (ERC-1271, as for a site), nothing is sent
   const signMine = run("mine", async () => {
     const me = loadAccount();
-    if (!w || !me || !mine) return;
+    if (!w || !me || !mine || !chain) return;
+    // a 1.5 Safe asks its owner Safe about the tx's hash; a 1.4.1 one (wedgie.dev's) about its bytes, which a 1.5
+    // Safe like this wallet can't answer (tested on a Base fork, 10-30): that needs an on-chain approveHash
+    if (!chain.version.startsWith("1.5")) throw new Error(`This is an older Safe (${chain.version || "unknown version"}). Your wallet can't sign for it yet.`);
     const st = mine;
     if (!st.deployed) throw new Error(`Your wallet isn't on ${chainById(chainId)?.name ?? "this chain"} yet. Send anything from it there first.`);
     const signers = ownerSigners(st, me, true);
@@ -314,7 +320,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
         <p className="fine">This wallet already used number #{w.tx.nonce.toString()}: this one was sent or replaced.</p>
       ) : enough ? (
         <button className="btn btn-green wide" onClick={sendRelay} disabled={!!busy}>
-          {busy === "send" ? "Sending…" : "Send it"}
+          {busy === "send" ? "Executing…" : "Execute"}
         </button>
       ) : (
         <button className="btn wide" onClick={share}>
@@ -336,7 +342,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
         )}
         {enough && !done && !sent && hotAvailable() && (
           <a href="#" onClick={e => (e.preventDefault(), sendSelf())}>
-            {busy === "self" ? "Sending…" : "Send from my wallet (I pay gas)"}
+            {busy === "self" ? "Sending…" : "Execute from my wallet (I pay gas)"}
           </a>
         )}
       </p>

@@ -129,8 +129,6 @@ export function ClaimMaker() {
   const singles = cards.filter(c => !c.batch);
   const batches = [...new Set(cards.filter(c => c.batch).map(c => c.batch!))].map(id => cards.filter(c => c.batch === id));
   const anyReady = cards.some(c => stateOf(c) === "ready");
-  // one green: Make N cards while that's open, else the first batch to fill, else New card
-  const fillFirst = batches.find(list => list.some(c => stateOf(c) === "empty"))?.[0].batch;
 
   return (
     <div className="app claim-maker">
@@ -138,7 +136,7 @@ export function ClaimMaker() {
         <h1>Claim cards</h1>
         <p className="fine">Put money on a card, print it. Whoever scans it gets the money. Treat it like cash.</p>
         <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
-          <button className={`btn ${many || fillFirst ? "" : "btn-green"}`} onClick={add}>
+          <button className="btn btn-green" onClick={add}>
             New card
           </button>
           <button className="btn" onClick={() => setMany(many ? null : { n: "10", each: "5" })}>
@@ -189,7 +187,7 @@ export function ClaimMaker() {
             {empty > 0 && (
               <>
                 <p className="fine">1. Put money on them: {fmtUsdc(BigInt(Math.round(total * 1e6)))} USDC on Base, all at once with your browser wallet (BuidlGuidl&apos;s splitter, 25 cards per transaction). Or copy the addresses into split.buidlguidl.com.</p>
-                <button className={`btn ${!many && id === fillFirst ? "btn-green" : ""} wide`} onClick={() => fill(id, list)} disabled={!!busy || count("loading") > 0}>
+                <button className="btn btn-green wide" onClick={() => fill(id, list)} disabled={!!busy || count("loading") > 0}>
                   {busy?.batch === id ? busy.step : `Fill ${empty} cards with my wallet`}
                 </button>
               </>

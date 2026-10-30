@@ -425,7 +425,6 @@ export function Keys({
             return (
               <div className="keyrow" key={o} style={{ padding: 0, opacity: gone ? 0.45 : 1 }}>
                 <span className="row" style={{ gap: 8, textDecoration: gone ? "line-through" : undefined }}>
-                  {keysEdit && !gone && <RemoveX onClick={() => toggleDrop(o)} disabled={idle || count < 2} label="Remove this signer" />}
                   {/* a wedgie by the address on its own home screen */}
                   {howSigns(account, st, o) === "faceid" ? (
                     <BioSigner />
@@ -448,22 +447,25 @@ export function Keys({
                     </button>
                   )}
                 </span>
-                {keysEdit && gone && (
-                  <button className="pill" onClick={() => toggleDrop(o)} disabled={idle} aria-label="Keep this signer">
-                    Undo
-                  </button>
-                )}
+                {keysEdit &&
+                  (gone ? (
+                    <button className="pill" onClick={() => toggleDrop(o)} disabled={idle} aria-label="Keep this signer">
+                      Undo
+                    </button>
+                  ) : (
+                    <RemoveX onClick={() => toggleDrop(o)} disabled={idle || count < 2} label="Remove this signer" />
+                  ))}
               </div>
             );
           })}
           {adds.map(x => (
             <div className="keyrow" key={x.a} style={{ padding: 0 }}>
               <span className="row" style={{ gap: 8 }}>
-                <RemoveX onClick={() => setAdds(adds.filter(y => y !== x))} disabled={idle} label="Don't add" />
                 <Addr a={x.a} chainId={chainId} />
                 {x.name && <b>{x.name}</b>}
                 <span className="fine">new</span>
               </span>
+              <RemoveX onClick={() => setAdds(adds.filter(y => y !== x))} disabled={idle} label="Don't add" />
             </div>
           ))}
           {wedgieOpen && st.hasWedgie && <WedgiePanel account={account} states={states} onStatus={setWedgieLook} />}
@@ -492,7 +494,7 @@ export function Keys({
                       <span className="row" style={{ gap: 8 }}>
                         <Addr a={who} chainId={chainId} />
                         <b>{i.answer!.name ?? "Someone"}</b>
-                        <button className="pill" onClick={() => stage({ a: who, key: { x: i.answer!.x, y: i.answer!.y }, name: i.answer!.name })} disabled={idle}>
+                        <button className="pill go" onClick={() => stage({ a: who, key: { x: i.answer!.x, y: i.answer!.y }, name: i.answer!.name })} disabled={idle}>
                           Add
                         </button>
                       </span>
@@ -562,13 +564,13 @@ export function Keys({
               {action(
                 "save",
                 changed && (
-                  <button className={`btn ${wedgieOpen && !st.hasWedgie ? "btn-dark" : "btn-green"} wide`} onClick={save} disabled={idle}>
+                  <button className="btn btn-green wide" onClick={save} disabled={idle}>
                     {busy === "save" ? "Working…" : "Save"}
                   </button>
                 ),
               )}
               {!pending && !wait && (
-                <button className={`btn btn-sm ${changed ? "btn-red" : ""}`} onClick={() => setKeysEdit(false)} disabled={!!busy}>
+                <button className="btn btn-sm btn-red" onClick={() => setKeysEdit(false)} disabled={!!busy}>
                   {changed ? "Cancel" : "Done"}
                 </button>
               )}
@@ -628,7 +630,7 @@ export function Keys({
                   {busy === "layout" ? "Working…" : "Make the DAO wait 60 days"}
                 </button>,
               )}
-            <button className="btn btn-sm" onClick={() => setRecEdit(false)} disabled={!!busy}>
+            <button className="btn btn-sm btn-red" onClick={() => setRecEdit(false)} disabled={!!busy}>
               Done
             </button>
           </>
@@ -696,7 +698,7 @@ function OldBurner({ toast }: { toast: (m: string) => void }) {
             <div className="input grow">
               <input {...field} placeholder="private key" value={pk} onChange={e => setPk(e.target.value)} />
             </div>
-            <button className={`btn btn-sm ${pk.trim() ? "btn-green" : ""}`} disabled={!pk.trim()} onClick={() => load(claimKey(pk.trim(), true))}>
+            <button className="btn btn-green btn-sm" disabled={!pk.trim()} onClick={() => load(claimKey(pk.trim(), true))}>
               Load
             </button>
           </div>
@@ -704,7 +706,7 @@ function OldBurner({ toast }: { toast: (m: string) => void }) {
             <div className="input grow">
               <input {...field} type="password" placeholder="seed phrase" value={phrase} onChange={e => setPhrase(e.target.value)} />
             </div>
-            <button className={`btn btn-sm ${phrase && !pk.trim() ? "btn-green" : ""}`} disabled={!phrase} onClick={() => load(brainKey(phrase))}>
+            <button className="btn btn-green btn-sm" disabled={!phrase} onClick={() => load(brainKey(phrase))}>
               Load
             </button>
           </div>

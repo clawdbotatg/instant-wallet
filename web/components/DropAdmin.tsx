@@ -159,7 +159,7 @@ export function DropAdmin() {
     <div className="app">
       <div className="row" style={{ justifyContent: "space-between" }}>
         <h1>Drops</h1>
-        <button className={`btn ${making ? "btn-red" : open ? "" : "btn-green"}`} onClick={() => setMaking(!making)}>
+        <button className={`btn ${making ? "btn-red" : "btn-green"}`} onClick={() => setMaking(!making)}>
           {making ? "Cancel" : "New drop"}
         </button>
       </div>

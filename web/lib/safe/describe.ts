@@ -31,7 +31,7 @@ export const WARN = "⚠️ ";
 export const RELAY = "0x4cfab32186e65e2a39ec0e882e11380cbf2f8a2f"; // the relayer the fee rule names (wedgie-safe safe_book RELAY)
 const PERMIT2 = "0x000000000022d473030f116ddee9f6b43ac78ba3";
 // Uniswap's Universal Routers (code checked on each chain, 10-29); any other address is named by its address
-const UNISWAP = [
+export const UNISWAP = [
   "0xd6145b2d3f379919e8cdeda7b97e37c4b2ca9c40",
   "0x6ff5693b99212da76ad316178a184ab56d299b43",
   "0x66a9893cc07d91d95644aedd05d03f95e1dba8af",
@@ -50,7 +50,6 @@ export function ours(chainId: number, c: Call): string | null {
   const coin = (t: string) => (usdc && eq(t, usdc) ? "USDC" : `token ${short(t)}`);
   if (c.data === "0x") return eq(c.to, RELAY) ? `Network fee: ${formatUnits(c.value, 18)} ${nativeSymbol(chainId)}` : null;
   const sel = c.data.slice(0, 10).toLowerCase();
-  if (sel === "0x3593564c" || sel === "0x24856bc3") return UNISWAP.some(u => eq(u, c.to)) ? "Swap on Uniswap" : `Swap through ${short(c.to)}`;
   const t = dec(abi.erc20, c.data);
   if (t?.functionName === "transfer" && eq(t.args[0], RELAY)) return usdc && eq(c.to, usdc) ? `Network fee: ${formatUnits(t.args[1], 6)} USDC` : null;
   if (t?.functionName === "approve") {
@@ -75,6 +74,8 @@ export function describe(chainId: number, safe: Address, c: Call): string {
   const usdc = chainById(chainId)?.usdc;
   const o = ours(chainId, c);
   if (o) return o;
+  // the words with amounts come from the server (/api/explain, lib/safe/urWords.ts); this is the fallback
+  if (sel === "0x3593564c" || sel === "0x24856bc3") return UNISWAP.some(u => eq(u, c.to)) ? "Swap on Uniswap" : `Swap through ${short(c.to)}`;
   if (d === "0x") return `Send ${formatUnits(c.value, 18)} ${sym} to ${short(c.to)}`;
 
   const t = dec(abi.erc20, d);

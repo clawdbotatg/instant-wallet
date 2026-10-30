@@ -3,7 +3,8 @@ import { fetchPrebuiltRegistryIndex, format, isFieldGroup } from "@ethereum-sour
 import type { DescriptorResolver, ExternalDataProvider, RegistryIndex, TokenResult, TrustedTokens } from "@ethereum-sourcify/clear-signing";
 import { formatUnits, toEventSelector } from "viem";
 import { CHAINS, knownChain } from "@/lib/chains";
-import { RELAY } from "@/lib/safe/describe";
+import { RELAY, UNISWAP } from "@/lib/safe/describe";
+import { uniswapWords } from "@/lib/safe/urWords";
 import { rpc } from "@/lib/rpcServer";
 
 export const dynamic = "force-dynamic";
@@ -68,6 +69,13 @@ function resolver() {
   built = { at: Date.now(), r };
   return r;
 }
+// wrapped native coin, so a swap that unwraps reads as ETH
+const WETH: Record<number, string> = {
+  1: "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+  8453: "0x4200000000000000000000000000000000000006",
+  10: "0x4200000000000000000000000000000000000006",
+  42161: "0x82af49447d8af3d9b14fd2be3d6a2f78d6f2e0bb",
+};
 const TOKENS = new Map<string, TokenResult | null>();
 
 async function token(chain: number, a: string): Promise<TokenResult | null> {
@@ -89,6 +97,12 @@ const provider = (chain: number): ExternalDataProvider => ({
 
 async function clear(chain: number, safe: string, c: Call): Promise<Told> {
   try {
+    const sel = c.data.slice(0, 10).toLowerCase();
+    if (sel === "0x3593564c" || sel === "0x24856bc3") {
+      const k = knownChain(chain);
+      const w = await uniswapWords(c.data as `0x${string}`, k?.native.symbol ?? "ETH", WETH[chain], a => token(chain, a));
+      if (w) return { what: UNISWAP.includes(c.to.toLowerCase()) ? `${w} on Uniswap` : `${w} through ${c.to.slice(0, 6)}…${c.to.slice(-4)}`, fields: [] };
+    }
     const res = await resolver();
     if (!res) return null;
     const to = c.to.toLowerCase() === safe.toLowerCase() ? THIS_SAFE : c.to;

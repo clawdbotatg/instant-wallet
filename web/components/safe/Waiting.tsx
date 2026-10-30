@@ -10,7 +10,6 @@ import {
   dropTx,
   openTx,
   readWaiting,
-  safeAppTxLink,
   txLink,
 } from "@/lib/safe/share";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
@@ -82,7 +81,6 @@ export function WaitingCards({
     <div className="card stack" style={{ gap: 10 }}>
       <b>Waiting for signatures</b>
       {list.map(({ w, need }) => {
-        const app = safeAppTxLink(w.chainId, w.safe, w.hash);
         return (
           <div key={w.hash} className="stack" style={{ gap: 8 }}>
             <div className="recess stack" style={{ gap: 8 }}>
@@ -91,24 +89,14 @@ export function WaitingCards({
             <div style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
               <button
                 className="btn btn-red btn-sm"
-                style={{ height: "auto", flex: "none" }}
+                style={{ height: "auto", flex: "none", width: 52, padding: 0, fontSize: 20 }}
+                aria-label="Remove"
+                title="Remove"
                 disabled={!!removing}
                 onClick={() => remove(w)}
               >
-                {removing === w.hash ? "…" : "Remove"}
+                {removing === w.hash ? "…" : "✕"}
               </button>
-              {app && (
-                <a
-                  className="btn btn-sm"
-                  href={app}
-                  target="_blank"
-                  rel="noreferrer"
-                  title="Open in Safe{Wallet}"
-                  style={{ height: "auto", flex: "none" }}
-                >
-                  Safe ↗
-                </a>
-              )}
               <a
                 href={txLink(w).replace(location.origin, "")}
                 className="btn btn-green btn-sm"

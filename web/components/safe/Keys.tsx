@@ -1,5 +1,6 @@
 "use client";
 
+import { SimSetting } from "./SimSetting";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { type Address, type Hex, encodeFunctionData, formatUnits, zeroAddress } from "viem";
 import { brainKey, isXdai, oldBurnerKey } from "@/lib/brand";
@@ -636,6 +637,10 @@ export function Keys({
 
       <Step title="Recovery alerts" key="alerts">
         <Alerts account={account} toast={toast} />
+      </Step>
+
+      <Step title="Simulator" key="sim">
+        <SimSetting toast={toast} />
       </Step>
 
 

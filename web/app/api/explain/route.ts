@@ -1,17 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchPrebuiltRegistryIndex, format, isFieldGroup } from "@ethereum-sourcify/clear-signing";
 import type { DescriptorResolver, ExternalDataProvider, RegistryIndex, TokenResult, TrustedTokens } from "@ethereum-sourcify/clear-signing";
-import { formatUnits, toEventSelector } from "viem";
 import { CHAINS, knownChain } from "@/lib/chains";
-import { RELAY, UNISWAP } from "@/lib/safe/describe";
+import { UNISWAP } from "@/lib/safe/describe";
 import { type Swap, uniswapWords } from "@/lib/safe/urWords";
 import { rpc } from "@/lib/rpcServer";
 
 export const dynamic = "force-dynamic";
 
 /**
- * `POST /api/explain {chain, safe, calls: [{to, value, data}]}` -> `{calls: [{what, fields: [{label, value, address?}]} | null], sim}`.
- * sim: what the whole batch does to the Safe's coins right now (`simulate`), or null when the chain can't say.
+ * `POST /api/explain {chain, safe, calls: [{to, value, data}]}` -> `{calls: [{what, fields: [{label, value, address?}], swap?} | null]}`.
+ * The coins it moves come from clear-sim, asked by the page itself (lib/safe/sim.ts), not from here.
  * Clear signing (ERC-7730): each call in its contract's own words, from the public registry through Sourcify's
  * formatter. null: no descriptor for that call (the page falls back to lib/safe/describe.ts). Port of wedgie-dev
  * api/explain.ts tier 1 (no 🤖 tier).
@@ -121,79 +120,6 @@ async function clear(chain: number, safe: string, c: Call): Promise<Told> {
   }
 }
 
-type Sim = { pay: Move[]; get: Move[]; fee: Move[]; fails?: string } | null;
-type Move = { symbol: string; amount: string; usd?: number };
-const TRANSFER = toEventSelector("Transfer(address,address,uint256)");
-const NATIVE = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"; // eth_simulateV1 traceTransfers: native coin moves, as Transfer logs
-
-/** The batch run as the Safe on the latest block (eth_simulateV1, each call after the last): the coins it pays, gets,
- * and pays the relay. Read from Transfer logs, so it's what the contracts really do, whatever the calldata claims. */
-async function simulate(chain: number, safe: string, calls: Call[]): Promise<Sim> {
-  const r = await rpc<any[]>(chain, "eth_simulateV1", [
-    { blockStateCalls: [{ calls: calls.map(c => ({ from: safe, to: c.to, data: c.data, value: "0x" + BigInt(c.value).toString(16) })) }], traceTransfers: true, validation: false },
-    "latest",
-  ]).catch(() => null);
-  const out = r?.[0]?.calls as any[] | undefined;
-  if (!out || out.length !== calls.length) return null;
-  const bad = out.findIndex(c => c.status !== "0x1");
-  if (bad >= 0) return { pay: [], get: [], fee: [], fails: `step ${bad + 1}: ${out[bad].error?.message || "reverted"}` };
-  const me = safe.toLowerCase();
-  const net = new Map<string, bigint>();
-  const fee = new Map<string, bigint>();
-  for (const c of out)
-    for (const l of c.logs ?? []) {
-      if (l.topics?.[0] !== TRANSFER || l.topics.length !== 3 || l.data === "0x") continue;
-      const [from, to] = [l.topics[1], l.topics[2]].map((t: string) => "0x" + t.slice(26));
-      const tok = String(l.address).toLowerCase();
-      const v = BigInt(l.data);
-      if (from === me && to === RELAY) fee.set(tok, (fee.get(tok) ?? 0n) + v);
-      else if (from === me) net.set(tok, (net.get(tok) ?? 0n) - v);
-      if (to === me && from !== me) net.set(tok, (net.get(tok) ?? 0n) + v);
-    }
-  const move = async (tok: string, v: bigint): Promise<Move> => {
-    if (tok === NATIVE) return { symbol: knownChain(chain)?.native.symbol ?? "ETH", amount: formatUnits(v, 18) };
-    const t = await token(chain, tok);
-    return t ? { symbol: t.symbol, amount: formatUnits(v, t.decimals) } : { symbol: `token ${tok.slice(0, 6)}…${tok.slice(-4)}`, amount: v.toString() };
-  };
-  const nz = [...net].filter(([, v]) => v !== 0n);
-  const get = await Promise.all(nz.filter(([, v]) => v > 0n).map(([t, v]) => move(t, v)));
-  await Promise.all(
-    nz
-      .filter(([, v]) => v > 0n)
-      .map(async ([t], i) => {
-        const p = await usd(chain, t).catch(() => null);
-        if (p !== null) get[i].usd = p * Number(get[i].amount);
-      }),
-  );
-  return {
-    pay: await Promise.all(nz.filter(([, v]) => v < 0n).map(([t, v]) => move(t, -v))),
-    get,
-    fee: await Promise.all([...fee].map(([t, v]) => move(t, v))),
-  };
-}
-
-/** A coin's dollar price (Alchemy): $1 only for the real USDC (by address), the native coin by symbol. */
-async function usd(chain: number, tok: string): Promise<number | null> {
-  const c = knownChain(chain);
-  if (c?.usdc && tok === c.usdc.toLowerCase()) return 1;
-  const key = process.env.ALCHEMY_API_KEY;
-  if (!key || !c) return null;
-  const base = `https://api.g.alchemy.com/prices/v1/${key}/tokens`;
-  const j =
-    tok === NATIVE
-      ? await getJson(`${base}/by-symbol?symbols=${c.native.symbol}`)
-      : c.alchemy
-        ? await fetch(`${base}/by-address`, {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ addresses: [{ network: c.alchemy, address: tok }] }),
-            signal: AbortSignal.timeout(10_000),
-          }).then(r => r.json())
-        : null;
-  const v = Number(j?.data?.[0]?.prices?.find((p: any) => p.currency === "usd")?.value);
-  return Number.isFinite(v) && v > 0 ? v : null;
-}
-
 export async function POST(req: NextRequest) {
   let b: any;
   try {
@@ -214,6 +140,5 @@ export async function POST(req: NextRequest) {
     if (!ADDR.test(to) || !HEX.test(data) || data.length > MAX_DATA || !/^\d+$/.test(value)) return NextResponse.json({ error: "bad call" }, { status: 400 });
     calls.push({ to, data, value });
   }
-  const [told, sim] = await Promise.all([Promise.all(calls.map(c => clear(chain, safe, c))), simulate(chain, safe, calls).catch(() => null)]);
-  return NextResponse.json({ calls: told, sim });
+  return NextResponse.json({ calls: await Promise.all(calls.map(c => clear(chain, safe, c))) });
 }

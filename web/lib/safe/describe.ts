@@ -43,6 +43,15 @@ const MAX = 2n ** 160n - 1n; // Permit2's "any amount" is uint160; an ERC-20's i
 const permit2 = parseAbi(["function approve(address token, address spender, uint160 amount, uint48 expiration)"]);
 const who = (a: string) => (UNISWAP.some(u => eq(u, a)) ? "Uniswap" : eq(a, PERMIT2) ? "Permit2 (Uniswap's approvals)" : short(a));
 
+/** What this call pays the relay (its fee, checked to the byte): the token ("eth" = the coin, else its lowercase
+ * address) and amount, or null. */
+export function relayFee(chainId: number, c: Call): { token: string; amount: bigint; symbol: string; decimals: number } | null {
+  if (c.data === "0x") return eq(c.to, RELAY) ? { token: "eth", amount: c.value, symbol: nativeSymbol(chainId), decimals: 18 } : null;
+  const usdc = chainById(chainId)?.usdc;
+  const t = usdc && eq(c.to, usdc) ? dec(abi.erc20, c.data) : null;
+  return t?.functionName === "transfer" && eq(t.args[0], RELAY) ? { token: usdc!.toLowerCase(), amount: t.args[1], symbol: "USDC", decimals: 6 } : null;
+}
+
 /** The calls we can say better than a registry descriptor: the relay's fee (checked to the byte, so a look-alike
  * address can't pass as it), approvals, a Uniswap swap. null: anything else. */
 export function ours(chainId: number, c: Call): string | null {

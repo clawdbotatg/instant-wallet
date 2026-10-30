@@ -1,35 +1,46 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Address } from "viem";
+import { type Address, formatUnits } from "viem";
 import { amount, short } from "@/lib/format";
 import { Money } from "../bits";
-import { WARN, describe, ours } from "@/lib/safe/describe";
+import { WARN, describe, ours, relayFee } from "@/lib/safe/describe";
 import type { Call } from "@/lib/safe/core";
+import { type Sim, asSafeTx, moves, simulate } from "@/lib/safe/sim";
 
 type Field = { label: string; value: string; address?: string };
 type Told = { what: string; fields: Field[]; swap?: { pay: Move & { most?: boolean }; get: Move & { least?: boolean } } } | null;
 type Move = { symbol: string; amount: string; usd?: number };
-type Sim = { pay: Move[]; get: Move[]; fee: Move[]; fails?: string } | null;
 type Got = { calls: Told[] | null; sim: Sim };
 
 // one ask per set of calls, kept for the page's life
 const got = new Map<string, Promise<Got>>();
 function ask(chainId: number, safe: Address, calls: Call[]) {
   const body = JSON.stringify({ chain: chainId, safe, calls: calls.map(c => ({ to: c.to, value: String(c.value), data: c.data })) });
-  if (!got.has(body))
+  if (!got.has(body)) {
+    // the words from our server; the coins from clear-sim, asked from here (lib/safe/sim.ts: the user's own simulator if set)
+    const words = fetch("/api/explain", { method: "POST", headers: { "content-type": "application/json" }, body })
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => (Array.isArray(j?.calls) ? (j.calls as Told[]) : null))
+      .catch(() => null);
+    const fees: Record<string, bigint> = {};
+    for (const c of calls) {
+      const f = relayFee(chainId, c);
+      if (f) fees[f.token] = (fees[f.token] ?? 0n) + f.amount;
+    }
+    const coins = simulate(chainId, safe, asSafeTx(calls))
+      .then(a => (a ? moves(a, fees) : null))
+      .catch(() => null);
     got.set(
       body,
-      fetch("/api/explain", { method: "POST", headers: { "content-type": "application/json" }, body })
-        .then(r => (r.ok ? r.json() : null))
-        .then(j => ({ calls: Array.isArray(j?.calls) ? (j.calls as Told[]) : null, sim: (j?.sim as Sim) ?? null }))
-        .catch(() => ({ calls: null, sim: null })),
+      Promise.all([words, coins]).then(([w, s]) => ({ calls: w, sim: s })),
     );
+  }
   return got.get(body)!;
 }
 
-/** What a Safe tx does: first what it does to your coins (the server runs it on the latest block: you pay, you get,
- * the fee), then each step in words: ours (describe.ts `ours`: fee, approvals, swaps), else clear signing (ERC-7730,
+/** What a Safe tx does: first what it does to your coins (clear-sim runs it on the latest block: you pay, you get),
+ * the fee (read from its own call to the relay), then each step in words: ours (describe.ts `ours`: fee, approvals, swaps), else clear signing (ERC-7730,
  * the words the wedgie shows) where the registry has it, else describe.ts. */
 export function WhatItDoes({ chainId, safe, calls }: { chainId: number; safe: Address; calls: Call[] }) {
   const [res, setRes] = useState<Got | null>(null);
@@ -43,6 +54,7 @@ export function WhatItDoes({ chainId, safe, calls }: { chainId: number; safe: Ad
     };
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
   const sim = res?.sim;
+  const fees = calls.flatMap(c => relayFee(chainId, c) ?? []);
   // the relay's fee isn't a step worth reading (the coins line shows it when the run works)
   // nor a swap whose in and out are already shown above it
   const shown = calls.map((c, i) => ({ c, i })).filter(({ c, i }) => !ours(chainId, c)?.startsWith("Network fee") && !res?.calls?.[i]?.swap);
@@ -71,7 +83,11 @@ export function WhatItDoes({ chainId, safe, calls }: { chainId: number; safe: Ad
         <div className="stack" style={{ gap: 4 }}>
           {sim.pay.map((m, i) => <Money key={`p${i}`} amount={m.amount} symbol={m.symbol} usd={m.usd} />)}
           {sim.get.map((m, i) => <Money key={`g${i}`} amount={m.amount} symbol={m.symbol} usd={m.usd} get />)}
-          {sim.fee.map((m, i) => <Line key={`f${i}`} label="Network fee" m={m} small />)}
+          {fees.map((f, i) => (
+            <span key={`f${i}`} className="fine">
+              Network fee: {amount(formatUnits(f.amount, f.decimals))} {f.symbol}
+            </span>
+          ))}
         </div>
       ) : null}
       {steps && shown.map(({ c, i }, n) => {
@@ -95,14 +111,6 @@ export function WhatItDoes({ chainId, safe, calls }: { chainId: number; safe: Ad
         );
       })}
     </>
-  );
-}
-
-function Line({ label, m, small }: { label: string; m: Move; small?: boolean }) {
-  return (
-    <span style={{ fontSize: small ? 14 : 18, fontWeight: small ? 400 : 700 }} className={small ? "fine" : undefined}>
-      {label}: {amount(m.amount)} {m.symbol}
-    </span>
   );
 }
 

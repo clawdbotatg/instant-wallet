@@ -281,7 +281,7 @@ export function SafeSend({
         <WedgieIcon size={120} />
         <h2>Now the wedgie</h2>
         <p>
-          You signed {what} to {who}. Open Instant Wallet on your computer with the wedgie plugged in and press <GreenButton /> to send it.
+          You signed {what} to {who}. Open Instant Wallet on your computer with the wedgie plugged in and press <GreenButton /> to execute it.
         </p>
         {hash && <TxPicture hash={hash} />}
         <button className="btn btn-green wide" onClick={onDone}>
@@ -313,7 +313,7 @@ export function SafeSend({
       signing: "Signing…",
       "signing-hot": "Sign in your hot wallet…",
       "signing-wedgie": <>Press <GreenButton /> on the wedgie…</>,
-      sending: "Sending…",
+      sending: "Executing…",
       confirming: "Confirming…",
     };
     return (

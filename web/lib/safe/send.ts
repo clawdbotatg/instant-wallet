@@ -128,7 +128,7 @@ export async function prepareOwners(opts: OwnersOpts): Promise<Prepared> {
   if (opts.self) {
     // anyone can send a signed Safe transaction; the relay only adds deploying the wallet on a new network
     if (fresh) throw new Error("Send one through the relay first on this network (it sets the wallet up there).");
-    if (!hotAvailable()) throw new Error("No browser wallet here to send it.");
+    if (!hotAvailable()) throw new Error("No browser wallet here to execute it.");
     const t: SafeTx = batch(opts.calls, opts.nonce ?? (await freshNonce(chainId, a.address, st)));
     return { opts, t, h: safeTxHash(chainId, a.address, t), fee: selfQuote(chainId, kind) };
   }
@@ -156,7 +156,7 @@ export async function finishOwners(p: Prepared): Promise<Hash> {
   }
   // the wedgie can't plug in here (a phone): sign the rest, park it, and the computer with the wedgie finishes it
   const later = slots.length > 0 && !p.opts.wedgie && !wedgieSupported();
-  if (later && p.opts.self) throw new Error("With the wedgie, send it yourself from your computer.");
+  if (later && p.opts.self) throw new Error("With the wedgie, execute it yourself from your computer.");
   if (later && p.opts.swapGas !== undefined) throw new Error("A swap with the wedgie has to start on your computer (prices move).");
   if (later && p.opts.dappGas !== undefined) throw new Error("With the wedgie, connect the site on your computer (the site waits for the answer).");
   const sigs: Sig[] = [];

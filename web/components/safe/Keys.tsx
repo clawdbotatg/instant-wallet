@@ -370,7 +370,7 @@ export function Keys({
     <>
       {wait?.what === what && wait.chainId === chainId ? (
         <div className="stack" style={{ gap: 8 }}>
-          <p className="fine">{busy ? "Sending…" : `Waiting for ${chainById(chainId)?.name}…`}</p>
+          <p className="fine">{busy ? "Executing…" : `Waiting for ${chainById(chainId)?.name}…`}</p>
           <TimedBar ms={wait.ms} />
         </div>
       ) : pending?.what === what ? (

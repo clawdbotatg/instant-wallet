@@ -104,7 +104,7 @@ export function ChainLimit({ account, st, assets, onRefresh, toast, onClose }: {
     <>
       {wait ? (
         <div className="stack" style={{ gap: 6 }}>
-          <p className="fine">{busy ? "Sending…" : `Waiting for ${chainById(chainId)?.name}…`}</p>
+          <p className="fine">{busy ? "Executing…" : `Waiting for ${chainById(chainId)?.name}…`}</p>
           <TimedBar ms={wait.ms} />
         </div>
       ) : ready ? (

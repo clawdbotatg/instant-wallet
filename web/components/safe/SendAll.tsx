@@ -157,13 +157,13 @@ export function SendAll({
         {self && <span className="err">That&apos;s this wallet.</span>}
       </div>
       <p className="fine">
-        Our relay sends it and pays the gas (you pay it back in the fee). It can&apos;t change what you signed. Anyone
-        can send a signed transaction, so you can send it yourself instead.
+        Our relay executes it and pays the gas (you pay it back in the fee). It can&apos;t change what you signed. Anyone
+        can execute a signed transaction, so you can execute it yourself instead.
       </p>
       {canMine && (
         <label className="row" style={{ gap: 8 }}>
           <input type="checkbox" checked={mine} onChange={(e) => (setMine(e.target.checked), setRows({}))} />
-          Send it myself from my browser wallet (MetaMask, Rainbow…). No fee, my wallet pays the gas.
+          Execute it myself from my browser wallet (MetaMask, Rainbow…). No fee, my wallet pays the gas.
         </label>
       )}
       {chains.length === 0 && <p className="fine">Nothing to send.</p>}
@@ -214,7 +214,7 @@ export function SendAll({
               </p>
             ) : r.stage === "parked" ? (
               <p className="fine">
-                Signed here. Press <GreenButton /> on your wedgie on your computer to send it.
+                Signed here. Press <GreenButton /> on your wedgie on your computer to execute it.
               </p>
             ) : (
               <button
@@ -229,7 +229,7 @@ export function SendAll({
                 {r.stage === "preparing"
                   ? "Getting the fee…"
                   : r.stage === "busy"
-                    ? "Sending…"
+                    ? "Executing…"
                     : r.stage === "ready"
                       ? `Sign to send all on ${chainById(chainId)?.name}`
                       : `Send all on ${chainById(chainId)?.name}`}

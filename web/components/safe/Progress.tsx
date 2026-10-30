@@ -65,7 +65,7 @@ export function Progress({ stage, chainId, hash }: { stage: Stage | string | nul
         <div style={{ width: `${Math.max(3, p * 100)}%`, transitionDuration: "500ms" }} />
       </div>
       <p className="fine" style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-        <span>{stage === "sending" ? `The relay is sending it to ${name}…` : `Waiting for ${name} to include it (usually ~${expect} s)`}</span>
+        <span>{stage === "sending" ? `The relay is executing it on ${name}…` : `Waiting for ${name} to include it (usually ~${expect} s)`}</span>
         <span>{secs} s</span>
       </p>
       {why && <p className="fine">{why}</p>}

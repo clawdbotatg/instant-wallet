@@ -344,7 +344,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
         )}
         {enough && !done && !behind && !sent && hotAvailable() && (
           <a href="#" onClick={e => (e.preventDefault(), sendSelf())}>
-            {busy === "self" ? "Sending…" : "Execute from my wallet (I pay gas)"}
+            {busy === "self" ? "Executing…" : "Execute from my wallet (I pay gas)"}
           </a>
         )}
       </p>

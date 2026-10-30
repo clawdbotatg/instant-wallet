@@ -174,7 +174,7 @@ function SafeRequest({
     signing: `${bio()}…`,
     "signing-hot": "Sign in your hot wallet…",
     "signing-wedgie": <>Press <GreenButton /> on the wedgie…</>,
-    sending: "Sending…",
+    sending: "Executing…",
     confirming: "Confirming…",
   };
   const ready = !!st && !refused && (pending.kind === "sign" || !!prepared);

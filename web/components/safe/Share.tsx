@@ -202,7 +202,7 @@ export function Share({ account, states, assets, chainId: startChain, onDone }: 
       <div className="stack center">
         <WedgieIcon size={120} />
         <h2>Now the wedgie</h2>
-        <p>You signed {card.label}. Open Instant Wallet on your computer with the wedgie plugged in and press <GreenButton /> to send it.</p>
+        <p>You signed {card.label}. Open Instant Wallet on your computer with the wedgie plugged in and press <GreenButton /> to execute it.</p>
         <button className="btn btn-green wide" onClick={onDone}>
           OK
         </button>
@@ -234,7 +234,7 @@ export function Share({ account, states, assets, chainId: startChain, onDone }: 
   // the QR is out or the card is written: now the money. Also where a failed send comes back to.
   const funding = ["quote", "signing", "signing-hot", "signing-wedgie", "sending", "confirming"].includes(step);
   if ((step === "ready" || step === "unfunded" || funding) && card) {
-    const busyLabel: Record<string, React.ReactNode> = { quote: "Getting the fee…", signing: "Signing…", "signing-wedgie": <>Press <GreenButton /> on the wedgie…</>, sending: "Sending…", confirming: "Confirming…" };
+    const busyLabel: Record<string, React.ReactNode> = { quote: "Getting the fee…", signing: "Signing…", "signing-wedgie": <>Press <GreenButton /> on the wedgie…</>, sending: "Executing…", confirming: "Confirming…" };
     return (
       <div className="stack center">
         <h2>{card.label}</h2>

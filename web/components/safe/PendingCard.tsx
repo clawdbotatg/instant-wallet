@@ -14,7 +14,7 @@ import { friendly } from "../Welcome";
 import { TxPicture, WedgieIcon, ErrorLine } from "./WedgieButton";
 import { Progress } from "./Progress";
 
-const STAGE: Partial<Record<Stage, React.ReactNode>> = { "signing-wedgie": <>Press <GreenButton /> on the wedgie…</>, sending: "Sending…", confirming: "Confirming…" };
+const STAGE: Partial<Record<Stage, React.ReactNode>> = { "signing-wedgie": <>Press <GreenButton /> on the wedgie…</>, sending: "Executing…", confirming: "Confirming…" };
 
 /** A big move signed on the phone, waiting for the wedgie: on the phone it says so; on a computer, one tap + the green button sends it. */
 export function PendingCards({ account, states, onDone, toast }: { account: SafeAccount; states: ChainState[]; onDone: () => void; toast: (m: string) => void }) {
@@ -69,7 +69,7 @@ function One({ p, account, onGone, toast }: { p: Pending; account: SafeAccount; 
       toast("Sent");
       onGone();
     } catch (e: any) {
-      setError(/fee too low|Gas went up/i.test(e?.message || "") ? "Gas went up while it waited. Cancel it and send it again." : friendly(e));
+      setError(/fee too low|Gas went up/i.test(e?.message || "") ? "Gas went up while it waited. Cancel it and execute it again." : friendly(e));
     } finally {
       setStage(null);
       setHash(null);

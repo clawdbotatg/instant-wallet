@@ -8,6 +8,7 @@ import { type Address, getAddress, isAddress } from "viem";
 import { chainById } from "@/lib/chains";
 import { amount as fmtAmount, short, usd as fmtUsd } from "@/lib/format";
 import { parse } from "@/lib/parse";
+import { bio } from "@/lib/passkey";
 import { Scanner } from "./Scanner";
 
 export function Band() {
@@ -418,6 +419,35 @@ export function CopyIcon({ size = 18 }: { size?: number }) {
       <rect x="9" y="9" width="12" height="12" rx="2.5" />
       <path d="M5 15H4.5A1.5 1.5 0 0 1 3 13.5v-9A1.5 1.5 0 0 1 4.5 3h9A1.5 1.5 0 0 1 15 4.5V5" />
     </svg>
+  );
+}
+
+/** This device's passkey check, drawn: a face scan for Face ID, else a fingerprint (Touch ID, Windows Hello, …). */
+export function BioIcon({ size = 22 }: { size?: number }) {
+  if (bio() === "Face ID")
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 8V5.5A2.5 2.5 0 0 1 5.5 3H8M16 3h2.5A2.5 2.5 0 0 1 21 5.5V8M21 16v2.5a2.5 2.5 0 0 1-2.5 2.5H16M8 21H5.5A2.5 2.5 0 0 1 3 18.5V16" />
+        <path d="M8.5 9v1.5M15.5 9v1.5M12 9v4h-1M9 16c1.8 1.4 4.2 1.4 6 0" />
+      </svg>
+    );
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4M14 13.12c0 2.38 0 6.38-1 8.88M17.29 21.02c.12-.6.43-2.3.5-3.02" />
+      <path d="M2 12a10 10 0 0 1 18-6M2 16h.01M21.8 16c.2-2 .131-5.354 0-6M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .34-2" />
+      <path d="M8.65 22c.21-.66.45-1.32.57-2M9 6.8a6 6 0 0 1 9 5.2v2" />
+    </svg>
+  );
+}
+
+/** This device's passkey as a signer: its icon and name (Touch ID on a Mac), never the address (that's at the
+ * bottom of Settings). */
+export function BioSigner() {
+  return (
+    <span className="row" style={{ gap: 8, minWidth: 0 }}>
+      <BioIcon />
+      <span style={{ fontSize: 15, fontWeight: 600 }}>{bio()}</span>
+    </span>
   );
 }
 

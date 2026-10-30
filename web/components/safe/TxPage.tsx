@@ -15,7 +15,7 @@ import { type Waiting, allSignatures, checkSigs, fromLink, openTx, readWaiting, 
 import { passkeySign } from "@/lib/safe/sign";
 import { keyFromCode, loadAccount, loadSigners, wedgieHome, wedgieSigners } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
-import { Blockie, CopyLink, Eject, GreenButton, Who, copy, useToast } from "../bits";
+import { BioSigner, Blockie, CopyLink, Eject, GreenButton, Who, copy, useToast } from "../bits";
 import { friendly } from "../Welcome";
 import { ErrorLine } from "./WedgieButton";
 import { WhatItDoes } from "./WhatItDoes";
@@ -257,7 +257,11 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
           return (
             <div key={o} className="keyrow" style={{ padding: 0, minHeight: 42 }}>
               <span className="row" style={{ gap: 8 }}>
-                <Who address={shown} chain={chainId} label={k === "face" ? bio() : NAMES[k]} plain={k === "wedgie" || k === "wedgieFar"} />
+                {k === "face" ? (
+                  <BioSigner />
+                ) : (
+                  <Who address={shown} chain={chainId} label={NAMES[k]} plain={k === "wedgie" || k === "wedgieFar"} />
+                )}
               </span>
               {signed ? (
                 <span>✓ signed</span>
@@ -313,7 +317,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
 }
 
 type Kind = "face" | "wedgie" | "wedgieFar" | "wallet" | "other" | "person";
-// what this device calls its passkey check (Touch ID on a Mac), like every other label
+// face: <BioSigner> (this device's name for it, Touch ID on a Mac)
 const NAMES: Record<Kind, string> = {
   face: "",
   wedgie: "Wedgie",

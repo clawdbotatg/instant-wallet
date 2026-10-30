@@ -15,7 +15,7 @@ type SafeTxLike = { to: Address; value: bigint; data: Hex; operation: 0 | 1 };
 
 type Field = { label: string; value: string; address?: string };
 type Told = { what: string; fields: Field[]; swap?: { pay: Move & { most?: boolean }; get: Move & { least?: boolean } } } | null;
-type Move = { symbol: string; amount: string; usd?: number };
+type Move = { symbol: string; amount: string; usd?: number; unknown?: boolean };
 type Got = { calls: Told[] | null; sim: Sim | null };
 
 // one ask per set of calls, kept for the page's life
@@ -88,8 +88,15 @@ export function WhatItDoes({ chainId, safe, calls, tx }: { chainId: number; safe
           {/* what the swap would do, read from its calldata, when the run can't say */}
           {swaps.map((s, i) => (
             <div key={i} className="stack" style={{ gap: 4 }}>
-              <Money amount={s.pay.amount} symbol={s.pay.symbol} />
-              <Money amount={s.get.amount} symbol={s.get.symbol} least={s.get.least} get />
+              {/* never a router flag (1 << 255) as an amount: no readable number = say so */}
+              {s.pay.unknown || !(Number(s.pay.amount) < 1e15) ? (
+                <span style={{ fontSize: 20, fontWeight: 700, color: "var(--coral)" }}>
+                  − {s.pay.symbol} <span className="fine" style={{ fontWeight: 400 }}>(amount not known)</span>
+                </span>
+              ) : (
+                <Money amount={s.pay.amount} symbol={s.pay.symbol} usd={s.pay.usd} />
+              )}
+              <Money amount={s.get.amount} symbol={s.get.symbol} least={s.get.least} usd={s.get.usd} get />
             </div>
           ))}
           <span title={sim.fails}>

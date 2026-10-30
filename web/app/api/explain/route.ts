@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { explainer } from "clear-signing-safe-kit/explain";
 import { CHAINS, knownChain } from "@/lib/chains";
 import { rpc } from "@/lib/rpcServer";
+import { nativeUsd } from "@/lib/safe/relayCore";
 
 export const dynamic = "force-dynamic";
 
@@ -50,5 +51,15 @@ export async function POST(req: NextRequest) {
     if (!ADDR.test(to) || !HEX.test(data) || data.length > MAX_DATA || !/^\d+$/.test(value)) return NextResponse.json({ error: "bad call" }, { status: 400 });
     calls.push({ to, data, value });
   }
-  return NextResponse.json({ calls: await Promise.all(calls.map(c => explain(chain, safe, c))) });
+  const told = await Promise.all(calls.map(c => explain(chain, safe, c)));
+  // dollars next to a swap's coins: the chain's coin at the relay's price, USDC at $1
+  if (told.some(t => t?.swap)) {
+    const coin = knownChain(chain)!;
+    const usdc = CHAINS.find(c => c.id === chain)?.usdc ? "USDC" : null;
+    const px = await nativeUsd(chain).catch(() => null);
+    const usd = (m: { symbol: string; amount: string; unknown?: boolean }) =>
+      m.unknown || !m.amount ? undefined : m.symbol === coin.native.symbol && px ? Number(m.amount) * px : m.symbol === usdc ? Number(m.amount) : undefined;
+    for (const t of told) if (t?.swap) Object.assign(t.swap, { pay: { ...t.swap.pay, usd: usd(t.swap.pay) }, get: { ...t.swap.get, usd: usd(t.swap.get) } });
+  }
+  return NextResponse.json({ calls: told });
 }

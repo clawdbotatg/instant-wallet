@@ -34,7 +34,7 @@ export const tipFloor = (chainId: number) => TIP_FLOOR[chainId] ?? 0n;
 
 const prices = new Map<string, { v: number; at: number }>();
 /** The chain's native coin in dollars (ETH, POL, BNB, …): Coinbase for ETH as before, Alchemy's prices for the rest. */
-async function nativeUsd(chainId: number): Promise<number> {
+export async function nativeUsd(chainId: number): Promise<number> {
   const info = chainById(chainId)!;
   if (info.nativeIsUsdc) return 1;
   const sym = info.native.symbol.toUpperCase();

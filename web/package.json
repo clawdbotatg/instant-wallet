@@ -22,7 +22,7 @@
     "@walletconnect/core": "^2.25.0",
     "@walletconnect/utils": "^2.25.0",
     "blo": "^2.0.0",
-    "clear-signing-safe-kit": "github:clawdbotatg/clear-signing-safe-kit#6193662b86324b49e6a7aaaccb0ba426b860c327",
+    "clear-signing-safe-kit": "github:clawdbotatg/clear-signing-safe-kit#b2a7f5527c54175918da4fe4074140e2d3836641",
     "html5-qrcode": "^2.3.8",
     "jspdf": "4.2.1",
     "next": "^15.5.27",

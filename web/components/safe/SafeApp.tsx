@@ -27,6 +27,7 @@ import { WedgieProgress } from "./WedgieButton";
 import { PendingCards } from "./PendingCard";
 import { TxPage } from "./TxPage";
 import { WaitingCards } from "./Waiting";
+import { Activity } from "./Activity";
 import { SafeConnectLayer } from "./SafeConnect";
 import { NftGrid } from "./Nfts";
 import { PositionList } from "./Positions";
@@ -465,6 +466,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
         </div>
         <PositionList address={account.address} assets={fresh ? portfolio?.assets : undefined} onTotal={setPosUsd} onReceipts={setReceipts} />
         <NftGrid address={account.address} />
+        <Activity safe={account.address} chains={states.filter(s => s.deployed).map(s => s.chainId)} assets={portfolio?.assets ?? []} />
       </div>
 
       <button className="fab fab-settings" aria-label="Settings" onClick={() => setView({ kind: "keys" })}>

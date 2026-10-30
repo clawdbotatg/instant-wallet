@@ -258,8 +258,8 @@ export function SafeApp({ link }: { link?: string } = {}) {
   const isCore = (a: Asset) => a.asset === "0x0000000000000000000000000000000000000000" || a.asset.toLowerCase() === chainById(a.chainId)?.usdc?.toLowerCase();
   // under 2¢ (or no price) and not the coin or USDC: almost always airdropped spam, so the send button becomes a trash can that hides it
   const isDust = (a: Asset) => (a.usd ?? 0) < 0.02 && !isCore(a);
-  // priced and under a penny: spam dust, hidden on its own unless the user tapped Show for it in settings. No price (no liquidity, e.g. your own new token) stays visible
-  const isHidden = (a: Asset) => hidden.includes(keyOf(a)) || (a.usd != null && a.usd < 0.01 && !isCore(a) && !shown.includes(keyOf(a)));
+  // under a penny or no price: almost always spam, hidden on its own unless the user tapped Show for it (e.g. their own new token)
+  const isHidden = (a: Asset) => hidden.includes(keyOf(a)) || ((a.usd ?? 0) < 0.01 && !isCore(a) && !shown.includes(keyOf(a)));
   const assets: Asset[] = held.filter(a => !isHidden(a));
   const hiddenAssets = held.filter(isHidden);
   const close = () => {
@@ -446,7 +446,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
             </button>
           )}
           {showHidden &&
-            hiddenAssets.map(a => (
+            hiddenAssets.slice(0, 200).map(a => (
               <div key={`${a.chainId}:${a.asset}`} className="asset">
                 <TokenIcon symbol={a.symbol} asset={a.asset} chainId={a.chainId} logo={a.logo} />
                 <div className="grow">

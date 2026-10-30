@@ -6,7 +6,7 @@ import { CHAINS, explorerAddress, publicClient } from "@/lib/chains";
 import { short } from "@/lib/format";
 import type { Account } from "@/lib/types";
 import { isDeployed } from "@/lib/wallet";
-import { ChainChip, copy } from "./bits";
+import { ChainChip, Eject, copy } from "./bits";
 import { Safety } from "./Safety";
 
 type Row = { chainId: number; deployed: boolean; guardians: readonly `0x${string}`[]; version?: string };
@@ -54,9 +54,9 @@ export function Settings({ account, toast, onSignOut }: { account: Account; toas
             Recovery: {r.deployed ? (r.guardians.length ? r.guardians.map(short).join(", ") : "off") : "dao.buidlguidl.eth (default)"}, 7 days to cancel
           </div>
           {explorerAddress(r.chainId, account.address) && (
-            <a className="fine" href={explorerAddress(r.chainId, account.address)} target="_blank" rel="noreferrer">
+            <Eject href={explorerAddress(r.chainId, account.address)!} title="See it on the explorer">
               Explorer
-            </a>
+            </Eject>
           )}
         </div>
       ))}

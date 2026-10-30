@@ -20,7 +20,7 @@ import { Parked } from "@/lib/safe/pending";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { AddressInput, GreenButton, TokenIcon } from "../bits";
+import { AddressInput, Eject, GreenButton, Money, TokenIcon } from "../bits";
 import { friendly } from "../Welcome";
 import { ErrorLine } from "./WedgieButton";
 
@@ -190,17 +190,12 @@ export function SendAll({
                       logo={a.logo}
                     />
                     <span className="grow">{a.symbol}</span>
-                    <span>
-                      {fmtAmount(formatUnits(n > 0n ? n : 0n, a.decimals))}{" "}
-                      <span className="fine">
-                        {a.price
-                          ? usd(
-                              Number(formatUnits(n > 0n ? n : 0n, a.decimals)) *
-                                a.price,
-                            )
-                          : ""}
-                      </span>
-                    </span>
+                    <Money
+                      amount={formatUnits(n > 0n ? n : 0n, a.decimals)}
+                      symbol={a.symbol}
+                      usd={a.price ? Number(formatUnits(n > 0n ? n : 0n, a.decimals)) * a.price : null}
+                      size={16}
+                    />
                   </div>
                 );
               })}
@@ -214,13 +209,8 @@ export function SendAll({
             {r.prepared?.opts.self && <span className="fine">No fee. Your browser wallet sends it and pays the gas.</span>}
             {r.error && <ErrorLine text={r.error} />}
             {r.stage === "done" ? (
-              <p className="fine">
-                ✓ Sent{" "}
-                {url && (
-                  <a href={url} target="_blank" rel="noreferrer">
-                    view
-                  </a>
-                )}
+              <p className="fine row" style={{ gap: 8 }}>
+                ✓ Sent {url && <Eject href={url} title="See it on the explorer">Explorer</Eject>}
               </p>
             ) : r.stage === "parked" ? (
               <p className="fine">

@@ -372,7 +372,7 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
           ) : (
             rows.map(r => (
               <div key={r.k} className="row" style={{ justifyContent: "space-between" }}>
-                <b>{r.amount}</b>
+                <b style={{ color: "var(--mint-d)" }}>+{r.amount}</b>
                 <span className="fine">{r.chain}</span>
               </div>
             ))

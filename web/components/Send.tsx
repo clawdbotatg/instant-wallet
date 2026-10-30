@@ -7,7 +7,7 @@ import { amount as fmtAmount, short, usd } from "@/lib/format";
 import { type Parsed, parse } from "@/lib/parse";
 import type { Account, Asset } from "@/lib/types";
 import { feeEstimateUsd, isDeployed, sendCalls, transferCall } from "@/lib/wallet";
-import { Blockie, ChainChip, ScanIcon, TokenIcon } from "./bits";
+import { Blockie, ChainChip, Eject, Money, ScanIcon, TokenIcon } from "./bits";
 import { Scanner } from "./Scanner";
 import { friendly } from "./Welcome";
 
@@ -166,14 +166,11 @@ export function Send({
       <div className="stack center">
         <div style={{ fontSize: 64 }}>✓</div>
         <h2>Sent</h2>
+        {!all && asset && <Money amount={tokenAmount} symbol={asset.symbol} usd={usdValue} />}
         <p>
-          {what} to {toInput.includes(".") ? toInput : short(resolved)}
+          {all ? `${what} ` : ""}to {toInput.includes(".") ? toInput : short(resolved)}
         </p>
-        {url && (
-          <a href={url} target="_blank" rel="noreferrer">
-            View on {chainById(chainId)?.name} explorer
-          </a>
-        )}
+        {url && <Eject href={url} title="See it on the explorer">Explorer</Eject>}
         <button className="btn btn-green wide" onClick={onDone}>
           Done
         </button>
@@ -204,15 +201,16 @@ export function Send({
             allAssets.map(a => (
               <div className="line" key={key(a)}>
                 <span>{a.symbol}</span>
-                <b>{isUsdc(a) ? `${fmtAmount(a.formatted)} minus the fee` : fmtAmount(a.formatted)}</b>
+                <span>
+                  <Money amount={a.formatted} symbol={a.symbol} usd={a.usd} size={17} />
+                  {isUsdc(a) && <span className="fine"> minus the fee</span>}
+                </span>
               </div>
             ))
           ) : (
             <div className="line">
               <span>Amount</span>
-              <b>
-                {fmtAmount(tokenAmount)} {asset!.symbol} {usdValue !== null && <span className="fine">≈ {usd(usdValue)}</span>}
-              </b>
+              <Money amount={tokenAmount} symbol={asset!.symbol} usd={usdValue} size={17} />
             </div>
           )}
           <div className="line">

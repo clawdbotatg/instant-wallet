@@ -17,7 +17,7 @@ import { SharedDone } from "./Waiting";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { Blockie, ChainChip, GreenButton, Money, ScanIcon, TokenIcon, useSheetBack } from "../bits";
+import { Blockie, ChainChip, Eject, GreenButton, Money, ScanIcon, TokenIcon, useSheetBack } from "../bits";
 import { Scanner } from "../Scanner";
 import { Select, assetOpt } from "./Pick";
 import { friendly } from "../Welcome";
@@ -303,14 +303,9 @@ export function SafeSend({
       <div className="stack center">
         <div style={{ fontSize: 64 }}>✓</div>
         <h2>Sent</h2>
-        <p>
-          {what} to {toInput.includes(".") ? toInput : short(resolved)}
-        </p>
-        {url && (
-          <a href={url} target="_blank" rel="noreferrer">
-            View on {chainById(chainId)?.name} explorer
-          </a>
-        )}
+        {asset && <Money amount={amountIn} symbol={asset.symbol} usd={asset.price ? Number(amountIn) * asset.price : null} />}
+        <p>to {toInput.includes(".") ? toInput : short(resolved)}</p>
+        {url && <Eject href={url} title="See it on the explorer">Explorer</Eject>}
         <button className="btn btn-green wide" onClick={onDone}>
           Done
         </button>
@@ -320,11 +315,11 @@ export function SafeSend({
 
   if (stage !== "form" && resolved && asset && base !== null) {
     const busy = stage !== "review";
-    const label: Record<string, string> = {
+    const label: Record<string, React.ReactNode> = {
       quote: "Getting the fee…",
       signing: "Signing…",
       "signing-hot": "Sign in your hot wallet…",
-      "signing-wedgie": "Press green on the wedgie…",
+      "signing-wedgie": <>Press <GreenButton /> on the wedgie…</>,
       sending: "Sending…",
       confirming: "Confirming…",
     };

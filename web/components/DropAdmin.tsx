@@ -7,7 +7,7 @@ import { cardsPdf } from "@/lib/claimBatch";
 import { type DropInfo, dropAmount, dropSig, dropUrl } from "@/lib/dropClient";
 import { short } from "@/lib/format";
 import { type SafeAccount, loadAccount } from "@/lib/safe/state";
-import { Qr, TimedBar, copy, useToast } from "./bits";
+import { Eject, Qr, TimedBar, copy, useToast } from "./bits";
 import { friendly } from "./Welcome";
 import { bio } from "@/lib/passkey";
 
@@ -450,7 +450,7 @@ function DropCard({ id, toast, onClose }: { id: string; toast: (m: string) => vo
             <div key={c.tx} className="row fine" style={{ justifyContent: "space-between", padding: "4px 0", gap: 8 }}>
               <span className="mono">{short(c.wallet)}</span>
               <span>{new Date(c.at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
-              <a href={explorerTx(drop.chainId, c.tx)} target="_blank" rel="noreferrer">tx</a>
+              {explorerTx(drop.chainId, c.tx) && <Eject href={explorerTx(drop.chainId, c.tx)!} title="See it on the explorer" />}
             </div>
           ))}
         </details>

@@ -8,7 +8,7 @@ import { siteCalls, siteGas, signForSite } from "@/lib/safe/connect";
 import { type FeeToken, type Prepared, type Signer, type Stage, Shared, finishOwners, ownerSigners, prepareOwners, signThenQueue, signerLabel, usesWedgie } from "@/lib/safe/send";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { type Pending, remember, respond } from "@/lib/walletconnect";
-import { ChainChip } from "../bits";
+import { ChainChip, GreenButton } from "../bits";
 import { ConnectLayer, DappHead, type Session } from "../WalletConnect";
 import { friendly } from "../Welcome";
 import { Progress } from "./Progress";
@@ -169,11 +169,11 @@ function SafeRequest({
 
   const fee = prepared ? BigInt(feeToken === "usdc" ? prepared.fee.feeUsdc : prepared.fee.feeEth) : null;
   const feeLabel = fee === null ? "…" : feeToken === "usdc" ? `${fmtAmount(formatUnits(fee, 6))} USDC` : `${fmtAmount(formatUnits(fee, 18))} ETH`;
-  const label: Record<string, string> = {
+  const label: Record<string, React.ReactNode> = {
     quote: "Getting the fee…",
     signing: `${bio()}…`,
     "signing-hot": "Sign in your hot wallet…",
-    "signing-wedgie": "Press green on the wedgie…",
+    "signing-wedgie": <>Press <GreenButton /> on the wedgie…</>,
     sending: "Sending…",
     confirming: "Confirming…",
   };

@@ -233,7 +233,7 @@ export function Share({ account, states, assets, chainId: startChain, onDone }: 
   // the QR is out or the card is written: now the money. Also where a failed send comes back to.
   const funding = ["quote", "signing", "signing-hot", "signing-wedgie", "sending", "confirming"].includes(step);
   if ((step === "ready" || step === "unfunded" || funding) && card) {
-    const busyLabel: Record<string, string> = { quote: "Getting the fee…", signing: "Signing…", "signing-wedgie": "Press green on the wedgie…", sending: "Sending…", confirming: "Confirming…" };
+    const busyLabel: Record<string, React.ReactNode> = { quote: "Getting the fee…", signing: "Signing…", "signing-wedgie": <>Press <GreenButton /> on the wedgie…</>, sending: "Sending…", confirming: "Confirming…" };
     return (
       <div className="stack center">
         <h2>{card.label}</h2>

@@ -1,5 +1,6 @@
 "use client";
 
+import { GreenButton } from "../bits";
 import { useCallback, useEffect, useState } from "react";
 import { type Hash } from "viem";
 import { chainById } from "@/lib/chains";
@@ -11,9 +12,9 @@ import { friendly } from "../Welcome";
 import { TxPicture, WedgieIcon, ErrorLine } from "./WedgieButton";
 import { Progress } from "./Progress";
 
-const STAGE: Partial<Record<Stage, string>> = { "signing-wedgie": "Press green on the wedgie…", sending: "Sending…", confirming: "Confirming…" };
+const STAGE: Partial<Record<Stage, React.ReactNode>> = { "signing-wedgie": <>Press <GreenButton /> on the wedgie…</>, sending: "Sending…", confirming: "Confirming…" };
 
-/** A big move signed on the phone, waiting for the wedgie: on the phone it says so; on a computer, one tap + A sends it. */
+/** A big move signed on the phone, waiting for the wedgie: on the phone it says so; on a computer, one tap + the green button sends it. */
 export function PendingCards({ account, states, onDone, toast }: { account: SafeAccount; states: ChainState[]; onDone: () => void; toast: (m: string) => void }) {
   const [list, setList] = useState<Pending[]>([]);
   const chains = states.filter(s => s.hasWedgie).map(s => s.chainId);

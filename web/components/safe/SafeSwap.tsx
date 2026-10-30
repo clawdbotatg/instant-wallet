@@ -12,7 +12,7 @@ import { POPULAR, type SwapRoute, type Token, swapCalls } from "@/lib/safe/swap"
 import { uniswapRoute } from "@/lib/safe/uniswap";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { Money, TokenIcon } from "../bits";
+import { Eject, Money, TokenIcon, GreenButton } from "../bits";
 import { ChainSelect, type Opt, Select, SignerChoice, assetOpt } from "./Pick";
 import { Progress } from "./Progress";
 import { friendly } from "../Welcome";
@@ -353,11 +353,7 @@ export function SafeSwap({
         {crossChain && !landed && !failed && <p className="fine">Usually about {Math.max(1, Math.round(route.seconds / 60))} min. You can close this.</p>}
         {failed && <p className="fine">{arrival?.substatus === "REFUNDED" ? `Refunded to your wallet on ${chainById(chainId)?.name}.` : "Check the explorer; LI.FI usually refunds."}</p>}
         {arrival?.substatus === "PARTIAL" && <p className="fine">It arrived as a different token than planned (the bridge's fallback).</p>}
-        {url && (
-          <a href={url} target="_blank" rel="noreferrer">
-            View on {chainById(chainId)?.name} explorer
-          </a>
-        )}
+        {url && <Eject href={url} title="See it on the explorer">Explorer</Eject>}
         <button className="btn btn-green wide" onClick={onDone}>
           Done
         </button>
@@ -366,11 +362,11 @@ export function SafeSwap({
   }
 
   const busy = stage !== "form";
-  const label: Record<string, string> = {
+  const label: Record<string, React.ReactNode> = {
     quote: "Getting the fee…",
     signing: "Signing…",
     "signing-hot": "Sign in your hot wallet…",
-    "signing-wedgie": "Press green on the wedgie…",
+    "signing-wedgie": <>Press <GreenButton /> on the wedgie…</>,
     sending: "Swapping…",
     confirming: "Confirming…",
   };

@@ -7,7 +7,7 @@ import { claimKey } from "@/lib/claim";
 import { amount, short } from "@/lib/format";
 import { parse } from "@/lib/parse";
 import { loadAccount } from "@/lib/safe/state";
-import { Qr, copy, useToast } from "./bits";
+import { Money, Qr, copy, useToast } from "./bits";
 import { SafeApp } from "./safe/SafeApp";
 import { bio } from "@/lib/passkey";
 
@@ -54,7 +54,12 @@ export function PayLink() {
   return (
     <div className="app">
       <div className="welcome">
-        <h1>{amt ? `Pay ${amount(amt)} ${symbol}` : "Pay"}</h1>
+        <h1>Pay</h1>
+        {amt && (
+          <div className="center">
+            <Money amount={amt} symbol={symbol} size={34} />
+          </div>
+        )}
         <p className="fine center">
           to <span className="mono">{p.to.startsWith("0x") ? short(p.to) : p.to}</span>
           {chain && ` on ${chain.name}`}

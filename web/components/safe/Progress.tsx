@@ -1,5 +1,6 @@
 "use client";
 
+import { Eject } from "../bits";
 import { useEffect, useState } from "react";
 import { type Hash, formatGwei } from "viem";
 import { chainById, publicClient } from "@/lib/chains";
@@ -69,9 +70,9 @@ export function Progress({ stage, chainId, hash }: { stage: Stage | string | nul
       </p>
       {why && <p className="fine">{why}</p>}
       {hash && info?.explorer && (
-        <a className="fine" href={`${info.explorer}/tx/${hash}`} target="_blank" rel="noreferrer">
-          See it on {new URL(info.explorer).hostname} ↗
-        </a>
+        <Eject href={`${info.explorer}/tx/${hash}`} title="See it on the explorer">
+          Explorer
+        </Eject>
       )}
     </div>
   );

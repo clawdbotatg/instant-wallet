@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { kv } from "@/lib/kv";
 
 export const dynamic = "force-dynamic";
 
@@ -6,11 +7,14 @@ export const dynamic = "force-dynamic";
  * /api/safe/svc?u=<path>: Safe's Transaction Service (api.safe.global/tx-service/<path>) with our key (SAFE_API_KEY,
  * shared with wedgie.dev: Safe counts per account, so both draw on one quota, ~50K a month). Only what
  * lib/safe/share.ts needs: a Safe's waiting transactions, one transaction, a proposal, a signature. Reads are kept
- * a little while (in memory) so many open pages make few calls.
+ * a little while (in memory) so many open pages make few calls: a Safe's queue 100 s, the rest 20 s (as wedgie.dev's
+ * api/safe.ts). Reads have a daily cap (DAY_CAP, counted in KV across instances): wedgie.dev takes up to 1,500 a day of
+ * the same ~1,666, so past ours the page carries on with the chain and our own queue. Writes are never capped.
  */
+const DAY_CAP = 150;
 const BASE = "https://api.safe.global/tx-service/";
 const PATH = /^[a-z0-9-]+\/api\/v1\/(safes\/0x[0-9a-fA-F]{40}\/multisig-transactions\/|multisig-transactions\/0x[0-9a-fA-F]{64}\/(confirmations\/)?)[\w\-.?=&]*$/;
-const KEEP = 20_000;
+const KEEP = (p: string) => (/executed=false/.test(p) ? 100_000 : 20_000);
 const HIT = new Map<string, { at: number; status: number; body: string }>();
 
 const headers = () => ({ "Content-Type": "application/json", ...(process.env.SAFE_API_KEY ? { Authorization: `Bearer ${process.env.SAFE_API_KEY}` } : {}) });
@@ -29,7 +33,10 @@ export async function GET(req: NextRequest) {
   const p = path(req);
   if (!p || foreign(req)) return pass(403, JSON.stringify({ error: "Not allowed." }));
   const hit = HIT.get(p);
-  if (hit && Date.now() - hit.at < KEEP) return pass(hit.status, hit.body);
+  if (hit && Date.now() - hit.at < KEEP(p)) return pass(hit.status, hit.body);
+  const n = await kv(["INCR", `safe_api:${new Date().toISOString().slice(0, 10)}`]).catch(() => 0);
+  if (n === 1) kv(["EXPIRE", `safe_api:${new Date().toISOString().slice(0, 10)}`, 2 * 86_400]).catch(() => {});
+  if (Number(n) > DAY_CAP) return pass(429, JSON.stringify({ error: "Safe's service: today's share is used." }));
   const r = await fetch(BASE + p, { headers: headers(), signal: AbortSignal.timeout(8000) }).catch(() => null);
   if (!r) return pass(502, JSON.stringify({ error: "Safe's service didn't answer." }));
   const body = await r.text();

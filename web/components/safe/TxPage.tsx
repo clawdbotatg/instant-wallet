@@ -6,11 +6,12 @@ import { chainById, explorerTx, publicClient } from "@/lib/chains";
 import { short } from "@/lib/format";
 import { recoverKeys, bio } from "@/lib/passkey";
 import { MULTISEND_CALL_ONLY } from "@/lib/safe/config";
-import { type Call, type Sig, abi, execData, signerAddress } from "@/lib/safe/core";
+import { type Call, type Sig, abi, batch, execData, safeTxHash, signerAddress } from "@/lib/safe/core";
+import { callsOf, relayFee } from "@/lib/safe/describe";
 import { unpackMultiSend } from "@/lib/safe/fee";
 import { connectHot, hotAvailable, hotSend, hotSign } from "@/lib/safe/hot";
-import { waitFor } from "@/lib/safe/send";
-import { type Waiting, allSignatures, checkSigs, fromLink, readWaiting, safeAppTxLink, shareTx, sigHex, txLink } from "@/lib/safe/share";
+import { feeCall, getQuote, waitFor } from "@/lib/safe/send";
+import { type Waiting, allSignatures, checkSigs, fromLink, openTx, readWaiting, safeAppTxLink, shareTx, sigHex, txLink } from "@/lib/safe/share";
 import { passkeySign } from "@/lib/safe/sign";
 import { keyFromCode, loadAccount, loadSigners, wedgieHome, wedgieSigners } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
@@ -175,6 +176,26 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
 
   const done = w.tx.nonce < chain.nonce;
   const enough = valid.length >= chain.threshold;
+  // a Reject is just the relay's fee at another one's number: nothing to reject in it
+  const fees = callsOf(w.tx).map(c => relayFee(chainId, c));
+  const isReject = fees.length > 0 && fees.every(Boolean);
+  // Reject (as on wedgie.dev): the fee alone at this number, so this one can never run. Its own page opens to sign.
+  async function reject() {
+    if (!w || !chain) return;
+    setBusy("reject");
+    setError(null);
+    try {
+      const q = await getQuote(chainId, chain.passkeys.length > 1 ? "exec-wedgie" : "exec");
+      const t = batch([feeCall(q, fees.find(Boolean)?.token === "eth" ? "eth" : "usdc")], w.tx.nonce);
+      const r: Waiting = { chainId, safe, tx: t, hash: safeTxHash(chainId, safe, t), sigs: [], label: `Reject: ${w.label ?? "transaction"}` };
+      await shareTx(r);
+      openTx(r);
+    } catch (e: any) {
+      setError(friendly(e));
+    } finally {
+      setBusy(null);
+    }
+  }
   const me = loadAccount();
   const calls: Call[] = eq(w.tx.to, MULTISEND_CALL_ONLY) && w.tx.operation === 1 ? safeUnpack(w.tx.data) : [{ to: w.tx.to, value: w.tx.value, data: w.tx.data }];
   const app = safeAppTxLink(chainId, safe, w.hash);
@@ -273,6 +294,11 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
         {(enough || done || sent) && (
           <a href="#" onClick={e => (e.preventDefault(), share())}>
             Share
+          </a>
+        )}
+        {!done && !sent && !isReject && (
+          <a href="#" onClick={e => (e.preventDefault(), reject())}>
+            {busy === "reject" ? "Getting ready…" : "Reject"}
           </a>
         )}
         {enough && !done && !sent && hotAvailable() && (

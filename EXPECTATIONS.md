@@ -38,4 +38,3 @@ Where it lives: `WhatItDoes`, `<Money>`, clear-signing-safe-kit (`dangers`, `sim
 
 - Waiting cards: each has its own green button (more than one green on home when several wait).
 - `<Money>` shows the coin first, dollars after; dollars-first not decided.
-- The tx page has no Reject yet (home's Waiting cards do).

@@ -14,8 +14,9 @@ type Leg = { tin: string; tout: string; amt: bigint; lim: bigint; exactIn: boole
 /** The tokens at each end of a V3 path (20-byte token, 3-byte fee, 20-byte token, …). */
 const v3ends = (p: Hex): [string, string] => ["0x" + p.slice(2, 42), "0x" + p.slice(-40)];
 
-function legs(commands: Hex, inputs: readonly Hex[]): { legs: Leg[]; unwrap: boolean; wrap: boolean } {
+function legs(commands: Hex, inputs: readonly Hex[]): { legs: Leg[]; unwrap: boolean; wrap: boolean; min: bigint } {
   const out: Leg[] = [];
+  let min = 0n; // a minimum checked after the swap (UNWRAP_WETH, SWEEP, V4 TAKE_ALL): routes often swap with 0 and check here
   let unwrap = false;
   let wrap = false;
   const cmds = commands.slice(2).match(/../g) ?? [];
@@ -31,7 +32,14 @@ function legs(commands: Hex, inputs: readonly Hex[]): { legs: Leg[]; unwrap: boo
         const [, a, b, path] = decodeAbiParameters(parseAbiParameters("address, uint256, uint256, address[], bool"), d);
         out.push({ tin: path[0], tout: path[path.length - 1], amt: a, lim: b, exactIn: t === 0x08 });
       } else if (t === 0x0b) wrap = true;
-      else if (t === 0x0c) unwrap = true;
+      else if (t === 0x0c) {
+        unwrap = true;
+        const [, m] = decodeAbiParameters(parseAbiParameters("address, uint256"), d);
+        if (m > min) min = m;
+      } else if (t === 0x04) {
+        const [, , m] = decodeAbiParameters(parseAbiParameters("address, address, uint256"), d);
+        if (m > min) min = m;
+      }
       else if (t === 0x10) {
         const [actions, params] = decodeAbiParameters(parseAbiParameters("bytes, bytes[]"), d);
         (actions.slice(2).match(/../g) ?? []).forEach((a, j) => {
@@ -42,6 +50,9 @@ function legs(commands: Hex, inputs: readonly Hex[]): { legs: Leg[]; unwrap: boo
             const [c0, c1] = [key[0], key[1]];
             const [tin, tout] = zeroForOne ? [c0, c1] : [c1, c0];
             out.push({ tin, tout, amt: x, lim: y, exactIn: k === 0x06 });
+          } else if (k === 0x0f) {
+            const [, m] = decodeAbiParameters(parseAbiParameters("address, uint256"), p);
+            if (m > min) min = m;
           } else if (k === 0x07 || k === 0x09) {
             const [[cur, path, x, y]] = decodeAbiParameters(parseAbiParameters("(address, (address,uint24,int24,address,bytes)[], uint128, uint128)"), p) as any;
             const end = path.length ? path[path.length - 1][0] : cur;
@@ -54,7 +65,7 @@ function legs(commands: Hex, inputs: readonly Hex[]): { legs: Leg[]; unwrap: boo
       // a command we can't read: the rest still can be
     }
   });
-  return { legs: out, unwrap, wrap };
+  return { legs: out, unwrap, wrap, min };
 }
 
 export async function uniswapWords(data: Hex, native: string, wrapped: string | undefined, token: (a: string) => Promise<Tok>): Promise<string | null> {
@@ -64,18 +75,20 @@ export async function uniswapWords(data: Hex, native: string, wrapped: string | 
   } catch {
     return null;
   }
-  const { legs: ls, unwrap, wrap } = legs(d.args[0] as Hex, d.args[1] as readonly Hex[]);
+  const { legs: ls, unwrap, wrap, min } = legs(d.args[0] as Hex, d.args[1] as readonly Hex[]);
   if (!ls.length) return null;
   // a route split over several pools: the first leg's way in, the last's way out, amounts added up
   const first = ls[0];
   const last = ls[ls.length - 1];
   const same = ls.filter(l => l.tin.toLowerCase() === first.tin.toLowerCase() && l.tout.toLowerCase() === last.tout.toLowerCase());
   const amt = same.reduce((s, l) => s + l.amt, 0n);
-  const lim = same.reduce((s, l) => s + l.lim, 0n);
+  let lim = same.reduce((s, l) => s + l.lim, 0n);
+  if (first.exactIn && lim < min) lim = min;
   const name = async (a: string, eth: boolean): Promise<Tok> =>
     a.toLowerCase() === zeroAddress || (eth && wrapped && a.toLowerCase() === wrapped.toLowerCase()) ? { symbol: native, decimals: 18 } : token(a);
   const [ti, to] = await Promise.all([name(first.tin, wrap), name(last.tout, unwrap)]);
   if (!ti || !to) return null;
   const f = (v: bigint, t: NonNullable<Tok>) => `${Number(formatUnits(v, t.decimals)).toLocaleString("en-US", { maximumSignificantDigits: 6 })} ${t.symbol}`;
+  if (first.exactIn && lim === 0n) return `Swap ${f(amt, ti)} for ${to.symbol} (no minimum)`;
   return first.exactIn ? `Swap ${f(amt, ti)} for at least ${f(lim, to)}` : `Swap at most ${f(lim, ti)} for ${f(amt, to)}`;
 }

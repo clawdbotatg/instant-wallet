@@ -87,9 +87,21 @@ export function WaitingCards({
         return (
           <div key={w.hash} className="stack" style={{ gap: 8 }}>
             <div className="recess stack" style={{ gap: 6 }}>
-              <span className="fine">
-                {w.label ?? "Transaction"} · {chainById(w.chainId)?.name}
-              </span>
+              <div className="row" style={{ justifyContent: "space-between", gap: 8 }}>
+                <span className="fine">
+                  {w.label ?? "Transaction"} · {chainById(w.chainId)?.name}
+                </span>
+                <span className="row" style={{ gap: 6 }}>
+                  {app && (
+                    <a className="pill" href={app} target="_blank" rel="noreferrer" title="Open in Safe{Wallet}" style={{ height: 32, padding: "0 10px", fontSize: 13 }}>
+                      Safe ↗
+                    </a>
+                  )}
+                  <a className="pill" href={txLink(w)} title="Its own page" aria-label="Its own page" style={{ height: 32, padding: "0 10px", fontSize: 15 }}>
+                    ⏏
+                  </a>
+                </span>
+              </div>
               <WhatItDoes chainId={w.chainId} safe={w.safe} calls={callsOf(w.tx)} />
             </div>
             <div style={{ display: "flex", gap: 8 }}>
@@ -103,11 +115,6 @@ export function WaitingCards({
               >
                 {removing === w.hash ? "…" : "✕"}
               </button>
-              {app && (
-                <a className="btn btn-sm" href={app} target="_blank" rel="noreferrer" title="Open in Safe{Wallet}" style={{ flex: "none", padding: "0 14px" }}>
-                  Safe ↗
-                </a>
-              )}
               <a
                 href={txLink(w).replace(location.origin, "")}
                 className="btn btn-green btn-sm"

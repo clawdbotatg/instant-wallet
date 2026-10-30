@@ -64,12 +64,6 @@ export function Receive({
   };
   return (
     <div className="stack">
-      {onSwitch && (
-        <button className="btn btn-dark wide" onClick={onSwitch}>
-          <SwitchIcon />
-          Switch account
-        </button>
-      )}
       {!onName && <h2>{asking ? "Request" : "Receive"}</h2>}
       <div onClick={onTap} style={{ cursor: "pointer", position: "relative" }}>
         <Qr
@@ -129,6 +123,12 @@ export function Receive({
       {onShare && !asking && (
         <button className="btn btn-green wide" onClick={onShare}>
           Share crypto
+        </button>
+      )}
+      {onSwitch && !asking && (
+        <button className="btn btn-dark wide" onClick={onSwitch}>
+          <SwitchIcon />
+          Switch account
         </button>
       )}
       {onSignOut && !asking && (

@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { encodeFunctionData } from "viem";
-import { chainById } from "@/lib/chains";
+import { type Address, encodeFunctionData } from "viem";
+import { chainById, explorerAddress } from "@/lib/chains";
 import { short } from "@/lib/format";
 import { abi } from "@/lib/safe/core";
 import { type Prepared, finishOwners, ownerSigners, prepareOwners } from "@/lib/safe/send";
 import type { ChainState, RecoveryOn, SafeAccount } from "@/lib/safe/state";
+import { SAFE_SVC } from "@/lib/safe/share";
+import { Eject, Who } from "../bits";
 import { friendly } from "../Welcome";
 import { ErrorLine } from "./WedgieButton";
 
@@ -79,6 +81,36 @@ export function RecoveryAlert({
         </button>
       )}
       {error && <ErrorLine text={error} />}
+    </div>
+  );
+}
+
+/** Something this app didn't add can control the wallet: a module (moves money with no signatures) or a guard (can
+ * block every transaction). Read on every network (state.ts strangers, guard); wedgie.dev lists these as Add-ons. */
+export function AddonAlert({ safe, state }: { safe: Address; state: ChainState }) {
+  const c = SAFE_SVC[state.chainId];
+  return (
+    <div className="card alert stack" style={{ gap: 8 }}>
+      <div className="row" style={{ justifyContent: "space-between", gap: 8 }}>
+        <b>⚠️ Something else controls your wallet on {chainById(state.chainId)?.name}</b>
+        {c && (
+          <Eject href={`https://app.safe.global/settings/modules?safe=${c.app ?? c.key}:${safe}`} title="Open in Safe{Wallet}">
+            Safe
+          </Eject>
+        )}
+      </div>
+      {state.strangers.map(m => (
+        <div key={m} className="stack" style={{ gap: 2 }}>
+          <Who address={m} chain={state.chainId} link={explorerAddress(state.chainId, m) ?? undefined} />
+          <span className="fine">Can move your money with no signatures. If you didn&apos;t add it, move your money out now.</span>
+        </div>
+      ))}
+      {state.guard && (
+        <div className="stack" style={{ gap: 2 }}>
+          <Who address={state.guard} chain={state.chainId} link={explorerAddress(state.chainId, state.guard) ?? undefined} />
+          <span className="fine">Can block every transaction from this wallet.</span>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { type Address, type Hex, getAddress, keccak256, size, toBytes, zeroAddress } from "viem";
+import { type Address, type Hex, getAddress, keccak256, size, toBytes, toHex, zeroAddress } from "viem";
 import { CHAINS, publicClient } from "../chains";
 import { DAO, KEY_ETH, KEY_FEE_USDC, KEY_USDC, RECOVERY_14D, RECOVERY_60D, RECOVERY_7D, RECOVERY_DAYS, RECOVERY_MODULES } from "./config";
 import { abi, rolesAddress, safeAddress, signerAddress } from "./core";
@@ -26,6 +26,9 @@ export function accountFor(credentialId: string, qx: Hex, qy: Hex, recovering?: 
 export function wedgieSigners(w: { x: Hex; y: Hex }): [Address, Address] {
   return [signerAddress(w.x, w.y), signerAddress(w.x, w.y, VERIFIERS_SLOT2)];
 }
+
+// Safe's guard storage slot (GuardManager): keccak256("guard_manager.guard.address")
+const GUARD_SLOT = keccak256(toHex("guard_manager.guard.address"));
 
 /** The address the wedgie's Safe signer shows on its home screen (precompile only, no fallback: wedgie-safe
  * safe_addr.py): not an owner here, but the blockie the person knows their wedgie by. */
@@ -133,6 +136,8 @@ export type ChainState = {
   stored: Record<Address, Address[]> | null; // each recovery module's guardians, on or off (null = a read failed)
   has60: boolean; // the 60-day module is deployed on this chain
   modules: Address[]; // every module on (the order matters to turn one off)
+  strangers: Address[]; // modules this app didn't put there: they can move everything without signatures
+  guard: Address | null; // a guard: it can block every transaction (this app never sets one)
   recovery: Recovery; // the first running request (recoveries has each)
   roles: Address | null; // enabled Roles modifier (the burner's budget)
   staleBudget: boolean; // Roles is on and some other key is its member (a lost phone's budget, after a recovery)
@@ -170,6 +175,8 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
       stored: { [RECOVERY_7D]: [DAO] },
       has60,
       modules: [RECOVERY_7D],
+      strangers: [],
+      guard: null,
       recovery: null,
       roles: null,
       staleBudget: false,
@@ -187,13 +194,15 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
   const read = (functionName: any, args: any[] = [], address: Address = safe, ab: any = abi.safe) =>
     pc.readContract({ address, abi: ab, functionName, args } as any) as Promise<any>;
   const roles = rolesAddress(safe);
-  const [owners, threshold, nonce, rolesOn, mods] = await Promise.all([
+  const [owners, threshold, nonce, rolesOn, mods, guardWord] = await Promise.all([
     read("getOwners"),
     read("getThreshold"),
     read("nonce"),
     read("isModuleEnabled", [roles]),
     read("getModulesPaginated", ["0x0000000000000000000000000000000000000001", 20n]),
+    pc.getStorageAt({ address: safe, slot: GUARD_SLOT }).catch(() => undefined),
   ]);
+  const guard = guardWord && BigInt(guardWord) ? getAddress(`0x${guardWord.slice(-40)}`) : null;
   const modules = (mods[0] as string[]).map(x => getAddress(x));
   // your own recovery address: the 14-day module once it's on, else the 7-day one
   const rm = modules.includes(RECOVERY_14D) ? RECOVERY_14D : RECOVERY_7D;
@@ -261,6 +270,8 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
     stored,
     has60,
     modules,
+    strangers: modules.filter(m => !RECOVERY_DAYS[m] && m.toLowerCase() !== roles.toLowerCase()),
+    guard,
     recovery: recoveries.find(r => r.request)?.request ?? null,
     roles: rolesOn ? roles : null,
     staleBudget: !!rolesOn && !!members && members.some(m => m.toLowerCase() !== a.burnerSigner.toLowerCase()),

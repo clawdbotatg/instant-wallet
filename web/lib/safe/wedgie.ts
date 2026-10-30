@@ -573,12 +573,10 @@ export class Wedgie {
     // the pieces at sign time (a real wedgie on a phone, 10-27: MemoryError, 1784 bytes). Older ones ignore n.
     for (let o = 0; cb && chunk && o < cb.length; o += chunk) {
       const piece = { type: "safe_clear", at: o / 2, hex: cb.slice(o, o + chunk), ...(o ? {} : { n: cb.length / 2 }) };
-      const a = await this.request(piece, 20_000).catch(() => null);
-      // didn't take it: sign anyway, as wedgie.dev does. The simulation below still shows what goes out and comes in.
-      if (a?.type !== "safe_clear") {
-        dlog(`safe_clear at ${o / 2}: ${a?.error || "no answer"}, signing without it`);
-        break;
-      }
+      const a = await this.request(piece, 20_000).catch((e: Error) => ({ type: "error", error: e.message }));
+      // never on quietly: the wedgie would show "can't read this" with no reason (10-27, a Uniswap swap). Say what
+      // went wrong: the wedgie's own error, or why it didn't answer.
+      if (a?.type !== "safe_clear") throw new Error(`Your wedgie didn't take what this transaction does (part ${o / chunk + 1} of ${Math.ceil(cb.length / chunk)}): ${a?.error || a?.type || "no answer"}`);
     }
     // what it does to your coins, signed by clear-sim with a nonce the wedgie just picked: the wedgie checks the
     // signature against its own list of simulators and shows it first (Safe Signer safe-28+; a batch: safe-47+,

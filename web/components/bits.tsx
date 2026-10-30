@@ -325,6 +325,25 @@ export function Eject({ href, title, children }: { href: string; title: string; 
   );
 }
 
+/** A transaction's link to share with the other signers: a small dark gray copy button (never a pop-out). */
+export function CopyLink({ link }: { link: string }) {
+  const [toast, setToast] = useToast();
+  return (
+    <>
+      <button
+        className="btn btn-dark"
+        title="Copy a link to it"
+        aria-label="Copy a link to it"
+        style={{ width: 32, height: 32, padding: 0, flex: "none" }}
+        onClick={async () => setToast((await copy(link)) ? "Link copied. Share it with the other signers." : "Couldn't copy")}
+      >
+        <CopyIcon size={16} />
+      </button>
+      {toast && <div className="toast">{toast}</div>}
+    </>
+  );
+}
+
 export function ScanIcon({ size = 34 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">

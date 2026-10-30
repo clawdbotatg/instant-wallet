@@ -17,7 +17,7 @@ import {
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { ErrorLine } from "./WedgieButton";
 import { friendly } from "../Welcome";
-import { Eject } from "../bits";
+import { CopyLink, Eject } from "../bits";
 import { WhatItDoes } from "./WhatItDoes";
 
 /** After a send that needs other signers: its page is opening (finishOwners called openTx). */
@@ -136,7 +136,7 @@ export function WaitingCards({
                       Safe
                     </Eject>
                   )}
-                  <Eject href={txLink(w)} title="Open its own page" />
+                  <CopyLink link={txLink(w)} />
                 </span>
               </div>
               <WhatItDoes chainId={w.chainId} safe={w.safe} calls={callsOf(w.tx)} tx={w.tx} />

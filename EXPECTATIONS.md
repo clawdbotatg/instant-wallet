@@ -22,7 +22,7 @@ Where it lives: `WhatItDoes`, `<Money>`, clear-signing-safe-kit (`dangers`, `sim
 ## 2. Same thing, same look, everywhere
 
 - A feature asked for in one place goes everywhere that thing shows. Never make Austin ask twice.
-- One shared component per thing: `<Money>`, `<Eject>` (always a new window), `<Who>` (an address),
+- One shared component per thing: `<Money>`, `<Eject>` (always a new window), `<CopyLink>` (a tx's link for the other signers, never a pop-out), `<Who>` (an address),
   `WhatItDoes`. Signing says Sign, declining says Reject, removing is the red ✕ on the far left.
 - Instant Wallet and wedgie.dev share their code through clear-signing-safe-kit, so both say the same.
 

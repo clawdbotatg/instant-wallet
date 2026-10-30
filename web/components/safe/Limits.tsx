@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { formatUnits, parseUnits, zeroAddress } from "viem";
+import { amount as fmtAmount } from "@/lib/format";
 import { chainById, nativeSymbol } from "@/lib/chains";
 import { FEE_ALLOWANCE } from "@/lib/safe/config";
 import { feeAllowanceCalls, setBudgetCalls } from "@/lib/safe/core";
@@ -95,7 +96,7 @@ export function ChainLimit({ account, st, assets, onRefresh, toast, onClose }: {
     }
   }
 
-  const fee = ready && (ready.p.opts.feeToken === "usdc" ? `${(Number(ready.p.fee.feeUsdc) / 1e6).toFixed(4)} USDC` : `${(Number(ready.p.fee.feeEth) / 1e18).toFixed(6)} ${coin}`);
+  const fee = ready && (ready.p.opts.feeToken === "usdc" ? `${fmtAmount(formatUnits(BigInt(ready.p.fee.feeUsdc), 6))} USDC` : `${fmtAmount(formatUnits(BigInt(ready.p.fee.feeEth), 18))} ${coin}`);
   return (
     <>
       {wait ? (
@@ -106,13 +107,13 @@ export function ChainLimit({ account, st, assets, onRefresh, toast, onClose }: {
       ) : ready ? (
         <div className="stack" style={{ gap: 8 }}>
           <b>
-            New daily limit: {formatUnits(ready.usdc, 6)} USDC + {formatUnits(ready.eth, 18)} {coin}
+            New daily limit: {fmtAmount(formatUnits(ready.usdc, 6))} USDC + {fmtAmount(formatUnits(ready.eth, 18))} {coin}
           </b>
           <p className="fine">
             Fee {fee}. Signed by {signerLabel(account, ready.p.opts.state, ready.p.opts.signers)}.
           </p>
           <button className="btn btn-green wide" onClick={sign} disabled={busy}>
-            {busy ? "Signing and sending…" : "Yes"}
+            {busy ? "Signing and sending…" : "Sign"}
           </button>
           <button
             className="btn wide"

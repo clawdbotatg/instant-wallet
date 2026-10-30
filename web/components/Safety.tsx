@@ -231,7 +231,7 @@ function QueueCard({
         <span className="fine">by {short(q.proposer)}</span>
       </div>
       {q.calls.map((c, i) => (
-        <span key={i} className="fine mono" style={{ fontSize: 12 }}>
+        <span key={i} style={{ fontSize: 15 }}>
           {describeCall(wallet, c)}
         </span>
       ))}

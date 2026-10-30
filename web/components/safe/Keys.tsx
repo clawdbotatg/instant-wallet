@@ -171,7 +171,7 @@ export function Keys({
 
   const signLabel = (p: Prepared) => signerLabel(account, p.opts.state, p.opts.signers);
 
-  /** An owners change (`calls` from the fresh chain state), confirmed with Yes like every other step. */
+  /** An owners change (`calls` from the fresh chain state), confirmed with Sign like every other step. */
   const ownersChange = (what: string, label: ReactNode, build: (s: ChainState) => Promise<Call[]> | Call[], settled: (s: ChainState) => boolean, after?: () => void) =>
     prep(what, async () => {
       const st = await fresh();
@@ -381,11 +381,11 @@ export function Keys({
         <div className="stack" style={{ gap: 8 }} ref={confirmRef}>
           <b>{pending.label}</b>
           <p className="fine">
-            Fee {pending.p.opts.feeToken === "usdc" ? `${(Number(pending.p.fee.feeUsdc) / 1e6).toFixed(4)} USDC` : `${(Number(pending.p.fee.feeEth) / 1e18).toFixed(6)} ${nativeSymbol(chainId)}`}. Signed by{" "}
+            Fee {pending.p.opts.feeToken === "usdc" ? `${amount(formatUnits(BigInt(pending.p.fee.feeUsdc), 6))} USDC` : `${amount(formatUnits(BigInt(pending.p.fee.feeEth), 18))} ${nativeSymbol(chainId)}`}. Signed by{" "}
             {signLabel(pending.p)}.
           </p>
           <button className="btn btn-green wide" onClick={sign} disabled={!!busy}>
-            {busy ? "Signing and sending…" : "Yes"}
+            {busy ? "Signing and sending…" : "Sign"}
           </button>
           <button
             className="btn wide"

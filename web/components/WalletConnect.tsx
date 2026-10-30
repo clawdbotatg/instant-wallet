@@ -24,6 +24,7 @@ import {
   triage,
 } from "@/lib/walletconnect";
 import { Blockie, ChainChip, Sheet, useToast } from "./bits";
+import { WhatItDoes } from "./safe/WhatItDoes";
 import { Scanner } from "./Scanner";
 import { friendly } from "./Welcome";
 import { bio } from "@/lib/passkey";
@@ -320,7 +321,7 @@ function Connect({ proposal, onYes, onNo }: { proposal: WalletKitTypes.SessionPr
       {(scam || mismatch) && (
         <p className="err">{scam ? "Known scam site. Don't connect." : "This site isn't who it says it is. Check the address."}</p>
       )}
-      <p className="fine">It will see your address and can ask you to approve things. Nothing moves without {bio()}.</p>
+      <p className="fine">It will see your address and can ask you to sign things. Nothing moves without {bio()}.</p>
       {error && <p className="err">{error}</p>}
       <button
         className={`btn wide ${scam ? "btn-red" : "btn-green"}`}
@@ -338,7 +339,7 @@ function Connect({ proposal, onYes, onNo }: { proposal: WalletKitTypes.SessionPr
         {busy ? "Connecting…" : "Connect"}
       </button>
       <button className="btn wide" onClick={onNo}>
-        No
+        Reject
       </button>
     </div>
   );
@@ -411,14 +412,10 @@ function Request({ pending, account, onDone, onNo }: { pending: Pending; account
       <DappHead {...pending.dapp} />
       {pending.kind === "calls" ? (
         <>
-          <h2>{pending.calls.length > 1 ? `${pending.calls.length} steps, one ${bio()}` : "Approve?"}</h2>
-          <div className="card stack" style={{ gap: 12 }}>
-            {pending.calls.map((c, i) => (
-              <CallLine key={i} call={c} chainId={pending.chainId} />
-            ))}
+          <div className="card stack" style={{ gap: 8 }}>
+            <WhatItDoes chainId={pending.chainId} safe={account.address} calls={pending.calls.map(c => ({ to: c.target, value: c.value, data: c.data }))} />
           </div>
-          <div className="row" style={{ justifyContent: "space-between" }}>
-            <span className="fine">All or nothing</span>
+          <div className="row" style={{ justifyContent: "flex-end" }}>
             <ChainChip chainId={pending.chainId} />
           </div>
         </>
@@ -447,7 +444,7 @@ function Request({ pending, account, onDone, onNo }: { pending: Pending; account
           }
         }}
       >
-        {stage === "signing" ? `${bio()}…` : stage === "sending" ? "Sending…" : stage === "confirming" ? "Confirming…" : `Approve with ${bio()}`}
+        {stage === "signing" ? `${bio()}…` : stage === "sending" ? "Sending…" : stage === "confirming" ? "Confirming…" : `Sign with ${bio()}`}
       </button>
       {!busy && (
         <button className="btn wide" onClick={onNo}>

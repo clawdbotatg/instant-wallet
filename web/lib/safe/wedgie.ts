@@ -574,9 +574,11 @@ export class Wedgie {
     for (let o = 0; cb && chunk && o < cb.length; o += chunk) {
       const piece = { type: "safe_clear", at: o / 2, hex: cb.slice(o, o + chunk), ...(o ? {} : { n: cb.length / 2 }) };
       const a = await this.request(piece, 20_000).catch(() => null);
-      // never on quietly: the wedgie would show "can't read this" with no reason (10-27, a Uniswap swap)
-      if (a?.type !== "safe_clear")
-        throw new Error(`Your wedgie couldn't take what this transaction does (${a?.error || "no answer"}). Update its Safe signer from the wedgie button, then try again.`);
+      // didn't take it: sign anyway, as wedgie.dev does. The simulation below still shows what goes out and comes in.
+      if (a?.type !== "safe_clear") {
+        dlog(`safe_clear at ${o / 2}: ${a?.error || "no answer"}, signing without it`);
+        break;
+      }
     }
     // what it does to your coins, signed by clear-sim with a nonce the wedgie just picked: the wedgie checks the
     // signature against its own list of simulators and shows it first (Safe Signer safe-28+; a batch: safe-47+,

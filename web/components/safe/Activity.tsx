@@ -7,7 +7,7 @@ import { short } from "@/lib/format";
 import type { Asset } from "@/lib/types";
 import { callsOf, describe, ours, relayFee } from "@/lib/safe/describe";
 import { type Move, chainHistory, moved, moves } from "clear-signing-safe-kit";
-import { Eject, Money } from "../bits";
+import { Eject, Money, useName } from "../bits";
 
 type Row = { chainId: number; at: string; link?: string; pay: Move[]; get: Move[]; words?: string; from?: string; failed?: boolean };
 const SHOW = 6;
@@ -43,7 +43,7 @@ export function Activity({ safe, chains, assets }: { safe: Address; chains: numb
           <div className="row" style={{ justifyContent: "space-between", gap: 8 }}>
             <span className="fine">
               {new Date(r.at).toLocaleDateString(undefined, { month: "short", day: "numeric" })} · {chainById(r.chainId)?.name}
-              {r.from ? ` · from ${short(r.from)}` : ""}
+              {r.from && <From a={r.from} chainId={r.chainId} />}
             </span>
             {r.link && <Eject href={r.link} title="Open in the explorer" />}
           </div>
@@ -99,3 +99,8 @@ async function rowsOn(chainId: number, safe: Address): Promise<Row[]> {
   );
 }
 
+
+function From({ a, chainId }: { a: string; chainId: number }) {
+  const { name } = useName(a, chainId);
+  return <> · from {name ?? short(a)}</>;
+}

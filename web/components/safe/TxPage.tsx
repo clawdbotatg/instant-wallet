@@ -14,7 +14,7 @@ import { type Waiting, allSignatures, checkSigs, fromLink, readWaiting, safeAppT
 import { passkeySign } from "@/lib/safe/sign";
 import { keyFromCode, loadAccount, loadSigners, wedgieHome, wedgieSigners } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
-import { Blockie, Eject, GreenButton, copy, useToast } from "../bits";
+import { Blockie, Eject, GreenButton, Who, copy, useToast } from "../bits";
 import { friendly } from "../Welcome";
 import { ErrorLine } from "./WedgieButton";
 import { WhatItDoes } from "./WhatItDoes";
@@ -236,13 +236,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
           return (
             <div key={o} className="keyrow" style={{ padding: 0, minHeight: 42 }}>
               <span className="row" style={{ gap: 8 }}>
-                <Blockie address={shown} size={22} />
-                <span className="stack" style={{ gap: 0 }}>
-                  <span style={{ fontSize: 15, fontWeight: 600 }}>{NAMES[k]}</span>
-                  <span className="mono fine" style={{ fontSize: 12 }}>
-                    {short(shown)}
-                  </span>
-                </span>
+                <Who address={shown} chain={chainId} label={NAMES[k]} plain={k === "wedgie" || k === "wedgieFar"} />
               </span>
               {signed ? (
                 <span>✓ signed</span>

@@ -24,6 +24,93 @@ export function Blockie({ address, size = 32 }: { address: string; size?: number
   return <img className="blockie" src={blo(address as Address)} width={size} height={size} alt="" />;
 }
 
+// ENS names and avatars, kept in this browser a day (a reload paints them at once); a failed read keeps the last one
+type Named = { name: string | null; avatar: string | null; at: number };
+const NAMES = "iws.ens";
+const asked = new Map<string, Promise<Named | null>>();
+function named(a: string, chain?: number): Promise<Named | null> {
+  const k = `${chain ?? 1}:${a.toLowerCase()}`;
+  let kept: Record<string, Named> = {};
+  try {
+    kept = JSON.parse(localStorage.getItem(NAMES) || "{}");
+  } catch {}
+  if (kept[k] && Date.now() - kept[k].at < 86_400_000) return Promise.resolve(kept[k]);
+  if (!asked.has(k))
+    asked.set(
+      k,
+      fetch(`/api/ens?address=${a}${chain ? `&chain=${chain}` : ""}`)
+        .then(r => (r.ok ? r.json() : Promise.reject()))
+        .then(j => {
+          const v = { name: j.name ?? null, avatar: j.avatar ?? null, at: Date.now() };
+          try {
+            const all = { ...JSON.parse(localStorage.getItem(NAMES) || "{}"), [k]: v };
+            const keys = Object.keys(all).sort((x, y) => all[y].at - all[x].at);
+            for (const x of keys.slice(400)) delete all[x];
+            localStorage.setItem(NAMES, JSON.stringify(all));
+          } catch {}
+          return v;
+        })
+        .catch(() => {
+          asked.delete(k);
+          return kept[k] ?? null;
+        }),
+    );
+  return asked.get(k)!;
+}
+
+/** An address's ENS name and avatar (that chain's name first, e.g. .base.eth), or nulls while unknown / none. */
+export function useName(a?: string | null, chain?: number) {
+  const [n, setN] = useState<Named | null>(null);
+  useEffect(() => {
+    let live = true;
+    setN(null);
+    if (a && isAddress(a)) named(a, chain).then(v => live && setN(v));
+    return () => {
+      live = false;
+    };
+  }, [a, chain]);
+  return { name: n?.name ?? null, avatar: n?.avatar ?? null };
+}
+
+/**
+ * An address, the same everywhere: its ENS avatar (else its blockie), its name over the short address. plain: the
+ * blockie only, never an avatar (a wedgie: the picture must match its screen). label: a word over it instead of the
+ * name (the name then sits beside the short address).
+ */
+export function Who({ address, chain, size = 22, plain, label, link }: { address: string; chain?: number; size?: number; plain?: boolean; label?: string; link?: string }) {
+  const { name, avatar } = useName(plain ? null : address, chain);
+  const [bad, setBad] = useState(false);
+  const pic = avatar && !bad ? (
+    <img className="blockie" src={avatar} width={size} height={size} alt="" style={{ objectFit: "cover" }} onError={() => setBad(true)} />
+  ) : (
+    <Blockie address={address} size={size} />
+  );
+  const top = label ?? name;
+  const under = label && name ? `${name} · ${short(address)}` : short(address);
+  const sub = link ? (
+    <a className="mono fine" style={{ fontSize: 12 }} href={link} target="_blank" rel="noopener noreferrer">
+      {under}
+    </a>
+  ) : (
+    <span className="mono fine" style={{ fontSize: 12 }}>
+      {under}
+    </span>
+  );
+  return (
+    <span className="row" style={{ gap: 8, minWidth: 0 }}>
+      {pic}
+      {top ? (
+        <span className="stack" style={{ gap: 0, minWidth: 0 }}>
+          <span style={{ fontSize: 15, fontWeight: 600 }}>{top}</span>
+          {sub}
+        </span>
+      ) : (
+        sub
+      )}
+    </span>
+  );
+}
+
 export function ChainChip({ chainId }: { chainId: number }) {
   const c = chainById(chainId);
   return (

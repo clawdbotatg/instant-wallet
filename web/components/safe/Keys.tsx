@@ -15,7 +15,7 @@ import { type FeeToken, type Prepared, Shared, type Signer, finishOwners, getQuo
 import { type ChainState, type SafeAccount, daoDays, loadSigners, loadWalletName, readChain, saveSigner, wedgieSigners, shownAs } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { AddressInput, Blockie, PencilIcon, TimedBar, copy } from "../bits";
+import { AddressInput, Blockie, PencilIcon, TimedBar, Who, copy } from "../bits";
 import { Alerts } from "./Alerts";
 import { ChainSelect } from "./Pick";
 import { ChainLimit } from "./Limits";
@@ -426,7 +426,7 @@ export function Keys({
               <div className="keyrow" key={o} style={{ padding: 0, opacity: gone ? 0.45 : 1 }}>
                 <span className="row" style={{ gap: 8, textDecoration: gone ? "line-through" : undefined }}>
                   {/* a wedgie by the address on its own home screen */}
-                  <Addr a={howSigns(account, st, o) === "wedgie" ? shownAs(o, st) : o} chainId={chainId} />
+                  <Addr a={howSigns(account, st, o) === "wedgie" ? shownAs(o, st) : o} chainId={chainId} plain={howSigns(account, st, o) === "wedgie"} />
                   {howSigns(account, st, o) === "faceid" && <span className="fine">{bio()}</span>}
                   {howSigns(account, st, o) !== "faceid" && loadSigners(account.address)[o.toLowerCase()]?.name && <b>{loadSigners(account.address)[o.toLowerCase()].name}</b>}
                   {howSigns(account, st, o) === "wedgie" && (
@@ -747,13 +747,14 @@ function Step({ title, done, children }: { title: string; done?: boolean; childr
 }
 
 /** An address: blockie + short link (or its name) to the explorer (no chain chip: the chain is already picked above). inline: in a sentence */
-function Addr({ a, chainId, inline, name }: { a: Address; chainId: number; inline?: boolean; name?: string }) {
+function Addr({ a, chainId, inline, name, plain }: { a: Address; chainId: number; inline?: boolean; name?: string; plain?: boolean }) {
   const url = explorerAddress(chainId, a);
+  if (!inline) return <Who address={a} chain={chainId} label={name} link={url ?? undefined} plain={plain} />;
   return (
-    <span className="row" style={inline ? { display: "inline-flex", gap: 6, verticalAlign: "middle" } : { gap: 8 }}>
-      <Blockie address={a} size={inline ? 18 : 22} />
+    <span className="row" style={{ display: "inline-flex", gap: 6, verticalAlign: "middle" }}>
+      <Blockie address={a} size={18} />
       {url ? (
-        <a className="mono" href={url} target="_blank" rel="noreferrer" style={inline ? undefined : { fontSize: 13 }}>
+        <a className="mono" href={url} target="_blank" rel="noreferrer">
           {name ?? short(a)}
         </a>
       ) : (

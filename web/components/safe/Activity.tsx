@@ -5,9 +5,10 @@ import { type Address, type Hex, formatUnits, zeroAddress } from "viem";
 import { chainById, publicClient } from "@/lib/chains";
 import { short } from "@/lib/format";
 import type { Asset } from "@/lib/types";
-import { callsOf, describe, ours, relayFee } from "@/lib/safe/describe";
+import { callsOf, relayFee } from "@/lib/safe/describe";
 import { type Move, chainHistory, moved, moves } from "clear-signing-safe-kit";
 import { Eject, Money, useName } from "../bits";
+import { explainCalls, intents } from "./WhatItDoes";
 
 type Row = { chainId: number; at: string; link?: string; pay: Move[]; get: Move[]; words?: string; from?: string; failed?: boolean };
 const SHOW = 6;
@@ -15,7 +16,8 @@ const SHOW = 6;
 /**
  * Home: the last few things this wallet did and got, on every network it's on, newest first. From the chain itself
  * (clear-signing-safe-kit chainHistory, as wedgie.dev's Activity): runs, and money in from the main tokens only (a
- * 0-value or unknown-token "transfer" is address poisoning). Each run shows what it moved (its receipt), the fee apart.
+ * 0-value or unknown-token "transfer" is address poisoning). Each run leads with what it was for, in clear signing's
+ * words (Austin 10-30: red and green alone don't say why); what it moved (its receipt, the fee apart) sits small under it.
  */
 export function Activity({ safe, chains, assets }: { safe: Address; chains: number[]; assets: Asset[] }) {
   const [rows, setRows] = useState<Row[] | null>(null);
@@ -43,14 +45,17 @@ export function Activity({ safe, chains, assets }: { safe: Address; chains: numb
           <div className="row" style={{ justifyContent: "space-between", gap: 8 }}>
             <span className="fine">
               {new Date(r.at).toLocaleDateString(undefined, { month: "short", day: "numeric" })} · {chainById(r.chainId)?.name}
-              {r.from && <From a={r.from} chainId={r.chainId} />}
             </span>
             {r.link && <Eject href={r.link} title="Open in the explorer" />}
           </div>
+          {(r.from || r.words) && <span style={{ fontSize: 17, fontWeight: 700 }}>{r.from ? <>Received from <From a={r.from} chainId={r.chainId} /></> : r.words}</span>}
           {r.failed && <span style={{ fontSize: 15, color: "#c62828", fontWeight: 600 }}>⚠️ Failed: nothing moved</span>}
-          {r.pay.map((m, j) => <Money key={`p${j}`} amount={m.amount} symbol={m.symbol} usd={usd(r.chainId, m)} size={17} />)}
-          {r.get.map((m, j) => <Money key={`g${j}`} amount={m.amount} symbol={m.symbol} usd={usd(r.chainId, m)} size={17} get />)}
-          {r.words && <span style={{ fontSize: 15 }}>{r.words}</span>}
+          {(r.pay.length > 0 || r.get.length > 0) && (
+            <div className="row" style={{ gap: "2px 12px", flexWrap: "wrap" }}>
+              {r.pay.map((m, j) => <Money key={`p${j}`} amount={m.amount} symbol={m.symbol} usd={usd(r.chainId, m)} size={r.from || r.words ? 14 : 17} />)}
+              {r.get.map((m, j) => <Money key={`g${j}`} amount={m.amount} symbol={m.symbol} usd={usd(r.chainId, m)} size={r.from || r.words ? 14 : 17} get />)}
+            </div>
+          )}
         </div>
       ))}
     </div>
@@ -80,10 +85,11 @@ async function rowsOn(chainId: number, safe: Address): Promise<Row[]> {
         });
         return { chainId, at: t.executionDate, link: link(t.txHash), pay: [], get, from: t.transfers[0]?.from };
       }
-      const row: Row = { chainId, at: t.executionDate, link: link(t.transactionHash), pay: [], get: [] };
-      if (!t.isSuccessful) return { ...row, failed: true };
-      // what it ran: known when the Safe logged it (Safe L2) or was called directly
+      // what it ran: known when the Safe logged it (Safe L2) or was called directly; what for, in clear signing's words
       const calls = t.to ? callsOf({ to: t.to as Address, value: BigInt(t.value), data: t.data as Hex, operation: t.operation as 0 | 1 }) : [];
+      const words = intents(chainId, safe, calls, await explainCalls(chainId, safe, calls), true).join(" · ") || undefined;
+      const row: Row = { chainId, at: t.executionDate, link: link(t.transactionHash), pay: [], get: [], words };
+      if (!t.isSuccessful) return { ...row, failed: true };
       const fees: Record<string, bigint> = {};
       for (const c of calls) {
         const f = relayFee(chainId, c);
@@ -91,10 +97,8 @@ async function rowsOn(chainId: number, safe: Address): Promise<Row[]> {
       }
       const out = calls.reduce((s, c) => s + c.value, 0n);
       const m = moves(await moved(rpc, safe, t.transactionHash, out, native, token), fees);
-      // nothing moved (a signer, a limit): say what it did
-      const step = calls.find(c => !ours(chainId, c)?.startsWith("Network fee"));
-      const words = !m.pay.length && !m.get.length ? (step ? describe(chainId, safe, step) : "Changed the wallet") : undefined;
-      return { ...row, pay: m.pay, get: m.get, words };
+      // nothing moved and nothing to say (a call it didn't log): it changed the wallet
+      return { ...row, pay: m.pay, get: m.get, words: words ?? (!m.pay.length && !m.get.length ? "Changed the wallet" : undefined) };
     }),
   );
 }
@@ -102,5 +106,5 @@ async function rowsOn(chainId: number, safe: Address): Promise<Row[]> {
 
 function From({ a, chainId }: { a: string; chainId: number }) {
   const { name } = useName(a, chainId);
-  return <> · from {name ?? short(a)}</>;
+  return <>{name ?? short(a)}</>;
 }

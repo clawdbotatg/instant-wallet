@@ -14,20 +14,53 @@ import { dangers } from "clear-signing-safe-kit";
 type SafeTxLike = { to: Address; value: bigint; data: Hex; operation: 0 | 1 };
 
 type Field = { label: string; value: string; address?: string };
-type Told = { what: string; fields: Field[]; swap?: { pay: Move & { most?: boolean }; get: Move & { least?: boolean } } } | null;
+type Told = { what: string; fields: Field[]; who?: string; swap?: { pay: Move & { most?: boolean }; get: Move & { least?: boolean } } } | null;
 type Move = { symbol: string; amount: string; usd?: number; unknown?: boolean };
 type Got = { calls: Told[] | null; sim: Sim | null; feeUsd: Record<string, number> };
 
 // one ask per set of calls, kept for the page's life
 const got = new Map<string, Promise<Got>>();
+const said = new Map<string, Promise<Told[] | null>>();
+
+/** Each call in words from our server (/api/explain: clear signing, else a Uniswap swap), one ask per set of calls. */
+export function explainCalls(chainId: number, safe: Address, calls: Call[]): Promise<Told[] | null> {
+  if (!calls.length) return Promise.resolve(null);
+  const body = JSON.stringify({ chain: chainId, safe, calls: calls.map(c => ({ to: c.to, value: String(c.value), data: c.data })) });
+  if (!said.has(body))
+    said.set(
+      body,
+      fetch("/api/explain", { method: "POST", headers: { "content-type": "application/json" }, body })
+        .then(r => (r.ok ? r.json() : null))
+        .then(j => (Array.isArray(j?.calls) ? (j.calls as Told[]) : null))
+        .catch(() => null),
+    );
+  return said.get(body)!;
+}
+
+/**
+ * What a tx is for, one line per step: clear signing's intent and who it's with ("Deposit · Steakhouse Financial"),
+ * else ours / describe.ts. Never the relay's fee, never a bare "Call 0x…". brief (Activity): an approval only feeds
+ * the step after it, so it's left out when there's another.
+ */
+export function intents(chainId: number, safe: Address, calls: Call[], told: Told[] | null, brief = false): string[] {
+  const lines = calls.flatMap((c, i) => {
+    const mine = ours(chainId, c);
+    if (mine?.startsWith("Network fee")) return [];
+    const t = mine ? null : told?.[i];
+    const text = mine ?? (t ? (t.who && !t.what.includes(t.who) ? `${t.what} · ${t.who}` : t.what) : describe(chainId, safe, c));
+    if (text.startsWith("Call ")) return [];
+    const approve = /^(Let|Stop) /.test(text) || t?.what === "Approve";
+    return [{ text, approve }];
+  });
+  const keep = brief && lines.some(l => !l.approve) ? lines.filter(l => !l.approve) : lines;
+  return keep.map(l => l.text);
+}
+
 function ask(chainId: number, safe: Address, calls: Call[], tx?: SafeTxLike) {
   const body = JSON.stringify({ chain: chainId, safe, calls: calls.map(c => ({ to: c.to, value: String(c.value), data: c.data })), op: tx?.operation, to: tx?.to });
   if (!got.has(body)) {
     // the words from our server; the coins from clear-sim, asked from here (lib/safe/sim.ts: the user's own simulator if set)
-    const words = (calls.length ? fetch("/api/explain", { method: "POST", headers: { "content-type": "application/json" }, body })
-      .then(r => (r.ok ? r.json() : null))
-      .then(j => (Array.isArray(j?.calls) ? (j.calls as Told[]) : null))
-      .catch(() => null) : Promise.resolve(null));
+    const words = explainCalls(chainId, safe, calls);
     const fees: Record<string, bigint> = {};
     for (const c of calls) {
       const f = relayFee(chainId, c);
@@ -118,6 +151,10 @@ export function WhatItDoes({ chainId, safe, calls, tx }: { chainId: number; safe
         <div className="stack" style={{ gap: 4 }}>
           {sim.pay.map((m, i) => <Money key={`p${i}`} amount={m.amount} symbol={m.symbol} usd={m.usd} />)}
           {sim.get.map((m, i) => <Money key={`g${i}`} amount={m.amount} symbol={m.symbol} usd={m.usd} get />)}
+          {/* the coins are what you check now; what it's for, in clear signing's words, small under them */}
+          {!steps && intents(chainId, safe, calls, res?.calls ?? null).map((t, i) => (
+            <span key={`w${i}`} className="fine">{t}</span>
+          ))}
           {fees.map((f, i) => (
             <span key={`f${i}`} className="fine">
               Network fee: {amount(formatUnits(f.amount, f.decimals))} {f.symbol}
@@ -134,7 +171,7 @@ export function WhatItDoes({ chainId, safe, calls, tx }: { chainId: number; safe
             {mine ? (
               <Said n={many ? n + 1 : 0} text={mine} />
             ) : t ? (
-              <span style={{ fontSize: 15, fontWeight: 600 }}>{`${many ? `${n + 1}. ` : ""}${t.what}`}</span>
+              <span style={{ fontSize: 15, fontWeight: 600 }}>{`${many ? `${n + 1}. ` : ""}${t.what}${t.who && !t.what.includes(t.who) ? ` · ${t.who}` : ""}`}</span>
             ) : (
               <Said n={many ? n + 1 : 0} text={describe(chainId, safe, c)} />
             )}

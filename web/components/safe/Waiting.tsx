@@ -81,15 +81,19 @@ export function WaitingCards({
     <div className="card stack" style={{ gap: 10 }}>
       <b>Waiting for signatures</b>
       {list.map(({ w, need }) => {
+        const enough = w.sigs.length >= need;
         return (
           <div key={w.hash} className="stack" style={{ gap: 8 }}>
-            <div className="recess stack" style={{ gap: 8 }}>
+            <div className="recess stack" style={{ gap: 6 }}>
+              <span className="fine">
+                {w.label ?? "Transaction"} · {chainById(w.chainId)?.name}
+              </span>
               <WhatItDoes chainId={w.chainId} safe={w.safe} calls={callsOf(w.tx)} />
             </div>
-            <div style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
+            <div style={{ display: "flex", gap: 8 }}>
               <button
                 className="btn btn-red btn-sm"
-                style={{ height: "auto", flex: "none", width: 52, padding: 0, fontSize: 20 }}
+                style={{ flex: "none", width: 52, padding: 0, fontSize: 18 }}
                 aria-label="Remove"
                 title="Remove"
                 disabled={!!removing}
@@ -100,26 +104,13 @@ export function WaitingCards({
               <a
                 href={txLink(w).replace(location.origin, "")}
                 className="btn btn-green btn-sm"
-                style={{
-                  flex: 1,
-                  minWidth: 0,
-                  height: "auto",
-                  minHeight: 52,
-                  flexDirection: "column",
-                  gap: 0,
-                  padding: "8px 14px",
-                  lineHeight: 1.2,
-                }}
+                style={{ flex: 1, minWidth: 0 }}
                 onClick={(e) => {
                   e.preventDefault();
                   openTx(w);
                 }}
               >
-                <b>{w.label ?? `Transaction #${w.tx.nonce}`}</b>
-                <span style={{ fontSize: 12, opacity: 0.85 }}>
-                  {chainById(w.chainId)?.name} · {w.sigs.length} of {need}{" "}
-                  signed
-                </span>
+                {enough ? "Send it" : `Sign · ${w.sigs.length} of ${need}`}
               </a>
             </div>
           </div>

@@ -42,7 +42,9 @@ export function WhatItDoes({ chainId, safe, calls }: { chainId: number; safe: Ad
     };
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
   const sim = res?.sim;
-  const many = calls.length > 1;
+  // the relay's fee isn't a step worth reading (the coins line shows it when the run works)
+  const shown = calls.map((c, i) => ({ c, i })).filter(({ c }) => !ours(chainId, c)?.startsWith("Network fee"));
+  const many = shown.length > 1;
   // coins in and out say it all; the steps show when no coins move (a signer, a limit), the run failed, or a step warns
   const steps = !sim || !!sim.fails || (!sim.pay.length && !sim.get.length) || calls.some(c => describe(chainId, safe, c).startsWith(WARN));
   return (
@@ -50,7 +52,9 @@ export function WhatItDoes({ chainId, safe, calls }: { chainId: number; safe: Ad
       {!res ? (
         <span className="fine">Checking what it does…</span>
       ) : sim?.fails ? (
-        <Said text={`${WARN}This would fail right now (${sim.fails})`} />
+        <span title={sim.fails}>
+          <Said text={`${WARN}Would fail now`} />
+        </span>
       ) : sim ? (
         <div className="stack" style={{ gap: 4 }}>
           {sim.pay.map((m, i) => <Coin key={`p${i}`} m={m} />)}
@@ -58,17 +62,17 @@ export function WhatItDoes({ chainId, safe, calls }: { chainId: number; safe: Ad
           {sim.fee.map((m, i) => <Line key={`f${i}`} label="Network fee" m={m} small />)}
         </div>
       ) : null}
-      {steps && calls.map((c, i) => {
+      {steps && shown.map(({ c, i }, n) => {
         const mine = ours(chainId, c);
         const t = mine ? null : res?.calls?.[i];
         return (
           <div key={i} className="stack" style={{ gap: 2 }}>
             {mine ? (
-              <Said n={many ? i + 1 : 0} text={mine} />
+              <Said n={many ? n + 1 : 0} text={mine} />
             ) : t ? (
-              <span style={{ fontSize: 15, fontWeight: 600 }}>{`${many ? `${i + 1}. ` : ""}${t.what}`}</span>
+              <span style={{ fontSize: 15, fontWeight: 600 }}>{`${many ? `${n + 1}. ` : ""}${t.what}`}</span>
             ) : (
-              <Said n={many ? i + 1 : 0} text={describe(chainId, safe, c)} />
+              <Said n={many ? n + 1 : 0} text={describe(chainId, safe, c)} />
             )}
             {t?.fields.map((f, j) => (
               <span key={j} className="fine">

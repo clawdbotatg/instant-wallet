@@ -165,7 +165,7 @@ export function Send({
     return (
       <div className="stack center">
         <div style={{ fontSize: 64 }}>✓</div>
-        <h2>Sent</h2>
+        <h2>Executed</h2>
         {!all && asset && <Money amount={tokenAmount} symbol={asset.symbol} usd={usdValue} />}
         <p>
           {all ? `${what} ` : ""}to {toInput.includes(".") ? toInput : short(resolved)}

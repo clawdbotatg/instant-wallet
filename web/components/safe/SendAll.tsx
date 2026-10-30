@@ -210,7 +210,7 @@ export function SendAll({
             {r.error && <ErrorLine text={r.error} />}
             {r.stage === "done" ? (
               <p className="fine row" style={{ gap: 8 }}>
-                ✓ Sent {url && <Eject href={url} title="See it on the explorer">Explorer</Eject>}
+                ✓ Executed {url && <Eject href={url} title="See it on the explorer">Explorer</Eject>}
               </p>
             ) : r.stage === "parked" ? (
               <p className="fine">

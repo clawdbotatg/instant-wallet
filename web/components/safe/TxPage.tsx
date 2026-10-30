@@ -15,7 +15,7 @@ import { type Waiting, allSignatures, checkSigs, fromLink, openTx, readWaiting, 
 import { passkeySign } from "@/lib/safe/sign";
 import { keyFromCode, loadAccount, loadSigners, wedgieHome, wedgieSigners } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
-import { Blockie, Eject, GreenButton, Who, copy, useToast } from "../bits";
+import { Blockie, CopyIcon, Eject, GreenButton, Who, copy, useToast } from "../bits";
 import { friendly } from "../Welcome";
 import { ErrorLine } from "./WedgieButton";
 import { WhatItDoes } from "./WhatItDoes";
@@ -231,7 +231,17 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
               Safe
             </Eject>
           )}
-          {inWallet && <Eject href={txLink(w)} title="Open its own page" />}
+          {inWallet && (
+            <button
+              className="btn btn-dark"
+              title="Copy a link to it"
+              aria-label="Copy a link to it"
+              style={{ width: 32, height: 32, padding: 0, flex: "none" }}
+              onClick={async () => setToast((await copy(txLink(w))) ? "Link copied. Share it with the other signers." : "Couldn't copy")}
+            >
+              <CopyIcon size={16} />
+            </button>
+          )}
         </span>
       </div>
       <p className="fine row" style={{ gap: 8 }}>

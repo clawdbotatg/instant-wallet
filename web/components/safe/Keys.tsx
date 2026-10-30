@@ -11,7 +11,7 @@ import { type Call, DEFAULT_BUDGET, abi, signerAddress, budgetCalls, deploySigne
 import type { Waiting } from "@/lib/safe/share";
 import { SharedDone } from "./Waiting";
 import { type FeeToken, type Prepared, Shared, type Signer, finishOwners, getQuote, howSigns, ownerSigners, prepareOwners, signerLabel, usesWedgie } from "@/lib/safe/send";
-import { type ChainState, type SafeAccount, daoDays, loadSigners, loadWalletName, readChain, saveSigner, wedgieSigners } from "@/lib/safe/state";
+import { type ChainState, type SafeAccount, daoDays, loadSigners, loadWalletName, readChain, saveSigner, wedgieSigners, shownAs } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
 import { AddressInput, Blockie, PencilIcon, TimedBar, copy } from "../bits";
@@ -279,7 +279,7 @@ export function Keys({
       <span className="stack" style={{ gap: 4 }}>
         {gone.map(o => (
           <span key={o}>
-            Remove <Addr a={o as Address} chainId={chainId} inline />
+            Remove <Addr a={shownAs(o as Address, st!)} chainId={chainId} inline />
             {same(o as Address, account.burnerSigner) ? ` (this device's ${bio()})` : ""}
           </span>
         ))}
@@ -424,12 +424,8 @@ export function Keys({
             return (
               <div className="keyrow" key={o} style={{ padding: 0, opacity: gone ? 0.45 : 1 }}>
                 <span className="row" style={{ gap: 8, textDecoration: gone ? "line-through" : undefined }}>
-                  {howSigns(account, st, o) === "wedgie" && st.wedgieHomes[o.toLowerCase()] ? (
-                    // the wedgie by the address on its own home screen
-                    <Addr a={st.wedgieHomes[o.toLowerCase()]} chainId={chainId} />
-                  ) : (
-                    <Addr a={o} chainId={chainId} />
-                  )}
+                  {/* a wedgie by the address on its own home screen */}
+                  <Addr a={howSigns(account, st, o) === "wedgie" ? shownAs(o, st) : o} chainId={chainId} />
                   {howSigns(account, st, o) === "faceid" && <span className="fine">{bio()}</span>}
                   {howSigns(account, st, o) !== "faceid" && loadSigners(account.address)[o.toLowerCase()]?.name && <b>{loadSigners(account.address)[o.toLowerCase()].name}</b>}
                   {howSigns(account, st, o) === "wedgie" && (

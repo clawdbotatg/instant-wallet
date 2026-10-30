@@ -30,6 +30,9 @@ export function wedgieSigners(w: { x: Hex; y: Hex }): [Address, Address] {
 /** The address the wedgie's Safe signer shows on its home screen (precompile only, no fallback: wedgie-safe
  * safe_addr.py): not an owner here, but the blockie the person knows their wedgie by. */
 export const wedgieHome = (w: { x: Hex; y: Hex }): Address => signerAddress(w.x, w.y, 0x100n << 160n);
+/** The address to SHOW for an owner: a wedgie slot shows as the address on that wedgie's own screen (its blockie
+ * must match the device), never its signer contract. Everything that draws an owner goes through this. */
+export const shownAs = (owner: Address, st: Pick<ChainState, "wedgieHomes">): Address => st.wedgieHomes[owner.toLowerCase()] ?? owner;
 
 const KEY = "iws.account";
 export function loadAccount(): SafeAccount | null {
@@ -316,7 +319,7 @@ export function hotOf(a: SafeAccount, st: ChainState): Address | undefined {
 const PASSKEY_SIGNER_SIZE = 236;
 
 /** A passkey signer proxy's key, from its runtime code (immutables: x at byte 0x4d, y at 0x27). */
-function keyFromCode(code?: Hex): { x: Hex; y: Hex } | undefined {
+export function keyFromCode(code?: Hex): { x: Hex; y: Hex } | undefined {
   if (!code || size(code) !== PASSKEY_SIGNER_SIZE) return undefined;
   const at = (o: number) => `0x${code.slice(2 + o * 2, 2 + (o + 32) * 2)}` as Hex;
   return { x: at(0x4d), y: at(0x27) };

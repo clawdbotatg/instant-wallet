@@ -12,14 +12,14 @@ import { connectHot, hotAvailable, hotSend, hotSign } from "@/lib/safe/hot";
 import { waitFor } from "@/lib/safe/send";
 import { type Waiting, allSignatures, checkSigs, fromLink, readWaiting, safeAppTxLink, shareTx, sigHex, txLink } from "@/lib/safe/share";
 import { passkeySign } from "@/lib/safe/sign";
-import { loadAccount, loadSigners, wedgieSigners } from "@/lib/safe/state";
+import { keyFromCode, loadAccount, loadSigners, wedgieHome, wedgieSigners } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import { Blockie, Eject, GreenButton, copy, useToast } from "../bits";
 import { friendly } from "../Welcome";
 import { ErrorLine } from "./WedgieButton";
 import { WhatItDoes } from "./WhatItDoes";
 
-type Onchain = { owners: Address[]; threshold: number; nonce: bigint; passkeys: Address[] };
+type Onchain = { owners: Address[]; threshold: number; nonce: bigint; passkeys: Address[]; homes: Record<string, Address> };
 const PASSKEY_SIGNER_SIZE = 236; // a passkey signer proxy (lib/safe/state.ts): a phone's Face ID or a wedgie
 const eq = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
@@ -52,7 +52,13 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
     ])) as [Address[], bigint, bigint];
     const os = owners.map(o => getAddress(o));
     const codes = await Promise.all(os.map(o => pc.getCode({ address: o }).catch(() => undefined)));
-    setChain({ owners: os, threshold: Number(threshold), nonce, passkeys: os.filter((_, i) => !!codes[i] && codes[i] !== "0x" && size(codes[i]!) === PASSKEY_SIGNER_SIZE) });
+    // each passkey signer's home address (what a wedgie shows on its screen), read from its contract's key
+    const homes: Record<string, Address> = {};
+    os.forEach((o, i) => {
+      const k = keyFromCode(codes[i]);
+      if (k) homes[o.toLowerCase()] = wedgieHome(k);
+    });
+    setChain({ owners: os, threshold: Number(threshold), nonce, passkeys: os.filter((_, i) => !!codes[i] && codes[i] !== "0x" && size(codes[i]!) === PASSKEY_SIGNER_SIZE), homes });
     const code = inWallet ?? location.hash.slice(1);
     const linked = code ? fromLink(chainId, safe, code) : null;
     const h = (linked?.hash ?? (inWallet ? "" : new URLSearchParams(location.search).get("h")) ?? "").toLowerCase();
@@ -222,17 +228,19 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
         {chain.owners.map(o => {
           const signed = valid.some(s => eq(s.owner, o));
           const k = kind(o);
+          // a wedgie by the address on its own screen (same blockie as the device), never its signer contract
+          const shown = (k === "wedgie" || k === "wedgieFar") && chain.homes[o.toLowerCase()] ? chain.homes[o.toLowerCase()] : o;
           // one wedgie press signs all its slots: the button sits on the first one waiting
           const firstWedgie = chain.owners.find(x => kind(x) === "wedgie" && !valid.some(s => eq(s.owner, x)));
           const act = signed || done || enough ? null : k === "face" ? signFace : k === "wedgie" && firstWedgie === o ? signWedgie : k === "wallet" ? signWallet : null;
           return (
             <div key={o} className="keyrow" style={{ padding: 0, minHeight: 42 }}>
               <span className="row" style={{ gap: 8 }}>
-                <Blockie address={o} size={22} />
+                <Blockie address={shown} size={22} />
                 <span className="stack" style={{ gap: 0 }}>
                   <span style={{ fontSize: 15, fontWeight: 600 }}>{NAMES[k]}</span>
                   <span className="mono fine" style={{ fontSize: 12 }}>
-                    {short(o)}
+                    {short(shown)}
                   </span>
                 </span>
               </span>

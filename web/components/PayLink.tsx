@@ -7,9 +7,10 @@ import { claimKey } from "@/lib/claim";
 import { amount, short } from "@/lib/format";
 import { parse } from "@/lib/parse";
 import { loadAccount } from "@/lib/safe/state";
-import { Money, Qr, copy, useToast } from "./bits";
+import { Money, Qr, Who, copy, useToast } from "./bits";
 import { SafeApp } from "./safe/SafeApp";
 import { bio } from "@/lib/passkey";
+import { ethUsd } from "@/lib/price";
 
 /**
  * A payment request opened as a web link (<origin>/ethereum:…, a phone camera's scan of a Receive QR, lib/parse.ts
@@ -36,6 +37,10 @@ export function PayLink() {
     // the wallet takes over; the address bar goes back to the wallet's own
     if (hasWallet) window.history.replaceState(null, "", "/");
   }, [hasWallet]);
+  const [ethPx, setEthPx] = useState(0);
+  useEffect(() => {
+    ethUsd().then(setEthPx);
+  }, []);
 
   if (!href || hasWallet === undefined) return null;
   if (hasWallet) return <SafeApp link={href} />;
@@ -57,11 +62,11 @@ export function PayLink() {
         <h1>Pay</h1>
         {amt && (
           <div className="center">
-            <Money amount={amt} symbol={symbol} size={34} />
+            <Money amount={amt} symbol={symbol} size={34} usd={isUsdc ? Number(amt) : symbol === "ETH" && ethPx ? Number(amt) * ethPx : null} />
           </div>
         )}
         <p className="fine center">
-          to <span className="mono">{p.to.startsWith("0x") ? short(p.to) : p.to}</span>
+          to {p.to.startsWith("0x") ? <Who address={p.to} chain={p.chainId} inline /> : <span className="mono">{p.to}</span>}
           {chain && ` on ${chain.name}`}
         </p>
         {isRequest && (

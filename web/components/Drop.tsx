@@ -1,6 +1,7 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
+import { ethUsd } from "@/lib/price";
 import { useEffect, useState } from "react";
 import { formatUnits } from "viem";
 import { chainById } from "@/lib/chains";
@@ -12,12 +13,6 @@ import { SafeWelcome } from "./safe/SafeWelcome";
 import { friendly } from "./Welcome";
 import { bio } from "@/lib/passkey";
 
-let ethPrice = 0;
-async function ethUsd(): Promise<number> {
-  if (ethPrice) return ethPrice;
-  const j = await fetch("https://api.coinbase.com/v2/prices/ETH-USD/spot").then(r => r.json()).catch(() => null);
-  return (ethPrice = Number(j?.data?.amount) || 0);
-}
 
 /** /d#CODE: a drop (lib/dropClient.ts). Make a wallet if this phone has none, then Face ID once and it's paid. */
 export function Drop() {

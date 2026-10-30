@@ -4,8 +4,9 @@
 import { useCallback, useEffect, useState } from "react";
 import type { WalletKitTypes } from "@reown/walletkit";
 import { type Hex, decodeFunctionData, erc20Abi, formatEther, formatUnits } from "viem";
-import { chainById, publicClient } from "@/lib/chains";
-import { short } from "@/lib/format";
+import { chainById, nativeSymbol, publicClient } from "@/lib/chains";
+import { ethUsd } from "@/lib/price";
+import { short, usd } from "@/lib/format";
 import { serveExtension } from "@/lib/extension";
 import { serveApps } from "@/lib/safeapps";
 import type { Account } from "@/lib/types";
@@ -23,7 +24,7 @@ import {
   toPending,
   triage,
 } from "@/lib/walletconnect";
-import { Blockie, ChainChip, Sheet, useToast } from "./bits";
+import { Blockie, ChainChip, Sheet, Who, useToast } from "./bits";
 import { WhatItDoes } from "./safe/WhatItDoes";
 import { Scanner } from "./Scanner";
 import { friendly } from "./Welcome";
@@ -348,6 +349,12 @@ function Connect({ proposal, onYes, onNo }: { proposal: WalletKitTypes.SessionPr
 /** What one call does, in words: ERC-20 approve / transfer decoded, ETH value shown, anything else by address. */
 export function CallLine({ call, chainId }: { call: { target: `0x${string}`; value: bigint; data: Hex }; chainId: number }) {
   const [token, setToken] = useState<{ symbol: string; decimals: number } | null>(null);
+  const coin = nativeSymbol(chainId);
+  const [px, setPx] = useState(0); // the coin in dollars (ETH only), for dollars beside it
+  useEffect(() => {
+    if (coin === "ETH" && call.value > 0n) ethUsd().then(setPx);
+  }, [coin, call.value]);
+  const coinAmt = (v: bigint) => `${formatEther(v)} ${coin}${px ? ` (${usd(Number(formatEther(v)) * px)})` : ""}`;
   let decoded: { functionName: string; args: readonly unknown[] } | null = null;
   try {
     if (call.data !== "0x") decoded = decodeFunctionData({ abi: erc20Abi, data: call.data }) as any;
@@ -364,38 +371,37 @@ export function CallLine({ call, chainId }: { call: { target: `0x${string}`; val
   }, [call.target, chainId, decoded?.functionName]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const amt = (v: unknown) =>
-    token ? (BigInt(v as bigint) >= 2n ** 255n ? `unlimited ${token.symbol}` : `${formatUnits(v as bigint, token.decimals)} ${token.symbol}`) : String(v);
+    token ? (BigInt(v as bigint) >= 2n ** 255n ? `unlimited ${token.symbol}` : `${formatUnits(v as bigint, token.decimals)} ${token.symbol}${token.symbol === "USDC" ? ` (${usd(Number(formatUnits(v as bigint, token.decimals)))})` : ""}`) : String(v);
 
   let text: React.ReactNode;
   if (decoded?.functionName === "approve") {
     text = (
       <>
-        <b>Let</b> <span className="mono">{short(String(decoded.args[0]))}</span> <b>spend</b> {amt(decoded.args[1])}
+        <b>Let</b> <Who address={String(decoded.args[0])} chain={chainId} size={18} inline /> <b>spend</b> {amt(decoded.args[1])}
       </>
     );
   } else if (decoded?.functionName === "transfer") {
     text = (
       <>
-        <b>Send</b> {amt(decoded.args[1])} <b>to</b> <span className="mono">{short(String(decoded.args[0]))}</span>
+        <b>Send</b> {amt(decoded.args[1])} <b>to</b> <Who address={String(decoded.args[0])} chain={chainId} size={18} inline />
       </>
     );
   } else if (call.data === "0x") {
     text = (
       <>
-        <b>Send</b> {formatEther(call.value)} ETH <b>to</b> <span className="mono">{short(call.target)}</span>
+        <b>Send</b> {coinAmt(call.value)} <b>to</b> <Who address={call.target} chain={chainId} size={18} inline />
       </>
     );
   } else {
     text = (
       <>
-        <b>Call</b> <span className="mono">{short(call.target)}</span> <span className="fine mono">{call.data.slice(0, 10)}</span>
-        {call.value > 0n && <> with {formatEther(call.value)} ETH</>}
+        <b>Call</b> <Who address={call.target} chain={chainId} size={18} inline /> <span className="fine mono">{call.data.slice(0, 10)}</span>
+        {call.value > 0n && <> with {coinAmt(call.value)}</>}
       </>
     );
   }
   return (
     <div className="row" style={{ alignItems: "flex-start" }}>
-      <Blockie address={call.target} size={22} />
       <div className="grow" style={{ fontSize: 15 }}>
         {text}
       </div>

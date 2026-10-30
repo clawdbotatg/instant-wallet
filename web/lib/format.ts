@@ -12,3 +12,11 @@ export function amount(formatted: string, max = 6): string {
   if (n < 10 ** -max) return `<${(10 ** -max).toFixed(max)}`;
   return n.toLocaleString("en-US", { maximumFractionDigits: n >= 1000 ? 2 : max });
 }
+
+/** A relay fee in words, dollars beside the coin: "0.00004 ETH ($0.15)" or "0.03 USDC". The quote's feeUsdc is the
+ * same fee in dollars (the relay prices it), so no other price is needed. */
+export function feeText(fee: { feeUsdc: string | bigint; feeEth: string | bigint }, token: "usdc" | "eth", coin: string): string {
+  const dollars = Number(BigInt(fee.feeUsdc)) / 1e6;
+  if (token === "usdc") return `${amount(String(dollars))} USDC`;
+  return `${amount(String(Number(BigInt(fee.feeEth)) / 1e18))} ${coin} (${usd(dollars)})`;
+}

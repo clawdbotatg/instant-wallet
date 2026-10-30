@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { type Address, type Hex, formatUnits } from "viem";
-import { amount, short } from "@/lib/format";
-import { Money } from "../bits";
+import { amount, short, usd } from "@/lib/format";
+import { Money, Who } from "../bits";
 import { WARN, describe, ours, relayFee } from "@/lib/safe/describe";
 import type { Call } from "@/lib/safe/core";
 import { type Sim, asSafeTx, moves, simulate } from "@/lib/safe/sim";
@@ -16,7 +16,7 @@ type SafeTxLike = { to: Address; value: bigint; data: Hex; operation: 0 | 1 };
 type Field = { label: string; value: string; address?: string };
 type Told = { what: string; fields: Field[]; swap?: { pay: Move & { most?: boolean }; get: Move & { least?: boolean } } } | null;
 type Move = { symbol: string; amount: string; usd?: number; unknown?: boolean };
-type Got = { calls: Told[] | null; sim: Sim | null };
+type Got = { calls: Told[] | null; sim: Sim | null; feeUsd: Record<string, number> };
 
 // one ask per set of calls, kept for the page's life
 const got = new Map<string, Promise<Got>>();
@@ -34,12 +34,23 @@ function ask(chainId: number, safe: Address, calls: Call[], tx?: SafeTxLike) {
       if (f) fees[f.token] = (fees[f.token] ?? 0n) + f.amount;
     }
     // the Safe tx itself when we have it (a delegatecall must run as one), else these calls as the batch we'd send
+    // the fee in dollars: its share of what the simulator priced that token at
+    const feeUsd: Record<string, number> = {};
     const coins = simulate(chainId, safe, tx ?? asSafeTx(calls))
-      .then(a => (a ? moves(a, fees) : null))
+      .then(a => {
+        if (!a) return null;
+        if (a.ok === "ok")
+          for (const c of a.changes) {
+            const f = fees[c.token];
+            const all = Number(c.amount);
+            if (f && c.usd !== "" && all) feeUsd[c.token] = Math.abs(Number(c.usd) * (Number(f) / all));
+          }
+        return moves(a, fees);
+      })
       .catch(() => null);
     got.set(
       body,
-      Promise.all([words, coins]).then(([w, s]) => ({ calls: w, sim: s })),
+      Promise.all([words, coins]).then(([w, s]) => ({ calls: w, sim: s, feeUsd })),
     );
   }
   return got.get(body)!;
@@ -110,6 +121,7 @@ export function WhatItDoes({ chainId, safe, calls, tx }: { chainId: number; safe
           {fees.map((f, i) => (
             <span key={`f${i}`} className="fine">
               Network fee: {amount(formatUnits(f.amount, f.decimals))} {f.symbol}
+              {res?.feeUsd[f.token] !== undefined && ` (${usd(res.feeUsd[f.token])})`}
             </span>
           ))}
         </div>
@@ -128,7 +140,7 @@ export function WhatItDoes({ chainId, safe, calls, tx }: { chainId: number; safe
             )}
             {t?.fields.map((f, j) => (
               <span key={j} className="fine">
-                {f.label}: {f.address ? <span className="mono">{short(f.address)}</span> : f.value}
+                {f.label}: {f.address ? <Who address={f.address} chain={chainId} size={16} inline /> : f.value}
               </span>
             ))}
           </div>

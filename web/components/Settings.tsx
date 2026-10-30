@@ -6,7 +6,7 @@ import { CHAINS, explorerAddress, publicClient } from "@/lib/chains";
 import { short } from "@/lib/format";
 import type { Account } from "@/lib/types";
 import { isDeployed } from "@/lib/wallet";
-import { ChainChip, Eject, copy } from "./bits";
+import { ChainChip, CopyAddress, Eject } from "./bits";
 import { Safety } from "./Safety";
 
 type Row = { chainId: number; deployed: boolean; guardians: readonly `0x${string}`[]; version?: string };
@@ -36,9 +36,7 @@ export function Settings({ account, toast, onSignOut }: { account: Account; toas
       <div className="card stack">
         <div>
           <div className="fine">Wallet address</div>
-          <button className="pill" onClick={async () => (await copy(account.address)) && toast("Copied")}>
-            <span className="mono">{account.address}</span>
-          </button>
+          <CopyAddress address={account.address} label={<span className="mono">{account.address}</span>} />
         </div>
         <div className="fine">Network fees are paid in USDC from this wallet (a cent or two per send). No ETH needed.</div>
       </div>

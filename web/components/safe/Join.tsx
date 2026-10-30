@@ -6,7 +6,7 @@ import { short } from "@/lib/format";
 import { createPasskey, bio } from "@/lib/passkey";
 import { signerAddress } from "@/lib/safe/core";
 import { loadAccount } from "@/lib/safe/state";
-import { Blockie } from "../bits";
+import { Blockie, Who } from "../bits";
 import { friendly } from "../Welcome";
 import { signIn } from "./SafeWelcome";
 
@@ -77,8 +77,7 @@ export function Join() {
       {inv ? (
         <>
           <p className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-            {inv.from ? <b>{inv.from}</b> : "Someone"} invites you to sign for <Blockie address={inv.safe} size={22} />
-            <span className="mono">{short(inv.safe)}</span>
+            {inv.from ? <b>{inv.from}</b> : "Someone"} invites you to sign for <Who address={inv.safe} inline />
           </p>
           <p className="fine">
             Your passkey stays on your phone. Only its public key goes to them. Then they can ask you to sign.

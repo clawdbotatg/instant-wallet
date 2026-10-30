@@ -7,7 +7,7 @@ import { amount as fmtAmount, short, usd } from "@/lib/format";
 import { type Parsed, parse } from "@/lib/parse";
 import type { Account, Asset } from "@/lib/types";
 import { feeEstimateUsd, isDeployed, sendCalls, transferCall } from "@/lib/wallet";
-import { Blockie, ChainChip, Eject, Money, ScanIcon, TokenIcon } from "./bits";
+import { Blockie, ChainChip, Eject, Money, ScanIcon, TokenIcon, Who } from "./bits";
 import { Scanner } from "./Scanner";
 import { friendly } from "./Welcome";
 
@@ -186,10 +186,7 @@ export function Send({
         <div className="card">
           <div className="line">
             <span>To</span>
-            <span className="row">
-              <Blockie address={resolved} size={22} />
-              <b>{toInput.includes(".") ? toInput : short(resolved)}</b>
-            </span>
+            <Who address={resolved} label={toInput.includes(".") ? toInput : undefined} />
           </div>
           {toInput.includes(".") && (
             <div className="line">

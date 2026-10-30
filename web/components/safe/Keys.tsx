@@ -5,15 +5,15 @@ import { type ReactNode, useCallback, useEffect, useRef, useState } from "react"
 import { type Address, type Hex, encodeFunctionData, formatUnits, zeroAddress } from "viem";
 import { brainKey, isXdai, oldBurnerKey } from "@/lib/brand";
 import { claimKey } from "@/lib/claim";
-import { CHAINS, chainById, explorerAddress, nativeSymbol } from "@/lib/chains";
-import { amount, short } from "@/lib/format";
+import { CHAINS, chainById, explorerAddress, ETH, nativeSymbol } from "@/lib/chains";
+import { amount, short, feeText, usd } from "@/lib/format";
 import { DAO, FEE_ALLOWANCE, RECOVERY_60D, VERIFIERS } from "@/lib/safe/config";
 import { type Call, DEFAULT_BUDGET, abi, signerAddress, budgetCalls, deploySignerCall, feeAllowanceCalls, recoveryLayoutCalls, selfCall } from "@/lib/safe/core";
 import { type FeeToken, type Prepared, Shared, type Signer, finishOwners, getQuote, howSigns, ownerSigners, prepareOwners, signerLabel, usesWedgie } from "@/lib/safe/send";
 import { type ChainState, type SafeAccount, daoDays, loadSigners, loadWalletName, readChain, saveSigner, wedgieSigners, shownAs } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { AddressInput, BioIcon, BioSigner, Blockie, CopyIcon, PencilIcon, RemoveX, TimedBar, Who, copy } from "../bits";
+import { AddressInput, BioIcon, BioSigner, Blockie, CopyAddress, PencilIcon, RemoveX, TimedBar, Who, copy, shareOrCopy } from "../bits";
 import { Alerts } from "./Alerts";
 import { ChainSelect } from "./Pick";
 import { ChainLimit } from "./Limits";
@@ -377,7 +377,7 @@ export function Keys({
         <div className="stack" style={{ gap: 8 }} ref={confirmRef}>
           <b>{pending.label}</b>
           <p className="fine">
-            Fee {pending.p.opts.feeToken === "usdc" ? `${amount(formatUnits(BigInt(pending.p.fee.feeUsdc), 6))} USDC` : `${amount(formatUnits(BigInt(pending.p.fee.feeEth), 18))} ${nativeSymbol(chainId)}`}. Signed by{" "}
+            Fee {feeText(pending.p.fee, pending.p.opts.feeToken, nativeSymbol(chainId))}. Signed by{" "}
             {signLabel(pending.p)}.
           </p>
           <button className="btn btn-green wide" onClick={sign} disabled={!!busy}>
@@ -506,8 +506,8 @@ export function Keys({
                   <button
                     className="btn btn-sm btn-dark"
                     onClick={async () => {
-                      if (navigator.share) return navigator.share({ url: newInvite, title: "Be a signer" }).catch(() => {});
-                      toast((await copy(newInvite)) ? "Link copied" : "Couldn't copy");
+                      const m = await shareOrCopy(newInvite, "Be a signer");
+                      if (m) toast(m);
                     }}
                   >
                     Share
@@ -647,9 +647,7 @@ export function Keys({
         </span>
         <div className="keyrow" style={{ padding: 0 }}>
           <Addr a={account.burnerSigner} chainId={chainId} plain />
-          <button className="pill" aria-label="Copy the address" onClick={async () => toast((await copy(account.burnerSigner)) ? "Address copied" : "Couldn't copy")}>
-            <CopyIcon size={16} />
-          </button>
+          <CopyAddress address={account.burnerSigner} label={null} />
         </div>
       </div>
 
@@ -718,12 +716,14 @@ function Summary({ account, st, assets, onRefresh, toast, children }: { account:
   const close = useCallback(() => setEdit(false), []); // stable: the editor's wait effect depends on it
   const coin = nativeSymbol(st.chainId);
   const b = st.threshold > 1 ? st.budget : null;
+  const coinUsd = assets.find(a => a.chainId === st.chainId && a.asset === ETH)?.price ?? null;
   return (
     <div className="card stack" style={{ gap: 10 }}>
       {b && (
         <p className="row" style={{ gap: 8 }}>
           <span>
             Daily limit: <b>{amount(formatUnits(b.usdcMax, 6))} USDC + {amount(formatUnits(b.ethMax, 18))} {coin}</b>
+            {coinUsd ? <span className="fine"> ({usd(Number(formatUnits(b.ethMax, 18)) * coinUsd)} in {coin})</span> : null}
           </span>
           {!edit && (
             <button aria-label="Change the daily limit" onClick={() => setEdit(true)} style={{ border: 0, padding: 4, background: "none", color: "var(--muted)", cursor: "pointer", display: "flex" }}>
@@ -759,17 +759,5 @@ function Step({ title, done, children }: { title: string; done?: boolean; childr
 /** An address: blockie + short link (or its name) to the explorer (no chain chip: the chain is already picked above). inline: in a sentence */
 function Addr({ a, chainId, inline, name, plain }: { a: Address; chainId: number; inline?: boolean; name?: string; plain?: boolean }) {
   const url = explorerAddress(chainId, a);
-  if (!inline) return <Who address={a} chain={chainId} label={name} link={url ?? undefined} plain={plain} />;
-  return (
-    <span className="row" style={{ display: "inline-flex", gap: 6, verticalAlign: "middle" }}>
-      <Blockie address={a} size={18} />
-      {url ? (
-        <a className="mono" href={url} target="_blank" rel="noreferrer">
-          {name ?? short(a)}
-        </a>
-      ) : (
-        <span className="mono">{name ?? short(a)}</span>
-      )}
-    </span>
-  );
+  return <Who address={a} chain={chainId} label={name} link={url ?? undefined} plain={plain} size={inline ? 18 : 22} inline={inline} />;
 }

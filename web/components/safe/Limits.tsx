@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { formatUnits, parseUnits, zeroAddress } from "viem";
-import { amount as fmtAmount } from "@/lib/format";
-import { chainById, nativeSymbol } from "@/lib/chains";
+import { amount as fmtAmount, feeText, usd } from "@/lib/format";
+import { chainById, ETH, nativeSymbol } from "@/lib/chains";
 import { FEE_ALLOWANCE } from "@/lib/safe/config";
 import { feeAllowanceCalls, setBudgetCalls } from "@/lib/safe/core";
 import { type Prepared, Shared, finishOwners, getQuote, ownerSigners, prepareOwners, signerLabel, usesWedgie } from "@/lib/safe/send";
@@ -23,6 +23,8 @@ export function ChainLimit({ account, st, assets, onRefresh, toast, onClose }: {
   const b = st.budget!;
   const chainId = st.chainId;
   const coin = nativeSymbol(chainId);
+  const coinUsd = assets.find(a => a.chainId === chainId && a.asset === ETH)?.price ?? null; // the coin's price, for dollars beside it
+  const inUsd = (wei: bigint) => (coinUsd ? ` (${usd(Number(formatUnits(wei, 18)) * coinUsd)})` : "");
   const [usdcIn, setUsdcIn] = useState(formatUnits(b.usdcMax, 6));
   const [ethIn, setEthIn] = useState(formatUnits(b.ethMax, 18));
   const [busy, setBusy] = useState(false);
@@ -97,7 +99,7 @@ export function ChainLimit({ account, st, assets, onRefresh, toast, onClose }: {
     }
   }
 
-  const fee = ready && (ready.p.opts.feeToken === "usdc" ? `${fmtAmount(formatUnits(BigInt(ready.p.fee.feeUsdc), 6))} USDC` : `${fmtAmount(formatUnits(BigInt(ready.p.fee.feeEth), 18))} ${coin}`);
+  const fee = ready && feeText(ready.p.fee, ready.p.opts.feeToken, coin);
   return (
     <>
       {wait ? (
@@ -109,6 +111,7 @@ export function ChainLimit({ account, st, assets, onRefresh, toast, onClose }: {
         <div className="stack" style={{ gap: 8 }}>
           <b>
             New daily limit: {fmtAmount(formatUnits(ready.usdc, 6))} USDC + {fmtAmount(formatUnits(ready.eth, 18))} {coin}
+            {inUsd(ready.eth)}
           </b>
           <p className="fine">
             Fee {fee}. Signed by {signerLabel(account, ready.p.opts.state, ready.p.opts.signers)}.
@@ -137,6 +140,7 @@ export function ChainLimit({ account, st, assets, onRefresh, toast, onClose }: {
             <input inputMode="decimal" value={ethIn} onChange={e => setEthIn(e.target.value.replace(",", ".").replace(/[^0-9.]/g, ""))} />
             <span className="unit">{coin}</span>
           </div>
+          {coinUsd && Number(ethIn) > 0 && <span className="fine">≈ {usd(Number(ethIn) * coinUsd)} a day in {coin}</span>}
           <button className="btn btn-green wide" onClick={save} disabled={busy || !usdcIn || !ethIn}>
             {busy ? "Getting ready…" : "Save"}
           </button>

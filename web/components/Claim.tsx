@@ -14,7 +14,7 @@ import { getQuote, waitFor } from "@/lib/safe/send";
 import { createPasskey } from "@/lib/passkey";
 import { type SafeAccount, accountFor, loadAccount, saveAccount } from "@/lib/safe/state";
 import type { Asset, Nft } from "@/lib/types";
-import { TimedBar, copy } from "./bits";
+import { CopyAddress, TimedBar } from "./bits";
 import { SafeWelcome } from "./safe/SafeWelcome";
 import { friendly } from "./Welcome";
 
@@ -334,14 +334,14 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
     ...natives.map(c => `${Number(formatUnits(c.eth, 18)).toFixed(c.chainId === 100 ? 2 : 6)} ${nativeSymbol(c.chainId)}`),
   ].filter(Boolean) as string[];
   const chainName = (id: number) => CHAINS.find(c => c.id === id)?.name ?? "";
-  const rows = [
+  const rows: { k: string; amount: string; chain: string; usd?: number }[] = [
     ...(onChain ?? []).flatMap(c => [
-      ...(c.eth > 0n ? [{ k: `n${c.chainId}`, amount: `${Number(formatUnits(c.eth, 18)).toFixed(c.chainId === 100 ? 2 : 6)} ${nativeSymbol(c.chainId)}`, chain: chainName(c.chainId) }] : []),
+      ...(c.eth > 0n ? [{ k: `n${c.chainId}`, amount: `${Number(formatUnits(c.eth, 18)).toFixed(c.chainId === 100 ? 2 : 6)} ${nativeSymbol(c.chainId)}`, chain: chainName(c.chainId), usd: nativeUsd?.[c.chainId] ? nativeValue(c.chainId, c.eth) : undefined }] : []),
       ...(c.usdc > 0n ? [{ k: `u${c.chainId}`, amount: `${formatUnits(c.usdc, 6)} USDC`, chain: chainName(c.chainId) }] : []),
     ]),
-    ...movable.map(t => ({ k: `${t.chainId}:${t.asset}`, amount: `${fmtAmount(t.formatted)} ${t.symbol}`, chain: chainName(t.chainId) })),
+    ...movable.map(t => ({ k: `${t.chainId}:${t.asset}`, amount: `${fmtAmount(t.formatted)} ${t.symbol}`, chain: chainName(t.chainId), usd: t.usd ?? undefined })),
     ...(uni && !uniStuck ? [{ k: "uni", amount: `${Number(formatUnits(BigInt(uni.amount), 18)).toFixed(0)} UNI (airdrop)`, chain: "Ethereum" }] : []),
-    ...safesMovable.map(x => ({ k: `safe${x.address}`, amount: `${Number(formatUnits(x.wei, 18)).toFixed(2)} xDAI`, chain: "old Safe" })),
+    ...safesMovable.map(x => ({ k: `safe${x.address}`, amount: `${Number(formatUnits(x.wei, 18)).toFixed(2)} xDAI`, chain: "old Safe", usd: nativeUsd?.[100] ? nativeValue(100, x.wei) : undefined })),
     ...[...new Set(nftsMovable.map(n => n.chainId))].map(id => {
       const k = nftsMovable.filter(n => n.chainId === id).length;
       return { k: `nft${id}`, amount: `${k} NFT${k === 1 ? "" : "s"}`, chain: chainName(id) };
@@ -372,7 +372,10 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
           ) : (
             rows.map(r => (
               <div key={r.k} className="row" style={{ justifyContent: "space-between" }}>
-                <b style={{ color: "var(--mint-d)" }}>+{r.amount}</b>
+                <b style={{ color: "var(--mint-d)" }}>
+                  +{r.amount}
+                  {r.usd !== undefined && <span className="fine" style={{ fontWeight: 400 }}> ({usd(r.usd)})</span>}
+                </b>
                 <span className="fine">{r.chain}</span>
               </div>
             ))
@@ -485,7 +488,6 @@ function Stuck({ stuck, nfts, safes, uni, address }: { stuck: Asset[]; nfts: Nft
   const ids = [...new Set([...stuck, ...nfts, ...safes.map(() => ({ chainId: 100 })), ...(uni ? [{ chainId: 1 }] : [])].map(t => t.chainId))];
   const count = (id: number) => [...stuck, ...nfts].filter(t => t.chainId === id).length + (id === 100 ? safes.length : 0) + (id === 1 && uni ? 2 : 0);
   const [gas, setGas] = useState<Record<number, bigint>>({});
-  const [copied, setCopied] = useState(false);
   useEffect(() => {
     for (const id of ids)
       publicClient(id)
@@ -517,9 +519,7 @@ function Stuck({ stuck, nfts, safes, uni, address }: { stuck: Asset[]; nfts: Nft
         </p>
       ))}
       <div className="mono" style={{ fontSize: 13 }}>{address}</div>
-      <button className="pill" onClick={async () => setCopied(await copy(address))}>
-        {copied ? "Copied" : "Copy address"}
-      </button>
+      <CopyAddress address={address} />
       <p className="fine">Then reload this page.</p>
     </div>
   );

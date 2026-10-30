@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { type Hash, formatUnits, getAddress, parseUnits, zeroAddress } from "viem";
 import { CHAINS, chainById, explorerAddress, explorerTx, publicClient, nativeSymbol } from "@/lib/chains";
-import { amount as fmtAmount, short, usd } from "@/lib/format";
+import { amount as fmtAmount, short, usd, feeText } from "@/lib/format";
 import { abi } from "@/lib/safe/core";
 import type { Quote } from "@/lib/safe/fee";
 import { type FeeToken, type Signer, type Stage, Shared, getQuote, ownerSigners, ownersSend, sendKind, signThenQueue, signerOptions, usesWedgie } from "@/lib/safe/send";
@@ -268,7 +268,7 @@ export function SafeSwap({
     };
   }, [route?.tx.data, signers.join()]);
   const feeAmt = fee ? BigInt(feeToken === "usdc" ? fee.feeUsdc : fee.feeEth) : 0n;
-  const feeLabel = fee ? (feeToken === "usdc" ? `${fmtAmount(formatUnits(feeAmt, 6))} USDC` : `${fmtAmount(formatUnits(feeAmt, 18))} ${nativeSymbol(chainId)}`) : "…";
+  const feeLabel = fee ? feeText(fee, feeToken, nativeSymbol(chainId)) : "…";
   const feeBalance = BigInt((feeToken === "usdc" ? usdcHeld?.balance : ethHeld?.balance) ?? "0");
   const spentInFeeToken = (feeToken === "usdc" && fromUsdc) || (feeToken === "eth" && fromEth) ? (base ?? 0n) : 0n;
   const feeShort = !!fee && feeBalance < spentInFeeToken + feeAmt;
@@ -415,7 +415,7 @@ export function SafeSwap({
             </div>
             <div className="row" style={{ justifyContent: "space-between" }}>
               <span className="fine">{fromUsd ? `≈ ${usd(fromUsd)}` : ""}</span>
-              <span className="fine">You have {fmtAmount(from.formatted)}</span>
+              <span className="fine">You have {fmtAmount(from.formatted)}{from.usd ? ` (${usd(from.usd)})` : ""}</span>
             </div>
             {tooMuch && <span className="err">More than you have</span>}
           </>
@@ -439,9 +439,9 @@ export function SafeSwap({
         {unknownTo && to && (
           <span className="fine">
             Anyone can make a token called {to.symbol}. This one is{" "}
-            <a href={explorerAddress(to.chainId, to.address)} target="_blank" rel="noreferrer">
+            <Eject href={explorerAddress(to.chainId, to.address) ?? ""} title="See it on the explorer">
               {short(to.address)}
-            </a>
+            </Eject>
             {"liquidityUsd" in to && (to as Found).liquidityUsd ? ` · ${compactUsd((to as Found).liquidityUsd!)} in its pools` : ""}.
           </span>
         )}

@@ -78,7 +78,7 @@ export function useName(a?: string | null, chain?: number) {
  * blockie only, never an avatar (a wedgie: the picture must match its screen). label: a word over it instead of the
  * name (the name then sits beside the short address).
  */
-export function Who({ address, chain, size = 22, plain, label, link }: { address: string; chain?: number; size?: number; plain?: boolean; label?: string; link?: string }) {
+export function Who({ address, chain, size = 22, plain, label, link, inline }: { address: string; chain?: number; size?: number; plain?: boolean; label?: string; link?: string; inline?: boolean }) {
   const { name, avatar } = useName(plain ? null : address, chain);
   const [bad, setBad] = useState(false);
   const pic = avatar && !bad ? (
@@ -98,7 +98,7 @@ export function Who({ address, chain, size = 22, plain, label, link }: { address
     </span>
   );
   return (
-    <span className="row" style={{ gap: 8, minWidth: 0 }}>
+    <span className="row" style={inline ? { display: "inline-flex", gap: 6, minWidth: 0, verticalAlign: "middle" } : { gap: 8, minWidth: 0 }}>
       {pic}
       {top ? (
         <span className="stack" style={{ gap: 0, minWidth: 0 }}>
@@ -326,23 +326,47 @@ export function Eject({ href, title, children }: { href: string; title: string; 
   );
 }
 
-/** A transaction's link to share with the other signers: a small dark gray copy button (never a pop-out). */
-export function CopyLink({ link }: { link: string }) {
+/**
+ * Copy a link: dark gray (the other likely thing to do), never a pop-out. Alone it's a small icon button (a tx's link
+ * for the other signers); with `label` a pill with the words. `message`: what the toast says once copied.
+ */
+export function CopyLink({ link, message = "Link copied. Share it with the other signers.", label }: { link: string; message?: string; label?: React.ReactNode }) {
+  const [toast, setToast] = useToast();
+  const go = async () => setToast((await copy(link)) ? message : "Couldn't copy");
+  return (
+    <>
+      {label ? (
+        <button className="pill dark" onClick={go}>
+          <CopyIcon size={16} /> {label}
+        </button>
+      ) : (
+        <button className="btn btn-dark" title="Copy a link to it" aria-label="Copy a link to it" style={{ width: 32, height: 32, padding: 0, flex: "none" }} onClick={go}>
+          <CopyIcon size={16} />
+        </button>
+      )}
+      {toast && <div className="toast">{toast}</div>}
+    </>
+  );
+}
+
+/** Copy an address: one pill, one message ("Address copied"). `label`: what the pill says after the icon (none = icon only). */
+export function CopyAddress({ address, label = "Copy address", style }: { address: string; label?: React.ReactNode; style?: React.CSSProperties }) {
   const [toast, setToast] = useToast();
   return (
     <>
-      <button
-        className="btn btn-dark"
-        title="Copy a link to it"
-        aria-label="Copy a link to it"
-        style={{ width: 32, height: 32, padding: 0, flex: "none" }}
-        onClick={async () => setToast((await copy(link)) ? "Link copied. Share it with the other signers." : "Couldn't copy")}
-      >
+      <button className="pill" style={style} aria-label="Copy the address" onClick={async () => setToast((await copy(address)) ? "Address copied" : "Couldn't copy")}>
         <CopyIcon size={16} />
+        {label}
       </button>
       {toast && <div className="toast">{toast}</div>}
     </>
   );
+}
+
+/** Share a link: the phone's share sheet where there is one, else copy it. Returns what to toast (null: shared). */
+export async function shareOrCopy(url: string, title: string): Promise<string | null> {
+  if (navigator.share) return navigator.share({ url, title }).then(() => null, () => null);
+  return (await copy(url)) ? "Link copied" : "Couldn't copy";
 }
 
 /** Remove / delete / end: the small red ✕, always on the far left of its row (EXPECTATIONS #2). */

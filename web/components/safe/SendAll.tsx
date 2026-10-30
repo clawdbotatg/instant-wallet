@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { type Address, type Hash, formatUnits, zeroAddress } from "viem";
 import { chainById, explorerTx, nativeSymbol } from "@/lib/chains";
-import { amount as fmtAmount, usd } from "@/lib/format";
+import { amount as fmtAmount, usd, feeText } from "@/lib/format";
 import { transfer } from "@/lib/safe/core";
 import { hotAvailable } from "@/lib/safe/hot";
 import {
@@ -173,9 +173,7 @@ export function SendAll({
         const fee =
           r.prepared &&
           !r.prepared.opts.self &&
-          (r.prepared.opts.feeToken === "usdc"
-            ? `${fmtAmount(formatUnits(BigInt(r.prepared.fee.feeUsdc), 6))} USDC`
-            : `${fmtAmount(formatUnits(BigInt(r.prepared.fee.feeEth), 18))} ${nativeSymbol(chainId)}`);
+          feeText(r.prepared.fee, r.prepared.opts.feeToken, nativeSymbol(chainId));
         const url = r.hash && explorerTx(chainId, r.hash);
         return (
           <div key={chainId} className="card stack">

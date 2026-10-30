@@ -7,7 +7,7 @@ import { cardsPdf } from "@/lib/claimBatch";
 import { type DropInfo, dropAmount, dropSig, dropUrl } from "@/lib/dropClient";
 import { short } from "@/lib/format";
 import { type SafeAccount, loadAccount } from "@/lib/safe/state";
-import { Eject, Qr, TimedBar, copy, useToast } from "./bits";
+import { CopyAddress, CopyLink, Eject, Qr, TimedBar, copy, useToast } from "./bits";
 import { friendly } from "./Welcome";
 import { bio } from "@/lib/passkey";
 
@@ -376,16 +376,14 @@ function DropCard({ id, toast, onClose }: { id: string; toast: (m: string) => vo
       <div onClick={async () => (await copy(d.pot.address)) && toast("Address copied")} style={{ cursor: "pointer", maxWidth: 220, margin: "0 auto", width: "100%" }}>
         <Qr value={d.pot.address} center={d.pot.address} />
       </div>
-      <button className="pill" style={{ alignSelf: "center" }} onClick={async () => (await copy(d.pot.address)) && toast("Address copied")}>
-        <span className="mono">{short(d.pot.address)}</span> Copy
-      </button>
+      <CopyAddress address={d.pot.address} style={{ alignSelf: "center" }} label={<span className="mono">{short(d.pot.address)}</span>} />
 
       {drop.kind === "crowd" && drop.code && (
         <>
           <b>The code</b>
           <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
             <button className="btn btn-green" onClick={() => setPresent(true)}>Present</button>
-            <button className="pill" onClick={async () => (await copy(dropUrl(origin, drop.code!))) && toast("Link copied")}>Copy link</button>
+            <CopyLink link={dropUrl(origin, drop.code!)} message="Link copied" label="Copy link" />
             {[30, 60, 90].map(m => (
               <button key={m} className="pill" onClick={() => act("time", "set", { minutes: m })} disabled={!!busy}>Close in {m} min</button>
             ))}

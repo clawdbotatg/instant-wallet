@@ -313,6 +313,7 @@ export function Share({ account, states, assets, chainId: startChain, onDone }: 
           <span className="fine">
             {price && base && !isUsdc(asset) ? `= ${fmtAmount(formatUnits(base, asset.decimals))} ${asset.symbol} · ` : ""}
             You have {fmtAmount(asset.formatted)} {asset.symbol}
+            {asset.usd && !isUsdc(asset) ? ` (${usd(asset.usd)})` : ""}
           </span>
         )}
       </div>

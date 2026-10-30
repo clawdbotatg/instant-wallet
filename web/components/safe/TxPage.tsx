@@ -16,7 +16,7 @@ import { type Waiting, allSignatures, checkSigs, fromLink, openTx, readWaiting, 
 import { passkeySign } from "@/lib/safe/sign";
 import { type ChainState, keyFromCode, loadAccount, loadSigners, readChain, wedgieHome, wedgieSigners } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
-import { BioSigner, Blockie, CopyLink, Eject, GreenButton, Who, copy, useToast } from "../bits";
+import { BioSigner, Blockie, CopyLink, Eject, GreenButton, Who, shareOrCopy, useToast } from "../bits";
 import { friendly } from "../Welcome";
 import { ErrorLine } from "./WedgieButton";
 import { WhatItDoes } from "./WhatItDoes";
@@ -234,9 +234,8 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
   const calls: Call[] = eq(w.tx.to, MULTISEND_CALL_ONLY) && w.tx.operation === 1 ? safeUnpack(w.tx.data) : [{ to: w.tx.to, value: w.tx.value, data: w.tx.data }];
   const app = safeAppTxLink(chainId, safe, w.hash);
   const share = async () => {
-    const link = txLink(w);
-    if (navigator.share) return navigator.share({ url: link, title: w.label ?? "Sign this" }).catch(() => {});
-    setToast((await copy(link)) ? "Link copied" : "Couldn't copy");
+    const m = await shareOrCopy(txLink(w), w.label ?? "Sign this");
+    if (m) setToast(m);
   };
   const friends = loadSigners(safe);
   const mySlots = me?.wedgie ? wedgieSigners(me.wedgie).map(x => x.toLowerCase()) : [];
@@ -271,7 +270,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
         </span>
       </div>
       <p className="fine row" style={{ gap: 8 }}>
-        <Blockie address={safe} size={20} /> <span className="mono">{short(safe)}</span> on {name}
+        <Who address={safe} chain={chainId} size={20} inline /> on {name}
       </p>
 
       <div className="card stack" style={{ gap: 6 }}>

@@ -6,7 +6,7 @@ import { amount, short, usd } from "@/lib/format";
 import { type Parsed, parse } from "@/lib/parse";
 import { loadAccount, saveAccount } from "@/lib/store";
 import type { Account, Asset, Portfolio } from "@/lib/types";
-import { Blockie, ScanIcon, Sheet, TokenIcon, copy, useToast } from "./bits";
+import { Blockie, CopyAddress, ScanIcon, Sheet, TokenIcon, useToast } from "./bits";
 import { CHAINS, chainById } from "@/lib/chains";
 import { Receive } from "./Receive";
 import { Send } from "./Send";
@@ -121,9 +121,7 @@ export function App({ link }: { link?: string }) {
             ))}
         </div>
         <div className="row" style={{ justifyContent: "center" }}>
-          <button className="pill" onClick={async () => (await copy(account.address)) && setToast("Address copied")}>
-            Copy my address
-          </button>
+          <CopyAddress address={account.address} label="Copy my address" />
           <button className="pill" onClick={() => openWalletConnect()}>
             Connect to a site
           </button>

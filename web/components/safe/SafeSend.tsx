@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { type Address, type Hash, formatUnits, getAddress, isAddress, parseUnits, zeroAddress } from "viem";
 import { chainById, explorerTx, nativeSymbol } from "@/lib/chains";
-import { amount as fmtAmount, short, usd } from "@/lib/format";
+import { amount as fmtAmount, short, usd, feeText } from "@/lib/format";
 import { isClaimLink } from "@/lib/claim";
 import { isXdai } from "@/lib/brand";
 import { dropCode } from "@/lib/dropClient";
@@ -15,7 +15,7 @@ import { type FeeToken, type Signer, type Stage, Shared, budgetSend, getQuote, o
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { Blockie, ChainChip, Eject, GreenButton, Money, ScanIcon, TokenIcon, useSheetBack } from "../bits";
+import { Blockie, ChainChip, Eject, GreenButton, Money, ScanIcon, TokenIcon, Who, useSheetBack } from "../bits";
 import { Scanner } from "../Scanner";
 import { Select, assetOpt } from "./Pick";
 import { friendly } from "../Welcome";
@@ -120,7 +120,7 @@ export function SafeSend({
   const sendingEth = asset?.asset === zeroAddress;
   const feeToken: FeeToken = sendingEth ? "eth" : sendingUsdc ? "usdc" : usdcHeld ? "usdc" : "eth";
   const fee = quote ? BigInt(feeToken === "usdc" ? quote.feeUsdc : quote.feeEth) : 0n;
-  const feeLabel = quote ? (feeToken === "usdc" ? `${fmtAmount(formatUnits(fee, 6))} USDC` : `${fmtAmount(formatUnits(fee, 18))} ${nativeSymbol(chainId)}`) : "…";
+  const feeLabel = quote ? feeText(quote, feeToken, nativeSymbol(chainId)) : "…";
   const p = st && asset && base !== null ? plan(st, account, asset.asset as Address, base, fee, sendingUsdc || sendingEth) : null;
   // which keys sign a big move: the first way this device can, unless the user picks another
   const options = st && p?.path === "owners" && st.threshold > 1 && !signThenQueue(st, account) ? signerOptions(st, account) : [];
@@ -322,10 +322,7 @@ export function SafeSend({
         <div className="card">
           <div className="line">
             <span>To</span>
-            <span className="row">
-              <Blockie address={resolved} size={22} />
-              <b>{toInput.includes(".") ? toInput : short(resolved)}</b>
-            </span>
+            <Who address={resolved} chain={chainId} label={toInput.includes(".") ? toInput : undefined} />
           </div>
           {toInput.includes(".") && (
             <div className="line">
@@ -461,8 +458,8 @@ export function SafeSend({
                 </span>
                 <span className="fine">
                   {st?.budget && (sendingUsdc || sendingEth)
-                    ? `Daily budget left: ${sendingUsdc ? `${fmtAmount(formatUnits(st.budget.usdc, 6))} USDC` : `${fmtAmount(formatUnits(st.budget.eth, 18))} ${nativeSymbol(chainId)}`}`
-                    : `You have ${fmtAmount(asset.formatted)}`}{" "}
+                    ? `Daily budget left: ${sendingUsdc ? `${fmtAmount(formatUnits(st.budget.usdc, 6))} USDC` : `${fmtAmount(formatUnits(st.budget.eth, 18))} ${nativeSymbol(chainId)}${price ? ` (${usd(Number(formatUnits(st.budget.eth, 18)) * price)})` : ""}`}`
+                    : `You have ${fmtAmount(asset.formatted)}${asset.usd ? ` (${usd(asset.usd)})` : ""}`}{" "}
                   <button className="pill" style={{ height: 28, padding: "0 10px", marginLeft: 6 }} onClick={max} disabled={maxing}>
                     {maxing ? "…" : "Max"}
                   </button>

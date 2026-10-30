@@ -7,7 +7,7 @@ import { CHAINS } from "@/lib/chains";
 import { claimUrl } from "@/lib/claim";
 import { type CardBalance, cardBalances, cardsPdf, fillWithWallet, fmtUsdc } from "@/lib/claimBatch";
 import { short } from "@/lib/format";
-import { Qr, copy, useToast } from "./bits";
+import { CopyAddress, CopyLink, Qr, copy, useToast } from "./bits";
 
 /**
  * /claim/new: make claim cards (docs/CLAIM.md). A card goes empty → ready → claimed:
@@ -257,9 +257,7 @@ export function ClaimMaker() {
                 </div>
                 <p className="fine center">Waiting for money…</p>
                 <div className="row" style={{ gap: 8, justifyContent: "center" }}>
-                  <button className="pill" onClick={async () => (await copy(a)) && setToast("Address copied")}>
-                    Copy address
-                  </button>
+                  <CopyAddress address={a} />
                   <button className="pill stop" onClick={() => forget([c], "This card")}>
                     Delete
                   </button>
@@ -281,9 +279,7 @@ export function ClaimMaker() {
                   <button className="pill" onClick={() => pdf([c])}>
                     PDF
                   </button>
-                  <button className="pill" onClick={async () => (await copy(url)) && setToast("Claim link copied")}>
-                    Copy link
-                  </button>
+                  <CopyLink link={url} message="Claim link copied" label="Copy link" />
                   {nfc && (
                     <button className="pill" onClick={() => writeNfc(url)}>
                       Write NFC tag

@@ -8,7 +8,7 @@ import { type Candidate, confirmKey, createPasskey, recoverKeys, walletAppBrowse
 import { RECOVERY_MODULES } from "@/lib/safe/config";
 import { abi, rolesAddress } from "@/lib/safe/core";
 import { type SafeAccount, accountFor } from "@/lib/safe/state";
-import { Band, useAddressScan } from "../bits";
+import { Band, CopyLink, useAddressScan } from "../bits";
 import { friendly } from "../Welcome";
 
 /** Has this address got code or money anywhere? (Picks the real key out of a login's candidates.) */
@@ -226,9 +226,7 @@ export function SafeWelcome({ onReady, initialConfirm }: { onReady: (a: SafeAcco
         )}
         {error && <p className="err">{error}</p>}
         {error && walletAppBrowser() && (
-          <button className="pill" style={{ justifySelf: "center" }} onClick={() => navigator.clipboard?.writeText(location.href).then(() => setError("Link copied. Paste it into Safari or Chrome."))}>
-            Copy link
-          </button>
+          <CopyLink link={location.href} message="Link copied. Paste it into Safari or Chrome." label="Copy link" />
         )}
         <p className="fine">
           Passkey signer · DIY hardware wallet · Powered by Safe

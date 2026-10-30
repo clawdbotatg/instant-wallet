@@ -26,11 +26,34 @@ Where it lives: `WhatItDoes`, `<Money>`, clear-signing-safe-kit (`dangers`, `sim
 ## 2. Same thing, same look, everywhere
 
 - A feature asked for in one place goes everywhere that thing shows. Never make Austin ask twice.
-- One shared component per thing: `<Money>`, `<Eject>` (always a new window), `<CopyLink>` (a tx's link for the other signers, never a pop-out), `<Who>` (an address),
-  `WhatItDoes`. Signing says Sign, declining says Reject, removing is the red ✕ on the far left.
-- Button colors (10-30): green = the one obvious action. Dark gray = the next likely one (copy the link, every <Eject> pop-out). Red =
-  anything that ends or removes something (✕, cancel, close, disconnect, sign out). White = the rest, Reject too.
+- Every rule below has one shared part in `web/components/bits.tsx`. Use it. Never draw the thing by hand.
+- `node web/tools/same-check.mjs` fails on anything hand-drawn. A new rule from Austin goes into that check in the
+  same change, or it comes back in a fourth place.
 - Instant Wallet and wedgie.dev share their code through clear-signing-safe-kit, so both say the same.
+
+| Thing | Always | Never |
+|---|---|---|
+| Money moving | `<Money>`: out red −, in green +, dollars after in gray | a hand-written + or − |
+| Leaving the wallet (explorer, Safe{Wallet}, a tx's page) | `<Eject>`: dark gray pill, new window | a hand-rolled pill link |
+| A tx's link for the other signers | `<CopyLink>`: dark gray, copies | a pop-out |
+| An address | `<Who>` (name over short address, avatar or blockie) | a bare `short(…)` in a list |
+| A wedgie | its own screen's address + blockie (`shownAs`, `wedgieHome`) | its signer contract, an ENS avatar |
+| What a tx does | `WhatItDoes` in plain words | hex, a function name |
+| Removing | `<RemoveX>`, the small red ✕. Far left when a green button follows it; else on the right | a hand-drawn ✕ |
+| The passkey | `bio()` / `<BioSigner>`: Face ID, Touch ID… for this device | "Face ID" hard-coded |
+| The wedgie's buttons | `<GreenButton />`, "the green button" | A / B / X / Y |
+| A wait of ~5 s or more | a progress bar sized to it | a dead screen, an "Ask again" button |
+
+Words:
+- Signing says **Sign**. Declining says **Reject**. Never Yes / Approve / Confirm on a signature.
+- Running a signed tx is **Execute** (Executing…, ✓ Executed). Never send.
+- A finished screen says **Done** (red). Never OK.
+
+Button colors (10-30):
+- Green = the one obvious action.
+- Dark gray = the next likely one (copy the link, every `<Eject>` pop-out, Switch account).
+- Red = anything that ends or removes (✕, Cancel, Back, Done, Close, Disconnect, Sign out).
+- White = the rest, Reject too.
 
 ## 3. A wedgie is shown as itself
 

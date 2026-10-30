@@ -65,7 +65,7 @@ export function Receive({
   return (
     <div className="stack">
       {onSwitch && (
-        <button className="btn wide" onClick={onSwitch}>
+        <button className="btn btn-dark wide" onClick={onSwitch}>
           <SwitchIcon />
           Switch account
         </button>

@@ -314,10 +314,10 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
 
       {sent ? (
         <p className="row" style={{ gap: 8 }}>
-          ✓ Sent {explorerTx(chainId, sent) && <Eject href={explorerTx(chainId, sent)!} title="See it on the explorer">Explorer</Eject>}
+          ✓ Executed {explorerTx(chainId, sent) && <Eject href={explorerTx(chainId, sent)!} title="See it on the explorer">Explorer</Eject>}
         </p>
       ) : done ? (
-        <p className="fine">This wallet already used number #{w.tx.nonce.toString()}: this one was sent or replaced.</p>
+        <p className="fine">This wallet already used number #{w.tx.nonce.toString()}: this one was executed or replaced.</p>
       ) : enough && behind ? (
         <p className="fine">Signed. It runs after #{chain.nonce.toString()}{w.tx.nonce - chain.nonce > 1n ? ` (and the others before it)` : ""}: execute or reject that one first.</p>
       ) : enough ? (

@@ -206,7 +206,7 @@ export function SendAll({
               </span>
             )}
             {fee && <span className="fine">Fee {fee}</span>}
-            {r.prepared?.opts.self && <span className="fine">No fee. Your browser wallet sends it and pays the gas.</span>}
+            {r.prepared?.opts.self && <span className="fine">No fee. Your browser wallet executes it and pays the gas.</span>}
             {r.error && <ErrorLine text={r.error} />}
             {r.stage === "done" ? (
               <p className="fine row" style={{ gap: 8 }}>

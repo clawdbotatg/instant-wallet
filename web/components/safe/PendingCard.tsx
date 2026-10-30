@@ -66,7 +66,7 @@ function One({ p, account, onGone, toast }: { p: Pending; account: SafeAccount; 
         setStage(s);
         if (h) setHash(h);
       });
-      toast("Sent");
+      toast("Executed");
       onGone();
     } catch (e: any) {
       setError(/fee too low|Gas went up/i.test(e?.message || "") ? "Gas went up while it waited. Cancel it and execute it again." : friendly(e));

@@ -314,7 +314,7 @@ export function Money({ amount: a, symbol, usd: u, get, least, size = 20 }: { am
  */
 export function Eject({ href, title, children }: { href: string; title: string; children?: React.ReactNode }) {
   return (
-    <a className="pill" href={href} target="_blank" rel="noopener noreferrer" title={title} aria-label={title} style={{ height: 32, padding: "0 10px", fontSize: 13, flex: "none" }}>
+    <a className="pill dark" href={href} target="_blank" rel="noopener noreferrer" title={title} aria-label={title} style={{ height: 32, padding: "0 10px", fontSize: 13, flex: "none" }}>
       {children ? (
         <>{children} ↗</>
       ) : (

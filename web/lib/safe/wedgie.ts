@@ -503,7 +503,7 @@ export class Wedgie {
     } catch (e: any) {
       if (this.drive || !/unplugged/.test(e?.message || "")) throw e;
     }
-    activity({ what: "Your wedgie restarted to make room. Reconnecting…", p: 0.92 });
+    activity({ what: "Getting your wedgie ready…", p: 0.92 });
     const again = wait(); // before the port reopens: an answer already waiting there is read at once
     await this.revive().catch(e => {
       clearTimeout(this.pending.get(id)?.t);
@@ -636,6 +636,7 @@ export class Wedgie {
     // the one way both sites send it (clear-signing-safe-kit): bundle, simulation, data in pieces, safe_sign
     const g = await wedgieSign({
       ask: (m, ms) => (m.type === "safe_sign" && !this.drive ? this.signAsk(m, ms) : this.request(m, ms)),
+      fresh: !this.drive, // over USB this page reopens the port if it restarts to read on a clean heap (signAsk)
       ...(this.drive ? {} : { askRaw: (m: Record<string, unknown>, raw: Uint8Array, ms: number) => this.requestBytes(m, raw, ms) }),
       hello,
       tx,

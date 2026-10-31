@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { type Address, type Hash, type Hex, getAddress, isAddress, parseAbi, size, zeroAddress } from "viem";
+import { type Address, type Hash, type Hex, encodeFunctionData, getAddress, isAddress, parseAbi, size, zeroAddress } from "viem";
 import { chainById, explorerTx, publicClient } from "@/lib/chains";
 import { short } from "@/lib/format";
 import { recoverKeys, bio } from "@/lib/passkey";
@@ -10,7 +10,7 @@ import { type Call, type Sig, abi, batch, execData, safeTxHash, signerAddress } 
 import { callsOf, relayFee } from "@/lib/safe/describe";
 import { unpackMultiSend } from "@/lib/safe/fee";
 import { connectHot, hotAvailable, hotSend, hotSign } from "@/lib/safe/hot";
-import { feeCall, getQuote, ownerSigners, usesWedgie, waitFor } from "@/lib/safe/send";
+import { Shared, feeCall, getQuote, ownerSigners, ownersSend, usesWedgie, waitFor } from "@/lib/safe/send";
 import { signForSite } from "@/lib/safe/connect";
 import { type Waiting, allSignatures, checkSigs, deleteHash, dropTx, fromLink, openTx, readWaiting, safeAppTxLink, shareTx, sigHex, txLink } from "@/lib/safe/share";
 import { passkeySign } from "@/lib/safe/sign";
@@ -155,11 +155,24 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
   const signMine = run("mine", async () => {
     const me = loadAccount();
     if (!w || !me || !mine || !chain) return;
-    // a 1.5 Safe asks its owner Safe about the tx's hash; a 1.4.1 one (wedgie.dev's) about its bytes, which a 1.5
-    // Safe like this wallet can't answer (tested on a Base fork, 10-30): that needs an on-chain approveHash
-    if (!chain.version.startsWith("1.5")) throw new Error(`This is an older Safe (${chain.version || "unknown version"}). Your wallet can't sign for it yet.`);
     const st = mine;
     if (!st.deployed) throw new Error(`Your wallet isn't on ${chainById(chainId)?.name ?? "this chain"} yet. Send anything from it there first.`);
+    // a 1.5 Safe asks its owner Safe about the tx's hash; a 1.4.1 one (wedgie.dev's) about its bytes, which a 1.5
+    // Safe like this wallet can't answer (tested on a Base fork, 10-30): your wallet approves the hash on chain
+    // instead (approveHash, a normal send: relay and fee), and its signature is then r = owner, s = 0, v = 1
+    if (!chain.version.startsWith("1.5")) {
+      const usdc = chainById(chainId)?.usdc;
+      const bal = usdc ? await publicClient(chainId).readContract({ address: usdc, abi: abi.erc20, functionName: "balanceOf", args: [me.address] }).catch(() => 0n) : 0n;
+      const call = { to: safe, value: 0n, data: encodeFunctionData({ abi: abi.safe, functionName: "approveHash", args: [w.hash] }) };
+      try {
+        await ownersSend({ account: me, state: st, calls: [call], signers: ownerSigners(st, me), feeToken: bal >= (chainId === 1 ? 10_000_000n : 1_000_000n) ? "usdc" : "eth",
+          label: `Approve #${w.tx.nonce} on ${short(safe)}` });
+      } catch (e) {
+        if (e instanceof Shared) return; // your wallet needs more signers: its own tx page opened; this one counts it once it runs
+        throw e;
+      }
+      return add({ signer: me.address, data: "0x", kind: "approved" });
+    }
     const signers = ownerSigners(st, me, true);
     if (usesWedgie(me, st, signers)) throw new Error("Your wallet needs its wedgie too, and a wedgie can't sign for another wallet yet.");
     const sig = await signForSite(me, st, signers, w.hash);

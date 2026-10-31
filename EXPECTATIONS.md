@@ -39,7 +39,7 @@ Where it lives: `WhatItDoes`, `<Money>`, clear-signing-safe-kit (`dangers`, `sim
 | An address | `<Who>` (name over short address, avatar or blockie) | a bare `short(…)` in a list |
 | A wedgie | its own screen's address + blockie (`shownAs`, `wedgieHome`) | its signer contract, an ENS avatar |
 | What a tx does | `WhatItDoes` in plain words. Its line (clear signing's words) in bold `<WhatFor>` ABOVE the coins, as in Activity | hex, a function name, small text under the coins |
-| Removing | `<RemoveX>`, the small red ✕. Far left when a green button follows it; else on the right | a hand-drawn ✕ |
+| Removing | `<RemoveX>`, the small red ✕. Far left when a green button follows it; else on the right. Wherever a waiting tx has Reject, it has the ✕ too (Home card, tx page) | a hand-drawn ✕, Reject alone |
 | The passkey | `bio()` / `<BioSigner>`: Face ID, Touch ID… for this device | "Face ID" hard-coded |
 | The wedgie's buttons | `<GreenButton />`, "the green button" | A / B / X / Y |
 | A wait of ~5 s or more | a progress bar sized to it | a dead screen, an "Ask again" button |

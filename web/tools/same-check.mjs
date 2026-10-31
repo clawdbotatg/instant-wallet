@@ -46,5 +46,11 @@ for (const p of files) {
       }
     });
 }
+// a waiting tx's Reject always comes with its ✕ (Austin 10-31: the tx page had Reject and no ✕, Home had both)
+for (const p of files) {
+  const src = readFileSync(p, "utf8");
+  if (/\btype Waiting\b/.test(src) && (/>\s*Reject\s*</.test(src) || /: "Reject"\s*[)}]/.test(src)))
+    if (!/<RemoveX\b/.test(src)) (bad++, console.log(`${relative(root, p)}  a Reject with no <RemoveX>: a waiting tx gets both, ✕ then Reject`));
+}
 console.log(bad ? `\n${bad} not the same as everywhere else` : "same everywhere ✓");
 process.exit(bad ? 1 : 0);

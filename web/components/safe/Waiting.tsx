@@ -105,7 +105,7 @@ export function WaitingCards({
   const lead = list.find(canRun)?.w.hash;
   return (
     <div className="card stack" style={{ gap: 10 }}>
-      <b>Waiting for signatures</b>
+      <b>{lead ? "Ready: press Execute" : "Waiting for signatures"}</b>
       {list.map(({ w, need, next }) => {
         const enough = w.sigs.length >= need;
         const behind = enough && w.tx.nonce > next;
@@ -118,7 +118,7 @@ export function WaitingCards({
             <div className="recess stack" style={{ gap: 6 }}>
               <div className="row" style={{ justifyContent: "space-between", gap: 8 }}>
                 <span className="fine">
-                  {w.label ?? "Transaction"} · {chainById(w.chainId)?.name}
+                  {w.label ?? `Transaction #${w.tx.nonce}`} · {chainById(w.chainId)?.name}
                 </span>
                 <span className="row" style={{ gap: 6 }}>
                   {app && (

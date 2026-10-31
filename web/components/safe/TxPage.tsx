@@ -331,22 +331,26 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
         <p className="fine">This wallet already used number #{w.tx.nonce.toString()}: this one was executed or replaced.</p>
       ) : enough && behind ? (
         <p className="fine">Signed. It runs after #{chain.nonce.toString()}{w.tx.nonce - chain.nonce > 1n ? ` (and the others before it)` : ""}: execute or reject that one first.</p>
-      ) : enough ? (
-        <button className="btn btn-green wide" onClick={sendRelay} disabled={!!busy}>
-          {busy === "send" ? "Executing…" : "Execute"}
-        </button>
       ) : null}
+      {/* ✕, Reject, Execute: one row, as on Home's waiting card */}
+      {!sent && !done && (
+        <div style={{ display: "flex", gap: 8 }}>
+          {me && chain.owners.some(o => eq(o, me.burnerSigner)) && <RemoveX disabled={!!busy} busy={busy === "remove"} onClick={remove} />}
+          {!isReject && (
+            <button className="btn btn-sm" style={{ flex: "none" }} onClick={reject} disabled={!!busy}>
+              {busy === "reject" ? "Getting ready…" : "Reject"}
+            </button>
+          )}
+          {enough && !behind && (
+            <button className="btn btn-sm btn-green" style={{ flex: 1, minWidth: 0 }} onClick={sendRelay} disabled={!!busy}>
+              {busy === "send" ? "Executing…" : "Execute"}
+            </button>
+          )}
+        </div>
+      )}
       {error && <ErrorLine text={error} />}
 
       <p className="fine row" style={{ gap: 16, justifyContent: "center", flexWrap: "wrap" }}>
-        {!done && !sent && me && chain.owners.some(o => eq(o, me.burnerSigner)) && (
-          <RemoveX disabled={!!busy} busy={busy === "remove"} onClick={remove} />
-        )}
-        {!done && !sent && !isReject && (
-          <button className="btn btn-sm" onClick={reject} disabled={!!busy}>
-            {busy === "reject" ? "Getting ready…" : "Reject"}
-          </button>
-        )}
         {enough && !done && !behind && !sent && hotAvailable() && (
           <a href="#" onClick={e => (e.preventDefault(), sendSelf())}>
             {busy === "self" ? "Executing…" : "Execute from my wallet (I pay gas)"}

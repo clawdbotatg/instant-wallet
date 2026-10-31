@@ -294,7 +294,7 @@ export function SafeSwap({
         setStage(s);
         if (h) setHash(h);
       };
-      if (st && usesWedgie(account, st, signers) && wedgieSupported()) wedgie = await Wedgie.connect(); // a phone: it parks for the computer
+      if (st && usesWedgie(account, st, signers) && wedgieSupported()) wedgie = await Wedgie.connect(); // a computer: it signs here too
       const h = await ownersSend({
         account,
         state: st,

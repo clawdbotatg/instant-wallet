@@ -16,7 +16,6 @@ import {
 } from "./core";
 import { type Quote, type SendKind } from "./fee";
 import { connectHot, hotAvailable, hotSend, hotSign } from "./hot";
-import { Parked, type Pending, parkPending } from "./pending";
 import { passkeySign, passkeySignRaw } from "./sign";
 import { short } from "../format";
 import { type ChainState, type SafeAccount, loadSigners, salt, wedgieSigners } from "./state";
@@ -154,11 +153,8 @@ export async function finishOwners(p: Prepared): Promise<Hash> {
     const who = await connectHot();
     if (!eq(who, wallets[0])) throw new Error(`Switch your wallet to ${wallets[0]} (it's on ${who}).`);
   }
-  // the wedgie can't plug in here (a phone): sign the rest, park it, and the computer with the wedgie finishes it
+  // the wedgie can't plug in here (a phone): sign the rest; it goes in the queue and the wedgie signs on its page
   const later = slots.length > 0 && !p.opts.wedgie && !wedgieSupported();
-  if (later && p.opts.self) throw new Error("With the wedgie, execute it yourself from your computer.");
-  if (later && p.opts.swapGas !== undefined) throw new Error("A swap with the wedgie has to start on your computer (prices move).");
-  if (later && p.opts.dappGas !== undefined) throw new Error("With the wedgie, connect the site on your computer (the site waits for the answer).");
   const sigs: Sig[] = [];
   let ownWedgie: Wedgie | null = null;
   try {
@@ -179,7 +175,7 @@ export async function finishOwners(p: Prepared): Promise<Hash> {
     await ownWedgie?.close();
   }
   // not enough signatures for the Safe yet: the others sign from a link (the tx page)
-  if (!later && sigs.length < st.threshold) {
+  if (sigs.length < st.threshold) {
     if (!st.deployed) throw new Error("Set the wallet up on this network first (one send it signs alone), then ask the others.");
     stage("sending");
     const w: Waiting = { chainId, safe: a.address, tx: t, hash: h, sigs: sigs.map(s => ({ owner: s.signer, signature: sigHex(s) })), label: p.opts.label };
@@ -190,11 +186,6 @@ export async function finishOwners(p: Prepared): Promise<Hash> {
     // treat Shared as done (no error, nothing left ready to sign): the sheet is already the transaction's.
     openTx(w);
     throw new Shared(w);
-  }
-  if (later) {
-    stage("sending");
-    await parkPending({ chainId, safe: a.address, tx: t, hash: h, sigs, burner: { x: a.qx, y: a.qy }, label: p.opts.label });
-    throw new Parked(h);
   }
   stage("sending");
   const signatures = encodeSignatures(sigs);
@@ -210,22 +201,6 @@ export async function finishOwners(p: Prepared): Promise<Hash> {
 /** No relay, no fee: a quote of zero, so the UI can keep reading `fee`. */
 const selfQuote = (chainId: number, kind: SendKind): Quote =>
   ({ chainId, relayer: zeroAddress, kind, gasPrice: "0", ethUsd: 0, feeEth: "0", feeUsdc: "0", until: Date.now() + 5 * 60_000 });
-
-/** Finish a parked transaction on the computer: the wedgie signs (one A press), the relay sends. */
-export async function finishPending(pd: Pending, w: Wedgie, key: { x: Hex; y: Hex } | undefined, onStage?: (s: Stage, hash?: Hash) => void): Promise<Hash> {
-  const stage = onStage ?? (() => {});
-  // whichever of the wedgie's slots are owners now (older wallets have 2, newer 1)
-  const k = key ?? (await w.key());
-  const owners = (await publicClient(pd.chainId).readContract({ address: pd.safe, abi: abi.safe, functionName: "getOwners" })) as Address[];
-  const slots = wedgieSigners(k).filter(x => owners.some(o => eq(o, x)));
-  stage("signing-wedgie");
-  const sigs = [...pd.sigs, ...(await w.sign(pd.chainId, pd.safe, pd.tx, pd.hash, slots))];
-  stage("sending");
-  const hash = await post({ chainId: pd.chainId, kind: "exec", safe: pd.safe, tx: pd.tx, signatures: encodeSignatures(sigs), burner: pd.burner, wedgie: true });
-  stage("confirming", hash);
-  await waitFor(pd.chainId, hash);
-  return hash;
-}
 
 /**
  * An owner transaction: `calls` + the relay's fee as one batch, signed by `signers` (enough for the threshold),
@@ -318,7 +293,7 @@ export function signerOptions(st: ChainState, a: SafeAccount): SignerOption[] {
     const wallets = signers.filter(s => howSigns(a, st, s) === "wallet");
     const why = wallets.length > 1 ? "two browser wallets can't sign together here yet" : wallets.length && !hotAvailable() ? "needs a browser wallet here" : undefined;
     // the wedgie on a phone: sign here, finish on the computer (a send parks for it)
-    const later = usesWedgie(a, st, signers) && !wedgieSupported() ? "the wedgie signs after, on your computer" : undefined;
+    const later = usesWedgie(a, st, signers) && !wedgieSupported() ? "the wedgie signs after, on its page" : undefined;
     out.push({ signers, label: signerLabel(a, st, signers), threshold: t, of: st.owners.length, ready: !why, why, later });
   }
   // always one more way: sign here, and the other signers sign from a link (wallets with other people on them)

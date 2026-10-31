@@ -21,8 +21,7 @@ import { Select, assetOpt } from "./Pick";
 import { friendly } from "../Welcome";
 import { SignerChoice } from "./Pick";
 import { Progress } from "./Progress";
-import { TxPicture, WedgieIcon, ErrorLine } from "./WedgieButton";
-import { Parked } from "@/lib/safe/pending";
+import { ErrorLine } from "./WedgieButton";
 
 
 /**
@@ -60,7 +59,7 @@ export function SafeSend({
   const [amountIn, setAmountIn] = useState(""); // always the token amount; in dollar mode it's worked out from usdIn
   const [inUsd, setInUsd] = useState(true); // type dollars (the default) or the token
   const [usdIn, setUsdIn] = useState("");
-  const [stage, setStage] = useState<"form" | "review" | Stage | "done" | "parked">("form");
+  const [stage, setStage] = useState<"form" | "review" | Stage | "done">("form");
   const [quote, setQuote] = useState<Quote | null>(null);
   const [hash, setHash] = useState<Hash>();
   const [error, setError] = useState<string | null>(null);
@@ -251,7 +250,7 @@ export function SafeSend({
         setStage(s);
         if (h) setHash(h);
       };
-      if (st && usesWedgie(account, st, signers) && wedgieSupported()) wedgie = await Wedgie.connect(); // a phone: it parks for the computer
+      if (st && usesWedgie(account, st, signers) && wedgieSupported()) wedgie = await Wedgie.connect(); // a computer: it signs here too
       const h =
         p.path === "budget"
           ? await budgetSend({ account, state: st, calls, feeToken, quote: quote ?? undefined, onStage })
@@ -260,10 +259,6 @@ export function SafeSend({
       setStage("done");
     } catch (e: any) {
       if (e instanceof Shared) return; // its page has the sheet now
-      if (e instanceof Parked) {
-        setHash(e.hash as Hash);
-        return setStage("parked");
-      }
       setError(friendly(e));
       setStage("review");
     } finally {
@@ -274,21 +269,6 @@ export function SafeSend({
   const what = asset && amountIn ? `${fmtAmount(amountIn)} ${asset.symbol}` : "";
   const who = resolved ? (toInput.includes(".") ? toInput : short(resolved)) : "";
 
-
-  if (stage === "parked")
-    return (
-      <div className="stack center">
-        <WedgieIcon size={120} />
-        <h2>Now the wedgie</h2>
-        <p>
-          You signed {what} to {who}. Open Instant Wallet on your computer with the wedgie plugged in and press <GreenButton /> to execute it.
-        </p>
-        {hash && <TxPicture hash={hash} />}
-        <button className="btn wide" onClick={onDone}>
-          Done
-        </button>
-      </div>
-    );
 
   if (stage === "done" && resolved) {
     const url = hash && explorerTx(chainId, hash);

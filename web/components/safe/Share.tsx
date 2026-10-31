@@ -8,14 +8,13 @@ import { claimUrl } from "@/lib/claim";
 import { cardsPdfBlob } from "@/lib/claimBatch";
 import { amount as fmtAmount, usd } from "@/lib/format";
 import { transfer } from "@/lib/safe/core";
-import { Parked } from "@/lib/safe/pending";
 import { type FeeToken, type Stage, Shared, budgetSend, getQuote, ownersSend, plan, sendKind, usesWedgie } from "@/lib/safe/send";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
 import { GreenButton, Qr } from "../bits";
 import { ChainSelect, Select, assetOpt } from "./Pick";
-import { WedgieIcon, ErrorLine } from "./WedgieButton";
+import { ErrorLine } from "./WedgieButton";
 import { friendly } from "../Welcome";
 
 /** The iOS app's NFC writer (instant-wallet-app InstantWallet/Nfc.swift). Only there. */
@@ -43,7 +42,7 @@ async function gasFor(chainId: number): Promise<bigint> {
 }
 
 type Card = { key: Hex; asset: Asset; amount: bigint; label: string };
-type Step = "form" | "check" | "how" | "write" | "unwritten" | "ready" | Stage | "unfunded" | "parked" | "done";
+type Step = "form" | "check" | "how" | "write" | "unwritten" | "ready" | Stage | "unfunded" | "done";
 
 /**
  * Share crypto (docs/NFC-SHARE.md), on a network picked here (starts on `chainId`): any token, an amount, then QR (save or
@@ -172,12 +171,11 @@ export function Share({ account, states, assets, chainId: startChain, onDone }: 
       setStep("quote");
       const { calls, p, q, feeToken } = await prep(c);
       const onStage = (s: Stage) => setStep(s);
-      if (usesWedgie(account, st!, p.signers) && wedgieSupported()) wedgie = await Wedgie.connect(); // a phone: it parks for the computer
+      if (usesWedgie(account, st!, p.signers) && wedgieSupported()) wedgie = await Wedgie.connect(); // a computer: it signs here too
       if (p.path === "budget") await budgetSend({ account, state: st!, calls, feeToken, quote: q, onStage });
       else await ownersSend({ account, state: st!, calls, signers: p.signers, feeToken, wedgie, quote: q, onStage, label: `Share ${c.label}` });
       setStep("done");
     } catch (e: any) {
-      if (e instanceof Parked) return setStep("parked");
       if (e instanceof Shared) return; // its page has the sheet now
       setError(friendly(e));
       setStep("unfunded");
@@ -191,18 +189,6 @@ export function Share({ account, states, assets, chainId: startChain, onDone }: 
       <div className="stack center">
         <div style={{ fontSize: 64 }}>✓</div>
         <h2>Done. {card.label} on the {how === "nfc" ? "card" : "QR"}.</h2>
-        <button className="btn wide" onClick={onDone}>
-          Done
-        </button>
-      </div>
-    );
-
-  if (step === "parked" && card)
-    return (
-      <div className="stack center">
-        <WedgieIcon size={120} />
-        <h2>Now the wedgie</h2>
-        <p>You signed {card.label}. Open Instant Wallet on your computer with the wedgie plugged in and press <GreenButton /> to execute it.</p>
         <button className="btn wide" onClick={onDone}>
           Done
         </button>

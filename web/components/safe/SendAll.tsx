@@ -17,11 +17,10 @@ import {
   sendKind,
   usesWedgie,
 } from "@/lib/safe/send";
-import { Parked } from "@/lib/safe/pending";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { AddressInput, Eject, GreenButton, Money, TokenIcon } from "../bits";
+import { AddressInput, Eject, Money, TokenIcon } from "../bits";
 import { friendly } from "../Welcome";
 import { ErrorLine } from "./WedgieButton";
 
@@ -29,7 +28,7 @@ import { ErrorLine } from "./WedgieButton";
 const PER_TOKEN_GAS = 45_000n;
 
 type Row = {
-  stage: "idle" | "preparing" | "ready" | "busy" | "done" | "parked";
+  stage: "idle" | "preparing" | "ready" | "busy" | "done";
   prepared?: Prepared;
   net?: Record<string, bigint>;
   hash?: Hash;
@@ -138,8 +137,7 @@ export function SendAll({
       const hash = await finishOwners(r.prepared);
       set(chainId, { ...r, stage: "done", hash });
     } catch (e: any) {
-      if (e instanceof Parked) set(chainId, { ...r, stage: "parked" });
-      else if (e instanceof Shared) set(chainId, { stage: "idle" }); // its page has the sheet now
+      if (e instanceof Shared) set(chainId, { stage: "idle" }); // its page has the sheet now
       else set(chainId, { stage: "idle", error: friendly(e) }); // get a fresh fee and nonce next time
     } finally {
       await wedgie?.close();
@@ -211,10 +209,6 @@ export function SendAll({
             {r.stage === "done" ? (
               <p className="fine row" style={{ gap: 8 }}>
                 ✓ Executed {url && <Eject href={url} title="See it on the explorer">Explorer</Eject>}
-              </p>
-            ) : r.stage === "parked" ? (
-              <p className="fine">
-                Signed here. Press <GreenButton /> on your wedgie on your computer to execute it.
               </p>
             ) : (
               <button

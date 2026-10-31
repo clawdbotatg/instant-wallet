@@ -171,7 +171,7 @@ export function Send({
           {all ? `${what} ` : ""}to {toInput.includes(".") ? toInput : short(resolved)}
         </p>
         {url && <Eject href={url} title="See it on the explorer">Explorer</Eject>}
-        <button className="btn btn-red wide" onClick={onDone}>
+        <button className="btn wide" onClick={onDone}>
           Done
         </button>
       </div>

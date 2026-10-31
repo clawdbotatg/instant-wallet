@@ -47,12 +47,12 @@ Where it lives: `WhatItDoes`, `<Money>`, clear-signing-safe-kit (`dangers`, `sim
 Words:
 - Signing says **Sign**. Declining says **Reject**. Never Yes / Approve / Confirm on a signature.
 - Running a signed tx is **Execute** (Executing…, ✓ Executed). Never send.
-- A finished screen says **Done** (red). Never OK.
+- A finished screen says **Done**, white (the only button, nothing to compete with). Never OK.
 
 Button colors (10-30):
 - Green = the one obvious action.
 - Dark gray = copy the link (`<CopyLink>`), and Switch account. Nothing else.
-- Red = anything that ends or removes (✕, Cancel, Back, Done, Close, Disconnect, Sign out).
+- Red = anything that ends or removes (✕, Cancel, Back, Close, Disconnect, Sign out).
 - White = everything else: most buttons. Reject, `<Eject>`, a second choice (NFC card), Add a wedgie.
 
 ## 3. A wedgie is shown as itself

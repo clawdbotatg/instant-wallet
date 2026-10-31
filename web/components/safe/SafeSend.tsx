@@ -284,7 +284,7 @@ export function SafeSend({
           You signed {what} to {who}. Open Instant Wallet on your computer with the wedgie plugged in and press <GreenButton /> to execute it.
         </p>
         {hash && <TxPicture hash={hash} />}
-        <button className="btn btn-red wide" onClick={onDone}>
+        <button className="btn wide" onClick={onDone}>
           Done
         </button>
       </div>
@@ -299,7 +299,7 @@ export function SafeSend({
         {asset && <Money amount={amountIn} symbol={asset.symbol} usd={asset.price ? Number(amountIn) * asset.price : null} />}
         <p>to {toInput.includes(".") ? toInput : short(resolved)}</p>
         {url && <Eject href={url} title="See it on the explorer">Explorer</Eject>}
-        <button className="btn btn-red wide" onClick={onDone}>
+        <button className="btn wide" onClick={onDone}>
           Done
         </button>
       </div>

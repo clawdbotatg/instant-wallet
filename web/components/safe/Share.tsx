@@ -191,7 +191,7 @@ export function Share({ account, states, assets, chainId: startChain, onDone }: 
       <div className="stack center">
         <div style={{ fontSize: 64 }}>✓</div>
         <h2>Done. {card.label} on the {how === "nfc" ? "card" : "QR"}.</h2>
-        <button className="btn btn-red wide" onClick={onDone}>
+        <button className="btn wide" onClick={onDone}>
           Done
         </button>
       </div>
@@ -203,7 +203,7 @@ export function Share({ account, states, assets, chainId: startChain, onDone }: 
         <WedgieIcon size={120} />
         <h2>Now the wedgie</h2>
         <p>You signed {card.label}. Open Instant Wallet on your computer with the wedgie plugged in and press <GreenButton /> to execute it.</p>
-        <button className="btn btn-red wide" onClick={onDone}>
+        <button className="btn wide" onClick={onDone}>
           Done
         </button>
       </div>

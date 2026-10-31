@@ -359,7 +359,7 @@ export function SafeSwap({
         {failed && <p className="fine">{arrival?.substatus === "REFUNDED" ? `Refunded to your wallet on ${chainById(chainId)?.name}.` : "Check the explorer; LI.FI usually refunds."}</p>}
         {arrival?.substatus === "PARTIAL" && <p className="fine">It arrived as a different token than planned (the bridge's fallback).</p>}
         {url && <Eject href={url} title="See it on the explorer">Explorer</Eject>}
-        <button className="btn btn-red wide" onClick={onDone}>
+        <button className="btn wide" onClick={onDone}>
           Done
         </button>
       </div>

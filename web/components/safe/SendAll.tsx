@@ -238,7 +238,7 @@ export function SendAll({
           </div>
         );
       })}
-      <button className="btn btn-red wide" onClick={onDone}>
+      <button className="btn wide" onClick={onDone}>
         Done
       </button>
     </div>

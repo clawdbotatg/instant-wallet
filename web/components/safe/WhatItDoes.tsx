@@ -132,6 +132,20 @@ export function WhatItDoes({ chainId, safe, calls, tx }: { chainId: number; safe
   const shown = calls.map((c, i) => ({ c, i })).filter(({ c, i }) => !ours(chainId, c)?.startsWith("Network fee") && !res?.calls?.[i]?.swap);
   const swaps = (res?.calls ?? []).flatMap(t => (t?.swap ? [t.swap] : []));
   const many = shown.length > 1;
+  // what a swap would do, read from its calldata: when the run fails or there's no run at all (no simulator)
+  const swapLines = swaps.map((s, i) => (
+    <div key={i} className="stack" style={{ gap: 4 }}>
+      {/* never a router flag (1 << 255) as an amount: no readable number = say so */}
+      {s.pay.unknown || !(Number(s.pay.amount) < 1e15) ? (
+        <span style={{ fontSize: 20, fontWeight: 700, color: "var(--coral)" }}>
+          − {s.pay.symbol} <span className="fine" style={{ fontWeight: 400 }}>(amount not known)</span>
+        </span>
+      ) : (
+        <Money amount={s.pay.amount} symbol={s.pay.symbol} usd={s.pay.usd} />
+      )}
+      <Money amount={s.get.amount} symbol={s.get.symbol} least={s.get.least} usd={s.get.usd} get />
+    </div>
+  ));
   // coins in and out say it all; the steps show when no coins move (a signer, a limit), the run failed, or a step warns
   const steps = danger || !sim || !!sim.fails || (!sim.pay.length && !sim.get.length) || calls.some(c => describe(chainId, safe, c).startsWith(WARN));
   return (
@@ -144,20 +158,7 @@ export function WhatItDoes({ chainId, safe, calls, tx }: { chainId: number; safe
         <span className="fine">Checking what it does…</span>
       ) : sim?.fails ? (
         <div className="stack" style={{ gap: 4 }}>
-          {/* what the swap would do, read from its calldata, when the run can't say */}
-          {swaps.map((s, i) => (
-            <div key={i} className="stack" style={{ gap: 4 }}>
-              {/* never a router flag (1 << 255) as an amount: no readable number = say so */}
-              {s.pay.unknown || !(Number(s.pay.amount) < 1e15) ? (
-                <span style={{ fontSize: 20, fontWeight: 700, color: "var(--coral)" }}>
-                  − {s.pay.symbol} <span className="fine" style={{ fontWeight: 400 }}>(amount not known)</span>
-                </span>
-              ) : (
-                <Money amount={s.pay.amount} symbol={s.pay.symbol} usd={s.pay.usd} />
-              )}
-              <Money amount={s.get.amount} symbol={s.get.symbol} least={s.get.least} usd={s.get.usd} get />
-            </div>
-          ))}
+          {swapLines}
           <span title={sim.fails}>
             <Said text={`${WARN}Would fail now`} />
           </span>
@@ -178,6 +179,8 @@ export function WhatItDoes({ chainId, safe, calls, tx }: { chainId: number; safe
             </span>
           ))}
         </div>
+      ) : swapLines.length ? (
+        <div className="stack" style={{ gap: 4 }}>{swapLines}</div>
       ) : null}
       {steps && shown.map(({ c, i }, n) => {
         const mine = ours(chainId, c);

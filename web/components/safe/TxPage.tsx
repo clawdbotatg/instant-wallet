@@ -174,7 +174,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
     const r = await fetch("/api/safe/relay", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ chainId, kind: "exec", safe, tx: w.tx, signatures: allSignatures(ok) }, (_, v) => (typeof v === "bigint" ? v.toString() : v)),
+      body: JSON.stringify({ chainId, kind: "exec", safe, tx: w.tx, signatures: allSignatures(ok), wedgie: (chain?.passkeys.length ?? 0) > 1 }, (_, v) => (typeof v === "bigint" ? v.toString() : v)),
     });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(j.error || `relay: ${r.status}`);

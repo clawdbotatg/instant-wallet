@@ -49,6 +49,11 @@ export function howSigns(a: SafeAccount, st: ChainState, s: Signer): How {
   return "wallet";
 }
 export const usesWedgie = (a: SafeAccount, st: ChainState, signers: Signer[]) => signers.some(s => howSigns(a, st, s) === "wedgie");
+/** The fee is for the signatures it's executed with: one that others finish (signers short of the threshold) may be
+ * finished by the wedgie, whose second key verifies P-256 in Solidity (10-31: quoted for Face ID alone, then the
+ * wedgie signed on its page: "fee too low"). */
+const feeWedgie = (a: SafeAccount, st: ChainState, signers: Signer[]) =>
+  usesWedgie(a, st, signers) || (signers.length < st.threshold && st.wedgieSlots.length > 0);
 
 /** Who signs, in words: "Face ID + Wedgie", "Face ID + 0x12ab…cdef". */
 export function signerLabel(a: SafeAccount, st: ChainState, signers: Signer[]): string {
@@ -123,7 +128,7 @@ export async function prepareOwners(opts: OwnersOpts): Promise<Prepared> {
   const chainId = st.chainId;
   const signerCode = signers.some(s => eq(s, a.burnerSigner)) ? await publicClient(chainId).getCode({ address: a.burnerSigner }).catch(() => undefined) : "0x01";
   const fresh = !st.deployed || !signerCode || signerCode === "0x"; // the relay deploys the Safe and/or the burner's signer too
-  const kind = ownersKind(fresh, usesWedgie(a, st, signers), opts);
+  const kind = ownersKind(fresh, feeWedgie(a, st, signers), opts);
   if (opts.self) {
     // anyone can send a signed Safe transaction; the relay only adds deploying the wallet on a new network
     if (fresh) throw new Error("Send one through the relay first on this network (it sets the wallet up there).");
@@ -181,7 +186,7 @@ export async function finishOwners(p: Prepared): Promise<Hash> {
     const w: Waiting = { chainId, safe: a.address, tx: t, hash: h, sigs: sigs.map(s => ({ owner: s.signer, signature: sigHex(s) })), label: p.opts.label };
     const got = await shareTx(w);
     if (!got.safe && !got.queue) w.label = (w.label ? `${w.label} ` : "") + "(saved in this browser only)";
-    used.set(`${chainId}:${a.address}`, t.nonce);
+    queued.set(`${chainId}:${a.address}`, t.nonce);
     // one thing here: your signature. The rest (the wedgie, or a link for the others) happens on its page. Callers
     // treat Shared as done (no error, nothing left ready to sign): the sheet is already the transaction's.
     openTx(w);
@@ -229,16 +234,23 @@ export async function sendKind(
 ): Promise<SendKind> {
   if (path === "budget") return "roles";
   const code = signers.some(s => eq(s, a.burnerSigner)) ? await publicClient(st.chainId).getCode({ address: a.burnerSigner }).catch(() => undefined) : "0x01";
-  return ownersKind(!st.deployed || !code || code === "0x", usesWedgie(a, st, signers), o);
+  return ownersKind(!st.deployed || !code || code === "0x", feeWedgie(a, st, signers), o);
 }
 
 /** RPC nodes lag a block now and then: never reuse a nonce this page just used. A wallet that needs 2+ signatures
  * goes after what's waiting (as Safe{Wallet} does): two waiting with one number, sending one kills the other. */
 const used = new Map<string, bigint>();
+// one queued from this page: held only while the queue still has it (or can't be read). A removed one frees its
+// number (review 10-31: queue 10, remove it, the next got 11 and could never run)
+const queued = new Map<string, bigint>();
 async function freshNonce(chainId: number, safe: Address, st: ChainState): Promise<bigint> {
   let n = st.nonce;
   if (st.deployed) n = await publicClient(chainId).readContract({ address: safe, abi: abi.safe, functionName: "nonce" }).catch(() => st.nonce);
-  if (st.deployed && st.threshold > 1) for (const w of await readWaiting(chainId, safe, n).catch(() => [])) if (w.tx.nonce >= n) n = w.tx.nonce + 1n;
+  const base = n;
+  const waiting = st.deployed && st.threshold > 1 ? await readWaiting(chainId, safe, n).catch(() => null) : [];
+  for (const w of waiting ?? []) if (w.tx.nonce >= n) n = w.tx.nonce + 1n;
+  const q = queued.get(`${chainId}:${safe}`);
+  if (q !== undefined && q >= base && q >= n && (waiting === null || waiting.some(w => w.tx.nonce === q))) n = q + 1n;
   const last = used.get(`${chainId}:${safe}`);
   return last !== undefined && last >= n ? last + 1n : n;
 }

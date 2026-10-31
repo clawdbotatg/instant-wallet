@@ -504,9 +504,14 @@ export class Wedgie {
       if (this.drive || !/unplugged/.test(e?.message || "")) throw e;
     }
     activity({ what: "Your wedgie restarted to make room. Reconnecting…", p: 0.92 });
-    await this.revive();
+    const again = wait(); // before the port reopens: an answer already waiting there is read at once
+    await this.revive().catch(e => {
+      clearTimeout(this.pending.get(id)?.t);
+      this.pending.delete(id);
+      throw e;
+    });
     activity({ what: "Press the green button on your wedgie", p: 0.95, press: true });
-    return wait();
+    return again;
   }
 
   /** This connection again on the same wedgie after it restarted (a new port, maybe), within ~25 s. */

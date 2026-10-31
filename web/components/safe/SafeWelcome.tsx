@@ -193,7 +193,7 @@ export function SafeWelcome({ onReady, initialConfirm }: { onReady: (a: SafeAcco
           <button className="btn btn-green wide" onClick={recover} disabled={!!busy}>
             {busy === "recover" ? "Making the new key…" : "Make my new key"}
           </button>
-          <button className="btn btn-red wide" onClick={() => setRecovering(false)}>
+          <button className="btn wide" onClick={() => setRecovering(false)}>
             Back
           </button>
           {error && <p className="err">{error}</p>}

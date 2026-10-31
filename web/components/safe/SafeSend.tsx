@@ -366,7 +366,7 @@ export function SafeSend({
         </button>
         <Progress stage={stage} chainId={chainId} hash={hash} />
         {!busy && (
-          <button className="btn btn-red wide" onClick={() => setStage("form")}>
+          <button className="btn wide" onClick={() => setStage("form")}>
             Back
           </button>
         )}

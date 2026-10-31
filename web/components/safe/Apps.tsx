@@ -83,7 +83,7 @@ export function AppFrame({ app, account, states, onClose }: { app: AppEntry; acc
   return (
     <div className="appframe">
       <div className="appframe-bar">
-        <button className="pill stop" onClick={onClose}>
+        <button className="pill" onClick={onClose}>
           Close
         </button>
         <b className="grow">{app.name}</b>

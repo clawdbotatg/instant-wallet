@@ -218,7 +218,7 @@ export function Share({ account, states, assets, chainId: startChain, onDone }: 
         <button className="btn btn-green wide" onClick={() => write(card)}>
           Try again
         </button>
-        <button className="btn btn-red wide" onClick={() => setStep("how")}>
+        <button className="btn wide" onClick={() => setStep("how")}>
           Back
         </button>
       </div>
@@ -270,7 +270,7 @@ export function Share({ account, states, assets, chainId: startChain, onDone }: 
             NFC card
           </button>
         )}
-        <button className="btn btn-red wide" onClick={() => setStep("form")}>
+        <button className="btn wide" onClick={() => setStep("form")}>
           Back
         </button>
       </div>

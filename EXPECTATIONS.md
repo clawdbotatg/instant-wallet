@@ -52,7 +52,7 @@ Words:
 Button colors (10-30):
 - Green = the one obvious action.
 - Dark gray = copy the link (`<CopyLink>`), and Switch account. Nothing else.
-- Red = anything that ends or removes (✕, Cancel, Back, Close, Disconnect, Sign out).
+- Red = it destroys something: remove (✕), delete, disconnect, sign out, cancel something onchain. Closing a window is not red: Back, Close, Done, Cancel (a form) are white.
 - White = everything else: most buttons. Reject, `<Eject>`, a second choice (NFC card), Add a wedgie.
 
 ## 3. A wedgie is shown as itself

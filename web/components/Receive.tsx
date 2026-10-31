@@ -114,7 +114,7 @@ export function Receive({
             <input type="checkbox" checked={withLink} onChange={e => toggleLink(e.target.checked)} />
             Include {window.location.host} link (any phone camera opens it)
           </label>
-          <button className="btn btn-red wide" onClick={() => (setAsking(false), setAmount(""))}>
+          <button className="btn wide" onClick={() => (setAsking(false), setAmount(""))}>
             Cancel
           </button>
         </>

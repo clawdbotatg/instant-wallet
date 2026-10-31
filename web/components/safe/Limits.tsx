@@ -144,7 +144,7 @@ export function ChainLimit({ account, st, assets, onRefresh, toast, onClose }: {
           <button className="btn btn-green wide" onClick={save} disabled={busy || !usdcIn || !ethIn}>
             {busy ? "Getting ready…" : "Save"}
           </button>
-          <button className="btn btn-red wide" onClick={onClose} disabled={busy}>
+          <button className="btn wide" onClick={onClose} disabled={busy}>
             Cancel
           </button>
         </>

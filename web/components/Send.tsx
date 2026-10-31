@@ -224,7 +224,7 @@ export function Send({
           {stage === "signing" ? "Signing…" : stage === "sending" ? "Sending…" : stage === "confirming" ? "Confirming…" : "Send"}
         </button>
         {!busy && (
-          <button className="btn btn-red wide" onClick={() => setStage("form")}>
+          <button className="btn wide" onClick={() => setStage("form")}>
             Back
           </button>
         )}

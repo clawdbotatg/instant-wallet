@@ -598,7 +598,7 @@ export function Keys({
                 ),
               )}
               {!pending && !wait && (
-                <button className="btn btn-sm btn-red" onClick={() => setKeysEdit(false)} disabled={!!busy}>
+                <button className="btn btn-sm" onClick={() => setKeysEdit(false)} disabled={!!busy}>
                   {changed ? "Cancel" : "Done"}
                 </button>
               )}
@@ -682,7 +682,7 @@ export function Keys({
                   {busy === "layout" ? "Working…" : "Make the DAO wait 60 days"}
                 </button>,
               )}
-            <button className="btn btn-sm btn-red" onClick={() => setRecEdit(false)} disabled={!!busy}>
+            <button className="btn btn-sm" onClick={() => setRecEdit(false)} disabled={!!busy}>
               Done
             </button>
           </>

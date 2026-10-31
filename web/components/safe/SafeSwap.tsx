@@ -12,7 +12,7 @@ import { POPULAR, type SwapRoute, type Token, swapCalls } from "@/lib/safe/swap"
 import { uniswapRoute } from "@/lib/safe/uniswap";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { Eject, Money, TokenIcon, GreenButton } from "../bits";
+import { Eject, Money, WhatFor, TokenIcon, GreenButton } from "../bits";
 import { ChainSelect, type Opt, Select, SignerChoice, assetOpt } from "./Pick";
 import { Progress } from "./Progress";
 import { friendly } from "../Welcome";
@@ -453,6 +453,7 @@ export function SafeSwap({
           <div className="stack" style={{ gap: 4, paddingBottom: 8 }}>
             {route ? (
               <>
+                <WhatFor>Swap {route.from.symbol} for {route.to.symbol} on {route.via === "uniswap" ? "Uniswap" : "LI.FI"}</WhatFor>
                 <Money amount={amountIn} symbol={route.from.symbol} usd={fromUsd} />
                 <Money amount={formatUnits(BigInt(route.toAmount), route.to.decimals)} symbol={route.to.symbol} usd={toUsd} get />
               </>

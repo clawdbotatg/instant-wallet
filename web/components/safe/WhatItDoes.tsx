@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { type Address, type Hex, formatUnits } from "viem";
 import { amount, short, usd } from "@/lib/format";
-import { Money, Who } from "../bits";
+import { Money, WhatFor, Who } from "../bits";
 import { WARN, describe, ours, relayFee } from "@/lib/safe/describe";
 import type { Call } from "@/lib/safe/core";
 import { type Sim, asSafeTx, moves, simulate } from "@/lib/safe/sim";
@@ -149,12 +149,13 @@ export function WhatItDoes({ chainId, safe, calls, tx }: { chainId: number; safe
         </div>
       ) : sim ? (
         <div className="stack" style={{ gap: 4 }}>
+          {/* what it's for first, in clear signing's words, as Activity: then the coins */}
+          {!steps && (() => {
+            const w = intents(chainId, safe, calls, res?.calls ?? null, true).join(" · ");
+            return w ? <WhatFor>{w}</WhatFor> : null;
+          })()}
           {sim.pay.map((m, i) => <Money key={`p${i}`} amount={m.amount} symbol={m.symbol} usd={m.usd} />)}
           {sim.get.map((m, i) => <Money key={`g${i}`} amount={m.amount} symbol={m.symbol} usd={m.usd} get />)}
-          {/* the coins are what you check now; what it's for, in clear signing's words, small under them */}
-          {!steps && intents(chainId, safe, calls, res?.calls ?? null).map((t, i) => (
-            <span key={`w${i}`} className="fine">{t}</span>
-          ))}
           {fees.map((f, i) => (
             <span key={`f${i}`} className="fine">
               Network fee: {amount(formatUnits(f.amount, f.decimals))} {f.symbol}

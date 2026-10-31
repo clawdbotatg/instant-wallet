@@ -292,6 +292,12 @@ export function Sheet({ onClose, children }: { onClose: () => void; children: Re
   );
 }
 
+/** What a tx was for, in clear signing's words ("Swap 2 USDC for … on Uniswap"): bold, dark, above its coins. Activity and
+ * signing both lead with it. */
+export function WhatFor({ children }: { children: React.ReactNode }) {
+  return <span style={{ fontSize: 17, fontWeight: 700 }}>{children}</span>;
+}
+
 /**
  * Money moving, the same everywhere: out is red with −, in is green with +, dollars after it in grey. `least`: a
  * minimum (a swap's "at least"), shown as "or more". Every screen that shows what a transaction pays or gets uses this.

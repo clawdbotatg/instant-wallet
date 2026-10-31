@@ -83,8 +83,9 @@ export function AppFrame({ app, account, states, onClose }: { app: AppEntry; acc
   return (
     <div className="appframe">
       <div className="appframe-bar">
-        <button className="pill" onClick={onClose}>
-          Close
+        {/* red, so it's easy to find over any app (Austin, 10-31) */}
+        <button className="pill stop" onClick={onClose}>
+          ✕ Close
         </button>
         <b className="grow">{app.name}</b>
         {app.chains.length > 1 ? (

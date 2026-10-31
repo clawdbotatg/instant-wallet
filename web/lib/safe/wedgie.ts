@@ -511,6 +511,13 @@ export class Wedgie {
 
   /** This connection again on the same wedgie after it restarted (a new port, maybe), within ~25 s. */
   private async revive() {
+    // the old locks first: a port with locked streams won't close, and the same port then never opens again
+    try {
+      this.reader?.releaseLock();
+    } catch {}
+    try {
+      this.writer?.releaseLock();
+    } catch {}
     try {
       await this.port?.close();
     } catch {}

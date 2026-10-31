@@ -15,6 +15,7 @@ const RULES = [
   { re: /\bPress [ABXY]\b|\bthe [ABXY] button\b/, say: "wedgie buttons are <GreenButton /> or 'the green button', never A/B/X/Y" },
   { re: /[>"`]\s*[+−]\{|\{get \? "\+" : "−"\}/, say: "money with a hand-written + or −: use <Money>" },
   { re: /\b(send|sends|sent) it (yourself|myself)\b|relay (is )?send/i, say: "a signed tx is executed, not sent" },
+  { re: /`\$\{(many \? )?`?\$\{n \+ 1\}\. /, say: "a tx step numbered by hand: its <SrcTag> mark goes there (kit MARKS)" },
 ];
 // dark gray is the copy button only (Austin 10-30: most buttons white); Switch account he asked for by name
 const DARK_OK = [SHARED, "components/Receive.tsx", "components/safe/Keys.tsx"]; // <CopyLink>; Switch account; the invite link's copy

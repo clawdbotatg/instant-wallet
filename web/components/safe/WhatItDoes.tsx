@@ -9,7 +9,7 @@ import type { Call } from "@/lib/safe/core";
 import { type Sim, asSafeTx, moves, simulate } from "@/lib/safe/sim";
 import { RECOVERY_DAYS } from "@/lib/safe/config";
 import { rolesAddress } from "@/lib/safe/core";
-import { dangers } from "clear-signing-safe-kit";
+import { type Mark, MARKS, dangers } from "clear-signing-safe-kit";
 import { chainById, nativeSymbol } from "@/lib/chains";
 import { ethUsd } from "@/lib/price";
 
@@ -24,7 +24,7 @@ function sendUsd(chainId: number, c: Call, eth: number): number | undefined {
 type SafeTxLike = { to: Address; value: bigint; data: Hex; operation: 0 | 1 };
 
 type Field = { label: string; value: string; address?: string };
-type Told = { what: string; short?: string; fields: Field[]; who?: string; swap?: { pay: Move & { most?: boolean }; get: Move & { least?: boolean } } } | null;
+type Told = { what: string; short?: string; fields: Field[]; who?: string; swap?: { pay: Move & { most?: boolean }; get: Move & { least?: boolean } }; src?: Exclude<Mark, "bot" | "raw"> } | null;
 type Move = { symbol: string; amount: string; usd?: number; unknown?: boolean };
 type Got = { calls: Told[] | null; sim: Sim | null; feeUsd: Record<string, number> };
 
@@ -47,16 +47,11 @@ export function explainCalls(chainId: number, safe: Address, calls: Call[]): Pro
   return said.get(body)!;
 }
 
-/** Where a step's words came from: a clear signing descriptor (ERC-7730 registry), our own code, or nothing could read it. */
-export type Src = "7730" | "ours" | "raw";
-const SRC: Record<Src, [string, string, string]> = {
-  "7730": ["🔏", "7730", "From a clear signing descriptor (ERC-7730 registry)"],
-  ours: ["🛠️", "ours", "Our own reading of this call (no descriptor used)"],
-  raw: ["⚠️", "raw", "Nothing could read this call"],
-};
+/** Where a step's words came from (clear-signing-safe-kit MARKS: the same emoji on wedgie.dev). */
+export type Src = Mark;
 /** The step's mark, in place of its number: just the emoji (its meaning on hover). */
 export function SrcTag({ src }: { src: Src }) {
-  const [icon, , title] = SRC[src];
+  const [icon, title] = MARKS[src];
   return <span title={title} style={{ marginRight: 6 }}>{icon}</span>;
 }
 export type Line = { text: string; src: Src };
@@ -75,7 +70,7 @@ export function Lines({ lines, chain }: { lines: Line[]; chain?: number }) {
   );
 }
 const srcOf = (text: string, t: Told | undefined, mine: string | null): Src =>
-  mine ? "ours" : t ? (t.swap ? "ours" : "7730") : text.startsWith(WARN) || text.startsWith("Call ") ? "raw" : "ours";
+  mine ? "code" : t ? (t.src ?? (t.swap ? "code" : "ef")) : text.startsWith(WARN) || text.startsWith("Call ") ? "raw" : "code";
 
 /**
  * What a tx is for, one line per step: clear signing's intent and who it's with ("Deposit · Steakhouse Financial"),
@@ -218,9 +213,9 @@ export function WhatItDoes({ chainId, safe, calls, tx }: { chainId: number; safe
         return (
           <div key={i} className="stack" style={{ gap: 2 }}>
             {mine ? (
-              <Said n={many ? n + 1 : 0} text={mine} chain={chainId} src="ours" />
+              <Said n={many ? n + 1 : 0} text={mine} chain={chainId} src="code" />
             ) : t ? (
-              <span style={{ fontSize: 15, fontWeight: 600 }}><SrcTag src={t.swap ? "ours" : "7730"} /><Words chain={chainId} text={`${t.what}${t.who && !t.what.includes(t.who) ? ` · ${t.who}` : ""}`} /></span>
+              <span style={{ fontSize: 15, fontWeight: 600 }}><SrcTag src={srcOf(t.what, t, null)} /><Words chain={chainId} text={`${t.what}${t.who && !t.what.includes(t.who) ? ` · ${t.who}` : ""}`} /></span>
             ) : (
               <Said n={many ? n + 1 : 0} chain={chainId} src={srcOf(describe(chainId, safe, c), undefined, null)} text={((u) => describe(chainId, safe, c) + (u !== undefined ? ` (${usd(u)})` : ""))(sendUsd(chainId, c, eth))} />
             )}

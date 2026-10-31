@@ -38,6 +38,8 @@ Where it lives: `WhatItDoes`, `<Money>`, clear-signing-safe-kit (`dangers`, `sim
 | A tx's link for the other signers | `<CopyLink>`: dark gray, copies. The only way to share a tx | a pop-out, a second Share button |
 | An address | `<Who>` (name over short address, avatar or blockie) | a bare `short(…)` in a list |
 | A wedgie | its own screen's address + blockie (`shownAs`, `wedgieHome`) | its signer contract, an ENS avatar |
+| An address in a tx's words | `<Words>`: each full address drawn as `<Who>` | bare hex, `short(…)` in the text |
+| Where a tx step's words came from | `<SrcTag>`: the kit's `MARKS` emoji in place of the step number (🛡️ audited · 🔏 EF · 📝 ours · 🛠️ our code · 🤖 robot · ⚠️ raw), same on wedgie.dev | a number, a pill, a word |
 | What a tx does | `WhatItDoes` in plain words. Its line (clear signing's words) in bold `<WhatFor>` ABOVE the coins, as in Activity | hex, a function name, small text under the coins |
 | Removing | `<RemoveX>`, the small red ✕. Far left when a green button follows it; else on the right. Wherever a waiting tx has Reject, it has the ✕ too (Home card, tx page) | a hand-drawn ✕, Reject alone |
 | The passkey | `bio()` / `<BioSigner>`: Face ID, Touch ID… for this device | "Face ID" hard-coded |

@@ -54,13 +54,10 @@ const SRC: Record<Src, [string, string, string]> = {
   ours: ["🛠️", "ours", "Our own reading of this call (no descriptor used)"],
   raw: ["⚠️", "raw", "Nothing could read this call"],
 };
+/** The step's mark, in place of its number: just the emoji (its meaning on hover). */
 export function SrcTag({ src }: { src: Src }) {
-  const [icon, word, title] = SRC[src];
-  return (
-    <span className="fine" title={title} style={{ fontSize: 11, fontWeight: 500, whiteSpace: "nowrap", marginLeft: 4, padding: "1px 5px", borderRadius: 6, background: "rgba(127,127,127,.15)", verticalAlign: "middle" }}>
-      {icon} {word}
-    </span>
-  );
+  const [icon, , title] = SRC[src];
+  return <span title={title} style={{ marginRight: 6 }}>{icon}</span>;
 }
 export type Line = { text: string; src: Src };
 /** Steps' words, each with where they came from, " · " between them. */
@@ -70,8 +67,8 @@ export function Lines({ lines, chain }: { lines: Line[]; chain?: number }) {
       {lines.map((l, i) => (
         <span key={i}>
           {i ? " · " : ""}
-          <Words text={l.text} chain={chain} />
           <SrcTag src={l.src} />
+          <Words text={l.text} chain={chain} />
         </span>
       ))}
     </>
@@ -223,7 +220,7 @@ export function WhatItDoes({ chainId, safe, calls, tx }: { chainId: number; safe
             {mine ? (
               <Said n={many ? n + 1 : 0} text={mine} chain={chainId} src="ours" />
             ) : t ? (
-              <span style={{ fontSize: 15, fontWeight: 600 }}><Words chain={chainId} text={`${many ? `${n + 1}. ` : ""}${t.what}${t.who && !t.what.includes(t.who) ? ` · ${t.who}` : ""}`} /><SrcTag src={t.swap ? "ours" : "7730"} /></span>
+              <span style={{ fontSize: 15, fontWeight: 600 }}><SrcTag src={t.swap ? "ours" : "7730"} /><Words chain={chainId} text={`${t.what}${t.who && !t.what.includes(t.who) ? ` · ${t.who}` : ""}`} /></span>
             ) : (
               <Said n={many ? n + 1 : 0} chain={chainId} src={srcOf(describe(chainId, safe, c), undefined, null)} text={((u) => describe(chainId, safe, c) + (u !== undefined ? ` (${usd(u)})` : ""))(sendUsd(chainId, c, eth))} />
             )}
@@ -243,9 +240,8 @@ function Said({ text, n = 0, chain, src }: { text: string; n?: number; chain?: n
   const warn = text.startsWith(WARN);
   return (
     <span style={{ fontSize: 15, color: warn ? "#c62828" : undefined, fontWeight: warn ? 600 : undefined }}>
-      {n ? `${n}. ` : ""}
+      {src ? <SrcTag src={src} /> : n ? `${n}. ` : ""}
       <Words text={text} chain={chain} />
-      {src && <SrcTag src={src} />}
     </span>
   );
 }

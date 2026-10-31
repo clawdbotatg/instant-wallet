@@ -173,6 +173,8 @@ export async function dropTx(w: Waiting, s: Sig) {
   const l = loadLocal(w.chainId, w.safe);
   delete l[w.hash.toLowerCase()];
   saveLocal(w.chainId, w.safe, l);
+  // Home's waiting card stays mounted under the tx sheet: it drops this one at once
+  window.dispatchEvent(new CustomEvent("iw:txdropped", { detail: w.hash.toLowerCase() }));
 }
 
 /** Which of these signatures the Safe takes as its owners' (one eth_call each). */

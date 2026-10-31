@@ -94,9 +94,13 @@ export function WaitingCards({
         .catch(() => {});
     load();
     const t = setInterval(load, 5 * 60_000);
+    // removed on its own page (TxPage): gone here too, no wait for the next load
+    const dropped = (e: Event) => setList(l => l.filter(x => x.w.hash.toLowerCase() !== (e as CustomEvent<string>).detail));
+    window.addEventListener("iw:txdropped", dropped);
     return () => {
       live = false;
       clearInterval(t);
+      window.removeEventListener("iw:txdropped", dropped);
     };
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!list.length) return null;

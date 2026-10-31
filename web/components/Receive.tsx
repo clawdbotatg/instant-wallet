@@ -172,7 +172,7 @@ function NameTitle({ name, onSave }: { name: string | null; onSave: (name: strin
       <div className="input" style={{ flex: 1 }}>
         <input autoFocus maxLength={40} placeholder="Name this wallet" value={v} onChange={e => setV(e.target.value)} />
       </div>
-      <button className="btn" type="submit">
+      <button className="btn btn-green" type="submit">
         Save
       </button>
     </form>

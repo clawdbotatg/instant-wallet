@@ -30,7 +30,7 @@ export function SimSetting({ toast }: { toast: (m: string) => void }) {
       </p>
       <div className="row" style={{ gap: 8 }}>
         <input className="grow" value={url} onChange={e => setUrl(e.target.value)} placeholder={SIM_DEFAULT} inputMode="url" autoCapitalize="off" autoCorrect="off" />
-        <button className="btn btn-sm" onClick={save}>
+        <button className="btn btn-sm btn-green" onClick={save}>
           Save
         </button>
       </div>

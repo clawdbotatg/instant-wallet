@@ -226,7 +226,7 @@ const arm = () => {
 };
 
 /** What a plugged-in wedgie said when asked hello (nothing signs, nothing shows on its screen). */
-export type WedgieHello = { version?: string; short?: string; running?: string | null; carts?: { mod: string; v?: string | null }[]; safe?: { x: Hex; y: Hex } | null; safe_chunk?: number; safe_clear?: string | null; safe_sim?: string; safe_review?: number };
+export type WedgieHello = { version?: string; short?: string; running?: string | null; carts?: { mod: string; v?: string | null }[]; safe?: { x: Hex; y: Hex } | null; safe_chunk?: number; safe_clear?: string | null; safe_sim?: string; safe_review?: number; safe_raw?: number };
 const LINE_MAX = 5800; // the wedgie's USB line is 6 KB
 export type Peek =
   | { kind: "none" } // no wedgie this browser was allowed to see is plugged in
@@ -485,6 +485,11 @@ export class Wedgie {
   /** A short JSON line, then `raw` bytes right after it (a checked install's put, firmware 0.3.16+). */
   requestRaw(msg: Record<string, unknown>, raw: Uint8Array, ms = 15000): Promise<any> {
     if (this.drive) return Promise.reject(new Error("Installing needs a computer."));
+    return this.requestBytes({ ...msg, n: raw.length }, raw, ms);
+  }
+
+  /** The line as it is, then `raw` bytes right after it (Safe Signer's raw pieces, safe-52+). */
+  requestBytes(msg: Record<string, unknown>, raw: Uint8Array, ms = 15000): Promise<any> {
     const id = this.next++;
     return new Promise((res, rej) => {
       const t = window.setTimeout(() => {
@@ -492,7 +497,7 @@ export class Wedgie {
         rej(new Error("The wedgie stopped answering."));
       }, ms);
       this.pending.set(id, { res, rej, t });
-      this.writer!.write(new TextEncoder().encode(JSON.stringify({ ...msg, n: raw.length, id }) + "\n"))
+      this.writer!.write(new TextEncoder().encode(JSON.stringify({ ...msg, id }) + "\n"))
         .then(() => this.writer!.write(raw))
         .catch(rej);
     });
@@ -565,6 +570,7 @@ export class Wedgie {
     // the one way both sites send it (clear-signing-safe-kit): bundle, simulation, data in pieces, safe_sign
     const g = await wedgieSign({
       ask: (m, ms) => this.request(m, ms),
+      ...(this.drive ? {} : { askRaw: (m: Record<string, unknown>, raw: Uint8Array, ms: number) => this.requestBytes(m, raw, ms) }),
       hello,
       tx,
       ...(this.drive ? { chunk: DRIVE_CHUNK, lineMax: DRIVE_LINE_MAX } : {}),

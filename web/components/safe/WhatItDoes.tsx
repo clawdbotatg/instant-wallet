@@ -55,13 +55,12 @@ export function SrcTag({ src }: { src: Src }) {
   return <span title={title} style={{ marginRight: 6 }}>{icon}</span>;
 }
 export type Line = { text: string; src: Src };
-/** Steps' words, each with where they came from, " · " between them. */
+/** Steps' words, each with where they came from, one step per line (Austin, 10-31). */
 export function Lines({ lines, chain }: { lines: Line[]; chain?: number }) {
   return (
     <>
       {lines.map((l, i) => (
-        <span key={i}>
-          {i ? " · " : ""}
+        <span key={i} style={{ display: "block" }}>
           <SrcTag src={l.src} />
           <Words text={l.text} chain={chain} />
         </span>

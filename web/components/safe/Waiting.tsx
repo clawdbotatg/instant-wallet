@@ -30,7 +30,7 @@ export function WaitingCards({
   states: ChainState[];
   feeTokenOn: (chainId: number) => FeeToken;
 }) {
-  const [list, setList] = useState<{ w: Waiting; need: number }[]>([]);
+  const [list, setList] = useState<{ w: Waiting; need: number; next: bigint }[]>([]);
   const [removing, setRemoving] = useState<string | null>(null);
   // Reject: a transaction of just the fee, at the same number, so the waiting one can never run (wedgie.dev's Reject).
   // Two taps: get it ready, then sign (Face ID must start straight from a tap).
@@ -86,7 +86,7 @@ export function WaitingCards({
       Promise.all(
         multi.map((s) =>
           readWaiting(s.chainId, account.address, s.nonce, { svc: false })
-            .then((ws) => ws.map((w) => ({ w, need: s.threshold })))
+            .then((ws) => ws.map((w) => ({ w, need: s.threshold, next: s.nonce })))
             .catch(() => []),
         ),
       )
@@ -100,11 +100,15 @@ export function WaitingCards({
     };
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!list.length) return null;
+  // one Execute: the wallet runs them in order, so only the first in line can go; the rest say they're next
+  const canRun = ({ w, need, next }: (typeof list)[number]) => w.sigs.length >= need && w.tx.nonce === next;
+  const lead = list.find(canRun)?.w.hash;
   return (
     <div className="card stack" style={{ gap: 10 }}>
       <b>Waiting for signatures</b>
-      {list.map(({ w, need }) => {
+      {list.map(({ w, need, next }) => {
         const enough = w.sigs.length >= need;
+        const behind = enough && w.tx.nonce > next;
         // nothing to reject: it is a Reject, or one is already waiting at its number
         const rejectable = !isReject(w) && !list.some(x => x.w.chainId === w.chainId && x.w.tx.nonce === w.tx.nonce && isReject(x.w));
         const r = rejecting?.hash === w.hash ? rejecting : null;
@@ -136,14 +140,14 @@ export function WaitingCards({
               )}
               <a
                 href={txLink(w).replace(location.origin, "")}
-                className="btn btn-green btn-sm"
+                className={`btn btn-sm ${!enough || w.hash === lead ? "btn-green" : ""}`}
                 style={{ flex: 1, minWidth: 0 }}
                 onClick={(e) => {
                   e.preventDefault();
                   openTx(w);
                 }}
               >
-                {enough ? "Execute" : `Sign · ${w.sigs.length} of ${need}`}
+                {behind ? "Signed · next in line" : enough ? "Execute" : `Sign · ${w.sigs.length} of ${need}`}
               </a>
             </div>
           </div>

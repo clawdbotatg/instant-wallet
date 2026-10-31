@@ -70,5 +70,4 @@ Button colors (10-30):
 
 ## Known gaps (2026-10-29)
 
-- Waiting cards: each has its own green button (more than one green on home when several wait).
 - `<Money>` shows the coin first, dollars after; dollars-first not decided.

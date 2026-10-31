@@ -10,6 +10,16 @@ import { type Sim, asSafeTx, moves, simulate } from "@/lib/safe/sim";
 import { RECOVERY_DAYS } from "@/lib/safe/config";
 import { rolesAddress } from "@/lib/safe/core";
 import { dangers } from "clear-signing-safe-kit";
+import { chainById, nativeSymbol } from "@/lib/chains";
+import { ethUsd } from "@/lib/price";
+
+/** A plain send's dollars (ETH or USDC), for the steps' words. undefined: no price for it. */
+function sendUsd(chainId: number, c: Call, eth: number): number | undefined {
+  if (c.data === "0x" && c.value > 0n) return eth && nativeSymbol(chainId) === "ETH" ? (eth * Number(c.value)) / 1e18 : undefined;
+  const usdc = chainById(chainId)?.usdc;
+  if (usdc && c.to.toLowerCase() === usdc.toLowerCase() && c.data.slice(0, 10).toLowerCase() === "0xa9059cbb" && c.data.length >= 138)
+    return Number(BigInt("0x" + c.data.slice(74, 138))) / 1e6;
+}
 
 type SafeTxLike = { to: Address; value: bigint; data: Hex; operation: 0 | 1 };
 
@@ -110,6 +120,8 @@ export function WhatItDoes({ chainId, safe, calls, tx }: { chainId: number; safe
       live = false;
     };
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [eth, setEth] = useState(0);
+  useEffect(() => void ethUsd().then(setEth), []);
   const sim = res?.sim;
   const fees = calls.flatMap(c => relayFee(chainId, c) ?? []);
   // the relay's fee isn't a step worth reading (the coins line shows it when the run works)
@@ -174,7 +186,7 @@ export function WhatItDoes({ chainId, safe, calls, tx }: { chainId: number; safe
             ) : t ? (
               <span style={{ fontSize: 15, fontWeight: 600 }}>{`${many ? `${n + 1}. ` : ""}${t.what}${t.who && !t.what.includes(t.who) ? ` · ${t.who}` : ""}`}</span>
             ) : (
-              <Said n={many ? n + 1 : 0} text={describe(chainId, safe, c)} />
+              <Said n={many ? n + 1 : 0} text={((u) => describe(chainId, safe, c) + (u !== undefined ? ` (${usd(u)})` : ""))(sendUsd(chainId, c, eth))} />
             )}
             {t?.fields.map((f, j) => (
               <span key={j} className="fine">

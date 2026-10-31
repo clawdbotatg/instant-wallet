@@ -325,9 +325,9 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
 
       <p className="fine row" style={{ gap: 16, justifyContent: "center", flexWrap: "wrap" }}>
         {!done && !sent && !isReject && (
-          <a href="#" onClick={e => (e.preventDefault(), reject())}>
+          <button className="btn btn-sm" onClick={reject} disabled={!!busy}>
             {busy === "reject" ? "Getting ready…" : "Reject"}
-          </a>
+          </button>
         )}
         {enough && !done && !behind && !sent && hotAvailable() && (
           <a href="#" onClick={e => (e.preventDefault(), sendSelf())}>

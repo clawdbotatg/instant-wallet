@@ -7,10 +7,10 @@ import { short } from "@/lib/format";
 import type { Asset } from "@/lib/types";
 import { callsOf, relayFee } from "@/lib/safe/describe";
 import { type Move, chainHistory, moved, moves } from "clear-signing-safe-kit";
-import { ChainIcon, Eject, Money, WhatFor, Words, useName } from "../bits";
-import { explainCalls, intents } from "./WhatItDoes";
+import { ChainIcon, Eject, Money, WhatFor, useName } from "../bits";
+import { type Line, Lines, explainCalls, intents } from "./WhatItDoes";
 
-type Row = { chainId: number; at: string; link?: string; pay: Move[]; get: Move[]; words?: string; from?: string; failed?: boolean };
+type Row = { chainId: number; at: string; link?: string; pay: Move[]; get: Move[]; words?: Line[]; from?: string; failed?: boolean };
 const SHOW = 6;
 
 /**
@@ -48,7 +48,7 @@ export function Activity({ safe, chains, assets }: { safe: Address; chains: numb
             </span>
             {r.link && <Eject href={r.link} title="Open in the explorer" />}
           </div>
-          {(r.from || r.words) && <WhatFor>{r.from ? <>Received from <From a={r.from} chainId={r.chainId} /></> : <Words text={r.words!} chain={r.chainId} />}</WhatFor>}
+          {(r.from || r.words) && <WhatFor>{r.from ? <>Received from <From a={r.from} chainId={r.chainId} /></> : <Lines lines={r.words!} chain={r.chainId} />}</WhatFor>}
           {r.failed && <span style={{ fontSize: 15, color: "#c62828", fontWeight: 600 }}>⚠️ Failed: nothing moved</span>}
           {(r.pay.length > 0 || r.get.length > 0) && (
             <div className="row" style={{ gap: "2px 12px", flexWrap: "wrap" }}>
@@ -87,7 +87,8 @@ async function rowsOn(chainId: number, safe: Address): Promise<Row[]> {
       }
       // what it ran: known when the Safe logged it (Safe L2) or was called directly; what for, in clear signing's words
       const calls = t.to ? callsOf({ to: t.to as Address, value: BigInt(t.value), data: t.data as Hex, operation: t.operation as 0 | 1 }) : [];
-      const words = intents(chainId, safe, calls, await explainCalls(chainId, safe, calls), true).join(" · ") || undefined;
+      const w = intents(chainId, safe, calls, await explainCalls(chainId, safe, calls), true);
+      const words = w.length ? w : undefined;
       const row: Row = { chainId, at: t.executionDate, link: link(t.transactionHash), pay: [], get: [], words };
       if (!t.isSuccessful) return { ...row, failed: true };
       const fees: Record<string, bigint> = {};
@@ -98,7 +99,7 @@ async function rowsOn(chainId: number, safe: Address): Promise<Row[]> {
       const out = calls.reduce((s, c) => s + c.value, 0n);
       const m = moves(await moved(rpc, safe, t.transactionHash, out, native, token), fees);
       // nothing moved and nothing to say (a call it didn't log): it changed the wallet
-      return { ...row, pay: m.pay, get: m.get, words: words ?? (!m.pay.length && !m.get.length ? "Changed the wallet" : undefined) };
+      return { ...row, pay: m.pay, get: m.get, words: words ?? (!m.pay.length && !m.get.length ? [{ text: "Changed the wallet", src: "raw" as const }] : undefined) };
     }),
   );
 }

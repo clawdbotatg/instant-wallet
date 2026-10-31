@@ -47,13 +47,46 @@ export function explainCalls(chainId: number, safe: Address, calls: Call[]): Pro
   return said.get(body)!;
 }
 
+/** Where a step's words came from: a clear signing descriptor (ERC-7730 registry), our own code, or nothing could read it. */
+export type Src = "7730" | "ours" | "raw";
+const SRC: Record<Src, [string, string, string]> = {
+  "7730": ["🔏", "7730", "From a clear signing descriptor (ERC-7730 registry)"],
+  ours: ["🛠️", "ours", "Our own reading of this call (no descriptor used)"],
+  raw: ["⚠️", "raw", "Nothing could read this call"],
+};
+export function SrcTag({ src }: { src: Src }) {
+  const [icon, word, title] = SRC[src];
+  return (
+    <span className="fine" title={title} style={{ fontSize: 11, fontWeight: 500, whiteSpace: "nowrap", marginLeft: 4, padding: "1px 5px", borderRadius: 6, background: "rgba(127,127,127,.15)", verticalAlign: "middle" }}>
+      {icon} {word}
+    </span>
+  );
+}
+export type Line = { text: string; src: Src };
+/** Steps' words, each with where they came from, " · " between them. */
+export function Lines({ lines, chain }: { lines: Line[]; chain?: number }) {
+  return (
+    <>
+      {lines.map((l, i) => (
+        <span key={i}>
+          {i ? " · " : ""}
+          <Words text={l.text} chain={chain} />
+          <SrcTag src={l.src} />
+        </span>
+      ))}
+    </>
+  );
+}
+const srcOf = (text: string, t: Told | undefined, mine: string | null): Src =>
+  mine ? "ours" : t ? (t.swap ? "ours" : "7730") : text.startsWith(WARN) || text.startsWith("Call ") ? "raw" : "ours";
+
 /**
  * What a tx is for, one line per step: clear signing's intent and who it's with ("Deposit · Steakhouse Financial"),
  * else ours / describe.ts. Never the relay's fee, never a bare "Call 0x…". brief (headlines: Activity, signing): an
  * approval only feeds the step after it, so it's left out when there's another; each step is the descriptor's short
  * intent (its full sentence can carry every address in the call), and who it's with is said once per run of steps.
  */
-export function intents(chainId: number, safe: Address, calls: Call[], told: Told[] | null, brief = false): string[] {
+export function intents(chainId: number, safe: Address, calls: Call[], told: Told[] | null, brief = false): Line[] {
   const lines = calls.flatMap((c, i) => {
     const mine = ours(chainId, c);
     if (mine?.startsWith("Network fee")) return [];
@@ -63,10 +96,10 @@ export function intents(chainId: number, safe: Address, calls: Call[], told: Tol
     const approve = /^(Let|Stop) /.test(text) || t?.what === "Approve";
     // "Morpho DAO" goes unsaid after "Borrow from Morpho Market"
     const who = t?.who && !text.includes(t.who.split(" ")[0]) ? t.who : undefined;
-    return [{ text, approve, who }];
+    return [{ text, approve, who, src: srcOf(text, t ?? undefined, mine) }];
   });
   const keep = brief && lines.some(l => !l.approve) ? lines.filter(l => !l.approve) : lines;
-  return keep.map((l, i) => (l.who && (!brief || keep[i + 1]?.who !== l.who) ? `${l.text} · ${l.who}` : l.text));
+  return keep.map((l, i) => ({ text: l.who && (!brief || keep[i + 1]?.who !== l.who) ? `${l.text} · ${l.who}` : l.text, src: l.src }));
 }
 
 function ask(chainId: number, safe: Address, calls: Call[], tx?: SafeTxLike) {
@@ -167,8 +200,8 @@ export function WhatItDoes({ chainId, safe, calls, tx }: { chainId: number; safe
         <div className="stack" style={{ gap: 4 }}>
           {/* what it's for first, in clear signing's words, as Activity: then the coins */}
           {!steps && (() => {
-            const w = intents(chainId, safe, calls, res?.calls ?? null, true).join(" · ");
-            return w ? <WhatFor><Words text={w} chain={chainId} /></WhatFor> : null;
+            const w = intents(chainId, safe, calls, res?.calls ?? null, true);
+            return w.length ? <WhatFor><Lines lines={w} chain={chainId} /></WhatFor> : null;
           })()}
           {sim.pay.map((m, i) => <Money key={`p${i}`} amount={m.amount} symbol={m.symbol} usd={m.usd} />)}
           {sim.get.map((m, i) => <Money key={`g${i}`} amount={m.amount} symbol={m.symbol} usd={m.usd} get />)}
@@ -188,11 +221,11 @@ export function WhatItDoes({ chainId, safe, calls, tx }: { chainId: number; safe
         return (
           <div key={i} className="stack" style={{ gap: 2 }}>
             {mine ? (
-              <Said n={many ? n + 1 : 0} text={mine} chain={chainId} />
+              <Said n={many ? n + 1 : 0} text={mine} chain={chainId} src="ours" />
             ) : t ? (
-              <span style={{ fontSize: 15, fontWeight: 600 }}><Words chain={chainId} text={`${many ? `${n + 1}. ` : ""}${t.what}${t.who && !t.what.includes(t.who) ? ` · ${t.who}` : ""}`} /></span>
+              <span style={{ fontSize: 15, fontWeight: 600 }}><Words chain={chainId} text={`${many ? `${n + 1}. ` : ""}${t.what}${t.who && !t.what.includes(t.who) ? ` · ${t.who}` : ""}`} /><SrcTag src={t.swap ? "ours" : "7730"} /></span>
             ) : (
-              <Said n={many ? n + 1 : 0} chain={chainId} text={((u) => describe(chainId, safe, c) + (u !== undefined ? ` (${usd(u)})` : ""))(sendUsd(chainId, c, eth))} />
+              <Said n={many ? n + 1 : 0} chain={chainId} src={srcOf(describe(chainId, safe, c), undefined, null)} text={((u) => describe(chainId, safe, c) + (u !== undefined ? ` (${usd(u)})` : ""))(sendUsd(chainId, c, eth))} />
             )}
             {t?.fields.map((f, j) => (
               <span key={j} className="fine">
@@ -206,12 +239,13 @@ export function WhatItDoes({ chainId, safe, calls, tx }: { chainId: number; safe
   );
 }
 
-function Said({ text, n = 0, chain }: { text: string; n?: number; chain?: number }) {
+function Said({ text, n = 0, chain, src }: { text: string; n?: number; chain?: number; src?: Src }) {
   const warn = text.startsWith(WARN);
   return (
     <span style={{ fontSize: 15, color: warn ? "#c62828" : undefined, fontWeight: warn ? 600 : undefined }}>
       {n ? `${n}. ` : ""}
       <Words text={text} chain={chain} />
+      {src && <SrcTag src={src} />}
     </span>
   );
 }

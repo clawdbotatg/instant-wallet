@@ -7,7 +7,7 @@ import { short } from "@/lib/format";
 import type { Asset } from "@/lib/types";
 import { callsOf, relayFee } from "@/lib/safe/describe";
 import { type Move, chainHistory, moved, moves } from "clear-signing-safe-kit";
-import { Eject, Money, useName } from "../bits";
+import { ChainIcon, Eject, Money, useName } from "../bits";
 import { explainCalls, intents } from "./WhatItDoes";
 
 type Row = { chainId: number; at: string; link?: string; pay: Move[]; get: Move[]; words?: string; from?: string; failed?: boolean };
@@ -43,8 +43,8 @@ export function Activity({ safe, chains, assets }: { safe: Address; chains: numb
       {rows.map((r, i) => (
         <div key={i} className="recess stack" style={{ gap: 4 }}>
           <div className="row" style={{ justifyContent: "space-between", gap: 8 }}>
-            <span className="fine">
-              {new Date(r.at).toLocaleDateString(undefined, { month: "short", day: "numeric" })} · {chainById(r.chainId)?.name}
+            <span className="fine row" style={{ gap: 5 }}>
+              {new Date(r.at).toLocaleDateString(undefined, { month: "short", day: "numeric" })} · <ChainIcon chainId={r.chainId} size={14} /> {chainById(r.chainId)?.name}
             </span>
             {r.link && <Eject href={r.link} title="Open in the explorer" />}
           </div>

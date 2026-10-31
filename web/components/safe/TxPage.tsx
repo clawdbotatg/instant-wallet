@@ -12,11 +12,11 @@ import { unpackMultiSend } from "@/lib/safe/fee";
 import { connectHot, hotAvailable, hotSend, hotSign } from "@/lib/safe/hot";
 import { feeCall, getQuote, ownerSigners, usesWedgie, waitFor } from "@/lib/safe/send";
 import { signForSite } from "@/lib/safe/connect";
-import { type Waiting, allSignatures, checkSigs, fromLink, openTx, readWaiting, safeAppTxLink, shareTx, sigHex, txLink } from "@/lib/safe/share";
+import { type Waiting, allSignatures, checkSigs, deleteHash, dropTx, fromLink, openTx, readWaiting, safeAppTxLink, shareTx, sigHex, txLink } from "@/lib/safe/share";
 import { passkeySign } from "@/lib/safe/sign";
 import { type ChainState, keyFromCode, loadAccount, loadSigners, readChain, wedgieHome, wedgieSigners } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
-import { BioSigner, Blockie, CopyLink, Eject, GreenButton, Who, useToast } from "../bits";
+import { BioSigner, Blockie, CopyLink, Eject, GreenButton, RemoveX, Who, useToast } from "../bits";
 import { friendly } from "../Welcome";
 import { ErrorLine } from "./WedgieButton";
 import { WhatItDoes } from "./WhatItDoes";
@@ -44,6 +44,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState<Hash | null>(null);
   const [missing, setMissing] = useState(false);
+  const [removed, setRemoved] = useState(false);
   const [mine, setMine] = useState<ChainState | null>(null);
   const [toast, setToast] = useToast();
 
@@ -182,6 +183,13 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
     setSent(j.hash);
     load();
   });
+  // Remove (as on Home's waiting card): this phone's Face ID signs Safe's delete message
+  const remove = run("remove", async () => {
+    const me = loadAccount();
+    if (!w || !me) return;
+    await dropTx(w, await passkeySign(me.credentialId, me.burnerSigner, deleteHash(w)));
+    setRemoved(true);
+  });
   const sendSelf = run("self", async () => {
     if (!w) return;
     const h = await hotSend(chainId, safe, execData(w.tx, allSignatures({ ...w, sigs: valid })));
@@ -192,6 +200,13 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
   });
 
   const name = chainById(chainId)?.name ?? `chain ${chainId}`;
+  if (removed)
+    return (
+      <div className="stack">
+        <h2>Removed</h2>
+        <p className="fine">It's off the list. Only Reject stops it for sure: its signatures can still run it until another transaction takes #{w?.tx.nonce.toString()}.</p>
+      </div>
+    );
   if (missing)
     return (
       <div className="stack">
@@ -324,6 +339,9 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
       {error && <ErrorLine text={error} />}
 
       <p className="fine row" style={{ gap: 16, justifyContent: "center", flexWrap: "wrap" }}>
+        {!done && !sent && me && chain.owners.some(o => eq(o, me.burnerSigner)) && (
+          <RemoveX disabled={!!busy} busy={busy === "remove"} onClick={remove} />
+        )}
         {!done && !sent && !isReject && (
           <button className="btn btn-sm" onClick={reject} disabled={!!busy}>
             {busy === "reject" ? "Getting ready…" : "Reject"}

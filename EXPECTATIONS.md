@@ -62,9 +62,10 @@ Button colors (10-30):
 - Always the address on its own screen and that blockie (`shownAs`, `wedgieHome`), never its signer
   contract, never an ENS avatar.
 
-## 4. One green button per page
+## 4. One obvious green
 
-- One clear green call to action. The exception: a Sign button on each signer you hold.
+- Green is the one thing people do next. Two greens are fine when they're in separate parts of a page. Make the
+  runner-up dark gray when you can. Never change a button's color as things change.
 
 ## 5. Dollars first
 

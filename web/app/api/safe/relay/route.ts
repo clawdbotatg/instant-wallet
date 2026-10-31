@@ -99,14 +99,16 @@ export async function POST(req: NextRequest) {
       // (a new phone after a recovery, or the very first send)
       const k = body.burner ?? body.deploy;
       const pre: { to: Address; data: Hex }[] = [];
-      if (k && hex(k.x) && hex(k.y)) {
+      // a P-256 key is two 32-byte numbers; anything else (a watched wallet's "0x") isn't one
+      const key = !!k && hex(k.x) && hex(k.y) && k.x.length === 66 && k.y.length === 66;
+      if (key) {
         const sc = await pc.getCode({ address: signerAddress(k.x, k.y) });
         if (!sc || sc === "0x") pre.push(deploySignerCall(k.x, k.y));
       }
       const code = await pc.getCode({ address: safe });
       if (!code || code === "0x") {
         // first send on this chain: deploy the Safe from the first setup (the burner's own address), then run the tx
-        if (!k || !hex(k.x) || !hex(k.y)) throw new Error("this wallet isn't deployed here yet: send its key");
+        if (!key) throw new Error("this wallet isn't deployed here yet: send its key");
         const signer = signerAddress(k.x, k.y);
         if (safeAddress(signer) !== safe) throw new Error("that key doesn't make this address");
         pre.push(deploySafeCall(signer));

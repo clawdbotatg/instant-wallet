@@ -191,7 +191,8 @@ export async function finishOwners(p: Prepared): Promise<Hash> {
   const signatures = encodeSignatures(sigs);
   const hash = p.opts.self
     ? await hotSend(chainId, a.address, execData(t, signatures))
-    : await post({ chainId, kind: "exec", safe: a.address, tx: t, signatures, burner: { x: a.qx, y: a.qy }, wedgie: slots.length > 0 });
+    : // no passkey here (a wallet opened to watch, signed by its wedgie): no burner key to send
+      await post({ chainId, kind: "exec", safe: a.address, tx: t, signatures, ...(a.burnerSigner !== zeroAddress ? { burner: { x: a.qx, y: a.qy } } : {}), wedgie: slots.length > 0 });
   stage("confirming", hash);
   await waitFor(chainId, hash);
   used.set(`${chainId}:${a.address}`, t.nonce);

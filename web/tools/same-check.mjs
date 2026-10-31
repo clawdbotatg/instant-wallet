@@ -16,6 +16,9 @@ const RULES = [
   { re: /[>"`]\s*[+−]\{|\{get \? "\+" : "−"\}/, say: "money with a hand-written + or −: use <Money>" },
   { re: /\b(send|sends|sent) it (yourself|myself)\b|relay (is )?send/i, say: "a signed tx is executed, not sent" },
 ];
+// dark gray is the copy button only (Austin 10-30: most buttons white); Switch account he asked for by name
+const DARK_OK = [SHARED, "components/Receive.tsx", "components/safe/Keys.tsx"]; // <CopyLink>; Switch account; the invite link's copy
+RULES.push({ re: /btn-dark|pill dark/, say: "dark gray is only the copy button (<CopyLink>): make it white", skip: DARK_OK });
 
 const files = [];
 (function walk(d) {
@@ -35,7 +38,7 @@ for (const p of files) {
       const t = line.trim();
       if (/^(\/\/|\*|\/\*|\{\/\*)/.test(t)) return; // comments
       for (const r of RULES) {
-        if (rel === SHARED && r.say.includes("use <")) continue;
+        if ((rel === SHARED && r.say.includes("use <")) || r.skip?.includes(rel)) continue;
         if (r.re.test(line)) {
           bad++;
           console.log(`${rel}:${i + 1}  ${r.say}\n    ${t.slice(0, 140)}`);

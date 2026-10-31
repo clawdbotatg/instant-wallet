@@ -34,8 +34,8 @@ Where it lives: `WhatItDoes`, `<Money>`, clear-signing-safe-kit (`dangers`, `sim
 | Thing | Always | Never |
 |---|---|---|
 | Money moving | `<Money>`: out red −, in green +, dollars after in gray | a hand-written + or − |
-| Leaving the wallet (explorer, Safe{Wallet}, a tx's page) | `<Eject>`: dark gray pill, new window | a hand-rolled pill link |
-| A tx's link for the other signers | `<CopyLink>`: dark gray, copies | a pop-out |
+| Leaving the wallet (explorer, Safe{Wallet}, a tx's page) | `<Eject>`: white pill, new window | a hand-rolled pill link |
+| A tx's link for the other signers | `<CopyLink>`: dark gray, copies. The only way to share a tx | a pop-out, a second Share button |
 | An address | `<Who>` (name over short address, avatar or blockie) | a bare `short(…)` in a list |
 | A wedgie | its own screen's address + blockie (`shownAs`, `wedgieHome`) | its signer contract, an ENS avatar |
 | What a tx does | `WhatItDoes` in plain words | hex, a function name |
@@ -51,9 +51,9 @@ Words:
 
 Button colors (10-30):
 - Green = the one obvious action.
-- Dark gray = the next likely one (copy the link, every `<Eject>` pop-out, Switch account).
+- Dark gray = copy the link (`<CopyLink>`), and Switch account. Nothing else.
 - Red = anything that ends or removes (✕, Cancel, Back, Done, Close, Disconnect, Sign out).
-- White = the rest, Reject too.
+- White = everything else: most buttons. Reject, `<Eject>`, a second choice (NFC card), Add a wedgie.
 
 ## 3. A wedgie is shown as itself
 

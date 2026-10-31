@@ -16,7 +16,7 @@ import { type Waiting, allSignatures, checkSigs, fromLink, openTx, readWaiting, 
 import { passkeySign } from "@/lib/safe/sign";
 import { type ChainState, keyFromCode, loadAccount, loadSigners, readChain, wedgieHome, wedgieSigners } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
-import { BioSigner, Blockie, CopyLink, Eject, GreenButton, Who, shareOrCopy, useToast } from "../bits";
+import { BioSigner, Blockie, CopyLink, Eject, GreenButton, Who, useToast } from "../bits";
 import { friendly } from "../Welcome";
 import { ErrorLine } from "./WedgieButton";
 import { WhatItDoes } from "./WhatItDoes";
@@ -233,10 +233,6 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
   const me = loadAccount();
   const calls: Call[] = eq(w.tx.to, MULTISEND_CALL_ONLY) && w.tx.operation === 1 ? safeUnpack(w.tx.data) : [{ to: w.tx.to, value: w.tx.value, data: w.tx.data }];
   const app = safeAppTxLink(chainId, safe, w.hash);
-  const share = async () => {
-    const m = await shareOrCopy(txLink(w), w.label ?? "Sign this");
-    if (m) setToast(m);
-  };
   const friends = loadSigners(safe);
   const mySlots = me?.wedgie ? wedgieSigners(me.wedgie).map(x => x.toLowerCase()) : [];
   // this phone's key, someone's Face ID (invited, or any passkey when this browser has no wallet), a wedgie, a browser wallet
@@ -266,7 +262,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
               Safe
             </Eject>
           )}
-          {inWallet && <CopyLink link={txLink(w)} />}
+          <CopyLink link={txLink(w)} />
         </span>
       </div>
       <p className="fine row" style={{ gap: 8 }}>
@@ -324,19 +320,10 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
         <button className="btn btn-green wide" onClick={sendRelay} disabled={!!busy}>
           {busy === "send" ? "Executing…" : "Execute"}
         </button>
-      ) : (
-        <button className="btn btn-dark wide" onClick={share}>
-          Share with another signer
-        </button>
-      )}
+      ) : null}
       {error && <ErrorLine text={error} />}
 
       <p className="fine row" style={{ gap: 16, justifyContent: "center", flexWrap: "wrap" }}>
-        {(enough || done || sent) && (
-          <a href="#" onClick={e => (e.preventDefault(), share())}>
-            Share
-          </a>
-        )}
         {!done && !sent && !isReject && (
           <a href="#" onClick={e => (e.preventDefault(), reject())}>
             {busy === "reject" ? "Getting ready…" : "Reject"}

@@ -538,7 +538,7 @@ export function Keys({
               )}
               {!st.hasWedgie && (
                 <>
-                  <button className="btn btn-dark wide" onClick={() => setWedgieOpen(v => !v)} aria-expanded={wedgieOpen}>
+                  <button className="btn wide" onClick={() => setWedgieOpen(v => !v)} aria-expanded={wedgieOpen}>
                     <WedgieIcon size={34} /> Add a wedgie
                   </button>
                   {wedgieOpen && (

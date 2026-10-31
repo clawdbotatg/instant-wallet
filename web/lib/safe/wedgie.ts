@@ -482,6 +482,60 @@ export class Wedgie {
     });
   }
 
+  /** safe_sign: the answer, even across a restart. Out of memory, Safe Signer 53+ saves the tx and restarts on a clean
+   * heap, and a real wedgie drops USB doing it (10-30: the tx was on its screen, the page said "wedgie unplugged"):
+   * open the port again and wait for the same id. */
+  private async signAsk(msg: Record<string, unknown>, ms: number): Promise<any> {
+    const id = this.next++;
+    const end = Date.now() + ms;
+    const wait = () =>
+      new Promise<any>((res, rej) => {
+        const t = window.setTimeout(() => {
+          this.pending.delete(id);
+          rej(new Error("The wedgie didn't answer. Is it running the Safe signer app?"));
+        }, Math.max(0, end - Date.now()));
+        this.pending.set(id, { res, rej, t });
+      });
+    const first = wait();
+    await this.writer!.write(new TextEncoder().encode(JSON.stringify({ ...msg, id }) + "\n"));
+    try {
+      return await first;
+    } catch (e: any) {
+      if (this.drive || !/unplugged/.test(e?.message || "")) throw e;
+    }
+    activity({ what: "Your wedgie restarted to make room. Reconnecting…", p: 0.92 });
+    await this.revive();
+    activity({ what: "Press the green button on your wedgie", p: 0.95, press: true });
+    return wait();
+  }
+
+  /** This connection again on the same wedgie after it restarted (a new port, maybe), within ~25 s. */
+  private async revive() {
+    try {
+      await this.port?.close();
+    } catch {}
+    const serial = (navigator as any).serial;
+    for (const since = Date.now(); Date.now() - since < 25_000; ) {
+      await sleep(300);
+      const port = (await serial.getPorts()).find((p: any) => p.getInfo().usbVendorId === RPI_VID);
+      if (!port) continue;
+      try {
+        await port.open({ baudRate: 115200 });
+      } catch {
+        continue;
+      }
+      this.port = port;
+      this.writer = port.writable.getWriter();
+      this.reader = port.readable.getReader();
+      this.line = "";
+      this.alive = true;
+      this.read();
+      holder = this;
+      return;
+    }
+    throw new Error("Your wedgie restarted and didn't come back. Unplug it, plug it in again, then try again.");
+  }
+
   /** A short JSON line, then `raw` bytes right after it (a checked install's put, firmware 0.3.16+). */
   requestRaw(msg: Record<string, unknown>, raw: Uint8Array, ms = 15000): Promise<any> {
     if (this.drive) return Promise.reject(new Error("Installing needs a computer."));
@@ -569,7 +623,7 @@ export class Wedgie {
     const hello = await this.safeHello();
     // the one way both sites send it (clear-signing-safe-kit): bundle, simulation, data in pieces, safe_sign
     const g = await wedgieSign({
-      ask: (m, ms) => this.request(m, ms),
+      ask: (m, ms) => (m.type === "safe_sign" && !this.drive ? this.signAsk(m, ms) : this.request(m, ms)),
       ...(this.drive ? {} : { askRaw: (m: Record<string, unknown>, raw: Uint8Array, ms: number) => this.requestBytes(m, raw, ms) }),
       hello,
       tx,

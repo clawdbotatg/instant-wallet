@@ -5,10 +5,10 @@ import { type ReactNode, useCallback, useEffect, useRef, useState } from "react"
 import { type Address, type Hex, encodeFunctionData, formatUnits, zeroAddress } from "viem";
 import { brainKey, isXdai, oldBurnerKey } from "@/lib/brand";
 import { claimKey } from "@/lib/claim";
-import { CHAINS, chainById, explorerAddress, ETH, nativeSymbol } from "@/lib/chains";
+import { CHAINS, chainById, explorerAddress, ETH, nativeSymbol, publicClient } from "@/lib/chains";
 import { amount, short, feeText, usd } from "@/lib/format";
-import { DAO, FEE_ALLOWANCE, RECOVERY_60D, VERIFIERS } from "@/lib/safe/config";
-import { type Call, DEFAULT_BUDGET, abi, signerAddress, budgetCalls, deploySignerCall, feeAllowanceCalls, recoveryLayoutCalls, selfCall } from "@/lib/safe/core";
+import { DAO, FEE_ALLOWANCE, RECOVERY_14D, RECOVERY_60D, VERIFIERS } from "@/lib/safe/config";
+import { type Call, DEFAULT_BUDGET, abi, signerAddress, budgetCalls, deploySignerCall, feeAllowanceCalls, guardianListCalls, recoveryLayoutCalls, selfCall } from "@/lib/safe/core";
 import { type FeeToken, type Prepared, Shared, type Signer, finishOwners, getQuote, howSigns, ownerSigners, prepareOwners, signerLabel, usesWedgie } from "@/lib/safe/send";
 import { type ChainState, type SafeAccount, daoDays, loadSigners, loadWalletName, readChain, saveSigner, wedgieSigners, shownAs } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
@@ -27,8 +27,8 @@ import { bio } from "@/lib/passkey";
  *               (lib/safe/send.ts howSigns): this phone's Face ID, the wedgie (one signer; older wallets have it
  *               twice), or a browser wallet.
  *   Daily limit what Face ID alone can send once M > 1 (Zodiac Roles); set up when M goes past 1.
- *   Recovery    the DAO only, when too many signers are lost: 7 days, or 60. You can cancel it in that time.
- *               (Older wallets may still have their own recovery address on: it's shown.)
+ *   Recovery    the DAO, when too many signers are lost: 7 days, or 60. Plus your own guardians, if you add any
+ *               (14 days). You can cancel a recovery in that time.
  */
 export function Keys({
   account,
@@ -54,6 +54,8 @@ export function Keys({
   const [error, setErrorRaw] = useState<{ what: string; msg: string } | null>(null);
   const [signerIn, setSignerIn] = useState<Address | null>(null);
   const [recEdit, setRecEdit] = useState(false); // recovery: one line until Edit / learn more
+  const [guardIn, setGuardIn] = useState<Address | null>(null); // a guardian to add (Edit)
+  const [guardKey, setGuardKey] = useState(0); // empties the guardian field after an add
   const [keysEdit, setKeysEdit] = useState(false); // signers: the list until Edit
   const [wedgieOpen, setWedgieOpen] = useState(false);
   const [wedgieLook, setWedgieLook] = useState<{ tone: string; looking: boolean } | null>(null); // what the pill says
@@ -340,6 +342,37 @@ export function Keys({
       }
     });
 
+  // your own guardians: on the 14-day module (the DAO is on 60, or 7). Austin 10-30: set them up here and on wedgie.dev.
+  // Never while a recovery runs: a guardian change drops it.
+  const setGuardians = (next: Address[], label: string) =>
+    prep("guardian", async () => {
+      const s = await fresh();
+      if (s.recovery) throw new Error("A recovery is running on this wallet. Cancel it or let it finish first.");
+      if (!s.stored) throw new Error("Couldn't read the guardians. Try again in a moment.");
+      const code = await publicClient(chainId).getCode({ address: RECOVERY_14D }).catch(() => undefined);
+      if (!code || code === "0x") throw new Error(`Your own guardians aren't on ${chainById(chainId)?.name} yet.`);
+      const calls: Call[] = [];
+      if (!s.modules.some(m => same(m, RECOVERY_14D))) calls.push(selfCall(account.address, encodeFunctionData({ abi: abi.safe, functionName: "enableModule", args: [RECOVERY_14D] })));
+      calls.push(...guardianListCalls(RECOVERY_14D, s.stored[RECOVERY_14D] ?? [], next));
+      if (!calls.length) throw new Error("Already done.");
+      const signers = ownerSigners(s, account);
+      const w = await wedgieFor(s, signers);
+      try {
+        const p = await prepareOwners({ account, state: s, calls, signers, feeToken, setup: true, wedgie: w, label });
+        const want = next.map(g => g.toLowerCase()).sort().join();
+        return {
+          label,
+          p,
+          settled: x => (x.stored?.[RECOVERY_14D] ?? []).map(g => g.toLowerCase()).sort().join() === want,
+          after: () => setGuardKey(k => k + 1),
+          close: async () => w?.close(),
+        };
+      } catch (e) {
+        await w?.close();
+        throw e;
+      }
+    });
+
   const addWedgie = () =>
     prep("wedgie", async () => {
       if (!st) throw new Error("Still loading");
@@ -402,6 +435,7 @@ export function Keys({
   );
 
   const layout = !!st?.modules.includes(RECOVERY_60D);
+  const mine = (st?.stored?.[RECOVERY_14D] ?? []).filter(g => !same(g, DAO)); // your own guardians (14 days)
   const daoWait = st ? daoDays(st) : null;
   const idle = !!busy || !!pending || !!wait || !canPay;
 
@@ -615,6 +649,30 @@ export function Keys({
               any time before then.
               {!layout && " Make it wait 60 days to get more time to cancel."}
             </p>
+            <p className="fine">
+              Your own guardians (a friend, another wallet you keep) can do the same after 14 days. Any one of them is enough.
+            </p>
+            {mine.map(g => (
+              <div className="keyrow" key={g} style={{ padding: 0 }}>
+                <Who address={g} chain={chainId} />
+                <RemoveX disabled={idle} label="Remove this guardian" onClick={() => setGuardians(mine.filter(x => !same(x, g)), "Remove guardian")} />
+              </div>
+            ))}
+            {action(
+              "guardian",
+              <div className="row" style={{ gap: 6 }}>
+                <div className="grow">
+                  <AddressInput key={`${chainId}-${guardKey}`} onChange={setGuardIn} placeholder="Add a guardian: 0x… or name.eth" />
+                </div>
+                <button
+                  className="btn btn-sm"
+                  onClick={() => guardIn && setGuardians([...mine.filter(x => !same(x, guardIn)), guardIn], "Add guardian")}
+                  disabled={idle || !guardIn || mine.some(x => same(x, guardIn)) || same(guardIn, DAO)}
+                >
+                  {busy === "guardian" ? "Working…" : "Add"}
+                </button>
+              </div>,
+            )}
             {st &&
               st.has60 &&
               !layout &&

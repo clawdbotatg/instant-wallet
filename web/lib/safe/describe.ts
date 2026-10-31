@@ -1,12 +1,13 @@
 import { type Address, type Hex, decodeFunctionData, encodeAbiParameters, encodeFunctionData, formatUnits, getAddress, parseAbi } from "viem";
 import { chainById, nativeSymbol } from "../chains";
-import { short } from "../format";
 import { KEY_ETH, KEY_FEE_USDC, KEY_USDC, MODULE_FACTORY, MULTICALL3, MULTISEND_CALL_ONLY, MULTISEND_UNWRAPPER, RECOVERY_DAYS, ROLE_BURNER, ROLES_MASTERCOPY } from "./config";
 import { type Call, type SafeTx, abi, rolesAddress } from "./core";
 import { unpackMultiSend } from "./fee";
 import { UNIVERSAL_ROUTERS } from "clear-signing-safe-kit";
 
 const eq = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+/** An address in the words: always the full one, so the page draws it with its blockie (<Words>, components/bits.tsx). */
+const short = (a: string) => { try { return getAddress(a); } catch { return a; } };
 const dec = (a: any, data: Hex) => {
   try {
     return decodeFunctionData({ abi: a, data }) as { functionName: string; args: any[] };
@@ -58,13 +59,13 @@ export function ours(chainId: number, c: Call): string | null {
   if (t?.functionName === "approve") {
     const [sp, amt] = t.args as [Address, bigint];
     if (amt === 0n) return `Stop ${who(sp)} spending your ${coin(c.to)}`;
-    return `Let ${who(sp)} spend ${amt >= MAX ? "any amount of" : usdc && eq(c.to, usdc) ? `up to ${formatUnits(amt, 6)}` : "some of"} your ${coin(c.to)}`;
+    return `Let ${who(sp)} spend ${amt >= MAX ? `any amount of your ${coin(c.to)}` : usdc && eq(c.to, usdc) ? `up to ${formatUnits(amt, 6)} USDC` : `some of your ${coin(c.to)}`}`;
   }
   if (eq(c.to, PERMIT2) && sel === "0x87517c45") {
     const p = dec(permit2, c.data);
     if (!p) return null;
     const [tok, sp, amt] = p.args as [Address, Address, bigint];
-    return `Let ${who(sp)} spend ${amt >= MAX ? "any amount of" : usdc && eq(tok, usdc) ? `up to ${formatUnits(amt, 6)}` : "some of"} your ${coin(tok)}`;
+    return `Let ${who(sp)} spend ${amt >= MAX ? `any amount of your ${coin(tok)}` : usdc && eq(tok, usdc) ? `up to ${formatUnits(amt, 6)} USDC` : `some of your ${coin(tok)}`}`;
   }
   return null;
 }

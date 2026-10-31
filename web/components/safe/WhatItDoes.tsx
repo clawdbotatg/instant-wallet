@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { type Address, type Hex, formatUnits } from "viem";
 import { amount, short, usd } from "@/lib/format";
-import { Money, WhatFor, Who } from "../bits";
+import { Money, WhatFor, Who, Words } from "../bits";
 import { WARN, describe, ours, relayFee } from "@/lib/safe/describe";
 import type { Call } from "@/lib/safe/core";
 import { type Sim, asSafeTx, moves, simulate } from "@/lib/safe/sim";
@@ -167,7 +167,7 @@ export function WhatItDoes({ chainId, safe, calls, tx }: { chainId: number; safe
           {/* what it's for first, in clear signing's words, as Activity: then the coins */}
           {!steps && (() => {
             const w = intents(chainId, safe, calls, res?.calls ?? null, true).join(" · ");
-            return w ? <WhatFor>{w}</WhatFor> : null;
+            return w ? <WhatFor><Words text={w} chain={chainId} /></WhatFor> : null;
           })()}
           {sim.pay.map((m, i) => <Money key={`p${i}`} amount={m.amount} symbol={m.symbol} usd={m.usd} />)}
           {sim.get.map((m, i) => <Money key={`g${i}`} amount={m.amount} symbol={m.symbol} usd={m.usd} get />)}
@@ -185,11 +185,11 @@ export function WhatItDoes({ chainId, safe, calls, tx }: { chainId: number; safe
         return (
           <div key={i} className="stack" style={{ gap: 2 }}>
             {mine ? (
-              <Said n={many ? n + 1 : 0} text={mine} />
+              <Said n={many ? n + 1 : 0} text={mine} chain={chainId} />
             ) : t ? (
-              <span style={{ fontSize: 15, fontWeight: 600 }}>{`${many ? `${n + 1}. ` : ""}${t.what}${t.who && !t.what.includes(t.who) ? ` · ${t.who}` : ""}`}</span>
+              <span style={{ fontSize: 15, fontWeight: 600 }}><Words chain={chainId} text={`${many ? `${n + 1}. ` : ""}${t.what}${t.who && !t.what.includes(t.who) ? ` · ${t.who}` : ""}`} /></span>
             ) : (
-              <Said n={many ? n + 1 : 0} text={((u) => describe(chainId, safe, c) + (u !== undefined ? ` (${usd(u)})` : ""))(sendUsd(chainId, c, eth))} />
+              <Said n={many ? n + 1 : 0} chain={chainId} text={((u) => describe(chainId, safe, c) + (u !== undefined ? ` (${usd(u)})` : ""))(sendUsd(chainId, c, eth))} />
             )}
             {t?.fields.map((f, j) => (
               <span key={j} className="fine">
@@ -203,12 +203,12 @@ export function WhatItDoes({ chainId, safe, calls, tx }: { chainId: number; safe
   );
 }
 
-function Said({ text, n = 0 }: { text: string; n?: number }) {
+function Said({ text, n = 0, chain }: { text: string; n?: number; chain?: number }) {
   const warn = text.startsWith(WARN);
   return (
     <span style={{ fontSize: 15, color: warn ? "#c62828" : undefined, fontWeight: warn ? 600 : undefined }}>
       {n ? `${n}. ` : ""}
-      {text}
+      <Words text={text} chain={chain} />
     </span>
   );
 }

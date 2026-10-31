@@ -7,7 +7,7 @@ import { short } from "@/lib/format";
 import type { Asset } from "@/lib/types";
 import { callsOf, relayFee } from "@/lib/safe/describe";
 import { type Move, chainHistory, moved, moves } from "clear-signing-safe-kit";
-import { ChainIcon, Eject, Money, WhatFor, useName } from "../bits";
+import { ChainIcon, Eject, Money, WhatFor, Words, useName } from "../bits";
 import { explainCalls, intents } from "./WhatItDoes";
 
 type Row = { chainId: number; at: string; link?: string; pay: Move[]; get: Move[]; words?: string; from?: string; failed?: boolean };
@@ -48,7 +48,7 @@ export function Activity({ safe, chains, assets }: { safe: Address; chains: numb
             </span>
             {r.link && <Eject href={r.link} title="Open in the explorer" />}
           </div>
-          {(r.from || r.words) && <WhatFor>{r.from ? <>Received from <From a={r.from} chainId={r.chainId} /></> : r.words}</WhatFor>}
+          {(r.from || r.words) && <WhatFor>{r.from ? <>Received from <From a={r.from} chainId={r.chainId} /></> : <Words text={r.words!} chain={r.chainId} />}</WhatFor>}
           {r.failed && <span style={{ fontSize: 15, color: "#c62828", fontWeight: 600 }}>⚠️ Failed: nothing moved</span>}
           {(r.pay.length > 0 || r.get.length > 0) && (
             <div className="row" style={{ gap: "2px 12px", flexWrap: "wrap" }}>

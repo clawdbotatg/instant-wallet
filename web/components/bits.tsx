@@ -112,6 +112,12 @@ export function Who({ address, chain, size = 22, plain, label, link, inline }: {
   );
 }
 
+/** Words about a transaction: every full address in them drawn as <Who> (blockie, name), never as bare hex. */
+export function Words({ text, chain }: { text: string; chain?: number }) {
+  const parts = text.split(/(0x[0-9a-fA-F]{40})(?![0-9a-fA-F])/);
+  return <>{parts.map((p, i) => (i % 2 ? <Who key={i} address={p} chain={chain} size={18} inline /> : p))}</>;
+}
+
 export function ChainChip({ chainId }: { chainId: number }) {
   const c = chainById(chainId);
   return (

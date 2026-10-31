@@ -7,10 +7,10 @@ import { claimKey } from "@/lib/claim";
 import { amount, short } from "@/lib/format";
 import { parse } from "@/lib/parse";
 import { loadAccount } from "@/lib/safe/state";
-import { Money, Qr, Who, copy, useToast } from "./bits";
+import { CopyAddress, Money, Qr, Who } from "./bits";
 import { SafeApp } from "./safe/SafeApp";
 import { bio } from "@/lib/passkey";
-import { ethUsd } from "@/lib/price";
+import { nativeUsd } from "@/lib/price";
 
 /**
  * A payment request opened as a web link (<origin>/ethereum:…, a phone camera's scan of a Receive QR, lib/parse.ts
@@ -21,7 +21,6 @@ import { ethUsd } from "@/lib/price";
 export function PayLink() {
   const [href, setHref] = useState<string>();
   const [hasWallet, setHasWallet] = useState<boolean>();
-  const [toast, setToast] = useToast();
   useEffect(() => {
     // anything else under / that isn't a page: the wallet
     // (a missing /apple-touch-icon.png parses as a name: only addresses and .eth names count)
@@ -37,10 +36,11 @@ export function PayLink() {
     // the wallet takes over; the address bar goes back to the wallet's own
     if (hasWallet) window.history.replaceState(null, "", "/");
   }, [hasWallet]);
-  const [ethPx, setEthPx] = useState(0);
+  const [ethPx, setEthPx] = useState(0); // the request's chain's own coin in dollars
+  const payChain = href ? (() => { const q = parse(href); return q.kind === "pay" ? q.chainId : undefined; })() : undefined;
   useEffect(() => {
-    ethUsd().then(setEthPx);
-  }, []);
+    nativeUsd(payChain ?? 1).then(setEthPx);
+  }, [payChain]);
 
   if (!href || hasWallet === undefined) return null;
   if (hasWallet) return <SafeApp link={href} />;
@@ -62,7 +62,7 @@ export function PayLink() {
         <h1>Pay</h1>
         {amt && (
           <div className="center">
-            <Money amount={amt} symbol={symbol} size={34} usd={isUsdc ? Number(amt) : symbol === "ETH" && ethPx ? Number(amt) * ethPx : null} />
+            <Money amount={amt} symbol={symbol} size={34} usd={isUsdc ? Number(amt) : isEth && ethPx ? Number(amt) * ethPx : null} />
           </div>
         )}
         <p className="fine center">
@@ -80,14 +80,11 @@ export function PayLink() {
             </Qr>
           </>
         )}
-        <button className="btn wide" onClick={async () => (await copy(p.to)) && setToast("Address copied")}>
-          Copy address
-        </button>
+        <CopyAddress address={p.to} style={{ alignSelf: "center" }} />
         <a className="btn wide" href="/">
           Make an Instant Wallet ({bio()}, no app)
         </a>
       </div>
-      {toast && <div className="toast">{toast}</div>}
     </div>
   );
 }

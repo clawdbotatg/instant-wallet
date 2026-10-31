@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { WalletKitTypes } from "@reown/walletkit";
 import { type Hex, decodeFunctionData, erc20Abi, formatEther, formatUnits } from "viem";
 import { chainById, nativeSymbol, publicClient } from "@/lib/chains";
-import { ethUsd } from "@/lib/price";
+import { nativeUsd } from "@/lib/price";
 import { short, usd } from "@/lib/format";
 import { serveExtension } from "@/lib/extension";
 import { serveApps } from "@/lib/safeapps";
@@ -350,10 +350,10 @@ function Connect({ proposal, onYes, onNo }: { proposal: WalletKitTypes.SessionPr
 export function CallLine({ call, chainId }: { call: { target: `0x${string}`; value: bigint; data: Hex }; chainId: number }) {
   const [token, setToken] = useState<{ symbol: string; decimals: number } | null>(null);
   const coin = nativeSymbol(chainId);
-  const [px, setPx] = useState(0); // the coin in dollars (ETH only), for dollars beside it
+  const [px, setPx] = useState(0); // the chain's coin in dollars, for dollars beside it
   useEffect(() => {
-    if (coin === "ETH" && call.value > 0n) ethUsd().then(setPx);
-  }, [coin, call.value]);
+    if (call.value > 0n) nativeUsd(chainId).then(setPx);
+  }, [chainId, call.value]);
   const coinAmt = (v: bigint) => `${formatEther(v)} ${coin}${px ? ` (${usd(Number(formatEther(v)) * px)})` : ""}`;
   let decoded: { functionName: string; args: readonly unknown[] } | null = null;
   try {

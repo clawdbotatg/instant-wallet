@@ -290,7 +290,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
 
       <div className="card stack" style={{ gap: 8 }}>
         <b>
-          {valid.length} of {chain.threshold} signatures
+          Sign · {valid.length} of {chain.threshold}
         </b>
         {chain.owners.map(o => {
           const signed = valid.some(s => eq(s.owner, o));

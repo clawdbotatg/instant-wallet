@@ -24,7 +24,7 @@ function sendUsd(chainId: number, c: Call, eth: number): number | undefined {
 type SafeTxLike = { to: Address; value: bigint; data: Hex; operation: 0 | 1 };
 
 type Field = { label: string; value: string; address?: string };
-type Told = { what: string; fields: Field[]; who?: string; swap?: { pay: Move & { most?: boolean }; get: Move & { least?: boolean } } } | null;
+type Told = { what: string; short?: string; fields: Field[]; who?: string; swap?: { pay: Move & { most?: boolean }; get: Move & { least?: boolean } } } | null;
 type Move = { symbol: string; amount: string; usd?: number; unknown?: boolean };
 type Got = { calls: Told[] | null; sim: Sim | null; feeUsd: Record<string, number> };
 
@@ -49,21 +49,24 @@ export function explainCalls(chainId: number, safe: Address, calls: Call[]): Pro
 
 /**
  * What a tx is for, one line per step: clear signing's intent and who it's with ("Deposit · Steakhouse Financial"),
- * else ours / describe.ts. Never the relay's fee, never a bare "Call 0x…". brief (Activity): an approval only feeds
- * the step after it, so it's left out when there's another.
+ * else ours / describe.ts. Never the relay's fee, never a bare "Call 0x…". brief (headlines: Activity, signing): an
+ * approval only feeds the step after it, so it's left out when there's another; each step is the descriptor's short
+ * intent (its full sentence can carry every address in the call), and who it's with is said once per run of steps.
  */
 export function intents(chainId: number, safe: Address, calls: Call[], told: Told[] | null, brief = false): string[] {
   const lines = calls.flatMap((c, i) => {
     const mine = ours(chainId, c);
     if (mine?.startsWith("Network fee")) return [];
     const t = mine ? null : told?.[i];
-    const text = mine ?? (t ? (t.who && !t.what.includes(t.who) ? `${t.what} · ${t.who}` : t.what) : describe(chainId, safe, c));
+    const text = mine ?? (t ? ((brief && t.short) || t.what) : describe(chainId, safe, c));
     if (text.startsWith("Call ")) return [];
     const approve = /^(Let|Stop) /.test(text) || t?.what === "Approve";
-    return [{ text, approve }];
+    // "Morpho DAO" goes unsaid after "Borrow from Morpho Market"
+    const who = t?.who && !text.includes(t.who.split(" ")[0]) ? t.who : undefined;
+    return [{ text, approve, who }];
   });
   const keep = brief && lines.some(l => !l.approve) ? lines.filter(l => !l.approve) : lines;
-  return keep.map(l => l.text);
+  return keep.map((l, i) => (l.who && (!brief || keep[i + 1]?.who !== l.who) ? `${l.text} · ${l.who}` : l.text));
 }
 
 function ask(chainId: number, safe: Address, calls: Call[], tx?: SafeTxLike) {

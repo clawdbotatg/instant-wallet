@@ -15,6 +15,7 @@ const ALL: AppEntry[] = [
   { id: "swap", name: "Swap", what: "Best price from Uniswap or LI.FI, any network", chains: CHAINS.map(c => c.id) },
   { id: "earn", name: "Earn", what: "Best interest on USDC: Aave, Compound, Spark, Morpho", chains: [8453, 1], url: `${APPS_URL}/earn`, icon: `${APPS_URL}/earn/icon.svg` },
   { id: "borrow", name: "Borrow", what: "Borrow USDC, USDT or ETH: Aave, Compound, Morpho", chains: [8453, 1], url: `${APPS_URL}/borrow`, icon: `${APPS_URL}/borrow/icon.svg` },
+  { id: "stake", name: "Stake ETH", what: "Earn on ETH: Lido, Coinbase, Rocket Pool", chains: [8453, 1], url: `${APPS_URL}/stake`, icon: `${APPS_URL}/stake/icon.svg` },
   { id: "ens", name: "ENS", what: "Get a name like alice.eth", chains: [1], url: `${APPS_URL}/ens`, icon: `${APPS_URL}/ens/icon.svg` },
   { id: "morpho", name: "Morpho", what: "Earn interest on USDC", chains: [8453, 1], url: `${APPS_URL}/morpho`, icon: `${APPS_URL}/morpho/icon.svg` },
   // tested in our frame on a Base fork, 10-28 (tools/apps-connect-probe.mjs): these connect. Aave, CoW Swap, Revoke,

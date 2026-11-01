@@ -1,4 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
+import type { Address, Hex } from "viem";
+import { WARN, describe } from "@/lib/safe/describe";
 import { explainer } from "clear-signing-safe-kit/explain";
 import { CHAINS, knownChain } from "@/lib/chains";
 import { rpc } from "@/lib/rpcServer";
@@ -52,6 +54,22 @@ export async function POST(req: NextRequest) {
     calls.push({ to, data, value });
   }
   const told = await Promise.all(calls.map(c => explain(chain, safe, c)));
+  // ⚠️ (nothing could read it, the page shows it raw): counted on wedgie.dev (/api/misses), the to-do list of
+  // descriptors to write (clear-descriptors MAP.md). Only the chain, the contract and the function.
+  const raw = calls.flatMap((c, i) => {
+    if (told[i] || c.data.length < 10) return [];
+    const w = describe(chain, safe as Address, { to: c.to as Address, value: BigInt(c.value), data: c.data as Hex });
+    return w.startsWith("Call ") || w.startsWith(`${WARN}Change the wallet (`) ? [{ to: c.to, sel: c.data.slice(0, 10) }] : [];
+  });
+  if (raw.length)
+    after(() =>
+      fetch("https://wedgie.dev/api/misses", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ app: "instant-wallet", chain, calls: raw }),
+        signal: AbortSignal.timeout(5000),
+      }).catch(() => {}),
+    );
   // dollars next to a swap's coins: the chain's coin at the relay's price, USDC at $1
   if (told.some(t => t?.swap)) {
     const coin = knownChain(chain)!;

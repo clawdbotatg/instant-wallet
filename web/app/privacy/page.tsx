@@ -5,7 +5,7 @@ export default function Privacy() {
   return (
     <div className="app">
       <h1>Privacy</h1>
-      <p className="fine">Last updated October 8, 2026.</p>
+      <p className="fine">Last updated October 31, 2026.</p>
       <p>Instant Wallet has no accounts, no email sign-up, no ads and no tracking.</p>
       <h3>What stays on your phone</h3>
       <p className="fine">
@@ -21,7 +21,7 @@ export default function Privacy() {
       <h3>Other services</h3>
       <ul className="fine">
         <li>Blockchain data (balances, prices, swaps) comes from Alchemy, Uniswap and LI.FI; they see your wallet address.</li>
-        <li>Buying crypto with a card or Apple Pay goes through Coinbase, under Coinbase&apos;s own privacy policy.</li>
+        <li>Buying or selling crypto goes through Coinbase, MoonPay or Ramp, under that company&apos;s own privacy policy.</li>
         <li>The camera is used only to scan QR codes, on your phone. Nothing is recorded or uploaded.</li>
         <li>
           The browser extension holds no keys. It keeps your address, connected sites and settings on your computer.

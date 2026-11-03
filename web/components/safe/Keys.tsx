@@ -714,7 +714,7 @@ export function Keys({
 
       <OldBurner toast={toast} />
 
-      <button className="btn wide" onClick={() => onShare(chainId)}>
+      <button className="btn btn-green wide" onClick={() => onShare(chainId)}>
         Share crypto on {chainById(chainId)?.name}
       </button>
     </div>

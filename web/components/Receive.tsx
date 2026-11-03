@@ -22,15 +22,13 @@ export function Receive({
   onName,
   onSignOut,
   onSwitch,
-  onShare,
 }: {
   account: Account;
   toast?: (m: string) => void;
   name?: string | null; // the wallet's name, as the title (tap to edit) when onName is given
   onName?: (name: string | null) => void; // null: back to the default name
   onSignOut?: () => void; // a "Sign out of this device" button at the bottom
-  onSwitch?: () => void; // a "Switch account" button at the top (opens the passkey prompt)
-  onShare?: () => void; // "Share Instant Wallet" (the app's link as a QR) and "Share crypto" at the bottom
+  onSwitch?: () => void; // a "Switch account" button at the top (opens the passkey prompt); also shows "Share Instant Wallet" (the app's link as a QR)
 }) {
   const [asking, setAsking] = useState(false);
   const [amount, setAmount] = useState("");
@@ -119,12 +117,7 @@ export function Receive({
           </button>
         </>
       )}
-      {onShare && !asking && APP_LINK && <ShareApp />}
-      {onShare && !asking && (
-        <button className="btn btn-green wide" onClick={onShare}>
-          Share crypto
-        </button>
-      )}
+      {onSwitch && !asking && APP_LINK && <ShareApp />}
       {onSwitch && !asking && (
         <button className="btn btn-dark wide" onClick={onSwitch}>
           <SwitchIcon />

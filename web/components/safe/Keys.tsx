@@ -38,6 +38,7 @@ export function Keys({
   onAccount,
   onRefresh,
   onFund,
+  onShare,
 }: {
   account: SafeAccount;
   states: ChainState[];
@@ -46,6 +47,7 @@ export function Keys({
   onAccount: (a: SafeAccount) => void;
   onRefresh: () => Promise<void> | void;
   onFund: (chainId: number) => void;
+  onShare: (chainId: number) => void; // Share crypto (QR / NFC card), on the network picked here
 }) {
 
   const [chainId, setChainId] = useState(CHAINS[0].id);
@@ -711,6 +713,10 @@ export function Keys({
 
 
       <OldBurner toast={toast} />
+
+      <button className="btn wide" onClick={() => onShare(chainId)}>
+        Share crypto on {chainById(chainId)?.name}
+      </button>
     </div>
   );
 }

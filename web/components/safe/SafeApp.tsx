@@ -515,11 +515,6 @@ export function SafeApp({ link }: { link?: string } = {}) {
               name={walletName}
               onName={setName}
               onSwitch={anotherPasskey}
-              onShare={() => {
-                // start on the network with the most money on it
-                const top = [...assets].sort((x, y) => (y.usd ?? 0) - (x.usd ?? 0))[0];
-                setView({ kind: "share", chainId: top?.chainId ?? CHAINS[0].id });
-              }}
               onSignOut={() => {
                 setAccount(null);
                 forgetKnown(account);
@@ -539,6 +534,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
               onAccount={a => setAccount(a)}
               onRefresh={refresh}
               onFund={chainId => setView({ kind: "swap", fund: chainId })}
+              onShare={chainId => setView({ kind: "share", chainId })}
             />
           )}
         </Sheet>

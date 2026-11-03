@@ -121,8 +121,12 @@ export function SafeApp({ link }: { link?: string } = {}) {
   const loadBalance = useCallback(async () => {
     if (!account || busy.current) return;
     busy.current = true;
-    const p = await fetch(`/api/portfolio?address=${account.address}`, { cache: "no-store" }).then(r => r.json()).catch(() => null);
-    busy.current = false;
+    // a timeout: iOS can freeze a fetch while the app is in the background (e.g. sending from Rainbow) and never settle
+    // it, which held `busy` forever and stopped every later balance read
+    const p = await fetch(`/api/portfolio?address=${account.address}`, { cache: "no-store", signal: AbortSignal.timeout(15_000) })
+      .then(r => r.json())
+      .catch(() => null)
+      .finally(() => (busy.current = false));
     if (p?.assets) {
       setPortfolio(prev => {
         const m = keepLate(p, prev);
@@ -150,9 +154,13 @@ export function SafeApp({ link }: { link?: string } = {}) {
     // balance every 3 s, keys every 12 s; nothing while the tab is hidden
     const b = setInterval(() => document.hidden || loadBalance(), 3_000);
     const k = setInterval(() => document.hidden || loadStates(), 12_000);
+    // back from another app: read now, don't wait for the next tick
+    const back = () => document.hidden || refresh();
+    document.addEventListener("visibilitychange", back);
     return () => {
       clearInterval(b);
       clearInterval(k);
+      document.removeEventListener("visibilitychange", back);
     };
   }, [account, refresh, loadBalance, loadStates]);
 

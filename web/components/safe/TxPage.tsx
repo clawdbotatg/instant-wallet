@@ -46,6 +46,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
   const [missing, setMissing] = useState(false);
   const [removed, setRemoved] = useState(false);
   const [mine, setMine] = useState<ChainState | null>(null);
+  const [ahead, setAhead] = useState<Waiting | null>(null); // the queued tx at the wallet's next number: the one blocking this one
   const [toast, setToast] = useToast();
 
   // the Safe from the chain, the tx from the link (or the queue), its signatures from everywhere, each checked
@@ -80,6 +81,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
     const h = (linked?.hash ?? (inWallet ? "" : new URLSearchParams(location.search).get("h")) ?? "").toLowerCase();
     const queue = await readWaiting(chainId, safe, 0n).catch(() => [] as Waiting[]);
     const q = queue.find(x => x.hash.toLowerCase() === h);
+    setAhead(queue.find(x => x.tx.nonce === nonce && x.hash.toLowerCase() !== h) ?? null);
     const m = linked ?? q ?? null;
     if (!m) return setMissing(true);
     for (const s of q?.sigs ?? []) if (!m.sigs.some(x => eq(x.owner, s.owner))) m.sigs.push(s);
@@ -343,7 +345,18 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
       ) : done ? (
         <p className="fine">This wallet already used number #{w.tx.nonce.toString()}: this one was executed or replaced.</p>
       ) : enough && behind ? (
-        <p className="fine">Signed. It runs after #{chain.nonce.toString()}{w.tx.nonce - chain.nonce > 1n ? ` (and the others before it)` : ""}: execute or reject that one first.</p>
+        <div className="stack" style={{ gap: 8 }}>
+          <p className="fine">Signed. It runs after #{chain.nonce.toString()}{w.tx.nonce - chain.nonce > 1n ? ` (and the others before it)` : ""}: execute or reject that one first.</p>
+          {ahead ? (
+            <button className="btn btn-sm btn-green" onClick={() => openTx(ahead)}>
+              Open #{chain.nonce.toString()}{ahead.label ? `: ${ahead.label}` : ""}
+            </button>
+          ) : app ? (
+            <Eject href={app} title="Open the queue in Safe{Wallet}">
+              Open #{chain.nonce.toString()} in Safe
+            </Eject>
+          ) : null}
+        </div>
       ) : null}
       {/* ✕, Reject, Execute: one row, as on Home's waiting card */}
       {!sent && !done && (

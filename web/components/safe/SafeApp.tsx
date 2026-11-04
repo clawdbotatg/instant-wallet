@@ -503,7 +503,8 @@ export function SafeApp({ link }: { link?: string } = {}) {
 
       <button className="fab fab-settings" aria-label="Settings" onClick={() => setView({ kind: "keys" })}>
         <GearIcon />
-        <span className="lvl">{keysNeed}/{keysHave}</span>
+        {/* before the wallet loads: a faint M/N, never a guessed 1/1 */}
+        <span className="lvl" style={topState ? undefined : { opacity: 0.2 }}>{topState ? `${keysNeed}/${keysHave}` : "M/N"}</span>
       </button>
       <button className="fab" aria-label="Scan an address or WalletConnect" onClick={() => setView({ kind: "send" })}>
         <ScanIcon />

@@ -184,17 +184,6 @@ export function Share({ account, states, assets, chainId: startChain, onDone }: 
     }
   }
 
-  if (step === "done" && card)
-    return (
-      <div className="stack center">
-        <div style={{ fontSize: 64 }}>✓</div>
-        <h2>Done. {card.label} on the {how === "nfc" ? "card" : "QR"}.</h2>
-        <button className="btn wide" onClick={onDone}>
-          Done
-        </button>
-      </div>
-    );
-
   if (step === "unwritten" && card)
     return (
       <div className="stack center">
@@ -217,9 +206,11 @@ export function Share({ account, states, assets, chainId: startChain, onDone }: 
       </div>
     );
 
-  // the QR is out or the card is written: now the money. Also where a failed send comes back to.
+  // the QR is out or the card is written: now the money. Also where a failed send comes back to. The QR stays up the
+  // whole time, funded too (Austin, 11-04): you fund it and still show it to share it.
   const funding = ["quote", "signing", "signing-hot", "signing-wedgie", "sending", "confirming"].includes(step);
-  if ((step === "ready" || step === "unfunded" || funding) && card) {
+  const funded = step === "done";
+  if ((step === "ready" || step === "unfunded" || funding || funded) && card) {
     const busyLabel: Record<string, React.ReactNode> = { quote: "Getting the fee…", signing: "Signing…", "signing-wedgie": <>Press <GreenButton /> on the wedgie…</>, sending: "Executing…", confirming: "Confirming…" };
     return (
       <div className="stack center">
@@ -236,10 +227,21 @@ export function Share({ account, states, assets, chainId: startChain, onDone }: 
           <p>Card written ✓</p>
         )}
         {step === "unfunded" && <p className="err">The money didn&apos;t send. {error}</p>}
-        <button className="btn btn-green wide" onClick={() => fund(card)} disabled={funding}>
-          {funding ? (busyLabel[step] ?? "…") : step === "unfunded" ? "Try again" : "Fund it"}
-        </button>
-        {!funding && <p className="fine">The {how === "qr" ? "QR" : "card"} is empty until you fund it.</p>}
+        {funded ? (
+          <>
+            <p style={{ color: "var(--mint-d)", fontWeight: 700 }}>✓ Funded. {card.label} is on the {how === "qr" ? "QR" : "card"}.</p>
+            <button className="btn wide" onClick={onDone}>
+              Done
+            </button>
+          </>
+        ) : (
+          <>
+            <button className="btn btn-green wide" onClick={() => fund(card)} disabled={funding}>
+              {funding ? (busyLabel[step] ?? "…") : step === "unfunded" ? "Try again" : "Fund it"}
+            </button>
+            {!funding && <p className="fine">The {how === "qr" ? "QR" : "card"} is empty until you fund it.</p>}
+          </>
+        )}
       </div>
     );
   }

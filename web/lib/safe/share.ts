@@ -197,6 +197,16 @@ export async function checkSigs(w: Waiting): Promise<Waiting["sigs"]> {
   return w.sigs.filter((_, i) => ok[i]);
 }
 
+/** The last tx this device signed that waits for more signers: Home's list marks it. */
+export let lastQueued: string | null = null;
+/** A tx this device just signed that needs more signers: back to Home, where every waiting tx is listed in order
+ *  (SafeApp takes the event). Nothing listening (a page outside the wallet): its own page, as before. */
+export function queuedTx(w: Waiting) {
+  lastQueued = w.hash.toLowerCase();
+  const ev = new CustomEvent("iw:queued", { detail: w, cancelable: true });
+  if (window.dispatchEvent(ev)) openTx(w);
+}
+
 /** Show a transaction's page: inside the wallet when it's open (SafeApp listens and takes it), else go to its link. */
 export function openTx(w: Waiting) {
   const link = txLink(w);

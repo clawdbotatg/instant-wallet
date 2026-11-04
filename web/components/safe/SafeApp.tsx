@@ -276,7 +276,16 @@ export function SafeApp({ link }: { link?: string } = {}) {
       setView({ kind: "tx", ...(e as CustomEvent).detail });
     };
     window.addEventListener("iw:tx", on);
-    return () => window.removeEventListener("iw:tx", on);
+    // signed, needs more signers: Home lists it with every other waiting tx (lib/safe/share.ts queuedTx)
+    const home = (e: Event) => {
+      e.preventDefault();
+      setView({ kind: "home" });
+    };
+    window.addEventListener("iw:queued", home);
+    return () => {
+      window.removeEventListener("iw:tx", on);
+      window.removeEventListener("iw:queued", home);
+    };
   }, []);
   if (account === undefined) return null;
   if (!account) return <SafeWelcome onReady={setAccount} initialConfirm={switchConfirm} />;

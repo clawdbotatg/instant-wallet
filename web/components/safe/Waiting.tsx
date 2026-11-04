@@ -9,6 +9,7 @@ import {
   type Waiting,
   deleteHash,
   dropTx,
+  lastQueued,
   openTx,
   safeAppTxLink,
   readWaiting,
@@ -31,6 +32,7 @@ export function WaitingCards({
   feeTokenOn: (chainId: number) => FeeToken;
 }) {
   const [list, setList] = useState<{ w: Waiting; need: number; next: bigint }[]>([]);
+  const [fresh, setFresh] = useState<string | null>(lastQueued); // the one just signed: marked, scrolled to
   const [removing, setRemoving] = useState<string | null>(null);
   // Reject: a transaction of just the fee, at the same number, so the waiting one can never run (wedgie.dev's Reject).
   // Two taps: get it ready, then sign (Face ID must start straight from a tap).
@@ -90,27 +92,44 @@ export function WaitingCards({
             .catch(() => []),
         ),
       )
-        .then((r) => live && setList(r.flat()))
+        .then((r) => live && setList(l => {
+          // one just signed (iw:queued) may not be in the queue read yet: keep it
+          const got = r.flat();
+          return [...got, ...l.filter(x => x.w.hash.toLowerCase() === lastQueued && !got.some(g => g.w.hash === x.w.hash))];
+        }))
         .catch(() => {});
     load();
     const t = setInterval(load, 5 * 60_000);
     // removed on its own page (TxPage): gone here too, no wait for the next load
     const dropped = (e: Event) => setList(l => l.filter(x => x.w.hash.toLowerCase() !== (e as CustomEvent<string>).detail));
     window.addEventListener("iw:txdropped", dropped);
+    const queued = (e: Event) => {
+      const w = (e as CustomEvent<Waiting>).detail;
+      const s = multi.find(x => x.chainId === w.chainId);
+      setFresh(w.hash.toLowerCase());
+      if (s) setList(l => [...l.filter(x => x.w.hash !== w.hash), { w, need: s.threshold, next: s.nonce }]);
+    };
+    window.addEventListener("iw:queued", queued);
     return () => {
+      window.removeEventListener("iw:queued", queued);
       live = false;
       clearInterval(t);
       window.removeEventListener("iw:txdropped", dropped);
     };
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (fresh && list.some(x => x.w.hash.toLowerCase() === fresh)) document.getElementById(`wait-${fresh}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [fresh, list.length]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!list.length) return null;
+  // in the order they run: per network, by number
+  const sorted = [...list].sort((a, b) => a.w.chainId - b.w.chainId || (a.w.tx.nonce < b.w.tx.nonce ? -1 : a.w.tx.nonce > b.w.tx.nonce ? 1 : 0));
   // one Execute: the wallet runs them in order, so only the first in line can go; the rest say they're next
   const canRun = ({ w, need, next }: (typeof list)[number]) => w.sigs.length >= need && w.tx.nonce === next;
   const lead = list.find(canRun)?.w.hash;
   return (
     <div className="card stack" style={{ gap: 10 }}>
       <b>{lead ? "Ready: press Execute" : "Waiting for signatures"}</b>
-      {list.map(({ w, need, next }) => {
+      {sorted.map(({ w, need, next }) => {
         const enough = w.sigs.length >= need;
         const behind = enough && w.tx.nonce > next;
         // nothing to reject: it is a Reject, or one is already waiting at its number
@@ -118,8 +137,8 @@ export function WaitingCards({
         const r = rejecting?.hash === w.hash ? rejecting : null;
         const app = safeAppTxLink(w.chainId, w.safe, w.hash);
         return (
-          <div key={w.hash} className="stack" style={{ gap: 8 }}>
-            <div className="recess stack" style={{ gap: 6 }}>
+          <div key={w.hash} id={`wait-${w.hash.toLowerCase()}`} className="stack" style={{ gap: 8 }}>
+            <div className="recess stack" style={{ gap: 6, ...(w.hash.toLowerCase() === fresh ? { outline: "2px solid #2fb04c" } : {}) }}>
               <div className="row" style={{ justifyContent: "space-between", gap: 8 }}>
                 <span className="fine">
                   {w.label ?? `Transaction #${w.tx.nonce}`} · {chainById(w.chainId)?.name}
@@ -151,7 +170,7 @@ export function WaitingCards({
                   openTx(w);
                 }}
               >
-                {behind ? "Signed · next in line" : enough ? "Execute" : `Sign · ${w.sigs.length} of ${need}`}
+                {behind ? `Signed · waits on #${next}` : enough ? "Execute" : `Sign · ${w.sigs.length} of ${need}`}
               </a>
             </div>
           </div>

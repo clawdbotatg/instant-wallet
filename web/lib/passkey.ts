@@ -113,7 +113,35 @@ export async function renamePasskey(credentialId: string, name: string): Promise
   }
 }
 
-export async function createPasskey(label = "Instant Wallet"): Promise<NewPasskey> {
+/**
+ * One passkey per tap, however many taps. A second call while one is open gets the same one. A passkey made in
+ * this tab in the last 10 minutes comes back again instead of a new one, so a retry after a later step failed
+ * (the claim, the invite) uses it. Someone tapped Create ~10 times and ended up with 10 passkeys, unsure which was theirs.
+ */
+const MADE = "iws.madePasskey";
+const MADE_TTL = 10 * 60_000;
+let making: Promise<NewPasskey> | null = null;
+
+export function createPasskey(label = "Instant Wallet"): Promise<NewPasskey> {
+  try {
+    const m = JSON.parse(sessionStorage.getItem(MADE) || "null");
+    if (m && m.label === label && Date.now() - m.at < MADE_TTL) return Promise.resolve(m.pk as NewPasskey);
+  } catch {}
+  if (making) return making;
+  making = makePasskey(label)
+    .then(pk => {
+      try {
+        sessionStorage.setItem(MADE, JSON.stringify({ label, at: Date.now(), pk: { credentialId: pk.credentialId, qx: pk.qx, qy: pk.qy } }));
+      } catch {}
+      return pk;
+    })
+    .finally(() => {
+      making = null;
+    });
+  return making;
+}
+
+async function makePasskey(label: string): Promise<NewPasskey> {
   const userId = crypto.getRandomValues(new Uint8Array(16));
   const cred = (await ceremony(() => navigator.credentials.create({
     publicKey: {

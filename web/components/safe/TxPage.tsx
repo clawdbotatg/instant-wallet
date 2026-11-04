@@ -34,6 +34,10 @@ const ERC6492 = "6492".repeat(16); // the ERC-6492 suffix: a signature that depl
  * leaves the address bar alone.
  */
 /** Tell whoever waits on this Safe tx (a site that asked for it, SafeConnect) the chain hash, the moment there is one. */
+/** Back to the wallet's Home (SafeApp takes it); outside the wallet, to the home page. */
+const goHome = () => {
+  if (window.dispatchEvent(new CustomEvent("iw:home", { cancelable: true }))) location.assign("/");
+};
 const sentOut = (safeTx: Hex, hash: Hash) => window.dispatchEvent(new CustomEvent("iw:txsent", { detail: { safeTx, hash } }));
 
 export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; safe: Address; code?: string }) {
@@ -345,18 +349,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
       ) : done ? (
         <p className="fine">This wallet already used number #{w.tx.nonce.toString()}: this one was executed or replaced.</p>
       ) : enough && behind ? (
-        <div className="stack" style={{ gap: 8 }}>
-          <p className="fine">Signed. It runs after #{chain.nonce.toString()}{w.tx.nonce - chain.nonce > 1n ? ` (and the others before it)` : ""}: execute or reject that one first.</p>
-          {ahead ? (
-            <button className="btn btn-sm btn-green" onClick={() => openTx(ahead)}>
-              Open #{chain.nonce.toString()}{ahead.label ? `: ${ahead.label}` : ""}
-            </button>
-          ) : app ? (
-            <Eject href={app} title="Open the queue in Safe{Wallet}">
-              Open #{chain.nonce.toString()} in Safe
-            </Eject>
-          ) : null}
-        </div>
+        <p className="fine">Signed. #{chain.nonce.toString()}{w.tx.nonce - chain.nonce > 1n ? ` (and the others before it)` : ""} has to execute or be rejected first.</p>
       ) : null}
       {/* ✕, Reject, Execute: one row, as on Home's waiting card */}
       {!sent && !done && (
@@ -365,6 +358,12 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
           {!isReject && (
             <button className="btn btn-sm" style={{ flex: "none" }} onClick={reject} disabled={!!busy}>
               {busy === "reject" ? "Getting ready…" : "Reject"}
+            </button>
+          )}
+          {/* where Execute goes, white (not green): an older tx runs first. To that one, or Home's list when it isn't in the queue */}
+          {enough && behind && (
+            <button className="btn btn-sm" style={{ flex: 1, minWidth: 0 }} disabled={!!busy} onClick={() => (ahead ? openTx(ahead) : goHome())}>
+              Go to #{chain.nonce.toString()} first
             </button>
           )}
           {enough && !behind && (

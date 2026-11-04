@@ -9,7 +9,6 @@ import {
   type Waiting,
   deleteHash,
   dropTx,
-  lastQueued,
   openTx,
   safeAppTxLink,
   readWaiting,
@@ -32,7 +31,6 @@ export function WaitingCards({
   feeTokenOn: (chainId: number) => FeeToken;
 }) {
   const [list, setList] = useState<{ w: Waiting; need: number; next: bigint }[]>([]);
-  const [fresh, setFresh] = useState<string | null>(lastQueued); // the one just signed: marked, scrolled to
   const [removing, setRemoving] = useState<string | null>(null);
   // Reject: a transaction of just the fee, at the same number, so the waiting one can never run (wedgie.dev's Reject).
   // Two taps: get it ready, then sign (Face ID must start straight from a tap).
@@ -92,34 +90,19 @@ export function WaitingCards({
             .catch(() => []),
         ),
       )
-        .then((r) => live && setList(l => {
-          // one just signed (iw:queued) may not be in the queue read yet: keep it
-          const got = r.flat();
-          return [...got, ...l.filter(x => x.w.hash.toLowerCase() === lastQueued && !got.some(g => g.w.hash === x.w.hash))];
-        }))
+        .then((r) => live && setList(r.flat()))
         .catch(() => {});
     load();
     const t = setInterval(load, 5 * 60_000);
     // removed on its own page (TxPage): gone here too, no wait for the next load
     const dropped = (e: Event) => setList(l => l.filter(x => x.w.hash.toLowerCase() !== (e as CustomEvent<string>).detail));
     window.addEventListener("iw:txdropped", dropped);
-    const queued = (e: Event) => {
-      const w = (e as CustomEvent<Waiting>).detail;
-      const s = multi.find(x => x.chainId === w.chainId);
-      setFresh(w.hash.toLowerCase());
-      if (s) setList(l => [...l.filter(x => x.w.hash !== w.hash), { w, need: s.threshold, next: s.nonce }]);
-    };
-    window.addEventListener("iw:queued", queued);
     return () => {
-      window.removeEventListener("iw:queued", queued);
       live = false;
       clearInterval(t);
       window.removeEventListener("iw:txdropped", dropped);
     };
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    if (fresh && list.some(x => x.w.hash.toLowerCase() === fresh)) document.getElementById(`wait-${fresh}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
-  }, [fresh, list.length]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!list.length) return null;
   // in the order they run: per network, by number
   const sorted = [...list].sort((a, b) => a.w.chainId - b.w.chainId || (a.w.tx.nonce < b.w.tx.nonce ? -1 : a.w.tx.nonce > b.w.tx.nonce ? 1 : 0));
@@ -137,8 +120,8 @@ export function WaitingCards({
         const r = rejecting?.hash === w.hash ? rejecting : null;
         const app = safeAppTxLink(w.chainId, w.safe, w.hash);
         return (
-          <div key={w.hash} id={`wait-${w.hash.toLowerCase()}`} className="stack" style={{ gap: 8 }}>
-            <div className="recess stack" style={{ gap: 6, ...(w.hash.toLowerCase() === fresh ? { outline: "2px solid #2fb04c" } : {}) }}>
+          <div key={w.hash} className="stack" style={{ gap: 8 }}>
+            <div className="recess stack" style={{ gap: 6 }}>
               <div className="row" style={{ justifyContent: "space-between", gap: 8 }}>
                 <span className="fine">
                   {w.label ?? `Transaction #${w.tx.nonce}`} · {chainById(w.chainId)?.name}

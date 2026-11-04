@@ -20,14 +20,14 @@ import { passkeySign, passkeySignRaw } from "./sign";
 import { short } from "../format";
 import { type ChainState, type SafeAccount, loadSigners, salt, wedgieSigners } from "./state";
 import { Wedgie, wedgieSupported } from "./wedgie";
-import { type Waiting, queuedTx, readWaiting, shareTx, sigHex } from "./share";
+import { type Waiting, openTx, readWaiting, shareTx, sigHex } from "./share";
 import { bio } from "@/lib/passkey";
 
 /** Thrown by a send this device signed but that needs more signers: it's shared (lib/safe/share.ts) and its page opens. */
 export class Shared extends Error {
   w: Waiting;
   constructor(w: Waiting) {
-    super("Signed. It's waiting on your home page.");
+    super("Signed. Opening the transaction…");
     this.name = "Shared";
     this.w = w;
   }
@@ -187,9 +187,9 @@ export async function finishOwners(p: Prepared): Promise<Hash> {
     const got = await shareTx(w);
     if (!got.safe && !got.queue) w.label = (w.label ? `${w.label} ` : "") + "(saved in this browser only)";
     queued.set(`${chainId}:${a.address}`, t.nonce);
-    // one thing here: your signature. Back to Home, which lists every waiting tx in order (one queued ahead of it
-    // shows there). Callers treat Shared as done (no error, nothing left ready to sign).
-    queuedTx(w);
+    // one thing here: your signature. The rest (the wedgie, or a link for the others) happens on its page. Callers
+    // treat Shared as done (no error, nothing left ready to sign): the sheet is already the transaction's.
+    openTx(w);
     throw new Shared(w);
   }
   stage("sending");

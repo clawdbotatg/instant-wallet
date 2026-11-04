@@ -276,15 +276,15 @@ export function SafeApp({ link }: { link?: string } = {}) {
       setView({ kind: "tx", ...(e as CustomEvent).detail });
     };
     window.addEventListener("iw:tx", on);
-    // signed, needs more signers: Home lists it with every other waiting tx (lib/safe/share.ts queuedTx)
+    // a tx page's "Go to #N first" when #N isn't in the queue: Home, where the waiting ones are listed
     const home = (e: Event) => {
       e.preventDefault();
       setView({ kind: "home" });
     };
-    window.addEventListener("iw:queued", home);
+    window.addEventListener("iw:home", home);
     return () => {
       window.removeEventListener("iw:tx", on);
-      window.removeEventListener("iw:queued", home);
+      window.removeEventListener("iw:home", home);
     };
   }, []);
   if (account === undefined) return null;

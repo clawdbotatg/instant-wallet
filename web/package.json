@@ -23,7 +23,6 @@
     "@walletconnect/utils": "^2.25.0",
     "blo": "^2.0.0",
     "clear-signing-safe-kit": "github:clawdbotatg/clear-signing-safe-kit#75929e80e51f5826277ab6fd4a840e3c371ac040",
-    "html5-qrcode": "^2.3.8",
     "jspdf": "4.2.1",
     "next": "^15.5.27",
     "nodemailer": "^6.9.16",
@@ -32,7 +31,8 @@
     "react-dom": "^19.3.0",
     "server-only": "^0.0.1",
     "viem": "^2.57.2",
-    "web-push": "^3.6.7"
+    "web-push": "^3.6.7",
+    "zxing-wasm": "3.1.6"
   },
   "devDependencies": {
     "@types/node": "^26.6.4",

@@ -18,7 +18,7 @@ import { type Quote, type SendKind } from "./fee";
 import { connectHot, hotAvailable, hotSend, hotSign } from "./hot";
 import { passkeySign, passkeySignRaw } from "./sign";
 import { short } from "../format";
-import { type ChainState, type SafeAccount, loadSigners, salt, wedgieSigners } from "./state";
+import { type ChainState, type SafeAccount, loadAccount, loadSigners, salt, wedgieSigners } from "./state";
 import { Wedgie, wedgieSupported } from "./wedgie";
 import { type Waiting, openTx, readWaiting, shareTx, sigHex } from "./share";
 import { bio } from "@/lib/passkey";
@@ -94,6 +94,11 @@ async function post(body: unknown): Promise<Hash> {
 export async function waitFor(chainId: number, hash: Hash) {
   const rc = await publicClient(chainId).waitForTransactionReceipt({ hash, timeout: 180_000, pollingInterval: 1500 });
   if (rc.status !== "success") throw new Error(`It failed on chain (${hash.slice(0, 10)}…)`);
+  // it may have set this wallet's ENS name (the ENS app): useName re-reads the wallet's own name, past every cache
+  try {
+    const me = loadAccount()?.address;
+    if (me) window.dispatchEvent(new CustomEvent("iws:landed", { detail: me }));
+  } catch {}
   return rc;
 }
 

@@ -11,7 +11,7 @@ import { loadHidden, loadPortfolio, loadShown, saveHidden, savePortfolio, saveSh
 import { dropOtherBudgetsCalls } from "@/lib/safe/core";
 import { type Prepared, Shared, finishOwners, ownerSigners, prepareOwners } from "@/lib/safe/send";
 import { friendly } from "../Welcome";
-import { AppsIcon, Blockie, DepositIcon, GearIcon, ScanIcon, SendIcon, Sheet, sheetOpen, TokenIcon, TrashIcon, CopyLink, useToast } from "../bits";
+import { AppsIcon, Blockie, DepositIcon, GearIcon, ScanIcon, SendIcon, Sheet, sheetOpen, TokenIcon, TrashIcon, CopyLink, useName, useToast } from "../bits";
 import { Receive } from "../Receive";
 import { Deposit } from "./Deposit";
 import { Keys } from "./Keys";
@@ -211,6 +211,8 @@ export function SafeApp({ link }: { link?: string } = {}) {
   roughRef.current = rough ?? roughRef.current;
   const walletName = customName ?? (rough === null ? null : defaultWalletName(rough));
   const [ens, setEns] = useState<string | null | undefined>(undefined);
+  // the top-right pill shows the ENS name over the address; re-read when a tx lands (an ENS app tx sets it)
+  const { name: ensName } = useName(account?.address);
   useEffect(() => {
     if (!account) return;
     setEns(undefined);
@@ -348,7 +350,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
             <Blockie address={account.address} size={38} />
             <span className="me-text">
               {customName && <span className="me-name own">{customName}</span>}
-              <span className="mono">{short(account.address)}</span>
+              <span className="mono" style={{ maxWidth: "42vw", overflow: "hidden", textOverflow: "ellipsis" }}>{ensName ?? short(account.address)}</span>
               {!customName && walletName && <span className="me-name">{walletName}</span>}
             </span>
           </button>

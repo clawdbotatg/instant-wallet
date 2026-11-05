@@ -24,7 +24,9 @@ export async function GET(req: NextRequest) {
     }
     if (address && isAddress(address)) {
       const n = await primaryName(client as any, address, chain);
-      return NextResponse.json({ address, name: n, avatar: n ? await avatarUrl(client as any, n) : null }, keep);
+      // no name yet: kept 5 min, not a day, so a name just set shows up soon everywhere
+      const brief = { headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=300" } };
+      return NextResponse.json({ address, name: n, avatar: n ? await avatarUrl(client as any, n) : null }, n ? keep : brief);
     }
     return NextResponse.json({ error: "name or address required" }, { status: 400 });
   } catch (e: any) {

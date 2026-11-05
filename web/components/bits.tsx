@@ -29,17 +29,19 @@ export function Blockie({ address, size = 32 }: { address: string; size?: number
 type Named = { name: string | null; avatar: string | null; at: number };
 const NAMES = "iws.ens";
 const asked = new Map<string, Promise<Named | null>>();
-function named(a: string, chain?: number): Promise<Named | null> {
+function named(a: string, chain?: number, fresh = false): Promise<Named | null> {
   const k = `${chain ?? 1}:${a.toLowerCase()}`;
   let kept: Record<string, Named> = {};
   try {
     kept = JSON.parse(localStorage.getItem(NAMES) || "{}");
   } catch {}
-  if (kept[k] && Date.now() - kept[k].at < 86_400_000) return Promise.resolve(kept[k]);
+  if (!fresh && kept[k] && Date.now() - kept[k].at < 86_400_000) return Promise.resolve(kept[k]);
+  if (fresh) asked.delete(k);
   if (!asked.has(k))
     asked.set(
       k,
-      fetch(`/api/ens?address=${a}${chain ? `&chain=${chain}` : ""}`)
+      // fresh: a new URL, so the CDN's copy is skipped too
+      fetch(`/api/ens?address=${a}${chain ? `&chain=${chain}` : ""}${fresh ? `&fresh=${Date.now()}` : ""}`)
         .then(r => (r.ok ? r.json() : Promise.reject()))
         .then(j => {
           const v = { name: j.name ?? null, avatar: j.avatar ?? null, at: Date.now() };
@@ -66,8 +68,17 @@ export function useName(a?: string | null, chain?: number) {
     let live = true;
     setN(null);
     if (a && isAddress(a)) named(a, chain).then(v => live && setN(v));
+    // a tx from this wallet landed (it may have set its ENS name): read it again now and once more in 20 s
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const landed = (e: Event) => {
+      if (!a || (e as CustomEvent).detail?.toLowerCase?.() !== a.toLowerCase()) return;
+      for (const ms of [2000, 20000]) timers.push(setTimeout(() => named(a, chain, true).then(v => live && v && setN(v)), ms));
+    };
+    window.addEventListener("iws:landed", landed);
     return () => {
       live = false;
+      window.removeEventListener("iws:landed", landed);
+      timers.forEach(clearTimeout);
     };
   }, [a, chain]);
   return { name: n?.name ?? null, avatar: n?.avatar ?? null };

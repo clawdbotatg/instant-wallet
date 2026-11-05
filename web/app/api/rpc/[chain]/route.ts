@@ -6,13 +6,13 @@ export const dynamic = "force-dynamic";
 
 /**
  * JSON-RPC passthrough for the enabled chains, so the RPC key stays on the server. Not an open relay on our Alchemy key
- * (as wedgie.dev's api/rpc.ts): only the reads (and gas/fee asks, 4337 bundler calls) the wallet makes, single or
+ * (as wedgie.dev's api/rpc.ts): only the reads (and gas/fee asks, 4337 bundler calls, and signed txs: a claim card or old key pays its own gas) the wallet makes, single or
  * batched, and a per-IP limit (kept per instance: each Vercel instance counts on its own).
  */
 const ALLOW = new Set([
   "eth_call", "eth_getCode", "eth_getBalance", "eth_getStorageAt", "eth_getLogs", "eth_blockNumber", "eth_chainId",
   "eth_getBlockByNumber", "eth_getBlockByHash", "eth_getTransactionReceipt", "eth_getTransactionByHash", "eth_getTransactionCount",
-  "eth_estimateGas", "eth_gasPrice", "eth_maxPriorityFeePerGas", "eth_feeHistory", "net_version",
+  "eth_estimateGas", "eth_gasPrice", "eth_sendRawTransaction", "eth_maxPriorityFeePerGas", "eth_feeHistory", "net_version",
   "eth_sendUserOperation", "eth_estimateUserOperationGas", "eth_getUserOperationReceipt", "eth_getUserOperationByHash", "eth_supportedEntryPoints",
   "alchemy_getTokenBalances", "alchemy_getTokenMetadata", "alchemy_getAssetTransfers",
 ]);

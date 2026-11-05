@@ -96,11 +96,6 @@ export function App({ link }: { link?: string }) {
         </div>
 
         <div className="card assets">
-          {assets.filter(a => BigInt(a.balance) > 0n).length === 0 && (
-            <p className="fine center" style={{ padding: 18 }}>
-              Empty. Tap Receive and send anything to your address on {CHAINS.map(c => c.name).join(" or ")}.
-            </p>
-          )}
           {assets
             .filter(a => BigInt(a.balance) > 0n)
             .map(a => (

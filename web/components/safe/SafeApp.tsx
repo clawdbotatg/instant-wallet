@@ -432,18 +432,8 @@ export function SafeApp({ link }: { link?: string } = {}) {
           </div>
         )}
 
-        <div className={portfolio && !fresh ? "card assets stale" : "card assets"}>
+        {(!portfolio || assets.length > 0 || hiddenAssets.length > 0) && <div className={portfolio && !fresh ? "card assets stale" : "card assets"}>
           {!portfolio && <div className="loading-bar row" />}
-          {portfolio && assets.length === 0 && (
-            <p className="fine center" style={{ padding: 18 }}>
-              Empty. Tap Deposit, or tap your address and send crypto to your address on {CHAINS.length > 2 ? `Base, Ethereum, or ${CHAINS.length - 2} other networks` : CHAINS.map(c => c.name).join(" or ")}.
-            </p>
-          )}
-          {portfolio && assets.length === 0 && !dropCode && (
-            <a className="fine center" href="/d" style={{ display: "block", paddingBottom: 14 }}>
-              Have a code?
-            </a>
-          )}
           {assets.map(a => {
             const Row = isDust(a) ? "div" : "button";
             return (
@@ -495,7 +485,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
                 </button>
               </div>
             ))}
-        </div>
+        </div>}
         <PositionList address={account.address} assets={fresh ? portfolio?.assets : undefined} onTotal={setPosUsd} onReceipts={setReceipts} />
         <NftGrid address={account.address} />
         <Activity safe={account.address} chains={states.filter(s => s.deployed).map(s => s.chainId)} assets={portfolio?.assets ?? []} />

@@ -18,6 +18,7 @@ import { type ChainState, keyFromCode, loadAccount, loadSigners, readChain, wedg
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import { BioSigner, Blockie, CopyLink, Eject, GreenButton, RemoveX, Who, useToast } from "../bits";
 import { friendly } from "../Welcome";
+import { Progress } from "./Progress";
 import { ErrorLine } from "./WedgieButton";
 import { WhatItDoes } from "./WhatItDoes";
 
@@ -47,6 +48,9 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState<Hash | null>(null);
+  // the Execute bar: "sending" until the relay hands back a hash, then "confirming" until it lands
+  const [stage, setStage] = useState<"sending" | "confirming" | null>(null);
+  const [pending, setPending] = useState<Hash | null>(null);
   const [missing, setMissing] = useState(false);
   const [removed, setRemoved] = useState(false);
   const [mine, setMine] = useState<ChainState | null>(null);
@@ -190,17 +194,25 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
   const sendRelay = run("send", async () => {
     if (!w) return;
     const ok = { ...w, sigs: valid };
-    const r = await fetch("/api/safe/relay", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ chainId, kind: "exec", safe, tx: w.tx, signatures: allSignatures(ok), wedgie: (chain?.passkeys.length ?? 0) > 1 }, (_, v) => (typeof v === "bigint" ? v.toString() : v)),
-    });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(j.error || `relay: ${r.status}`);
-    sentOut(w.hash, j.hash);
-    await waitFor(chainId, j.hash);
-    setSent(j.hash);
-    load();
+    setStage("sending");
+    setPending(null);
+    try {
+      const r = await fetch("/api/safe/relay", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ chainId, kind: "exec", safe, tx: w.tx, signatures: allSignatures(ok), wedgie: (chain?.passkeys.length ?? 0) > 1 }, (_, v) => (typeof v === "bigint" ? v.toString() : v)),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || `relay: ${r.status}`);
+      sentOut(w.hash, j.hash);
+      setPending(j.hash);
+      setStage("confirming");
+      await waitFor(chainId, j.hash);
+      setSent(j.hash);
+      load();
+    } finally {
+      setStage(null);
+    }
   });
   // Remove (as on Home's waiting card): this phone's Face ID signs Safe's delete message
   const remove = run("remove", async () => {
@@ -211,11 +223,17 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
   });
   const sendSelf = run("self", async () => {
     if (!w) return;
-    const h = await hotSend(chainId, safe, execData(w.tx, allSignatures({ ...w, sigs: valid })));
-    sentOut(w.hash, h);
-    await waitFor(chainId, h);
-    setSent(h);
-    load();
+    try {
+      const h = await hotSend(chainId, safe, execData(w.tx, allSignatures({ ...w, sigs: valid })));
+      sentOut(w.hash, h);
+      setPending(h);
+      setStage("confirming");
+      await waitFor(chainId, h);
+      setSent(h);
+      load();
+    } finally {
+      setStage(null);
+    }
   });
 
   const name = chainById(chainId)?.name ?? `chain ${chainId}`;
@@ -373,6 +391,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
           )}
         </div>
       )}
+      {!sent && <Progress stage={stage} chainId={chainId} hash={pending} />}
       {error && <ErrorLine text={error} />}
 
       <p className="fine row" style={{ gap: 16, justifyContent: "center", flexWrap: "wrap" }}>

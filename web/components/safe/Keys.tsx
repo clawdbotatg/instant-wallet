@@ -72,6 +72,7 @@ export function Keys({
   const [guardKey, setGuardKey] = useState(0); // empties the guardian field after an add
   const [keysEdit, setKeysEdit] = useState(false); // signers: the list until Edit
   const [wedgieOpen, setWedgieOpen] = useState(false);
+  const [wedgieNeed, setWedgieNeed] = useState<number | null>(null); // signatures needed once the wedgie is on (null: same as now, e.g. 1 of 2)
   const [wedgieLook, setWedgieLook] = useState<{ tone: string; looking: boolean } | null>(null); // what the pill says
   const st = states.find(s => s.chainId === chainId);
   const usdc = chainById(chainId)?.usdc?.toLowerCase();
@@ -396,13 +397,14 @@ export function Keys({
         if (st.hasWedgie) throw new Error("The wedgie is already on this wallet here.");
         const key = await w.key();
         const [w1] = wedgieSigners(key);
-        // one more signer, and one more needed: Face ID alone (1 of 1) → Face ID + wedgie (2 of 2), with Face ID's
-        // daily limit; recovery moves to the DAO's 60 days in the same batch (first: see recoveryLayoutCalls)
+        // one more signer; how many are needed after is your pick (Austin 11-06: start at 1 of 2, 2 of 2 is an option).
+        // Face ID's daily limit and the DAO's 60 days come in the same batch either way (first: see recoveryLayoutCalls)
+        const need = Math.min(Math.max(wedgieNeed ?? st.threshold, 1), st.owners.length + 1);
         const calls = [
           ...(await toLayout(st)),
           ...(await budgetFirst(st)),
           deploySignerCall(key.x, key.y, VERIFIERS),
-          safeCall("addOwnerWithThreshold", [w1, BigInt(st.threshold + 1)]),
+          safeCall("addOwnerWithThreshold", [w1, BigInt(need)]),
         ];
         const p = await prepareOwners({ account, state: st, calls, signers: ownerSigners(st, account), feeToken, setup: true, wedgie: w });
         return { label: "Add your wedgie as a signer", p, after: () => onAccount({ ...account, wedgie: key }), settled: s => s.hasWedgie, close: () => w.close() };
@@ -602,6 +604,25 @@ export function Keys({
                       add={action(
                         "wedgie",
                         <>
+                          {(() => {
+                            const of = st.owners.length + 1;
+                            const n = Math.min(wedgieNeed ?? st.threshold, of);
+                            return (
+                              <div className="row" style={{ gap: 8 }}>
+                                <span>Needs</span>
+                                <button className="pill" onClick={() => setWedgieNeed(n - 1)} disabled={idle || n <= 1} aria-label="Fewer">
+                                  −
+                                </button>
+                                <b>
+                                  {n} of {of}
+                                </b>
+                                <button className="pill" onClick={() => setWedgieNeed(n + 1)} disabled={idle || n >= of} aria-label="More">
+                                  +
+                                </button>
+                                <span className="fine">{n === 1 ? "any one signs" : n === of ? "all of them sign" : ""}</span>
+                              </div>
+                            );
+                          })()}
                           <button className="btn btn-green wide" onClick={addWedgie} disabled={idle}>
                             {busy === "wedgie" ? "Check the wedgie…" : "Add it as a signer"}
                           </button>

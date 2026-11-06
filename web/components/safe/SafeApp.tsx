@@ -395,7 +395,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
         <div className="card balance">
           <div className="total">
             <div className={fresh ? "big" : "big stale"} onClick={() => setShowUsd(!showUsd)}>
-              {portfolio ? (showUsd ? usd(total ?? 0) : `${assets.length} assets`) : <span className="loading-bar" aria-label="Loading" />}
+              {portfolio ? (showUsd ? usd(total ?? 0) : "******") : <span className="loading-bar" aria-label="Loading" />}
             </div>
             {portfolio && (!fresh || pulling) && <span className="spinner" aria-label="Updating" />}
             {fresh && !pulling && assets.length > 0 && (

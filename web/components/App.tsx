@@ -83,7 +83,7 @@ export function App({ link }: { link?: string }) {
 
         <div className="card balance">
           <div className="big" onClick={() => setShowUsd(!showUsd)}>
-            {portfolio ? (showUsd ? usd(portfolio.totalUsd ?? 0) : `${assets.filter(a => BigInt(a.balance) > 0n).length} assets`) : "…"}
+            {portfolio ? (showUsd ? usd(portfolio.totalUsd ?? 0) : "******") : "…"}
           </div>
           <div className="actions">
             <button className="btn btn-green" onClick={() => setView({ kind: "send" })}>

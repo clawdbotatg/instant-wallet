@@ -1,5 +1,8 @@
-# NIST P-256 ECDSA in pure Python. Runs on MicroPython (RP2350: ~1 s per signature).
+# NIST P-256 ECDSA in pure Python. Runs on MicroPython (RP2350: ~1.5 s per signature).
 # Stand-in for the ATECC608 until it is wired. Same output shape: (r, s) with low s.
+# Secret scalars (the key, a nonce) go through _ladder: the same 256 steps for every value, so the time
+# doesn't give away a nonce's length or its 1 bits (that leak gives up the key: Minerva). _mul is for
+# public scalars only (verify).
 import os
 
 P = 0xFFFFFFFF00000001000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFF
@@ -59,6 +62,7 @@ def _add(p1, p2):
 
 
 def _mul(k, pt):
+    """k*pt for a PUBLIC k: its time depends on k."""
     acc = None
     while k:
         if k & 1:
@@ -66,6 +70,19 @@ def _mul(k, pt):
         pt = _dbl(pt)
         k >>= 1
     return acc
+
+
+def _ladder(k, pt):
+    """k*pt for a SECRET k (Montgomery ladder): k + N or k + 2N has exactly 257 bits, so every k takes
+    the same 256 steps, one add and one double each."""
+    k = k + N if (k + N) >> 256 else k + 2 * N
+    r0, r1 = pt, _dbl(pt)
+    for i in range(255, -1, -1):
+        if (k >> i) & 1:
+            r0, r1 = _add(r0, r1), _dbl(r1)
+        else:
+            r1, r0 = _add(r0, r1), _dbl(r0)
+    return r0
 
 
 def _affine(pt):
@@ -77,7 +94,7 @@ def _affine(pt):
 
 def pubkey(d):
     """Private scalar -> (x, y)."""
-    return _affine(_mul(d, (GX, GY, 1)))
+    return _affine(_ladder(d, (GX, GY, 1)))
 
 
 def rand_scalar():
@@ -87,23 +104,16 @@ def rand_scalar():
             return k
 
 
-def sign(d, digest, k=None):
+def sign(d, digest):
     """ECDSA over a 32-byte digest. Returns (r, s) with s in the low half, as the verifier requires."""
     z = int.from_bytes(digest, "big")
     while True:
-        k = k or rand_scalar()
-        x, _ = _affine(_mul(k, (GX, GY, 1)))
+        k = rand_scalar()
+        x, _ = _affine(_ladder(k, (GX, GY, 1)))
         r = x % N
-        if r == 0:
-            k = None
-            continue
         s = (inv(k, N) * (z + r * d)) % N
-        if s == 0:
-            k = None
-            continue
-        if s > N // 2:
-            s = N - s
-        return r, s
+        if r and s:
+            return r, (N - s if s > N // 2 else s)
 
 
 def verify(qx, qy, digest, r, s):

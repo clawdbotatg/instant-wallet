@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { DM_Mono, Outfit } from "next/font/google";
+import { NetBar } from "@/components/NetBar";
 import { BRAND_SCRIPT } from "@/lib/brand";
 import "./globals.css";
 
@@ -62,6 +63,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         {/* xdai.io's look, before first paint (lib/brand.ts) */}
         <script dangerouslySetInnerHTML={{ __html: BRAND_SCRIPT }} />
+        <NetBar />
         {children}
       </body>
     </html>

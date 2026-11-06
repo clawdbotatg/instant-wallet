@@ -21,6 +21,8 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image", title: "Instant Wallet", description, images: ["/og.png"] },
   // no `capable`: iOS opens the home-screen icon in Safari (same storage); see manifest.ts
   appleWebApp: { title: "Instant Wallet" },
+  // Safari's Smart App Banner: "Open" / "Get" for the App Store app
+  itunes: { appId: "6820719211" },
   icons: {
     icon: [
       { url: "/icons/favicon-32.png", sizes: "32x32", type: "image/png" },

@@ -49,7 +49,14 @@ export function SafeApp({ link }: { link?: string } = {}) {
   const [states, setStates] = useState<ChainState[]>([]);
   const [view, setView] = useState<View>({ kind: "home" });
   const [app, setApp] = useState<AppEntry | null>(null); // a Safe App open full screen (components/safe/Apps.tsx)
-  const [showUsd, setShowUsd] = useState(true);
+  const [showUsd, setShowUsdState] = useState(true);
+  useEffect(() => {
+    try { if (localStorage.getItem("iw:private") === "1") setShowUsdState(false); } catch {}
+  }, []);
+  const setShowUsd = (v: boolean) => {
+    setShowUsdState(v);
+    try { localStorage.setItem("iw:private", v ? "0" : "1"); } catch {}
+  };
   const [toast, setToast] = useToast();
   const [dropReady, setDropReady] = useState<Prepared | null>(null);
   const [hidden, setHiddenState] = useState<string[]>([]);
@@ -449,8 +456,8 @@ export function SafeApp({ link }: { link?: string } = {}) {
                 </div>
               </div>
               <div className="right">
-                <div className="sym">{showUsd ? usd(a.usd) : amount(a.formatted)}</div>
-                <div className="fine">{showUsd ? `${amount(a.formatted)} ${a.symbol}` : usd(a.usd)}</div>
+                <div className="sym">{showUsd ? usd(a.usd) : "****"}</div>
+                <div className="fine">{showUsd ? `${amount(a.formatted)} ${a.symbol}` : `**** ${a.symbol}`}</div>
               </div>
               {isDust(a) && (
                 <button className="btn btn-red send-one" aria-label={`Hide ${a.symbol}`} onClick={() => {

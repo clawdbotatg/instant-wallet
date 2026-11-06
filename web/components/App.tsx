@@ -22,7 +22,14 @@ export function App({ link }: { link?: string }) {
   const [account, setAccount] = useState<Account | null | undefined>(undefined);
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
   const [view, setView] = useState<View>({ kind: "home" });
-  const [showUsd, setShowUsd] = useState(true);
+  const [showUsd, setShowUsdState] = useState(true);
+  useEffect(() => {
+    try { if (localStorage.getItem("iw:private") === "1") setShowUsdState(false); } catch {}
+  }, []);
+  const setShowUsd = (v: boolean) => {
+    setShowUsdState(v);
+    try { localStorage.setItem("iw:private", v ? "0" : "1"); } catch {}
+  };
   const [toast, setToast] = useToast();
   const [wcUri, setWcUri] = useState<string>();
 
@@ -109,8 +116,8 @@ export function App({ link }: { link?: string }) {
                   </div>
                 </div>
                 <div className="right">
-                  <div className="sym">{showUsd ? usd(a.usd) : amount(a.formatted)}</div>
-                  <div className="fine">{showUsd ? `${amount(a.formatted)} ${a.symbol}` : usd(a.usd)}</div>
+                  <div className="sym">{showUsd ? usd(a.usd) : "****"}</div>
+                  <div className="fine">{showUsd ? `${amount(a.formatted)} ${a.symbol}` : `**** ${a.symbol}`}</div>
                 </div>
               </button>
             ))}

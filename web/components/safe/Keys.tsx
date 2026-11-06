@@ -440,6 +440,12 @@ export function Keys({
   const mine = (st?.stored?.[RECOVERY_14D] ?? []).filter(g => !same(g, DAO)); // your own guardians (14 days)
   const daoWait = st ? daoDays(st) : null;
   const idle = !!busy || !!pending || !!wait || !canPay;
+  // why a step's button is grey, said under it (a green button that does nothing is a bug report)
+  const blocked = busy ? null
+    : !canPay ? `Needs a little gas on ${chainById(chainId)?.name} first.`
+    : pending ? "Finish or cancel the change above first."
+    : wait ? `Waiting for the last change on ${chainById(wait.chainId)?.name}…`
+    : null;
 
 
 
@@ -583,9 +589,17 @@ export function Keys({
                       states={states}
                       add={action(
                         "wedgie",
-                        <button className="btn btn-green wide" onClick={addWedgie} disabled={idle}>
-                          {busy === "wedgie" ? "Check the wedgie…" : "Add it as a signer"}
-                        </button>,
+                        <>
+                          <button className="btn btn-green wide" onClick={addWedgie} disabled={idle}>
+                            {busy === "wedgie" ? "Check the wedgie…" : "Add it as a signer"}
+                          </button>
+                          {blocked && <p className="fine">{blocked}</p>}
+                          {!canPay && assets.some(a => a.chainId !== chainId && (a.usd ?? 0) >= 0.5) && (
+                            <button className="btn wide" onClick={() => onFund(chainId)}>
+                              Add gas on {chainById(chainId)?.name}
+                            </button>
+                          )}
+                        </>,
                       )}
                     />
                   )}

@@ -22,6 +22,7 @@ import { type ChainState, type SafeAccount, loadAccount, loadSigners, salt, wedg
 import { Wedgie, wedgieSupported } from "./wedgie";
 import { type Waiting, openTx, readWaiting, shareTx, sigHex } from "./share";
 import { bio } from "@/lib/passkey";
+import { startSending } from "./sending";
 
 /** Thrown by a send this device signed but that needs more signers: it's shared (lib/safe/share.ts) and its page opens. */
 export class Shared extends Error {
@@ -199,14 +200,21 @@ export async function finishOwners(p: Prepared): Promise<Hash> {
   }
   stage("sending");
   const signatures = encodeSignatures(sigs);
-  const hash = p.opts.self
-    ? await hotSend(chainId, a.address, execData(t, signatures))
-    : // no passkey here (a wallet opened to watch, signed by its wedgie): no burner key to send
-      await post({ chainId, kind: "exec", safe: a.address, tx: t, signatures, ...(a.burnerSigner !== zeroAddress ? { burner: { x: a.qx, y: a.qy } } : {}), wedgie: slots.length > 0 });
-  stage("confirming", hash);
-  await waitFor(chainId, hash);
-  used.set(`${chainId}:${a.address}`, t.nonce);
-  return hash;
+  // on Activity's top until it lands, even if the sheet is pulled down now
+  const out = startSending(chainId, a.address, p.opts.calls);
+  try {
+    const hash = p.opts.self
+      ? await hotSend(chainId, a.address, execData(t, signatures))
+      : // no passkey here (a wallet opened to watch, signed by its wedgie): no burner key to send
+        await post({ chainId, kind: "exec", safe: a.address, tx: t, signatures, ...(a.burnerSigner !== zeroAddress ? { burner: { x: a.qx, y: a.qy } } : {}), wedgie: slots.length > 0 });
+    out.hash(hash);
+    stage("confirming", hash);
+    await waitFor(chainId, hash);
+    used.set(`${chainId}:${a.address}`, t.nonce);
+    return hash;
+  } finally {
+    out.done();
+  }
 }
 
 /** No relay, no fee: a quote of zero, so the UI can keep reading `fee`. */
@@ -279,10 +287,16 @@ export async function budgetSend(opts: {
   stage("signing");
   const signature = await passkeySignRaw(a.credentialId, h);
   stage("sending");
-  const hash = await post({ chainId: st.chainId, kind: "roles", safe: a.address, call, signer: a.burnerSigner, signature, salt: s });
-  stage("confirming", hash);
-  await waitFor(st.chainId, hash);
-  return hash;
+  const out = startSending(st.chainId, a.address, opts.calls);
+  try {
+    const hash = await post({ chainId: st.chainId, kind: "roles", safe: a.address, call, signer: a.burnerSigner, signature, salt: s });
+    out.hash(hash);
+    stage("confirming", hash);
+    await waitFor(st.chainId, hash);
+    return hash;
+  } finally {
+    out.done();
+  }
 }
 
 /**

@@ -148,7 +148,10 @@ export function SafeApp({ link }: { link?: string } = {}) {
     const s = await readAll(account).catch(() => null);
     if (s) setStates(s);
   }, [account]);
+  // Activity reads the chain again on every refresh (a sheet closed, a pull, back to the app), not just once
+  const [actTick, setActTick] = useState(0);
   const refresh = useCallback(async () => {
+    setActTick(n => n + 1);
     await Promise.all([loadBalance(), loadStates()]);
   }, [loadBalance, loadStates]);
 
@@ -497,7 +500,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
         </div>}
         <PositionList address={account.address} assets={fresh ? portfolio?.assets : undefined} onTotal={setPosUsd} onReceipts={setReceipts} />
         <NftGrid address={account.address} />
-        <Activity safe={account.address} chains={states.filter(s => s.deployed).map(s => s.chainId)} assets={portfolio?.assets ?? []} />
+        <Activity safe={account.address} chains={states.filter(s => s.deployed).map(s => s.chainId)} assets={portfolio?.assets ?? []} tick={actTick} />
       </div>
 
       <button className="fab fab-settings" aria-label="Settings" onClick={() => setView({ kind: "keys" })}>

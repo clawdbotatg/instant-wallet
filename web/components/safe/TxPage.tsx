@@ -14,6 +14,7 @@ import { Shared, feeCall, getQuote, ownerSigners, ownersSend, usesWedgie, waitFo
 import { signForSite } from "@/lib/safe/connect";
 import { type Waiting, allSignatures, checkSigs, deleteHash, dropTx, fromLink, openTx, readWaiting, safeAppTxLink, shareTx, sigHex, txLink } from "@/lib/safe/share";
 import { passkeySign } from "@/lib/safe/sign";
+import { startSending } from "@/lib/safe/sending";
 import { type ChainState, keyFromCode, loadAccount, loadSigners, readChain, wedgieHome, wedgieSigners } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import { BioSigner, Blockie, CopyLink, Eject, GreenButton, RemoveX, Who, useToast } from "../bits";
@@ -196,6 +197,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
     const ok = { ...w, sigs: valid };
     setStage("sending");
     setPending(null);
+    const out = startSending(chainId, safe, callsOf(w.tx));
     try {
       const r = await fetch("/api/safe/relay", {
         method: "POST",
@@ -205,12 +207,14 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j.error || `relay: ${r.status}`);
       sentOut(w.hash, j.hash);
+      out.hash(j.hash);
       setPending(j.hash);
       setStage("confirming");
       await waitFor(chainId, j.hash);
       setSent(j.hash);
       load();
     } finally {
+      out.done();
       setStage(null);
     }
   });
@@ -223,15 +227,18 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
   });
   const sendSelf = run("self", async () => {
     if (!w) return;
+    const out = startSending(chainId, safe, callsOf(w.tx));
     try {
       const h = await hotSend(chainId, safe, execData(w.tx, allSignatures({ ...w, sigs: valid })));
       sentOut(w.hash, h);
+      out.hash(h);
       setPending(h);
       setStage("confirming");
       await waitFor(chainId, h);
       setSent(h);
       load();
     } finally {
+      out.done();
       setStage(null);
     }
   });

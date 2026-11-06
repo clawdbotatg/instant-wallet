@@ -50,7 +50,19 @@ export function Keys({
   onShare: (chainId: number) => void; // Share crypto (QR / NFC card), on the network picked here
 }) {
 
-  const [chainId, setChainId] = useState(CHAINS[0].id);
+  const [chainId, setChainIdRaw] = useState(CHAINS[0].id);
+  // default network = where the money is (most USD), until you pick one yourself
+  const picked = useRef(false);
+  const setChainId = (id: number) => {
+    picked.current = true;
+    setChainIdRaw(id);
+  };
+  useEffect(() => {
+    if (picked.current || !assets.length) return;
+    const usdOn = (id: number) => assets.filter(a => a.chainId === id).reduce((t, a) => t + (a.usd ?? 0), 0);
+    const best = [...CHAINS].sort((a, b) => usdOn(b.id) - usdOn(a.id))[0];
+    if (best && usdOn(best.id) > 0) setChainIdRaw(best.id);
+  }, [assets]);
   const [busy, setBusy] = useState<string | null>(null);
   // an error shows in the step whose button caused it, next to where you tapped
   const [error, setErrorRaw] = useState<{ what: string; msg: string } | null>(null);

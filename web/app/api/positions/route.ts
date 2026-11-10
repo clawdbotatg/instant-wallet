@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAddress, isAddress } from "viem";
 import { CHAINS } from "@/lib/chains";
+import { tooMany } from "@/lib/limit";
 import type { Position } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -37,7 +38,11 @@ export async function GET(req: NextRequest) {
   const key = process.env.ZERION_API_KEY;
   if (!key) return NextResponse.json({ positions: [] });
   const hit = cache.get(wallet);
-  if (hit && Date.now() - hit.at < CACHE_MS && !req.nextUrl.searchParams.get("fresh")) return NextResponse.json({ positions: hit.v });
+  // fresh=1 skips the cache, but not one a few seconds old
+  const keep = req.nextUrl.searchParams.get("fresh") ? 5_000 : CACHE_MS;
+  if (hit && Date.now() - hit.at < keep) return NextResponse.json({ positions: hit.v });
+  // every call past here is a paid Zerion call: one IP gets 120 an hour, then the last answer we have
+  if (await tooMany(req, "positions", 120, 3600)) return hit ? NextResponse.json({ positions: hit.v }) : NextResponse.json({ error: "Too many reads. Try again later." }, { status: 429 });
   const byZerion = new Map(CHAINS.filter(c => ZERION[c.id]).map(c => [ZERION[c.id], c.id]));
   const q = new URLSearchParams({
     "filter[positions]": "only_complex",

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAddress, isAddress, isHex } from "viem";
+import { tooMany } from "@/lib/limit";
 import { drop, stash, unstash, withLock } from "@/lib/safe/relayGuard";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +26,7 @@ export async function POST(req: NextRequest) {
   try {
     const b = JSON.parse((await req.text()).slice(0, 2000));
     if (!isAddress(b.safe)) throw new Error("safe?");
+    if (await tooMany(req, "invite", 30, 3600)) return out({ error: "Too many invites. Try again later." }, 429);
     const id = Buffer.from(crypto.getRandomValues(new Uint8Array(15))).toString("base64url");
     await stash(k(id), { safe: getAddress(b.safe), from: clean(b.from), at: Date.now() } satisfies Invite, TTL);
     return out({ id });

@@ -26,6 +26,7 @@ import {
 import { GAS_BUDGET, type SendKind, feePaid, rolesCalls, unpackMultiSend } from "@/lib/safe/fee";
 import { authCall, validAuth } from "@/lib/claim";
 import { L1_ALLOWANCE, clients, quote, tipFloor } from "@/lib/safe/relayCore";
+import { tooMany } from "@/lib/limit";
 import { RelayRefused, admit, checkCalls, forget, once, plainRecipientCheck, reverted, withChainLock } from "@/lib/safe/relayGuard";
 
 export const dynamic = "force-dynamic";
@@ -65,6 +66,8 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: "bad json" }, { status: 400 });
   }
+  // before the chain reads below: a refused caller shouldn't cost a dozen of them each try (admit() comes after)
+  if (await tooMany(req, "relay", 240, 3600)) return NextResponse.json({ error: "Too many sends from here this hour." }, { status: 429 });
   try {
     const chainId = Number(body.chainId);
     const { info, pc, wc } = clients(chainId);

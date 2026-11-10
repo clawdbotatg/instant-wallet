@@ -15,6 +15,7 @@ import {
   slice,
 } from "viem";
 import { upstreamRpc } from "@/lib/rpcServer";
+import { tooMany } from "@/lib/limit";
 import { drop, stash, unstash, withLock } from "@/lib/safe/relayGuard";
 
 export const dynamic = "force-dynamic";
@@ -111,6 +112,8 @@ export async function POST(req: NextRequest) {
   try {
     const raw = await req.text();
     if (raw.length > 200_000) throw new Error("too big");
+    // before any chain read: each kept entry can be ~200 KB, and `safe` can be any contract that says yes
+    if (await tooMany(req, "queue", 120, 3600)) throw new Error("Too many. Try again later.");
     const b = JSON.parse(raw);
     const chainId = Number(b.chainId);
     if (!isAddress(b.safe)) throw new Error("safe?");

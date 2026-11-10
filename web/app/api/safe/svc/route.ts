@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { kv } from "@/lib/kv";
+import { tooMany } from "@/lib/limit";
 
 export const dynamic = "force-dynamic";
 
@@ -9,7 +10,8 @@ export const dynamic = "force-dynamic";
  * lib/safe/share.ts needs: a Safe's waiting transactions, one transaction, a proposal, a signature. Reads are kept
  * a little while (in memory) so many open pages make few calls: a Safe's queue 100 s, the rest 20 s (as wedgie.dev's
  * api/safe.ts). Reads have a daily cap (DAY_CAP, counted in KV across instances): wedgie.dev takes up to 1,500 a day of
- * the same ~1,666, so past ours the page carries on with the chain and our own queue. Writes are never capped.
+ * the same ~1,666, so past ours the page carries on with the chain and our own queue. One IP gets 40 uncached reads a day and 60
+ * writes an hour.
  */
 const DAY_CAP = 150;
 const BASE = "https://api.safe.global/tx-service/";
@@ -34,6 +36,8 @@ export async function GET(req: NextRequest) {
   if (!p || foreign(req)) return pass(403, JSON.stringify({ error: "Not allowed." }));
   const hit = HIT.get(p);
   if (hit && Date.now() - hit.at < KEEP(p)) return pass(hit.status, hit.body);
+  // one IP can't use up the day's share for everyone (a request with no Origin passes `foreign`: a curl loop)
+  if (await tooMany(req, "svc", 40, 86_400)) return pass(429, JSON.stringify({ error: "Safe's service: today's share is used." }));
   const n = await kv(["INCR", `safe_api:${new Date().toISOString().slice(0, 10)}`]).catch(() => 0);
   if (n === 1) kv(["EXPIRE", `safe_api:${new Date().toISOString().slice(0, 10)}`, 2 * 86_400]).catch(() => {});
   if (Number(n) > DAY_CAP) return pass(429, JSON.stringify({ error: "Safe's service: today's share is used." }));
@@ -52,6 +56,7 @@ export async function POST(req: NextRequest) {
   if (!p || foreign(req) || !/\/(multisig-transactions|confirmations)\/$/.test(p)) return pass(403, JSON.stringify({ error: "Not allowed." }));
   const text = await req.text();
   if (text.length > 200_000) return pass(413, JSON.stringify({ error: "Too big." }));
+  if (await tooMany(req, "svc-post", 60, 3600)) return pass(429, JSON.stringify({ error: "Too many. Try again later." }));
   const r = await fetch(BASE + p, { method: "POST", headers: headers(), body: text, signal: AbortSignal.timeout(15000) }).catch(() => null);
   if (!r) return pass(502, JSON.stringify({ error: "Safe's service didn't answer." }));
   for (const k of HIT.keys()) if (k.includes("multisig-transactions")) HIT.delete(k); // the next read sees it

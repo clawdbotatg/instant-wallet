@@ -81,16 +81,14 @@ Suggested first: 1, 3, 5, 12, 20.
   kind are wrong for that refresh ("fee too low"). Fix: throw so that chain is skipped this tick, or keep the last
   answer.
 
-- [ ] **10. No sign-in or limits.**
-  - `app/api/name/route.ts:24-29`: PUT, 600-char values kept a year.
-  - `app/api/safe/invite/route.ts:24-30`: POST.
-  - `app/api/safe/svc/route.ts:27-30,50-58`: a request with no Origin passes; GETs are capped at 150 a day in all,
-    so a curl loop uses up the Safe API share; POSTs are never capped.
-  - `app/api/positions/route.ts:40`: `fresh=1` skips the cache; Zerion is paid.
+- [x] **10. No sign-in or limits.** Done 11-10: one limit per IP (`lib/limit.ts` `tooMany`) on the routes that
+  cost money or storage: `/api/positions` (120 paid Zerion calls an hour; `fresh=1` no longer skips a cache under
+  5 s old), `/api/safe/svc` (40 uncached reads a day, 60 writes an hour), `/api/name` PUT (30 an hour),
+  `/api/safe/invite` POST (30 an hour), `/api/safe/queue` POST (120 an hour, before any chain read),
+  `/api/safe/relay` POST (240 an hour, before its chain reads).
+
+- [ ] **10b. Left from 10.**
   - `app/api/drop/admin/route.ts:61-93`: any admin can change or take back any drop (`d.admin` is never checked).
-  - `app/api/safe/queue` and `pending`: `safe` can be any contract that answers `checkNSignatures`, so anyone can
-    store 30 × ~200 KB per key.
-  - `app/api/safe/relay/route.ts:164`: `admit()` runs after a dozen RPC reads, so refused callers still cost reads.
   - `app/api/alerts/route.ts:15-19`: an open GET shows the first 2 letters and the domain of a wallet's alert email.
 
 - [x] **11. Public RPC when the Alchemy key is missing.**

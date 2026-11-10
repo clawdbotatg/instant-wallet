@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@/lib/kv";
+import { tooMany } from "@/lib/limit";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +25,7 @@ export async function GET(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   const b = await req.json().catch(() => null);
   if (!b || typeof b.id !== "string" || !ID.test(b.id) || typeof b.box !== "string" || !BOX.test(b.box)) return NextResponse.json({ error: "bad request" }, { status: 400 });
+  if (await tooMany(req, "name", 30, 3600)) return NextResponse.json({ error: "Too many. Try again later." }, { status: 429 });
   await kv(["SET", key(b.id), b.box, "EX", YEAR]);
   return NextResponse.json({ ok: true });
 }

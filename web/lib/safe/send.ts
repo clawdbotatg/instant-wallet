@@ -1,5 +1,5 @@
 import { type Address, type Hash, type Hex, zeroAddress } from "viem";
-import { chainById, publicClient } from "../chains";
+import { chainById, codeOnce, publicClient } from "../chains";
 import {
   type Call,
   type SafeTx,
@@ -132,7 +132,7 @@ export type Prepared = { opts: OwnersOpts; t: SafeTx; h: Hex; fee: Quote };
 export async function prepareOwners(opts: OwnersOpts): Promise<Prepared> {
   const { account: a, state: st, signers } = opts;
   const chainId = st.chainId;
-  const signerCode = signers.some(s => eq(s, a.burnerSigner)) ? await publicClient(chainId).getCode({ address: a.burnerSigner }).catch(() => undefined) : "0x01";
+  const signerCode = signers.some(s => eq(s, a.burnerSigner)) ? await codeOnce(chainId, a.burnerSigner).catch(() => undefined) : "0x01";
   const fresh = !st.deployed || !signerCode || signerCode === "0x"; // the relay deploys the Safe and/or the burner's signer too
   const kind = ownersKind(fresh, feeWedgie(a, st, signers), opts);
   if (opts.self) {
@@ -246,7 +246,7 @@ export async function sendKind(
   o: { swapGas?: bigint; dappGas?: bigint } = {},
 ): Promise<SendKind> {
   if (path === "budget") return "roles";
-  const code = signers.some(s => eq(s, a.burnerSigner)) ? await publicClient(st.chainId).getCode({ address: a.burnerSigner }).catch(() => undefined) : "0x01";
+  const code = signers.some(s => eq(s, a.burnerSigner)) ? await codeOnce(st.chainId, a.burnerSigner).catch(() => undefined) : "0x01";
   return ownersKind(!st.deployed || !code || code === "0x", feeWedgie(a, st, signers), o);
 }
 

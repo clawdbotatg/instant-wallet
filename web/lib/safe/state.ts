@@ -1,5 +1,5 @@
 import { type Address, type Hex, getAddress, keccak256, size, toBytes, toHex, zeroAddress } from "viem";
-import { CHAINS, publicClient } from "../chains";
+import { CHAINS, codeOnce, publicClient } from "../chains";
 import { DAO, KEY_ETH, KEY_FEE_USDC, KEY_USDC, RECOVERY_14D, RECOVERY_60D, RECOVERY_7D, RECOVERY_DAYS, RECOVERY_MODULES } from "./config";
 import { abi, rolesAddress, safeAddress, signerAddress } from "./core";
 import { VERIFIERS_SLOT2 } from "./config";
@@ -159,7 +159,8 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
   const pc = publicClient(chainId);
   const safe = a.address;
   // a failed read throws (the caller keeps what it knew): guessing "not deployed" would show a live wallet as a new one
-  const [code, code60] = await Promise.all([pc.getCode({ address: safe }), pc.getCode({ address: RECOVERY_60D }).catch(() => undefined)]);
+  // codeOnce: code that's there is asked once per page, not every 12 s on every chain
+  const [code, code60] = await Promise.all([codeOnce(chainId, safe), codeOnce(chainId, RECOVERY_60D).catch(() => undefined)]);
   const deployed = !!code && code !== "0x";
   const has60 = !!code60 && code60 !== "0x";
   if (!deployed)
@@ -216,7 +217,7 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
   const recoveries = recs.filter(r => modules.includes(r.module));
   const stored = recs.every(r => r.guardians) ? Object.fromEntries(recs.map(r => [r.module, r.guardians!])) : null;
   let budget: ChainState["budget"] = null;
-  const rolesCode = await pc.getCode({ address: roles }).catch(() => undefined);
+  const rolesCode = await codeOnce(chainId, roles).catch(() => undefined);
   const members: Address[] | null =
     rolesCode && rolesCode !== "0x"
       ? await read("getModulesPaginated", ["0x0000000000000000000000000000000000000001", 20n], roles, abi.roles)
@@ -239,7 +240,7 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
   // paired it), anything else signs through a browser wallet
   const slots = a.wedgie ? wedgieSigners(a.wedgie).map(x => x.toLowerCase()) : [];
   const others = o.filter(x => x.toLowerCase() !== a.burnerSigner.toLowerCase());
-  const codes = await Promise.all(others.map(x => (slots.includes(x.toLowerCase()) ? (`0x${"00".repeat(PASSKEY_SIGNER_SIZE)}` as Hex) : pc.getCode({ address: x }))));
+  const codes = await Promise.all(others.map(x => (slots.includes(x.toLowerCase()) ? (`0x${"00".repeat(PASSKEY_SIGNER_SIZE)}` as Hex) : codeOnce(chainId, x))));
   // (no catch there: a failed read once made a wedgie a browser wallet for a refresh: wrong level, wrong fee kind, "fee too low")
   const isPasskey = (i: number) => !!codes[i] && codes[i] !== "0x" && size(codes[i]!) === PASSKEY_SIGNER_SIZE;
   const known = typeof window === "undefined" ? {} : loadSigners(safe);

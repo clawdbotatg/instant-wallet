@@ -157,10 +157,14 @@ Suggested first: 1, 3, 5, 12, 20.
   tick are one request to `/api/rpc`. Checked against the live proxy on Base, Gnosis and Arc: 65 reads in 1
   request, and one bad call doesn't fail the rest. Not checked in a browser.
 
-- [ ] **20b. The read count itself.** The proxy's limit (600 a minute per IP) counts calls, not requests, so
-  batching didn't lower that count (estimated, not measured: ~118 calls every 12 s for a wallet on 5 chains, close
-  to the limit). To cut it: cache `getCode(RECOVERY_60D)` per chain (`lib/safe/state.ts:161`, never changes) and
-  `getCode(burnerSigner)` (`lib/safe/send.ts:135,249`, asked twice in a row).
+- [x] **20b. The read count itself.** The proxy's limit (600 a minute per IP) counts calls, not requests. Contract
+  code that's there is now asked once per page (`codeOnce` in `lib/chains.ts`): the Safe, the 60-day module, Roles,
+  the other owners' signers, the burner's signer. By count, not measured: a wallet on 5 of 14 chains goes from
+  ~118 calls every 12 s to ~89.
+
+- [ ] **20c. Still ~89 calls every 12 s (~445 a minute against 600).** What's left per deployed chain: owners,
+  threshold, nonce, modules, guard, 3 recovery modules × 2 reads, Roles members, 3 allowances. Ideas: one
+  multicall per chain (1 call, not 16); read chains the wallet isn't on once a minute, not every 12 s.
 
 - [ ] **21. Keys and Limits re-read the whole Activity history every 2 s while they wait.**
   `Keys.tsx:135-138`, `Limits.tsx:46` call `onRefresh`, which bumps Activity past its cache on every chain.

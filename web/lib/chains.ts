@@ -118,6 +118,21 @@ export function publicClient(chainId: number) {
   return c;
 }
 
+const codes = new Map<string, `0x${string}`>();
+/**
+ * A contract's code, asked once: code that's there stays there (a Safe, a signer, a module can't be undeployed), so
+ * it's kept for the page's life. "Nothing there" is never kept: it may be deployed later. A failed read throws.
+ */
+export async function codeOnce(chainId: number, address: Address): Promise<`0x${string}` | undefined> {
+  const k = `${chainId}:${address.toLowerCase()}`;
+  const had = codes.get(k);
+  if (had) return had;
+  const code = await publicClient(chainId).getCode({ address });
+  // not a 7702 account's pointer (0xef0100…): the owner can change or clear that
+  if (code && code !== "0x" && !code.startsWith("0xef0100")) codes.set(k, code);
+  return code;
+}
+
 export function rpcPath(chainId: number): string {
   return `${typeof window === "undefined" ? "" : window.location.origin}/api/rpc/${chainId}`;
 }

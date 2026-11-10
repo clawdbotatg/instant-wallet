@@ -45,7 +45,7 @@ export function RpcSetting({ chainId, toast }: { chainId: number; toast: (m: str
   return (
     <div className="stack" style={{ gap: 8 }}>
       <div className="row" style={{ gap: 8 }}>
-        <input className="grow" value={url} onChange={e => setUrl(e.target.value)} placeholder="Your RPC URL" inputMode="url" autoCapitalize="off" autoCorrect="off" />
+        <input className="grow" value={url} onChange={e => setUrl(e.target.value)} placeholder="Default RPC" inputMode="url" autoCapitalize="off" autoCorrect="off" />
         <button className="btn btn-sm" onClick={save} disabled={busy}>
           {busy ? "Checking…" : "Save"}
         </button>

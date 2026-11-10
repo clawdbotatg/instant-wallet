@@ -61,5 +61,14 @@ for (const p of files) {
     if (/btn-red/.test(b) && />\s*(Done|Close|Cancel|Back)\s*<\/button>$/.test(b))
       (bad++, console.log(`${relative(root, p)}  a red ${b.match(/(Done|Close|Cancel|Back)\s*<\/button>$/)[1]}: closing a window is white, red only destroys`));
 }
+// fewest words (Austin 11-10): a settings box is its title, the box and a checkbox. No sentence that says what the
+// title says, and an empty box's placeholder is its default (the address itself, or "Default …").
+for (const p of files.filter(f => /Setting\.tsx$/.test(f))) {
+  const src = readFileSync(p, "utf8");
+  const rel = relative(root, p);
+  if (/<p className="fine"/.test(src)) (bad++, console.log(`${rel}  a sentence under a settings box: the title and the box say it`));
+  for (const m of src.matchAll(/placeholder=("[^"]*"|\{[^}]*\})/g))
+    if (m[1].startsWith('"') && !/^"Default /.test(m[1])) (bad++, console.log(`${rel}  placeholder ${m[1]}: an empty box says its default ("Default …" or the default itself)`));
+}
 console.log(bad ? `\n${bad} not the same as everywhere else` : "same everywhere ✓");
 process.exit(bad ? 1 : 0);

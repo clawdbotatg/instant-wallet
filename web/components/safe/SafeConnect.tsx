@@ -48,7 +48,7 @@ export function SafeConnectLayer({
       address={account.address}
       chainIds={chainIds}
       onSessions={onSessions}
-      request={(pending, onDone, onNo) => (
+      request={(pending, onDone, onNo, onBusy) => (
         <SafeRequest
           pending={pending}
           account={account}
@@ -56,6 +56,7 @@ export function SafeConnectLayer({
           feeToken={feeTokenOn(pending.chainId)}
           onDone={() => (onDone(), onSent())}
           onNo={onNo}
+          onBusy={onBusy}
         />
       )}
     />
@@ -69,6 +70,7 @@ function SafeRequest({
   feeToken,
   onDone,
   onNo,
+  onBusy,
 }: {
   pending: Pending;
   account: SafeAccount;
@@ -76,6 +78,7 @@ function SafeRequest({
   feeToken: FeeToken;
   onDone: () => void;
   onNo: () => void;
+  onBusy: (b: boolean) => void;
 }) {
   const [stage, setStage] = useState<Stage | null>(null);
   const [hash, setHash] = useState<Hash | null>(null);
@@ -87,6 +90,7 @@ function SafeRequest({
   const queue = !!st && pending.kind === "calls" && signThenQueue(st, account);
   const signers: Signer[] = st ? ownerSigners(st, account, !queue) : [account.burnerSigner];
   const busy = stage !== null;
+  useEffect(() => onBusy(busy), [busy]); // eslint-disable-line react-hooks/exhaustive-deps
 
   let calls: ReturnType<typeof siteCalls> | null = null;
   let refused: string | null = null;

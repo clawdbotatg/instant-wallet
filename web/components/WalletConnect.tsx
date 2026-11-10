@@ -1,7 +1,7 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { WalletKitTypes } from "@reown/walletkit";
 import { type Hex, decodeFunctionData, erc20Abi, formatEther, formatUnits } from "viem";
 import { chainById, nativeSymbol, publicClient } from "@/lib/chains";
@@ -42,7 +42,7 @@ export function WalletConnectLayer({ account, pairUri }: { account: Account; pai
     <ConnectLayer
       address={account.address}
       pairUri={pairUri}
-      request={(pending, onDone, onNo) => <Request pending={pending} account={account} onDone={onDone} onNo={onNo} />}
+      request={(pending, onDone, onNo, onBusy) => <Request pending={pending} account={account} onDone={onDone} onNo={onNo} onBusy={onBusy} />}
     />
   );
 }
@@ -61,7 +61,8 @@ export function ConnectLayer({
   address: string;
   pairUri?: string;
   chainIds?: number[];
-  request: (pending: Pending, onDone: () => void, onNo: () => void) => React.ReactNode;
+  /** `onBusy(true)` while it signs and sends: the sheet can't be closed then */
+  request: (pending: Pending, onDone: () => void, onNo: () => void, onBusy: (b: boolean) => void) => React.ReactNode;
   /** the connected sites, each time the list changes (the home page shows them) */
   onSessions?: (s: Session[]) => void;
 }) {
@@ -191,7 +192,14 @@ export function ConnectLayer({
   }, [kit, pairUri]);
 
   const current = queue[0];
-  const done = () => setQueue(q => q.slice(1));
+  // signing or sending: closing the sheet then would tell the site "rejected" while the transaction still goes out
+  const signing = useRef(false);
+  const done = () => ((signing.current = false), setQueue(q => q.slice(1)));
+  const no = (p: Pending) => {
+    if (signing.current) return;
+    respondError(p.topic, p.id).catch(() => {});
+    done();
+  };
 
   return (
     <>
@@ -231,9 +239,9 @@ export function ConnectLayer({
       )}
       {toast && <div className="toast">{toast}</div>}
       {!proposal && current && (
-        <Sheet onClose={() => (respondError(current.topic, current.id).catch(() => {}), done())}>
+        <Sheet onClose={() => no(current)}>
           <div key={`${current.topic}:${current.id}`}>
-            {request(current, done, () => (respondError(current.topic, current.id).catch(() => {}), done()))}
+            {request(current, done, () => no(current), b => void (signing.current = b))}
           </div>
         </Sheet>
       )}
@@ -346,10 +354,11 @@ function Connect({ proposal, onYes, onNo }: { proposal: WalletKitTypes.SessionPr
   );
 }
 
-function Request({ pending, account, onDone, onNo }: { pending: Pending; account: Account; onDone: () => void; onNo: () => void }) {
+function Request({ pending, account, onDone, onNo, onBusy }: { pending: Pending; account: Account; onDone: () => void; onNo: () => void; onBusy: (b: boolean) => void }) {
   const [stage, setStage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const busy = stage !== null;
+  useEffect(() => onBusy(busy), [busy]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div className="stack confirm">
       <DappHead {...pending.dapp} />

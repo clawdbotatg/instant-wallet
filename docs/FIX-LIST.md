@@ -146,7 +146,7 @@ Suggested first: 1, 3, 5, 12, 20.
   `components/Claim.tsx:311-314`. `claimUsdc` throws inside the loop over networks, so later networks are never
   claimed. `claimEth` returns 0 for the same case. Fix: skip that network and say so.
 
-- [ ] **17. Pulling the WalletConnect sheet down mid-sign tells the site "rejected" while the tx still runs.**
+- [x] **17. Pulling the WalletConnect sheet down mid-sign tells the site "rejected" while the tx still runs.**
   `components/WalletConnect.tsx:234-238`. Fix: the sheet's close does nothing while busy.
 
 - [ ] **18. Dead ends.**

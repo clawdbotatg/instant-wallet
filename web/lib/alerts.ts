@@ -174,11 +174,27 @@ export async function sendTelegram(chat: number, text: string) {
   if (!r.ok) throw new Error(`telegram: ${r.status} ${await r.text()}`);
 }
 
-/** Sends to one device; false when the device is gone (unsubscribed), so it can be dropped. */
+/** Only the browsers' own push services: we POST to this URL, so it can't be any URL a caller gives. */
+export function pushHost(endpoint: unknown): boolean {
+  try {
+    const u = new URL(String(endpoint));
+    const h = u.hostname;
+    return (
+      u.protocol === "https:" &&
+      !u.port &&
+      (h === "fcm.googleapis.com" || h === "updates.push.services.mozilla.com" || h.endsWith(".push.apple.com") || h.endsWith(".notify.windows.com"))
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** Sends to one device; false when the device is gone (unsubscribed) or isn't a push service, so it can be dropped. */
 export async function sendPush(sub: webpush.PushSubscription, title: string, body: string): Promise<boolean> {
+  if (!pushHost(sub.endpoint)) return false;
   webpush.setVapidDetails(SITE, process.env.NEXT_PUBLIC_VAPID_KEY!, process.env.VAPID_PRIVATE_KEY!);
   try {
-    await webpush.sendNotification(sub, JSON.stringify({ title, body, url: SITE }), { TTL: 24 * 3600, urgency: "high" });
+    await webpush.sendNotification(sub, JSON.stringify({ title, body, url: SITE }), { TTL: 24 * 3600, urgency: "high", timeout: 8000 });
     return true;
   } catch (e: any) {
     if (e?.statusCode === 404 || e?.statusCode === 410) return false;

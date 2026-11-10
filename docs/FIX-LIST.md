@@ -61,11 +61,16 @@ Suggested first: 1, 3, 5, 12, 20.
   errors, the counterfactual check passes a passkey that a recovery replaced. Fix: answer "Couldn't check the
   wallet. Try again." when any chain's read fails.
 
-- [ ] **8. Push alerts POST to any https URL a user gives.**
+- [x] **8. Push alerts POST to any https URL a user gives.**
   `app/api/alerts/route.ts:59-63`, sent by `lib/alerts.ts:168-177`. The gate is a passkey signature for any wallet,
   and an undeployed one passes, so it's free. `sendNotification` has no timeout, so a slow URL stalls the cron.
   Fix: allow only push hosts (`fcm.googleapis.com`, `*.push.apple.com`, `updates.push.services.mozilla.com`,
   `*.notify.windows.com`) and pass a timeout.
+
+- [ ] **8b. A dead new device wipes the wallet's other contacts.**
+  `app/api/alerts/route.ts:77-80` calls `notify` with only the new contact; `lib/alerts.ts` notify then saves
+  `{ ...c, push: alive }` over the whole record. If that first push says 404/410, email and telegram are gone.
+  Fix: notify re-reads the saved contacts and only removes the dead endpoints.
 
 - [x] **9. A failed `getCode` turns a wedgie into a browser wallet.**
   `lib/safe/state.ts:241`. `.catch(() => "0x00")` makes `isPasskey` false, so `hasWedgie`, the level and the fee

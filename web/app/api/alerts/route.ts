@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAddress, isAddress } from "viem";
-import { type Contacts, type Signed, authorize, channels, getContacts, masked, notify, putContacts, stash } from "@/lib/alerts";
+import { type Contacts, type Signed, authorize, channels, getContacts, masked, notify, pushHost, putContacts, stash } from "@/lib/alerts";
 
 export const dynamic = "force-dynamic";
 
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
       break;
     case "push": {
       const sub = ch.sub;
-      if (!sub?.endpoint || !/^https:\/\//.test(sub.endpoint) || !sub.keys?.p256dh || !sub.keys?.auth) return NextResponse.json({ error: "bad push subscription" }, { status: 400 });
+      if (!pushHost(sub?.endpoint) || !sub.keys?.p256dh || !sub.keys?.auth) return NextResponse.json({ error: "bad push subscription" }, { status: 400 });
       c.push = [...(old.push ?? []).filter(p => p.endpoint !== sub.endpoint), { endpoint: sub.endpoint, keys: { p256dh: sub.keys.p256dh, auth: sub.keys.auth } }].slice(-8);
       break;
     }

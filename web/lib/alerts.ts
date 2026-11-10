@@ -75,6 +75,8 @@ export async function putContacts(w: Address, c: Contacts) {
 export const wallets = async (): Promise<Address[]> => ((await kv(["SMEMBERS", `${P}wallets`])) as string[]).map(x => getAddress(x));
 /** First caller wins: a send that must happen once (SET NX). */
 export const once = async (key: string, ttlSec: number) => (await kv(["SET", P + key, 1, "NX", "EX", ttlSec])) === "OK";
+/** Take a once() back: what it marked didn't happen after all. */
+export const forget = (key: string) => kv(["DEL", P + key]);
 export const stash = (key: string, v: string, ttlSec: number) => kv(["SET", P + key, v, "EX", ttlSec]);
 export const take = async (key: string): Promise<string | null> => {
   const v = await kv(["GET", P + key]);
@@ -179,16 +181,20 @@ export async function sendPush(sub: webpush.PushSubscription, title: string, bod
   }
 }
 
-/** Every contact a wallet has. Errors are collected, not thrown: one dead channel mustn't stop the others. */
-export async function notify(wallet: Address, c: Contacts, subject: string, text: string): Promise<string[]> {
+/** Every contact a wallet has. Errors are collected, not thrown: one dead channel mustn't stop the others.
+ * `reached.n` counts the contacts it got through to. */
+export async function notify(wallet: Address, c: Contacts, subject: string, text: string, reached = { n: 0 }): Promise<string[]> {
   const errs: string[] = [];
   const ch = channels();
-  if (c.email && ch.email) await sendEmail(c.email, subject, text).catch(e => errs.push(String(e)));
-  if (c.telegram && ch.telegram) await sendTelegram(c.telegram, `${subject}\n\n${text}`).catch(e => errs.push(String(e)));
+  if (c.email && ch.email) await sendEmail(c.email, subject, text).then(() => reached.n++, e => errs.push(String(e)));
+  if (c.telegram && ch.telegram) await sendTelegram(c.telegram, `${subject}\n\n${text}`).then(() => reached.n++, e => errs.push(String(e)));
   if (c.push?.length && ch.push) {
     const alive: webpush.PushSubscription[] = [];
     for (const p of c.push) {
-      const ok = await sendPush(p, subject, text.split("\n")[0]).catch(e => (errs.push(String(e)), true));
+      const ok = await sendPush(p, subject, text.split("\n")[0]).then(
+        ok => (ok && reached.n++, ok),
+        e => (errs.push(String(e)), true),
+      );
       if (ok) alive.push(p);
     }
     if (alive.length !== c.push.length) await putContacts(wallet, { ...c, push: alive });

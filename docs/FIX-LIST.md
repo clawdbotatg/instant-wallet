@@ -10,7 +10,7 @@ Suggested first: 1, 3, 5, 12, 20.
 
 ## Money and safety
 
-- [ ] **1. A recovery alert that fails to send is marked sent.**
+- [x] **1. A recovery alert that fails to send is marked sent.**
   `app/api/alerts/check/route.ts:22-27`. `once("sent:<id>")` is set before `notify()`. `notify` collects errors, the
   route answers 200, and the GitHub cron (`curl --fail`) stays green. A Gmail or Telegram failure loses the alert.
   Fix: take the `sent:` / `soon:` key back when nobody was reached; answer 500 so the workflow goes red.

@@ -11,7 +11,7 @@ import { type ChainState, type SafeAccount, readChain } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
 import { TimedBar } from "../bits";
-import { friendly } from "../Welcome";
+import { friendly } from "@/lib/friendly";
 import { ErrorLine } from "./WedgieButton";
 
 

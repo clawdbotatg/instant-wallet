@@ -18,7 +18,7 @@ import { startSending } from "@/lib/safe/sending";
 import { type ChainState, keyFromCode, loadAccount, loadSigners, readChain, wedgieHome, wedgieSigners } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import { BioSigner, Blockie, CopyLink, Eject, GreenButton, RemoveX, Who, useToast } from "../bits";
-import { friendly } from "../Welcome";
+import { friendly } from "@/lib/friendly";
 import { Progress } from "./Progress";
 import { ErrorLine } from "./WedgieButton";
 import { WhatItDoes } from "./WhatItDoes";

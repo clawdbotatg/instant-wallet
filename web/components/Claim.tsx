@@ -16,7 +16,7 @@ import { type SafeAccount, accountFor, loadAccount, saveAccount } from "@/lib/sa
 import type { Asset, Nft } from "@/lib/types";
 import { CopyAddress, Money, TimedBar } from "./bits";
 import { SafeWelcome } from "./safe/SafeWelcome";
-import { friendly } from "./Welcome";
+import { friendly } from "@/lib/friendly";
 
 type OnChain = { chainId: number; usdc: bigint; eth: bigint };
 const ETH_DUST = 50_000_000_000_000n; // 0.00005 ETH: less than it costs to send, left on the card (shown as empty)

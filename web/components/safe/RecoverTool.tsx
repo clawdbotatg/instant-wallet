@@ -8,7 +8,7 @@ import { DAO, RECOVERY_7D, RECOVERY_DAYS, RECOVERY_MODULES, SAFE_FACTORY } from 
 import { abi, deploySafeCall, safeAddress } from "@/lib/safe/core";
 import { Band, copy, useAddressScan } from "../bits";
 import { ChainSelect } from "./Pick";
-import { friendly } from "../Welcome";
+import { friendly } from "@/lib/friendly";
 
 const eth = () => (typeof window === "undefined" ? undefined : (window as any).ethereum);
 

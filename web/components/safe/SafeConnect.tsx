@@ -10,7 +10,7 @@ import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { type Pending, remember, respond } from "@/lib/walletconnect";
 import { ChainChip, GreenButton } from "../bits";
 import { ConnectLayer, DappHead, type Session } from "../WalletConnect";
-import { friendly } from "../Welcome";
+import { friendly } from "@/lib/friendly";
 import { Progress } from "./Progress";
 import { ErrorLine } from "./WedgieButton";
 import { WhatItDoes } from "./WhatItDoes";

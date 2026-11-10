@@ -18,7 +18,7 @@ import type { Asset } from "@/lib/types";
 import { Blockie, ChainChip, Eject, GreenButton, Money, ScanIcon, TokenIcon, Who, useSheetBack } from "../bits";
 import { Scanner } from "../Scanner";
 import { Select, assetOpt } from "./Pick";
-import { friendly } from "../Welcome";
+import { friendly } from "@/lib/friendly";
 import { SignerChoice } from "./Pick";
 import { Progress } from "./Progress";
 import { ErrorLine } from "./WedgieButton";

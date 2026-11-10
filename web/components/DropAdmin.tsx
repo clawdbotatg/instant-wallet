@@ -8,7 +8,7 @@ import { type DropInfo, dropAmount, dropUrl } from "@/lib/dropClient";
 import { short } from "@/lib/format";
 import { CopyAddress, CopyLink, Eject, Qr, TimedBar, Who, copy, useToast } from "./bits";
 import { AdminLogin, SESSION } from "./AdminLogin";
-import { friendly } from "./Welcome";
+import { friendly } from "@/lib/friendly";
 
 type Drop = {
   id: string;

@@ -15,7 +15,7 @@ import type { Asset } from "@/lib/types";
 import { GreenButton, Qr } from "../bits";
 import { ChainSelect, Select, assetOpt } from "./Pick";
 import { ErrorLine } from "./WedgieButton";
-import { friendly } from "../Welcome";
+import { friendly } from "@/lib/friendly";
 
 /** The iOS app's NFC writer (instant-wallet-app InstantWallet/Nfc.swift). Only there. */
 type WedgieNfc = { available: () => Promise<boolean>; write: (url: string) => Promise<string> };

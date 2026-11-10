@@ -10,7 +10,7 @@ import { usd } from "@/lib/format";
 import { type SafeAccount, loadAccount, saveAccount } from "@/lib/safe/state";
 import { TimedBar } from "./bits";
 import { SafeWelcome } from "./safe/SafeWelcome";
-import { friendly } from "./Welcome";
+import { friendly } from "@/lib/friendly";
 import { bio } from "@/lib/passkey";
 
 

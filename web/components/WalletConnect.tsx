@@ -14,7 +14,6 @@ import {
   type Kit,
   type Pending,
   WC_CHAIN_IDS,
-  approve,
   approveProposal,
   disconnect,
   getKit,
@@ -27,28 +26,15 @@ import {
 import { Blockie, ChainChip, Sheet, Who, useToast } from "./bits";
 import { WhatItDoes } from "./safe/WhatItDoes";
 import { Scanner } from "./Scanner";
-import { friendly } from "./Welcome";
+import { friendly } from "@/lib/friendly";
 import { bio } from "@/lib/passkey";
 
 export type Session = { topic: string; name: string; url: string; icon?: string };
 
 /**
  * Everything WalletConnect on screen, mounted once while a wallet is open: listens for sites, shows the
- * connect question, queues requests one at a time (calls card / sign card), and the manage sheet
- * (paste or scan a wc: link, see and drop connected sites). Opened with openWalletConnect(uri?).
- */
-export function WalletConnectLayer({ account, pairUri }: { account: Account; pairUri?: string }) {
-  return (
-    <ConnectLayer
-      address={account.address}
-      pairUri={pairUri}
-      request={(pending, onDone, onNo, onBusy) => <Request pending={pending} account={account} onDone={onDone} onNo={onNo} onBusy={onBusy} />}
-    />
-  );
-}
-
-/**
- * The same layer for any wallet: `chainIds` = the chains sites may use (default: the sendable ones), `request`
+ * connect question, queues requests one at a time, and the manage sheet (paste or scan a wc: link, see and drop
+ * connected sites). Opened with openWalletConnect(uri?). `chainIds` = the chains sites may use (default: the sendable ones), `request`
  * draws the card for one pending request (calls or a message) and answers the site.
  */
 export function ConnectLayer({
@@ -350,62 +336,6 @@ function Connect({ proposal, onYes, onNo }: { proposal: WalletKitTypes.SessionPr
       <button className="btn wide" onClick={onNo}>
         Reject
       </button>
-    </div>
-  );
-}
-
-function Request({ pending, account, onDone, onNo, onBusy }: { pending: Pending; account: Account; onDone: () => void; onNo: () => void; onBusy: (b: boolean) => void }) {
-  const [stage, setStage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const busy = stage !== null;
-  useEffect(() => onBusy(busy), [busy]); // eslint-disable-line react-hooks/exhaustive-deps
-  return (
-    <div className="stack confirm">
-      <DappHead {...pending.dapp} />
-      {pending.kind === "calls" ? (
-        <>
-          <div className="card stack" style={{ gap: 8 }}>
-            <WhatItDoes chainId={pending.chainId} safe={account.address} calls={pending.calls.map(c => ({ to: c.target, value: c.value, data: c.data }))} />
-          </div>
-          <div className="row" style={{ justifyContent: "flex-end" }}>
-            <ChainChip chainId={pending.chainId} />
-          </div>
-        </>
-      ) : (
-        <>
-          <h2>Sign this?</h2>
-          <div className="recess" style={{ whiteSpace: "pre-wrap", maxHeight: 260, overflow: "auto", fontSize: 14 }}>
-            {pending.preview}
-          </div>
-          <p className="fine">Signing proves it's your wallet. It doesn't move money by itself, but read it.</p>
-        </>
-      )}
-      {error && <p className="err">{error}</p>}
-      <button
-        className="btn btn-green wide"
-        disabled={busy}
-        onClick={async () => {
-          setError(null);
-          setStage("signing");
-          try {
-            await approve(pending, account, s => setStage(s));
-            onDone();
-          } catch (e) {
-            setError(friendly(e));
-            setStage(null);
-          }
-        }}
-      >
-        {stage === "signing" ? `${bio()}…` : stage === "sending" ? "Sending…" : stage === "confirming" ? "Confirming…" : `Sign with ${bio()}`}
-      </button>
-      {!busy && (
-        <button className="btn wide" onClick={onNo}>
-          Reject
-        </button>
-      )}
-      <p className="fine center">
-        {chainById(pending.chainId)?.name} · from <span className="mono">{short(account.address)}</span>
-      </p>
     </div>
   );
 }

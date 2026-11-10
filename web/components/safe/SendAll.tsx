@@ -21,7 +21,7 @@ import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
 import { AddressInput, Eject, Money, TokenIcon } from "../bits";
-import { friendly } from "../Welcome";
+import { friendly } from "@/lib/friendly";
 import { ErrorLine } from "./WedgieButton";
 
 // each token past the first adds a transfer to the batch: quote that much more gas

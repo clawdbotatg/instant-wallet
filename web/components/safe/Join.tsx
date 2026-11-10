@@ -7,7 +7,7 @@ import { createPasskey, bio } from "@/lib/passkey";
 import { signerAddress } from "@/lib/safe/core";
 import { loadAccount } from "@/lib/safe/state";
 import { Blockie, Who } from "../bits";
-import { friendly } from "../Welcome";
+import { friendly } from "@/lib/friendly";
 import { signIn } from "./SafeWelcome";
 
 type Invite = { safe: Address; from?: string; answer?: { x: Hex; y: Hex } };

@@ -10,7 +10,7 @@ import { type Asset, type Portfolio, keepLate } from "@/lib/types";
 import { loadHidden, loadPortfolio, loadShown, saveHidden, savePortfolio, saveShown } from "@/lib/store";
 import { dropOtherBudgetsCalls } from "@/lib/safe/core";
 import { type Prepared, Shared, finishOwners, ownerSigners, prepareOwners } from "@/lib/safe/send";
-import { friendly } from "../Welcome";
+import { friendly } from "@/lib/friendly";
 import { AppsIcon, Blockie, DepositIcon, GearIcon, ScanIcon, SendIcon, Sheet, sheetOpen, TokenIcon, TrashIcon, CopyLink, useName, useToast } from "../bits";
 import { Receive } from "../Receive";
 import { Deposit } from "./Deposit";

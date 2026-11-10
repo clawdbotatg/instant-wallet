@@ -9,7 +9,7 @@ import { type Prepared, Shared, finishOwners, ownerSigners, prepareOwners } from
 import type { ChainState, RecoveryOn, SafeAccount } from "@/lib/safe/state";
 import { SAFE_SVC } from "@/lib/safe/share";
 import { Eject, Who } from "../bits";
-import { friendly } from "../Welcome";
+import { friendly } from "@/lib/friendly";
 import { ErrorLine } from "./WedgieButton";
 
 /** A recovery is running on this wallet: say so loudly, with the date it lands and a Cancel. */

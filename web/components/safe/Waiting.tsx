@@ -16,7 +16,7 @@ import {
 } from "@/lib/safe/share";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { ErrorLine } from "./WedgieButton";
-import { friendly } from "../Welcome";
+import { friendly } from "@/lib/friendly";
 import { CopyLink, Eject, RemoveX } from "../bits";
 import { WhatItDoes } from "./WhatItDoes";
 

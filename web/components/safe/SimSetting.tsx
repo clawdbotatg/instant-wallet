@@ -37,7 +37,7 @@ export function SimSetting({ toast }: { toast: (m: string) => void }) {
       </div>
       <label className="row fine" style={{ gap: 8 }}>
         <input type="checkbox" checked={onWedgie} onChange={e => (setWedgieSim(e.target.checked), setOnWedgie(e.target.checked))} />
-        Show the coins on the wedgie. It asks the simulator. Off: the wedgie shows the words only.
+        Simulate on the wedgie
       </label>
     </div>
   );

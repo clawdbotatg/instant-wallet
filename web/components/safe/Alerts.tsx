@@ -5,7 +5,7 @@ import { assertChallenge, bio } from "@/lib/passkey";
 import type { SafeAccount } from "@/lib/safe/state";
 import { toWebAuthnSig } from "@/lib/safe/sign";
 import { keccak256, toBytes } from "viem";
-import { friendly } from "../Welcome";
+import { friendly } from "@/lib/friendly";
 import { RemoveX } from "../bits";
 
 type Info = { channels: { email: boolean; telegram: boolean; push: boolean }; contacts: { email: string | null; telegram: boolean; push: string[] } };

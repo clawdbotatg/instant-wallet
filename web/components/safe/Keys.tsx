@@ -18,7 +18,7 @@ import { AddressInput, BioIcon, BioSigner, Blockie, CopyAddress, PencilIcon, Rem
 import { Alerts } from "./Alerts";
 import { ChainSelect } from "./Pick";
 import { ChainLimit } from "./Limits";
-import { friendly } from "../Welcome";
+import { friendly } from "@/lib/friendly";
 import { ErrorLine, WedgieIcon, WedgiePanel } from "./WedgieButton";
 import { bio } from "@/lib/passkey";
 
@@ -749,7 +749,7 @@ export function Keys({
         <Alerts account={account} toast={toast} />
       </Step>
 
-      <Step title={`Your node on ${chainById(chainId)?.name}`} key={`rpc${chainId}`}>
+      <Step title={`${chainById(chainId)?.name} RPC`} key={`rpc${chainId}`}>
         <RpcSetting chainId={chainId} toast={toast} />
       </Step>
 

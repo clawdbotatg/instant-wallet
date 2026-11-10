@@ -44,10 +44,7 @@ export function RpcSetting({ chainId, toast }: { chainId: number; toast: (m: str
   };
   return (
     <div className="stack" style={{ gap: 8 }}>
-      <p className="fine">
-        Reads {name} and sends your transactions through your own node from this browser. If it stops answering, nothing falls back to ours. Your list of coins, prices and
-        token names still come from us.
-      </p>
+      <p className="fine">Use your own RPC. Empty uses ours.</p>
       <div className="row" style={{ gap: 8 }}>
         <input className="grow" value={url} onChange={e => setUrl(e.target.value)} placeholder="https://…" inputMode="url" autoCapitalize="off" autoCorrect="off" />
         <button className="btn btn-sm" onClick={save} disabled={busy}>
@@ -58,11 +55,11 @@ export function RpcSetting({ chainId, toast }: { chainId: number; toast: (m: str
         <>
           <label className="row fine" style={{ gap: 8 }}>
             <input type="checkbox" checked={light} onChange={e => saveLight(e.target.checked)} />
-            Work out the coins in this browser (a light client). The node has to prove every answer, so it can't lie. No simulator is asked.
+            Run a light client. Simulates here, not on our server.
           </label>
           {light && (
             <div className="stack" style={{ gap: 4 }}>
-              <span className="fine">Block headers come from a Colibri prover. Put your own here.</span>
+              <span className="fine">Colibri prover:</span>
               <div className="row" style={{ gap: 8 }}>
                 <input className="grow" value={prover} onChange={e => setProver(e.target.value)} placeholder={PROVER[chainId]} inputMode="url" autoCapitalize="off" autoCorrect="off" />
                 <button className="btn btn-sm" onClick={() => (saveLight(true), toast(prover.trim() ? "Using your prover" : "Using Colibri's prover"))}>

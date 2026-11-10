@@ -15,7 +15,7 @@ import type { Asset } from "@/lib/types";
 import { Eject, Money, WhatFor, TokenIcon, GreenButton } from "../bits";
 import { ChainSelect, type Opt, Select, SignerChoice, assetOpt } from "./Pick";
 import { Progress } from "./Progress";
-import { friendly } from "../Welcome";
+import { friendly } from "@/lib/friendly";
 import { ErrorLine } from "./WedgieButton";
 
 const SLIPPAGE_BPS = 50;

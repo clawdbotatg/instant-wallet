@@ -9,7 +9,7 @@ import { RECOVERY_MODULES } from "@/lib/safe/config";
 import { abi, rolesAddress } from "@/lib/safe/core";
 import { type SafeAccount, accountFor } from "@/lib/safe/state";
 import { Band, CopyLink, useAddressScan } from "../bits";
-import { friendly } from "../Welcome";
+import { friendly } from "@/lib/friendly";
 
 /** Has this address got code or money anywhere? (Picks the real key out of a login's candidates.) */
 async function used(a: SafeAccount): Promise<boolean> {

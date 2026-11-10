@@ -5,7 +5,7 @@ import { toHex } from "viem";
 import { dropSig } from "@/lib/dropClient";
 import { bio } from "@/lib/passkey";
 import { type SafeAccount, loadAccount } from "@/lib/safe/state";
-import { friendly } from "./Welcome";
+import { friendly } from "@/lib/friendly";
 
 /** The admin session (12 hours), for /drops. */
 export const SESSION = "iw.dropAdmin";

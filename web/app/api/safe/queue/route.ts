@@ -15,7 +15,7 @@ import {
   slice,
 } from "viem";
 import { upstreamRpc } from "@/lib/rpcServer";
-import { drop, stash, unstash } from "@/lib/safe/relayGuard";
+import { drop, stash, unstash, withLock } from "@/lib/safe/relayGuard";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +36,7 @@ const TTL = 30 * 24 * 3600;
 const MAX = 30;
 const key = (chainId: number, safe: string) => `queue:${chainId}:${safe.toLowerCase()}`;
 const dkey = (chainId: number, safe: string) => `dropped:${chainId}:${safe.toLowerCase()}`;
+const lockKey = (chainId: number, safe: string) => `lock:queue:${chainId}:${safe.toLowerCase()}`;
 type Dropped = Record<string, string>;     // safeTxHash → its nonce
 const ORIGINS = ["https://wedgie.dev", "https://www.wedgie.dev", "https://instantwallet.io", "http://localhost:5173", "http://localhost:4173"];
 const ZERO = "0x0000000000000000000000000000000000000000";
@@ -139,14 +140,18 @@ export async function POST(req: NextRequest) {
       given.push({ owner, signature: s.signature });
     }
     if (!given.length) throw new Error("sigs?");
-    const q = live((await unstash<Queue>(key(chainId, safe))) || {}, n);
-    const h = hash.toLowerCase();
-    const e: Entry = q[h] || { tx, hash, sigs: [], origin: typeof b.origin === "string" ? b.origin.slice(0, 100) : undefined, at: Date.now() };
-    for (const s of given) if (!e.sigs.some((x) => x.owner.toLowerCase() === s.owner.toLowerCase())) e.sigs.push(s);
-    q[h] = e;
-    if (Object.keys(q).length > MAX) throw new Error("this Safe's queue is full");
-    await stash(key(chainId, safe), q, TTL);
-    return out(req, { ok: true, hash, sigs: e.sigs.length });
+    // read, add, write as one step: two owners signing at the same moment must both be kept
+    const count = await withLock(lockKey(chainId, safe), async () => {
+      const q = live((await unstash<Queue>(key(chainId, safe))) || {}, n);
+      const h = hash.toLowerCase();
+      const e: Entry = q[h] || { tx, hash, sigs: [], origin: typeof b.origin === "string" ? b.origin.slice(0, 100) : undefined, at: Date.now() };
+      for (const s of given) if (!e.sigs.some((x) => x.owner.toLowerCase() === s.owner.toLowerCase())) e.sigs.push(s);
+      q[h] = e;
+      if (Object.keys(q).length > MAX) throw new Error("this Safe's queue is full");
+      await stash(key(chainId, safe), q, TTL);
+      return e.sigs.length;
+    });
+    return out(req, { ok: true, hash, sigs: count });
   } catch (e: any) {
     return out(req, { error: e?.shortMessage || e?.message || String(e) }, 400);
   }
@@ -186,17 +191,20 @@ export async function DELETE(req: NextRequest) {
       }
     }
     if (!ok) throw new Error("not signed by an owner of this Safe");
-    const [q, dq] = await Promise.all([unstash<Queue>(key(chainId, safe)), unstash<Dropped>(dkey(chainId, safe))]);
-    const had = !!q?.[hash];
-    const nonce = had ? q![hash].tx.nonce : String(BigInt(b.nonce ?? 0));
-    if (q && had) {
-      delete q[hash];
-      if (Object.keys(q).length) await stash(key(chainId, safe), q, TTL);
-      else await drop(key(chainId, safe));
-    }
-    const d = { ...(dq || {}), [hash]: nonce };
-    if (Object.keys(d).length > 100) throw new Error("this Safe's dropped list is full");
-    await stash(dkey(chainId, safe), d, TTL);
+    const had = await withLock(lockKey(chainId, safe), async () => {
+      const [q, dq] = await Promise.all([unstash<Queue>(key(chainId, safe)), unstash<Dropped>(dkey(chainId, safe))]);
+      const had = !!q?.[hash];
+      const nonce = had ? q![hash].tx.nonce : String(BigInt(b.nonce ?? 0));
+      if (q && had) {
+        delete q[hash];
+        if (Object.keys(q).length) await stash(key(chainId, safe), q, TTL);
+        else await drop(key(chainId, safe));
+      }
+      const d = { ...(dq || {}), [hash]: nonce };
+      if (Object.keys(d).length > 100) throw new Error("this Safe's dropped list is full");
+      await stash(dkey(chainId, safe), d, TTL);
+      return had;
+    });
     return out(req, { ok: true, removed: had });
   } catch (e: any) {
     return out(req, { error: e?.shortMessage || e?.message || String(e) }, 400);

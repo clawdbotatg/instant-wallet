@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAddress, isAddress, isHex } from "viem";
-import { drop, stash, unstash } from "@/lib/safe/relayGuard";
+import { drop, stash, unstash, withLock } from "@/lib/safe/relayGuard";
 
 export const dynamic = "force-dynamic";
 
@@ -37,11 +37,14 @@ export async function PUT(req: NextRequest) {
   try {
     const b = JSON.parse((await req.text()).slice(0, 2000));
     if (!idOk(b.id) || !key32(b.x) || !key32(b.y)) throw new Error("id or key?");
-    const inv = await unstash<Invite>(k(b.id));
-    if (!inv) throw new Error("That invite is gone. Ask for a new one.");
-    if (inv.answer) throw new Error("Someone already answered this invite. Ask for a new one.");
-    inv.answer = { x: b.x, y: b.y, name: clean(b.name), at: Date.now() };
-    await stash(k(b.id), inv, TTL);
+    // one answer per invite, even when two land at the same moment
+    await withLock(`lock:${k(b.id)}`, async () => {
+      const inv = await unstash<Invite>(k(b.id));
+      if (!inv) throw new Error("That invite is gone. Ask for a new one.");
+      if (inv.answer) throw new Error("Someone already answered this invite. Ask for a new one.");
+      inv.answer = { x: b.x, y: b.y, name: clean(b.name), at: Date.now() };
+      await stash(k(b.id), inv, TTL);
+    });
     return out({ ok: true });
   } catch (e: any) {
     return out({ error: e?.message || String(e) }, 400);

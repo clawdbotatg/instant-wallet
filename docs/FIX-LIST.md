@@ -33,11 +33,14 @@ Suggested first: 1, 3, 5, 12, 20.
   Also `bump()` (`relayGuard.ts:68`, `drops.ts:200`): INCR then EXPIRE in two calls. If the second fails the counter
   never expires and that IP or wallet is refused for good. Fix: `SET key 0 EX ttl NX`, then INCR.
 
-- [ ] **5. The shared tx queue loses a signature when two owners sign at once.**
-  `app/api/safe/queue/route.ts:142-148` (POST) and `189-199` (DELETE): read, edit, write on one JSON blob.
-  Same pattern: `app/api/safe/invite/route.ts:40-44`, `lib/drops.ts:168-178`, alert contacts
-  (`app/api/alerts/route.ts:30,74`, `app/api/alerts/telegram/route.ts:30-33`, `lib/alerts.ts:191`).
-  Fix: wrap each in `withLock` (`relayGuard.ts:128`).
+- [x] **5. The shared tx queue loses a signature when two owners sign at once.**
+  `app/api/safe/queue/route.ts` (POST, DELETE) and `app/api/safe/invite/route.ts` (PUT): read, edit, write on one
+  JSON blob. Now each inside `withLock`.
+
+- [ ] **5b. The same read-edit-write, still open.** `lib/drops.ts:168-178` (`updateDrop`: two admin changes at
+  once), alert contacts (`app/api/alerts/route.ts:30,74`, `app/api/alerts/telegram/route.ts:30-33`,
+  `lib/alerts.ts:191`: an email change and a push change at once, one is lost). The alert ones send messages
+  between the read and the write, so the lock (20 s) has to wrap only the read and write.
 
 - [ ] **6. Drop claims.**
   a. `lib/drops.ts:215-238`: the hold is `SET "pending" NX` with no life. A function killed mid-claim (the route has

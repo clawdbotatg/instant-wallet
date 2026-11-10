@@ -8,7 +8,7 @@ import { abi, safeAddress } from "./safe/core";
 import { POPULAR } from "./safe/swap";
 
 /**
- * The private dashboard's numbers (/dashboard, admins only): totals over every Instant Wallet Safe, read from the chain.
+ * The private dashboard's numbers (/dashboard, behind a password): totals over every Instant Wallet Safe, read from the chain.
  * Nothing is tracked in the app.
  *
  * Finding the wallets: every Instant Wallet's first setup adds the DAO as its 7-day recovery guardian, so the recovery

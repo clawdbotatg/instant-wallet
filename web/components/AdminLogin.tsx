@@ -7,22 +7,8 @@ import { bio } from "@/lib/passkey";
 import { type SafeAccount, loadAccount } from "@/lib/safe/state";
 import { friendly } from "./Welcome";
 
-/** The admin session (12 hours), shared by /drops and /dashboard: log in to one, you're in both. */
+/** The admin session (12 hours), for /drops. */
 export const SESSION = "iw.dropAdmin";
-
-export function adminToken(): string | undefined {
-  try {
-    return JSON.parse(localStorage.getItem(SESSION) || "null")?.token;
-  } catch {
-    return undefined;
-  }
-}
-
-export function adminSignOut() {
-  try {
-    localStorage.removeItem(SESSION);
-  } catch {}
-}
 
 async function post(op: string, body: object = {}) {
   const r = await fetch("/api/drop/admin", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ op, ...body }) });

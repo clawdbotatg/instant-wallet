@@ -2,8 +2,54 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Totals } from "@/lib/dash";
-import { AdminLogin, adminSignOut, adminToken } from "./AdminLogin";
 import { TimedBar } from "./bits";
+
+const SESSION = "iw.dash";
+const saved = () => {
+  try {
+    return localStorage.getItem(SESSION) || undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+/** The password screen. */
+function Login({ onDone }: { onDone: () => void }) {
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function go(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await fetch("/api/dash", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ password }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || `error ${r.status}`);
+      localStorage.setItem(SESSION, j.token);
+      onDone();
+    } catch (e: any) {
+      setError(e?.message || "Couldn't log in. Try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="app">
+      <form className="welcome" onSubmit={go}>
+        <h1>Dashboard</h1>
+        <p className="fine">Totals over every Instant Wallet.</p>
+        <div className="input">
+          <input type="password" placeholder="Password" autoFocus autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} />
+        </div>
+        <button className="btn btn-green wide" disabled={busy || !password}>
+          {busy ? "…" : "Log in"}
+        </button>
+        {error && <p className="err">{error}</p>}
+      </form>
+    </div>
+  );
+}
 
 const usd = (v: number) => `$${v.toLocaleString("en-US", { maximumFractionDigits: v >= 1000 ? 0 : 2, minimumFractionDigits: v >= 1000 ? 0 : 2 })}`;
 const ago = (at: number) => {
@@ -72,7 +118,7 @@ const rows = (title: string, list: { name: string; usd: number; note?: string }[
     </div>
   );
 
-/** /dashboard: totals over every Instant Wallet. Admins only; no addresses reach this page (lib/dash.ts). */
+/** /dashboard: totals over every Instant Wallet. Behind a password; no addresses reach this page (lib/dash.ts). */
 export function Dashboard() {
   const [authed, setAuthed] = useState<boolean | undefined>(undefined);
   const [t, setT] = useState<Totals | null>(null);
@@ -82,14 +128,16 @@ export function Dashboard() {
 
   const load = useCallback(async () => {
     clearTimeout(again.current);
-    const token = adminToken();
+    const token = saved();
     if (!token) return setAuthed(false);
     setAuthed(true);
     try {
       const r = await fetch("/api/dash", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token }) });
       const j = await r.json().catch(() => ({}));
       if (r.status === 401) {
-        adminSignOut();
+        try {
+          localStorage.removeItem(SESSION);
+        } catch {}
         return setAuthed(false);
       }
       if (!r.ok) throw new Error(j.error || `error ${r.status}`);
@@ -111,7 +159,7 @@ export function Dashboard() {
   }, [load]);
 
   if (authed === undefined) return null;
-  if (!authed) return <AdminLogin title="Dashboard" blurb="Totals over every Instant Wallet. Admins only." onDone={load} />;
+  if (!authed) return <Login onDone={load} />;
 
   return (
     <div className="app">

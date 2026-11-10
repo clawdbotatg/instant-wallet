@@ -3,6 +3,7 @@ import { type Address, decodeFunctionResult, encodeFunctionData, getAddress, isA
 import { chainById } from "@/lib/chains";
 import { rpc } from "@/lib/rpcServer";
 import { POPULAR } from "@/lib/safe/swap";
+import { poolUsd } from "@/lib/pool";
 
 export const dynamic = "force-dynamic";
 
@@ -80,10 +81,10 @@ export async function GET(req: NextRequest) {
       if (hit) add({ address: t.address, symbol: t.symbol, name: t.name, decimals: t.decimals, logo: t.logoURI, priceUsd: Number(t.priceUSD) || undefined });
     }
     for (const p of pairs) {
-      const liq = Number(p.liquidity?.usd) || 0;
+      const liq = poolUsd(p);
       // the token searched for is usually the pair's base; the quote side (WETH, USDC) is only counted if it matches too
       for (const [t, price] of [
-        [p.baseToken, Number(p.priceUsd) || undefined],
+        [p.baseToken, (liq >= 1_000 && Number(p.priceUsd)) || undefined], // a near-empty pool says any price
         [p.quoteToken, undefined],
       ] as const) {
         if (!t?.address) continue;

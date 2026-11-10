@@ -4,6 +4,7 @@ import { CHAINS, ETH, chainById } from "@/lib/chains";
 import { alchemyNetwork, rpc, mustRpc } from "@/lib/rpcServer";
 import type { Asset, Portfolio } from "@/lib/types";
 import { POPULAR } from "@/lib/safe/swap";
+import { poolUsd } from "@/lib/pool";
 
 /** The well-known tokens per chain (Swap's list), lowercase: read first, so spam can't push them out. */
 const known = (chainId: number) => new Set((POPULAR[chainId] ?? []).map(t => t.address.toLowerCase()));
@@ -336,9 +337,9 @@ async function dexscreener(chainId: number, tokens: Address[]): Promise<Map<stri
     for (const t of batch) {
       const mine = (Array.isArray(pairs) ? pairs : [])
         .filter(p => String(p?.baseToken?.address).toLowerCase() === t)
-        .sort((a, b) => (b?.liquidity?.usd ?? 0) - (a?.liquidity?.usd ?? 0));
+        .sort((a, b) => poolUsd(b) - poolUsd(a));
       // a pool with almost nothing in it says any price (a spam token at $24 from a $0 pool): no price then
-      const price = (mine[0]?.liquidity?.usd ?? 0) >= 1_000 ? Number(mine[0]?.priceUsd) : NaN;
+      const price = poolUsd(mine[0]) >= 1_000 ? Number(mine[0]?.priceUsd) : NaN;
       const v = mine.length
         ? { image: mine.find(p => p?.info?.imageUrl)?.info.imageUrl as string | undefined, priceUsd: Number.isFinite(price) ? price : null }
         : null;

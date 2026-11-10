@@ -50,6 +50,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cha
   if (!list.length || list.length > 50 || list.some(x => !ALLOW.has(x?.method))) return NextResponse.json({ error: "not allowed" }, { status: 403 });
   const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || "?";
   if (over(ip, list.length)) return NextResponse.json({ error: "Too many reads. Wait a minute." }, { status: 429 });
-  const res = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body, cache: "no-store" });
+  const res = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body, cache: "no-store", signal: AbortSignal.timeout(15_000) }).catch(() => null);
+  if (!res) return NextResponse.json({ error: "The network didn't answer." }, { status: 504 });
   return new NextResponse(await res.text(), { status: res.status, headers: { "content-type": "application/json" } });
 }

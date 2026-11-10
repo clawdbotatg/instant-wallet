@@ -201,11 +201,12 @@ Suggested first: 1, 3, 5, 12, 20.
   - `SafeSwap.tsx:191-200`: the 20 s re-quote blanks the card and disables Swap each time.
   - `SafeApp.tsx:225-233`: two ENS reads for the same address.
   - `app/api/uni/route.ts:25`: a static file downloaded again on every call.
-  - `lib/safe/relayCore.ts:42-54`: no old price to fall back on; a Coinbase blip fails every quote.
+  - Done 11-10: `lib/safe/relayCore.ts` uses its last price (up to 10 min old) when the feed fails.
 
 - [ ] **24. No timeouts, no size caps.**
-  No timeout on: `lib/rpcServer.ts:19`, `relayCore.ts:45,49`, `lib/kv.ts:58`, `lib/alerts.ts:47,159`,
-  `relayGuard.ts:50`, `app/api/rpc`, `bundler`, `nfts:42`, `portfolio:177,191,248`, `uni:22,25`.
+  Done 11-10, timeouts on: all three KV clients (5 s), `lib/rpcServer.ts` (10 s), `app/api/rpc` (15 s, then a 504),
+  the relay's prices (4 s), Telegram (8 s), `nfts`, `uni`.
+  Still none on: `app/api/portfolio` (Alchemy prices, DexScreener).
   Caches that only grow: `nfts:10`, `positions:27`, `portfolio:45,115,156,232`. (`safe/svc:44` caps its own.)
 
 - [ ] **25. Three copies of the Upstash client.**

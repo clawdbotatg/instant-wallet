@@ -33,6 +33,7 @@ const TIP_FLOOR: Record<number, bigint> = { 1: 100_000_000n }; // 0.1 gwei
 export const tipFloor = (chainId: number) => TIP_FLOOR[chainId] ?? 0n;
 
 const prices = new Map<string, { v: number; at: number }>();
+const STALE_OK = 10 * 60_000;
 /** The chain's native coin in dollars (ETH, POL, BNB, …): Coinbase for ETH as before, Alchemy's prices for the rest. */
 export async function nativeUsd(chainId: number): Promise<number> {
   const info = chainById(chainId)!;
@@ -40,18 +41,26 @@ export async function nativeUsd(chainId: number): Promise<number> {
   const sym = info.native.symbol.toUpperCase();
   const hit = prices.get(sym);
   if (hit && Date.now() - hit.at < 60_000) return hit.v;
-  let v: number;
-  if (sym === "ETH") {
-    const j = await fetch("https://api.coinbase.com/v2/prices/ETH-USD/spot", { cache: "no-store" }).then(r => r.json());
-    v = Number(j?.data?.amount);
-    if (!(v > 100)) throw new Error("no ETH price");
-  } else {
-    const j = await fetch(`https://api.g.alchemy.com/prices/v1/${process.env.ALCHEMY_API_KEY}/tokens/by-symbol?symbols=${sym}`, { cache: "no-store" }).then(r => r.json());
-    v = Number(j?.data?.[0]?.prices?.find((p: any) => p.currency === "usd")?.value);
-    if (!(v > 0)) throw new Error(`no ${sym} price`);
+  try {
+    let v: number;
+    const opts = { cache: "no-store" as const, signal: AbortSignal.timeout(4000) };
+    if (sym === "ETH") {
+      const j = await fetch("https://api.coinbase.com/v2/prices/ETH-USD/spot", opts).then(r => r.json());
+      v = Number(j?.data?.amount);
+      if (!(v > 100)) throw new Error("no ETH price");
+    } else {
+      const j = await fetch(`https://api.g.alchemy.com/prices/v1/${process.env.ALCHEMY_API_KEY}/tokens/by-symbol?symbols=${sym}`, opts).then(r => r.json());
+      v = Number(j?.data?.[0]?.prices?.find((p: any) => p.currency === "usd")?.value);
+      if (!(v > 0)) throw new Error(`no ${sym} price`);
+    }
+    prices.set(sym, { v, at: Date.now() });
+    return v;
+  } catch (e) {
+    // the price feed blipped: the last price, up to 10 minutes old, beats failing every quote and send
+    // (the fee already has a 1.5x margin)
+    if (hit && Date.now() - hit.at < STALE_OK) return hit.v;
+    throw e;
   }
-  prices.set(sym, { v, at: Date.now() });
-  return v;
 }
 
 export async function quote(chainId: number, kind: SendKind, extra = 0n): Promise<Quote> {

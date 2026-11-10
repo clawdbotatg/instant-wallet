@@ -39,7 +39,7 @@ async function chainNfts(chainId: number, wallet: Address, all = false): Promise
   const net = alchemyNetwork(chainId);
   if (!key || !net) return [];
   const q = `owner=${wallet}&pageSize=100&withMetadata=true&excludeFilters[]=SPAM${all ? "" : "&excludeFilters[]=AIRDROPS"}`;
-  const j = await fetch(`https://${net}.g.alchemy.com/nft/v3/${key}/getNFTsForOwner?${q}`, { cache: "no-store" }).then(r => r.json());
+  const j = await fetch(`https://${net}.g.alchemy.com/nft/v3/${key}/getNFTsForOwner?${q}`, { cache: "no-store", signal: AbortSignal.timeout(10_000) }).then(r => r.json());
   const out: Nft[] = [];
   for (const x of j?.ownedNfts ?? []) {
     const thumb = x.image?.thumbnailUrl || x.image?.cachedUrl;

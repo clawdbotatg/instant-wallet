@@ -52,6 +52,7 @@ async function kv(cmd: (string | number)[]): Promise<any> {
     headers: { authorization: `Bearer ${TOKEN}`, "content-type": "application/json" },
     body: JSON.stringify(cmd.map(String)),
     cache: "no-store",
+    signal: AbortSignal.timeout(5000), // a hung call must not hold the request until the function is killed
   });
   const j = await r.json();
   if (j.error) throw new Error(`kv: ${j.error}`);

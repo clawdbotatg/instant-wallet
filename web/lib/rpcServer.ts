@@ -28,6 +28,7 @@ export async function rpc<T>(chainId: number, method: string, params: unknown[])
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
     cache: "no-store",
+    signal: AbortSignal.timeout(10_000),
   });
   const j = await res.json();
   if (j.error) throw new Error(`${method}: ${j.error.message}`);

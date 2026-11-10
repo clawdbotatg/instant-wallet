@@ -19,10 +19,10 @@ export async function GET(req: NextRequest) {
   if (!a || !isAddress(a)) return NextResponse.json({ error: "address required" }, { status: 400 });
   const addr = a.toLowerCase();
   try {
-    if (!starts) starts = Object.keys(await fetch(`${CHUNKS}mapping.json`).then(r => r.json())).sort();
+    if (!starts) starts = Object.keys(await fetch(`${CHUNKS}mapping.json`, { signal: AbortSignal.timeout(10_000) }).then(r => r.json())).sort();
     const start = starts.filter(s => s <= addr).pop();
     if (!start) return NextResponse.json({});
-    const chunk: Record<string, { index: number; amount: string; proof: string[] }> = await fetch(`${CHUNKS}${start}.json`).then(r => r.json());
+    const chunk: Record<string, { index: number; amount: string; proof: string[] }> = await fetch(`${CHUNKS}${start}.json`, { signal: AbortSignal.timeout(10_000) }).then(r => r.json());
     const hit = chunk[getAddress(addr)] ?? chunk[addr];
     if (!hit) return NextResponse.json({});
     const client = createPublicClient({ chain: mainnet, transport: http(mustRpc(1)) });

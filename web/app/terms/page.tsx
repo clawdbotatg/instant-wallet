@@ -1,4 +1,4 @@
-/** Terms of service (MoonPay and other ramps need one). Plain words; keep it true when the app changes. */
+/** Terms of service (ramps need one). Plain words; keep it true when the app changes. */
 export const metadata = { title: "Terms · Instant Wallet" };
 
 export default function Terms() {
@@ -19,7 +19,7 @@ export default function Terms() {
       </p>
       <h3>Other services</h3>
       <p className="fine">
-        Buying and selling crypto (Coinbase, MoonPay, Ramp), swaps (Uniswap, LI.FI) and apps you open in the wallet are
+        Buying and selling crypto (Coinbase, Ramp), swaps (Uniswap, LI.FI) and apps you open in the wallet are
         run by other companies, under their own terms. They may ask for ID and may say no.
       </p>
       <h3>Rules</h3>

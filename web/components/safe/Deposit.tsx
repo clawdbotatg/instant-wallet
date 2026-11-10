@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { assertChallenge, bio } from "@/lib/passkey";
 import { onrampChallenge } from "@/lib/onramp";
 import type { SafeAccount } from "@/lib/safe/state";
@@ -9,23 +9,10 @@ import { ReceiveIcon, TokenIcon } from "../bits";
 /**
  * Buy USDC or ETH on Base with Apple Pay (or a card), straight into this wallet: Coinbase Pay, through /api/onramp.
  * Face ID signs the request (the server only mints a link for the wallet's own passkey), then a second tap opens
- * Coinbase: a fresh tap, so Safari doesn't block the new tab. MoonPay (card, bank; no Coinbase account) is a plain
- * link signed by /api/moonpay, fetched ahead so the tap opens it. "Send in crypto" opens Receive (the address QR).
+ * Coinbase: a fresh tap, so Safari doesn't block the new tab. "Send in crypto" opens Receive (the address QR).
  */
 export function Deposit({ account, onReceive }: { account: SafeAccount; onReceive: () => void }) {
   const [asset, setAsset] = useState<"USDC" | "ETH">("USDC");
-  const [moon, setMoon] = useState<{ url: string; test: boolean } | null>(null);
-  useEffect(() => {
-    setMoon(null);
-    let live = true;
-    fetch(`/api/moonpay?address=${account.address}&asset=${asset}`)
-      .then(r => r.json())
-      .then(j => live && j.url && setMoon(j))
-      .catch(() => {});
-    return () => {
-      live = false;
-    };
-  }, [account.address, asset]);
   const [busy, setBusy] = useState<string | null>(null);
   const [ready, setReady] = useState<{ asset: string; url: string } | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -80,11 +67,6 @@ export function Deposit({ account, onReceive }: { account: SafeAccount; onReceiv
         <button className="btn wide" disabled={!!busy} onClick={() => go(asset)}>
           {busy ? `${bio()}…` : `Coinbase · Apple Pay, card`}
         </button>
-      )}
-      {!ready && moon && (
-        <a className="btn wide" href={moon.url} target="_blank" rel="noopener noreferrer">
-          MoonPay · card, bank{moon.test ? " (test)" : ""}
-        </a>
       )}
       {!ready && (
         <button className="btn wide" disabled={!!busy} onClick={onReceive}>

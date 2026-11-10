@@ -21,7 +21,7 @@ export default function Privacy() {
       <h3>Other services</h3>
       <ul className="fine">
         <li>Blockchain data (balances, prices, swaps) comes from Alchemy, Uniswap and LI.FI; they see your wallet address.</li>
-        <li>Buying or selling crypto goes through Coinbase, MoonPay or Ramp, under that company&apos;s own privacy policy.</li>
+        <li>Buying or selling crypto goes through Coinbase or Ramp, under that company&apos;s own privacy policy.</li>
         <li>The camera is used only to scan QR codes, on your phone. Nothing is recorded or uploaded.</li>
         <li>
           The browser extension holds no keys. It keeps your address, connected sites and settings on your computer.

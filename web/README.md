@@ -31,7 +31,6 @@ Names only. Values live in Vercel and in `web/.env.local` (gitignored).
 | `ZERION_API_KEY` | positions |
 | `NEXT_PUBLIC_WC_PROJECT_ID` | WalletConnect |
 | `NEXT_PUBLIC_APPS_URL` | optional: where the Apps list comes from |
-| `MOONPAY_PK`, `MOONPAY_SECRET` | Deposit with MoonPay |
 | `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET` | Deposit with Coinbase |
 | `ALERT_MAIL_USER`, `ALERT_MAIL_PASS`, `ALERT_SITE` | recovery alerts by email |
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_NAME`, `TELEGRAM_WEBHOOK_SECRET` | recovery alerts by Telegram |

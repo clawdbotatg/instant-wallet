@@ -67,7 +67,7 @@ Suggested first: 1, 3, 5, 12, 20.
   Fix: allow only push hosts (`fcm.googleapis.com`, `*.push.apple.com`, `updates.push.services.mozilla.com`,
   `*.notify.windows.com`) and pass a timeout.
 
-- [ ] **8b. A dead new device wipes the wallet's other contacts.**
+- [x] **8b. A dead new device wipes the wallet's other contacts.**
   `app/api/alerts/route.ts:77-80` calls `notify` with only the new contact; `lib/alerts.ts` notify then saves
   `{ ...c, push: alive }` over the whole record. If that first push says 404/410, email and telegram are gone.
   Fix: notify re-reads the saved contacts and only removes the dead endpoints.

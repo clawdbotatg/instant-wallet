@@ -210,15 +210,19 @@ export async function notify(wallet: Address, c: Contacts, subject: string, text
   if (c.email && ch.email) await sendEmail(c.email, subject, text).then(() => reached.n++, e => errs.push(String(e)));
   if (c.telegram && ch.telegram) await sendTelegram(c.telegram, `${subject}\n\n${text}`).then(() => reached.n++, e => errs.push(String(e)));
   if (c.push?.length && ch.push) {
-    const alive: webpush.PushSubscription[] = [];
+    const dead = new Set<string>();
     for (const p of c.push) {
       const ok = await sendPush(p, subject, text.split("\n")[0]).then(
         ok => (ok && reached.n++, ok),
         e => (errs.push(String(e)), true),
       );
-      if (ok) alive.push(p);
+      if (!ok) dead.add(p.endpoint);
     }
-    if (alive.length !== c.push.length) await putContacts(wallet, { ...c, push: alive });
+    // `c` may be only some of the wallet's contacts: take the dead devices out of what's saved, nothing else
+    if (dead.size) {
+      const saved = await getContacts(wallet);
+      if (saved.push?.some(p => dead.has(p.endpoint))) await putContacts(wallet, { ...saved, push: saved.push.filter(p => !dead.has(p.endpoint)) });
+    }
   }
   return errs;
 }

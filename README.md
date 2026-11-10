@@ -1,74 +1,41 @@
 # Instant Wallet
 
-> **Live (2026-10-06): the Safe build at instant-wallet-b2jn.vercel.app — `docs/SAFE-APP.md`.**
-> **14 networks (2026-10-08):** which ones, why, and how the relay gets gas on each — `docs/NETWORKS.md`.
-> **xdai.io (2026-10-27):** the same app on the old Burner Wallet's domain, sweeping old Burner keys into passkey wallets — `docs/XDAI.md`.
-> **Claim cards (2026-10-08):** money on a QR / NFC tag / link, claimed into a new wallet — `docs/CLAIM.md`.
->
-> **The plan (2026-10-05): `docs/PLAN.md`** — Instant Wallet becomes a Gnosis Safe front end: burner passkey →
-> MetaMask → sharded paper seed → wedgie, progressive decentralization. The older v3 plan (`docs/V3.md`, our own
-> contract) is shelved.
->
-> **v3 in progress** (2026-10): passkey hot key + [wedgie](https://wedgie.dev) cold key. Plan: `docs/V3.md`.
-> The website is `web/` (Vercel root). Contracts (v3.1, ERC-4337 + gas in USDC via Circle Paymaster): InstantWallet `0xBd1569c8978fB403079b75eBAcc369F0E7244B6F`,
-> Factory `0x896c8D40022A79FC1228dB800FD3aaf7f21d7469` on Base. Sending + fees in USDC: `docs/GAS.md`. Everything below describes v2.
+A wallet you make in seconds with Face ID. No seed phrase. Live at https://instantwallet.io
+(and at https://xdai.io, the old Burner Wallet's address).
 
-**Your money, instantly.** A passkey smart-contract wallet (Face ID / Touch ID, no seed phrase,
-no gas) that you can harden with a $35 hardware signer you build yourself from three off-the-shelf
-parts. One account, many P-256 keys, tiered by trust. Optional AI on top, bring your own model.
+- Your wallet is a Gnosis Safe. Your phone's passkey is its first signer.
+- Same address on 14 networks. The list: `docs/NETWORKS.md`.
+- Our relay sends your transactions. The fee comes out of the wallet, in USDC or the network's coin.
+- Add a wedgie (a small hardware signer, wedgie.dev) or other signers, and pick how many must sign.
+- Lost your keys: recovery swaps in new ones after a wait. You can cancel, and you can turn on alerts for it.
+- Every transaction is shown in plain words before you sign.
+- No contracts of our own: Safe, Safe's passkey signer, Zodiac Roles, Candide recovery.
 
-It is the child of two projects:
-[progressive-self-custody](https://github.com/austintgriffith/progressive-self-custody)
-(passkeys + facilitator-paid gas) and
-[picowallet](https://github.com/austintgriffith/picowallet) (a Pico 2 W + ATECC608 hardware wallet
-with a green SIGN button). Both signers speak P-256, so one contract verifies both.
+## Run it
 
-```
- phone / laptop passkey ──WebAuthn sig──┐
-                                        ├──▶  InstantWallet.sol  ◀── relay pays gas, takes a USDC fee
- the device (ATECC608)  ──raw P-256 sig─┘     spender: per-asset daily limits · owner: anything
-```
+    cd web
+    npm install
+    npm run dev        # http://localhost:3000
 
-- **Day 1**: Face ID makes a key. The address exists before any deposit. Send with a face scan.
-- **Later**: build the device, scan its screen, done. It becomes the owner; Face ID keeps a daily
-  allowance. Anything bigger lights the green button. Both screens show the same 3-word
-  **match code** so a swapped request is visible by eye.
-- **Lost phone**: the device adds a new one. **Lost both**: the recovery address adds a key after a delay.
-- **AI**: "send $20 to atg.eth", "what did I spend this week" — turns into the same proposal card
-  you confirm with a key. Off by default. Anthropic, or any OpenAI-compatible endpoint you bring.
+Put `ALCHEMY_API_KEY` in `web/.env.local`. The rest of the env: `web/README.md`.
+Push to main deploys (Vercel, root `web/`). Before pushing a UI change: `node web/tools/same-check.mjs`.
 
-## Layout
+## Read
 
-| path | what |
-|---|---|
-| `docs/PROTOCOL.md` | **read this first** — digests, signature encodings, device queue, match code. Contract, app and firmware all follow it |
-| `CONCEPT.md` | the idea, the ladder, open questions |
-| `packages/foundry/` | `InstantWallet.sol`, `Factory.sol`, `MockUSDC.sol`, tests (`forge test`) |
-| `packages/nextjs/` | the app: passkeys, facilitator, device queue, talk-to-your-wallet, BYOAI |
-| `firmware/` | MicroPython for the device; `hardware/` build guide + case |
-| `emu/`, `tools/` | the virtual device (MicroPython in WebAssembly) and CLI helpers |
-| `design/` | mockups and the generator |
+- `EXPECTATIONS.md`: what the wallet must always do. Read it first.
+- `docs/SAFE-APP.md`: what's built, the relay, the tests.
+- `docs/CUSTODY.md`, `docs/MULTI-SIGNER.md`: signers, daily limit, shared transactions.
+- `docs/CLAIM.md`, `docs/DROPS.md`, `docs/NFC-SHARE.md`: giving money away by QR, card or code.
+- `docs/SWAP.md`, `docs/APP-STORE.md`: Swap and Apps.
+- `docs/WEDGIE-SAFE.md`, `docs/WEDGIE-PHONE.md`: the wedgie on a computer and on an iPhone.
+- `docs/XDAI.md`: xdai.io and sweeping old Burner keys.
+- `../clear-descriptors/MAP.md`: clear signing, across all the repos.
 
-## Run it locally
+## Also here, not live
 
-```sh
-yarn install
-yarn chain                       # anvil
-yarn deploy                      # MockUSDC + InstantWallet + Factory on 31337
-cp packages/nextjs/.env.local.example packages/nextjs/.env.local
-yarn start                       # http://localhost:3000
-```
+- `web/app/v3`: the older wallet on our own contract (`docs/V3.md`, `docs/GAS.md`).
+- `packages/`, `firmware/`, `emu/`, `tools/`, `hardware/`, `design/`: the first version (our own contract, a
+  Pico signer; `CONCEPT.md`, `docs/PROTOCOL.md`). `packages/foundry/test/safe` still holds the Safe fork tests.
+- `docs/PLAN.md` and the other plan docs are history. `docs/SAFE-APP.md` and `docs/CUSTODY.md` say what's real.
 
-Create an account with a passkey, mint yourself play USDC, send some. To try the device without
-hardware: `tools/emu` opens the virtual wallet; point its `secrets.py` `APP_URL` at your laptop.
-
-Tests: `cd packages/foundry && forge test` · `yarn workspace @se-2/nextjs check:digests` ·
-`yarn workspace @se-2/nextjs e2e:device` · `python3 firmware/test_digests.py`.
-
-## Status
-
-Proof of concept. Nothing here is audited. See `docs/PROTOCOL.md` §1 for the trust model.
-
-## License
-
-MIT. Case v0 by Tomáš Plass (CC BY-NC 4.0), see `hardware/case/`.
+Not audited. MIT. Case v0 by Tomáš Plass (CC BY-NC 4.0), see `hardware/case/`.

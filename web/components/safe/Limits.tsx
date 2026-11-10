@@ -117,10 +117,10 @@ export function ChainLimit({ account, st, assets, onRefresh, toast, onClose }: {
             Fee {fee}. Signed by {signerLabel(account, ready.p.opts.state, ready.p.opts.signers)}.
           </p>
           <button className="btn btn-green wide" onClick={sign} disabled={busy}>
-            {busy ? "Signing and sending…" : "Sign"}
+            {busy ? "Signing…" : "Sign"}
           </button>
           <button
-            className="btn btn-red wide"
+            className="btn wide"
             disabled={busy}
             onClick={async () => {
               await ready.close();

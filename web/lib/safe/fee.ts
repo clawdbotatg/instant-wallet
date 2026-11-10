@@ -7,7 +7,8 @@ import { type Call, abi } from "./core";
  * mechanism, no paymaster: the relayer only sends what pays it (docs/PLAN.md "Sending").
  *
  * Gas budgets are upper bounds per kind of send (Base: P-256 precompile; the wedgie's second slot verifies in
- * Solidity, ~350k). The quote = budget × gas price × 1.25, plus a cent; the relay re-checks with the real estimate.
+ * Solidity, ~350k). The quote = typical gas × gas price × 1.5, plus the L2 data-fee allowance (relayCore.ts quote()); the relay re-checks with
+ * the real estimate.
  */
 export type SendKind = "first" | "exec" | "roles" | "exec-wedgie" | "setup" | "first-setup" | "swap" | "first-swap" | "swap-wedgie" | "claim" | "dapp" | "first-dapp" | "dapp-wedgie";
 export const GAS_BUDGET: Record<SendKind, bigint> = {

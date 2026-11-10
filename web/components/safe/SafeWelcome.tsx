@@ -77,14 +77,17 @@ export async function signIn(): Promise<{ account: SafeAccount } | { confirm: Co
   const { credentialId, candidates } = await recoverKeys();
   const accts = candidates.map((c: Candidate) => accountFor(credentialId, c.qx, c.qy));
   let pick = accts.length === 1 ? accts[0] : undefined;
+  // one read per account for this sign-in: it's a getCode + getBalance on every network
+  const seen = new Map<string, Promise<boolean>>();
+  const usedOnce = (c: (typeof accts)[number]) => seen.get(c.address) ?? (seen.set(c.address, used(c)), seen.get(c.address)!);
   if (!pick) {
-    const flags = await Promise.all(accts.map(used));
+    const flags = await Promise.all(accts.map(usedOnce));
     const hits = accts.filter((_, i) => flags[i]);
     if (hits.length === 1) pick = hits[0];
   }
   // a key that took over another wallet by recovery: its own address is empty, Safe's index knows the wallet
   for (const c of pick ? [pick] : accts) {
-    if (await used(c)) break;
+    if (await usedOnce(c)) break;
     const w = await ownedBy(c.burnerSigner);
     if (w) return { confirm: { account: accountFor(credentialId, c.qx, c.qy, w.wallet), guardians: w.guardians } };
   }

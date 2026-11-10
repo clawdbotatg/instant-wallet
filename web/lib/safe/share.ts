@@ -206,7 +206,9 @@ export function openTx(w: Waiting) {
 
 /** The link: /tx/<chain>/<safe>#<tx and signatures>. Opened anywhere, it brings the tx with it. */
 export function txLink(w: Waiting): string {
-  const code = btoa(JSON.stringify({ t: wire(w.tx), s: w.sigs.map(s => [s.owner, s.signature]), l: w.label }))
+  // btoa throws on anything past Latin-1, and labels have "…" in them (short()): write those as \uXXXX, JSON.parse reads them back
+  const json = JSON.stringify({ t: wire(w.tx), s: w.sigs.map(s => [s.owner, s.signature]), l: w.label });
+  const code = btoa(json.replace(/[\u0080-\uffff]/g, c => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0")))
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
     .replace(/=+$/, "");

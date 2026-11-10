@@ -164,8 +164,9 @@ export function Keys({
     if (!pending) return;
     setBusy(pending.what);
     setErrorRaw(null);
-    const bt = chainById(chainId)?.chain.blockTime ?? 2_000;
-    const w = { what: pending.what, chainId, since: 0, ms: 2 * bt + 5_000, settled: pending.settled ?? (() => true) };
+    const on = pending.p.opts.state.chainId; // the network it was built on: the picker may have moved since
+    const bt = chainById(on)?.chain.blockTime ?? 2_000;
+    const w = { what: pending.what, chainId: on, since: 0, ms: 2 * bt + 5_000, settled: pending.settled ?? (() => true) };
     pending.p.opts.onStage = s => s === "sending" && setWait({ ...w, since: Date.now() });
     try {
       await finishOwners(pending.p);
@@ -230,7 +231,8 @@ export function Keys({
       const got = await Promise.all(
         invites.map(async i => (i.answer ? i : { ...i, answer: (await fetch(`/api/safe/invite?id=${i.id}`).then(r => r.json()).catch(() => null))?.answer })),
       );
-      if (got.some((g, k) => g.answer && !invites[k].answer)) setInvites(got);
+      if (got.some((g, k) => g.answer && !invites[k].answer))
+        setInvites(cur => cur.map(i => (i.answer ? i : { ...i, answer: got.find(g => g.id === i.id)?.answer })));
     };
     look();
     const t = setInterval(look, 5_000);
@@ -426,14 +428,14 @@ export function Keys({
         <div className="stack" style={{ gap: 8 }} ref={confirmRef}>
           <b>{pending.label}</b>
           <p className="fine">
-            Fee {feeText(pending.p.fee, pending.p.opts.feeToken, nativeSymbol(chainId))}. Signed by{" "}
+            Fee {feeText(pending.p.fee, pending.p.opts.feeToken, nativeSymbol(pending.p.opts.state.chainId))}. Signed by{" "}
             {signLabel(pending.p)}.
           </p>
           <button className="btn btn-green wide" onClick={sign} disabled={!!busy}>
-            {busy ? "Signing and sending…" : "Sign"}
+            {busy ? "Signing…" : "Sign"}
           </button>
           <button
-            className="btn btn-red wide"
+            className="btn wide"
             disabled={!!busy}
             onClick={async () => {
               await pending.close?.();

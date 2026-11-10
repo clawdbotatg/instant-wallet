@@ -98,7 +98,7 @@ const MORE: Record<number, Omit<Token, "chainId">[]> = {
     { address: "0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6", symbol: "LINK", decimals: 18, logo: "https://static.debank.com/image/op_token/logo_url/0x350a791bfc2c21f9ed5d10980dad2e2638ffa7f6/c30bfeeea5f4889668905d2911767bca.png" },
     { address: "0x8700dAec35aF8Ff88c16BdF0418774CB3D7599B4", symbol: "SNX", decimals: 18, logo: "https://static.debank.com/image/op_token/logo_url/0x8700daec35af8ff88c16bdf0418774cb3d7599b4/fb568c26c7902169572abe8fa966e791.png" },
     { address: "0x6c84a8f1c29108F47a79964b5Fe888D4f4D0dE40", symbol: "tBTC", decimals: 18, logo: "https://static.debank.com/image/op_token/logo_url/0x6c84a8f1c29108f47a79964b5fe888d4f4d0de40/81d0f366026c3480d25d3c1dfa5b60d3.png" },
-    { address: "0x7F5c764cBc14f9669B88837ca1490cCa17c31607", symbol: "USDC", decimals: 6, logo: "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48/logo.png" },
+    { address: "0x7F5c764cBc14f9669B88837ca1490cCa17c31607", symbol: "USDC.e", decimals: 6, logo: "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48/logo.png" },
   ],
   137: [
     { address: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", symbol: "USDT", decimals: 6, logo: "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xdAC17F958D2ee523a2206206994597C13D831ec7/logo.png" },
@@ -108,7 +108,7 @@ const MORE: Record<number, Omit<Token, "chainId">[]> = {
     { address: "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270", symbol: "WPOL", decimals: 18, logo: "https://static.debank.com/image/matic_token/logo_url/0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270/f6e604ba0324726a3d687c618aa4f163.png" },
     { address: "0xD6DF932A45C0f255f85145f286eA0b292B21C90B", symbol: "AAVE", decimals: 18, logo: "https://static.debank.com/image/matic_token/logo_url/0xd6df932a45c0f255f85145f286ea0b292b21c90b/9ac673ff449bb7b8fbc8b8119caf4a1f.png" },
     { address: "0x53E0bca35eC356BD5ddDFebbD1Fc0fD03FaBad39", symbol: "LINK", decimals: 18, logo: "https://static.debank.com/image/matic_token/logo_url/0x53e0bca35ec356bd5dddfebbd1fc0fd03fabad39/cef6e0d1f77e59becae308dad59a5377.png" },
-    { address: "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174", symbol: "USDC", decimals: 6, logo: "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48/logo.png" },
+    { address: "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174", symbol: "USDC.e", decimals: 6, logo: "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48/logo.png" },
     { address: "0xb33EaAd8d922B1083446DC23f610c2567fB5180f", symbol: "UNI", decimals: 18, logo: "https://static.debank.com/image/matic_token/logo_url/0xb33eaad8d922b1083446dc23f610c2567fb5180f/fcee0c46fc9864f48ce6a40ed1cdd135.png" },
     { address: "0xBbba073C31bF03b8ACf7c28EF0738DeCF3695683", symbol: "SAND", decimals: 18, logo: "https://static.debank.com/image/matic_token/logo_url/0xbbba073c31bf03b8acf7c28ef0738decf3695683/81853b2ea8c205afa8ebbdf213637520.png" },
     { address: "0xB5C064F955D8e7F38fE0460C556a72987494eE17", symbol: "QUICK", decimals: 18, logo: "https://static.debank.com/image/matic_token/logo_url/0xb5c064f955d8e7f38fe0460c556a72987494ee17/841c0b0cfbdf9a82c770fad1aea9022c.png" },

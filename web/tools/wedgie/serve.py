@@ -8,14 +8,14 @@ W = M()
 W.send = lambda m: (sys.stdout.write(json.dumps(m) + "\n"), sys.stdout.flush())
 W.hello = lambda mid=None, **k: dict(k, type="hello", id=mid)
 L = M(); ui = M(); save = M()
-for c in ("WHITE", "INK", "MUTED", "GREEN_D", "RED"): setattr(ui, c, c)
+for c in ("WHITE", "INK", "MUTED", "GREY", "GREEN_D", "RED"): setattr(ui, c, c)
 ui.progress = lambda *a: None
 class K:
     def pressed(self): return []
 L.Keys = lambda physical=True: K()
 sys.modules["wedgie"] = W; sys.modules["lcd"] = L; sys.modules["ui"] = ui; sys.modules["save"] = save
 import safe as S
-def screen(head, lines, yes, k):
+def screen(head, lines, yes, k, *a, **kw):  # safe.py also passes a foot, the safe, nav
     sys.stderr.write("-- %s\n" % head)
     for l in lines:
         s, c, k = l[0], l[1], (l[2] if len(l) > 2 else "")

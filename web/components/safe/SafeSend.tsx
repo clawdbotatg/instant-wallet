@@ -91,6 +91,7 @@ export function SafeSend({
     return () => {
       live = false;
       clearTimeout(t);
+      setResolving(false); // else "Looking up…" sticks when the next input isn't a name
     };
   }, [toInput]);
 

@@ -59,6 +59,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
   };
   const [toast, setToast] = useToast();
   const [dropReady, setDropReady] = useState<Prepared | null>(null);
+  const dropping = useRef(false);
   const [hidden, setHiddenState] = useState<string[]>([]);
   const [shown, setShownState] = useState<string[]>([]);
   const [showHidden, setShowHidden] = useState(false); // the hidden tokens, under the coin list
@@ -330,6 +331,8 @@ export function SafeApp({ link }: { link?: string } = {}) {
   };
   // after a recovery, the lost phone still has the burner budget: take it out of Roles (the owners sign)
   async function dropOldBudget(s: ChainState) {
+    if (dropping.current) return; // a second tap while it prepares or signs must not do it twice
+    dropping.current = true;
     try {
       if (!dropReady) {
         if (!s.rolesMembers) throw new Error("Couldn't read the budget's keys. Try again.");
@@ -344,6 +347,8 @@ export function SafeApp({ link }: { link?: string } = {}) {
     } catch (e: any) {
       if (e instanceof Shared) return setDropReady(null); // its page has the sheet now
       setToast(friendly(e));
+    } finally {
+      dropping.current = false;
     }
   }
 

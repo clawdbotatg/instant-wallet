@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { chainById } from "@/lib/chains";
 import { callsOf, relayFee } from "@/lib/safe/describe";
 import { type FeeToken, type Prepared, Shared, finishOwners, ownerSigners, prepareOwners } from "@/lib/safe/send";
@@ -35,6 +35,7 @@ export function WaitingCards({
   // Reject: a transaction of just the fee, at the same number, so the waiting one can never run (wedgie.dev's Reject).
   // Two taps: get it ready, then sign (Face ID must start straight from a tap).
   const [rejecting, setRejecting] = useState<{ hash: string; ready?: Prepared } | null>(null);
+  const signing = useRef(false);
   const reject = async (w: Waiting) => {
     const st = states.find(s => s.chainId === w.chainId);
     if (!st) return;
@@ -50,6 +51,8 @@ export function WaitingCards({
       }
       return;
     }
+    if (signing.current) return; // a second tap while Face ID is up must not sign and post it twice
+    signing.current = true;
     try {
       await finishOwners(rejecting.ready);
       setList(l => l.filter(x => !(x.w.chainId === w.chainId && x.w.tx.nonce === w.tx.nonce)));
@@ -57,6 +60,7 @@ export function WaitingCards({
       // signed here; its page is open for the other signers
       if (!(e instanceof Shared)) setError(friendly(e));
     } finally {
+      signing.current = false;
       setRejecting(null);
     }
   };

@@ -36,10 +36,11 @@ export async function cardBalances(addrs: Address[]): Promise<Record<string, Car
       const r = await pc.multicall({ contracts: calls, multicallAddress: MULTICALL3 }).catch(() => null);
       const step = c.usdc ? 2 : 1;
       return addrs.map((_, i) => {
-        if (!r) return { name: c.name, usdc: 0n, eth: 0n, failed: true };
+        if (!r) return { name: c.name, coin: c.native.symbol, usdc: 0n, eth: 0n, failed: true };
         const usdc = c.usdc ? ((r[i * step].result as bigint | undefined) ?? 0n) : 0n;
-        const eth = (r[i * step + step - 1].result as bigint | undefined) ?? 0n;
-        return { name: c.name, usdc, eth: eth < ETH_DUST ? 0n : eth, failed: false };
+        // Arc's native balance is its USDC again: count it once
+        const eth = c.nativeIsUsdc ? 0n : ((r[i * step + step - 1].result as bigint | undefined) ?? 0n);
+        return { name: c.name, coin: c.native.symbol, usdc, eth: eth < ETH_DUST ? 0n : eth, failed: false };
       });
     }),
   );
@@ -48,7 +49,7 @@ export async function cardBalances(addrs: Address[]): Promise<Record<string, Car
     const rows = per.map(p => p[i]);
     if (rows.some(r => r.failed)) return; // unknown, not empty: never call a card claimed on a failed read
     const where = rows
-      .flatMap(p => [p.usdc > 0n && `${fmtUsdc(p.usdc)} USDC`, p.eth > 0n && `${(Number(p.eth) / 1e18).toFixed(5)} ETH`].filter(Boolean).map(x => `${x} on ${p.name}`))
+      .flatMap(p => [p.usdc > 0n && `${fmtUsdc(p.usdc)} USDC`, p.eth > 0n && `${(Number(p.eth) / 1e18).toFixed(5)} ${p.coin}`].filter(Boolean).map(x => `${x} on ${p.name}`))
       .join(", ");
     out[a] = { usdc: rows.reduce((t, p) => t + p.usdc, 0n), eth: rows.reduce((t, p) => t + p.eth, 0n), where };
   });

@@ -1,42 +1,46 @@
-# Instant Wallet v3 — the website
+# Instant Wallet — the website
 
-One page, phone-first: Face ID makes a passkey, the passkey owns an InstantWallet v3.1 (`packages/foundry`),
-same address on Base and Ethereum. Scan or type an address / ENS, pick a token (or Everything), amount, Face ID,
-sent. Every send is one ERC-4337 op through `/api/bundler/<chain>` (Pimlico's public bundler by default); the
-network fee is paid in **USDC** by Circle Paymaster, so the wallet never needs ETH. Sending is Base-only until the
-contracts are deployed on Ethereum (`SENDABLE` in `lib/chains.ts`). Plan: `docs/V3.md`.
+The live app: a passkey wallet on a Gnosis Safe, same address on 14 networks. What's built: `../docs/SAFE-APP.md`.
+The older v3 wallet (our own contract, ERC-4337) is still at `/v3`, not linked from anywhere.
 
 ```sh
 npm install
 npm run dev            # http://localhost:3000
-npm run abi            # after `forge build`: refresh lib/abi.ts
+npx tsc --noEmit       # types (CI runs this on every push)
+node tools/same-check.mjs   # EXPECTATIONS.md #2, before pushing a UI change
 ```
 
 ## Vercel
 
-New project, **Root Directory `web`**, framework Next.js, defaults otherwise. Env:
+Root Directory `web`, framework Next.js. Push to main deploys. Passkeys are bound to the hostname: a key made on a
+preview URL won't work on instantwallet.io.
 
-| var | value |
+## Env
+
+Names only. Values live in Vercel and in `web/.env.local` (gitignored).
+
+| var | for |
 |---|---|
-| `NEXT_PUBLIC_CHAINS` | `8453,1` |
-| `ALCHEMY_API_KEY` | server only: RPC, token balances, prices |
-| `BUNDLER_URL_8453` | optional: a keyed bundler URL, or `self` (+ `BUNDLER_PRIVATE_KEY` with a little ETH) to bundle ourselves |
+| `ALCHEMY_API_KEY` | every chain read, balances, prices. Server only; browsers go through `/api/rpc/<chain>` |
+| `RELAYER_PRIVATE_KEY` | the relay's key (pays gas, gets the fee) |
+| `RELAY_KV_URL`, `RELAY_KV_TOKEN` | Upstash: relay limits, alerts, drops, the shared tx queue |
+| `NEXT_PUBLIC_CHAINS` | optional. All 14 by default; `8453,1` for a few; `31337` for a local anvil |
+| `BASE_RPC_URL`, `MAINNET_RPC_URL`, `LOCAL_RPC_URL` | optional: another RPC for that chain (a fork, in tests) |
+| `SAFE_API_KEY` | Safe's transaction service (shared transactions) |
+| `LIFI_API_KEY` | Swap quotes |
+| `ZERION_API_KEY` | positions |
+| `NEXT_PUBLIC_WC_PROJECT_ID` | WalletConnect |
+| `NEXT_PUBLIC_APPS_URL` | optional: where the Apps list comes from |
+| `MOONPAY_PK`, `MOONPAY_SECRET` | Deposit with MoonPay |
+| `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET` | Deposit with Coinbase |
+| `ALERT_MAIL_USER`, `ALERT_MAIL_PASS`, `ALERT_SITE` | recovery alerts by email |
+| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_NAME`, `TELEGRAM_WEBHOOK_SECRET` | recovery alerts by Telegram |
+| `NEXT_PUBLIC_VAPID_KEY`, `VAPID_PRIVATE_KEY` | recovery alerts by push |
+| `DROP_SECRET`, `DROP_ADMINS` | drops (`../docs/DROPS.md`) |
+| `LOCAL_TOKENS`, `LOCAL_TOKENS_ONLY`, `NEXT_PUBLIC_LOCAL_TOKENS`, `NEXT_PUBLIC_TEST_FEE_ALLOWANCE` | tests on a fork only |
+| `BUNDLER_URL_<chain>`, `BUNDLER_PRIVATE_KEY` | `/v3` only |
 
-Contract addresses are constants in `lib/chains.ts` (CREATE2, the same on every chain).
+## Tests
 
-Passkeys are bound to the hostname: keys made on a preview URL won't work on instantwallet.io.
-
-## Local end to end
-
-On a fork of Base (real EntryPoint, Circle Paymaster, USDC; `--network optimism` = the P-256 precompile), with
-this route bundling itself:
-
-```sh
-anvil --fork-url <base rpc> --network optimism &
-NEXT_PUBLIC_CHAINS=8453 BASE_RPC_URL=http://127.0.0.1:8545 BUNDLER_URL_8453=self \
-  BUNDLER_PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
-  LOCAL_TOKENS_ONLY=1 LOCAL_TOKENS=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 npx next dev -p 3100 &
-CHROME=<chromium binary> node tools/e2e.mjs /tmp/shots   # virtual passkey: create, send USDC / ETH / everything, re-login, link
-```
-
-`tools/aa-live.mjs` does one real send on Base through Pimlico with a raw P-256 test key.
+The table in `../docs/SAFE-APP.md` ("Tests"). Each tool's header says how to set it up. The tools that say
+`npx tsx` need nothing installed. `tools/e2e.mjs`, `wc-e2e.mjs`, `cold-e2e.mjs` and `aa-live.mjs` test `/v3`.

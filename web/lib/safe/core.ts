@@ -42,7 +42,7 @@ import {
 
 /**
  * Pure Safe plumbing: addresses (no RPC), the first setup, batches, the EIP-712 hash, signature bytes.
- * Mirrors packages/foundry/test/safe/SafeBase.sol line for line; tools/safe-check.mjs checks the two agree.
+ * Mirrors packages/foundry/test/safe/SafeBase.sol line for line; tools/safe-check.mts checks the two agree.
  */
 
 export const abi = {

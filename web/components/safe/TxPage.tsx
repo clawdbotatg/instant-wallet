@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { type Address, type Hash, type Hex, encodeFunctionData, getAddress, isAddress, parseAbi, size, zeroAddress } from "viem";
 import { chainById, explorerTx, publicClient } from "@/lib/chains";
 import { short } from "@/lib/format";
@@ -47,6 +47,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
   const [valid, setValid] = useState<Waiting["sigs"]>([]);
   const [chain, setChain] = useState<Onchain | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const running = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState<Hash | null>(null);
   // the Execute bar: "sending" until the relay hands back a hash, then "confirming" until it lands
@@ -121,6 +122,8 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
   }
 
   const run = (what: string, fn: () => Promise<void>) => async () => {
+    if (running.current) return; // a second tap (the Execute link has no disabled) must not sign or execute twice
+    running.current = true;
     setBusy(what);
     setError(null);
     try {
@@ -128,6 +131,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
     } catch (e: any) {
       setError(friendly(e));
     } finally {
+      running.current = false;
       setBusy(null);
     }
   };
@@ -255,7 +259,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
     return (
       <div className="stack">
         <h2>Transaction not found</h2>
-        <p className="fine">Ask for the link again. It may have been sent or replaced already.</p>
+        <p className="fine">Ask for the link again. It may have been executed or replaced already.</p>
       </div>
     );
   if (!w || !chain)

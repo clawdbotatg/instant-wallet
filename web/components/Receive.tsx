@@ -38,11 +38,14 @@ export function Receive({
   const [withLink, setWithLink] = useState(true);
   useEffect(() => setWithLink(loadRequestLink()), []);
   const toggleLink = (on: boolean) => (setWithLink(on), saveRequestLink(on));
+  // the coin pill is this network's own coin (POL, xDAI…), and USDC only where the network has it
+  const tokens = chain.usdc ? (chain.nativeIsUsdc ? (["USDC"] as const) : (["USDC", "ETH"] as const)) : (["ETH"] as const);
+  const tok = (tokens as readonly string[]).includes(token) ? token : tokens[0];
   let uri: string | null = null;
   if (asking && Number(amount) > 0) {
     try {
       uri =
-        token === "ETH"
+        tok === "ETH"
           ? requestUri(account.address, chainId, "eth", parseUnits(amount, 18))
           : chain.usdc
             ? requestUri(account.address, chainId, chain.usdc as Address, parseUnits(amount, 6))
@@ -100,9 +103,9 @@ export function Receive({
           <div className="input">
             <input inputMode="decimal" placeholder="0.0" autoFocus value={amount} onChange={e => setAmount(e.target.value.replace(",", ".").replace(/[^0-9.]/g, ""))} />
             <div className="row">
-              {(["USDC", "ETH"] as const).map(t => (
-                <button key={t} className={`pill ${t === token ? "on" : ""}`} onClick={() => setToken(t)}>
-                  {t}
+              {tokens.map(t => (
+                <button key={t} className={`pill ${t === tok ? "on" : ""}`} onClick={() => setToken(t)}>
+                  {t === "ETH" ? chain.native.symbol : t}
                 </button>
               ))}
             </div>

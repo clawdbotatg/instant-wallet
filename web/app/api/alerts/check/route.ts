@@ -15,7 +15,7 @@ export async function GET() {
   const now = Math.floor(Date.now() / 1000);
   const sent: string[] = [];
   const errors: string[] = [];
-  for (const r of await running(list)) {
+  for (const r of await running(list, errors)) {
     const id = `${r.chainId}:${r.wallet.toLowerCase()}:${r.executeAfter}`;
     const soon = r.executeAfter - now < 24 * 3600;
     // the first alert, then a last one in its final day (a recovery that starts with < 1 day left gets one)

@@ -113,6 +113,6 @@ export async function DELETE(req: NextRequest) {
     if (p && p.hash.toLowerCase() === hash) await drop(key(chainId, safe));
     return out({ ok: true });
   } catch (e: any) {
-    return out({ error: e?.message || String(e) }, 400);
+    return out({ error: e?.shortMessage || e?.message || String(e) }, 400);
   }
 }

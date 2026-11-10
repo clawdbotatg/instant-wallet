@@ -10,8 +10,8 @@ const SHARED = "components/bits.tsx"; // where the shared parts live: it may dra
 const RULES = [
   { re: /"✕"|>\s*✕\s*</, say: "a hand-drawn ✕: use <RemoveX>" },
   { re: /<a [^>]*className="pill[^"]*"[^>]*target="_blank"|<a [^>]*target="_blank"[^>]*className="pill/, say: "a pill out to another page: use <Eject>" }, // a big green button that opens a page (Telegram, wedgie.dev) is the action itself
-  { re: /^\s*(OK|Ok|Yes|No|Approve|Confirm)\s*$|>\s*(OK|Yes|Approve|Confirm)\s*</, say: "OK/Yes/Approve/Confirm: say Done (red), Sign or Reject" },
-  { re: /btn-green[^>]*>\s*(Done|Close|Cancel|Back)\b/, say: "Done/Close/Cancel/Back are red, not green" },
+  { re: /^\s*(OK|Ok|Yes|No|Approve|Confirm)\s*$|>\s*(OK|Yes|Approve|Confirm)\s*</, say: "OK/Yes/Approve/Confirm: say Done, Sign or Reject" },
+  { re: /btn-green[^>]*>\s*(Done|Close|Cancel|Back)\b/, say: "Done/Close/Cancel/Back are white, not green" },
   { re: /\bPress [ABXY]\b|\bthe [ABXY] button\b/, say: "wedgie buttons are <GreenButton /> or 'the green button', never A/B/X/Y" },
   { re: /[>"`]\s*[+−]\{|\{get \? "\+" : "−"\}/, say: "money with a hand-written + or −: use <Money>" },
   { re: /\b(send|sends|sent) it (yourself|myself)\b|relay (is )?send/i, say: "a signed tx is executed, not sent" },
@@ -52,6 +52,14 @@ for (const p of files) {
   const src = readFileSync(p, "utf8");
   if (/\btype Waiting\b/.test(src) && (/>\s*Reject\s*</.test(src) || /: "Reject"\s*[)}]/.test(src)))
     if (!/<RemoveX\b/.test(src)) (bad++, console.log(`${relative(root, p)}  a Reject with no <RemoveX>: a waiting tx gets both, ✕ then Reject`));
+}
+// Done, Close, Cancel (a form) and Back are white: red is only for destroying something (Austin 10-30). Whole buttons,
+// since the tag often runs over several lines.
+for (const p of files) {
+  const src = readFileSync(p, "utf8");
+  for (const b of src.match(/<button\b(?:(?!<\/button>)[\s\S])*<\/button>/g) || [])
+    if (/btn-red/.test(b) && />\s*(Done|Close|Cancel|Back)\s*<\/button>$/.test(b))
+      (bad++, console.log(`${relative(root, p)}  a red ${b.match(/(Done|Close|Cancel|Back)\s*<\/button>$/)[1]}: closing a window is white, red only destroys`));
 }
 console.log(bad ? `\n${bad} not the same as everywhere else` : "same everywhere ✓");
 process.exit(bad ? 1 : 0);

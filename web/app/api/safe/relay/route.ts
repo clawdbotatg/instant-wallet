@@ -51,7 +51,8 @@ export async function GET(req: NextRequest) {
     const extra = BigInt(/^\d{1,9}$/.test(req.nextUrl.searchParams.get("extra") || "") ? req.nextUrl.searchParams.get("extra")! : 0);
     return NextResponse.json(await quote(chainId, kind, extra));
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message || String(e) }, { status: 400 });
+    // shortMessage first: viem's full message prints the RPC URL, and that has the Alchemy key in it
+    return NextResponse.json({ error: e?.shortMessage || e?.message || String(e) }, { status: 400 });
   }
 }
 

@@ -21,5 +21,5 @@ jobs:
       - name: Check the live site
         run: |
           mkdir -p /tmp/x && cp web/tools/expect-check.mjs /tmp/x/ && cd /tmp/x
-          npm init -y >/dev/null && npm i playwright-core@1 >/dev/null
+          npm init -y >/dev/null && npm i playwright-core@1.56 >/dev/null
           CHROME=$(which google-chrome) node expect-check.mjs

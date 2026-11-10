@@ -346,69 +346,6 @@ function Connect({ proposal, onYes, onNo }: { proposal: WalletKitTypes.SessionPr
   );
 }
 
-/** What one call does, in words: ERC-20 approve / transfer decoded, ETH value shown, anything else by address. */
-export function CallLine({ call, chainId }: { call: { target: `0x${string}`; value: bigint; data: Hex }; chainId: number }) {
-  const [token, setToken] = useState<{ symbol: string; decimals: number } | null>(null);
-  const coin = nativeSymbol(chainId);
-  const [px, setPx] = useState(0); // the chain's coin in dollars, for dollars beside it
-  useEffect(() => {
-    if (call.value > 0n) nativeUsd(chainId).then(setPx);
-  }, [chainId, call.value]);
-  const coinAmt = (v: bigint) => `${formatEther(v)} ${coin}${px ? ` (${usd(Number(formatEther(v)) * px)})` : ""}`;
-  let decoded: { functionName: string; args: readonly unknown[] } | null = null;
-  try {
-    if (call.data !== "0x") decoded = decodeFunctionData({ abi: erc20Abi, data: call.data }) as any;
-  } catch {}
-  useEffect(() => {
-    if (!decoded) return;
-    const pc = publicClient(chainId);
-    Promise.all([
-      pc.readContract({ address: call.target, abi: erc20Abi, functionName: "symbol" }),
-      pc.readContract({ address: call.target, abi: erc20Abi, functionName: "decimals" }),
-    ])
-      .then(([symbol, decimals]) => setToken({ symbol, decimals }))
-      .catch(() => setToken(null));
-  }, [call.target, chainId, decoded?.functionName]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const amt = (v: unknown) =>
-    token ? (BigInt(v as bigint) >= 2n ** 255n ? `unlimited ${token.symbol}` : `${formatUnits(v as bigint, token.decimals)} ${token.symbol}${token.symbol === "USDC" ? ` (${usd(Number(formatUnits(v as bigint, token.decimals)))})` : ""}`) : String(v);
-
-  let text: React.ReactNode;
-  if (decoded?.functionName === "approve") {
-    text = (
-      <>
-        <b>Let</b> <Who address={String(decoded.args[0])} chain={chainId} size={18} inline /> <b>spend</b> {amt(decoded.args[1])}
-      </>
-    );
-  } else if (decoded?.functionName === "transfer") {
-    text = (
-      <>
-        <b>Send</b> {amt(decoded.args[1])} <b>to</b> <Who address={String(decoded.args[0])} chain={chainId} size={18} inline />
-      </>
-    );
-  } else if (call.data === "0x") {
-    text = (
-      <>
-        <b>Send</b> {coinAmt(call.value)} <b>to</b> <Who address={call.target} chain={chainId} size={18} inline />
-      </>
-    );
-  } else {
-    text = (
-      <>
-        <b>Call</b> <Who address={call.target} chain={chainId} size={18} inline /> <span className="fine mono">{call.data.slice(0, 10)}</span>
-        {call.value > 0n && <> with {coinAmt(call.value)}</>}
-      </>
-    );
-  }
-  return (
-    <div className="row" style={{ alignItems: "flex-start" }}>
-      <div className="grow" style={{ fontSize: 15 }}>
-        {text}
-      </div>
-    </div>
-  );
-}
-
 function Request({ pending, account, onDone, onNo }: { pending: Pending; account: Account; onDone: () => void; onNo: () => void }) {
   const [stage, setStage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);

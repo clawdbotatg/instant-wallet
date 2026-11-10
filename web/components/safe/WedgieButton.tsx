@@ -71,20 +71,6 @@ export function ErrorLine({ text }: { text: string }) {
   );
 }
 
-/** The transaction's picture: the wedgie draws the same blockie of the Safe tx hash on its first page. */
-export function TxPicture({ hash }: { hash: string }) {
-  return (
-    <div className="row" style={{ justifyContent: "center", gap: 12 }}>
-      <Blockie address={hash} size={48} />
-      <span className="fine" style={{ textAlign: "left" }}>
-        The wedgie shows this picture.
-        <br />
-        <span className="mono">tx {hash.slice(0, 6)}..{hash.slice(-4)}</span>
-      </span>
-    </div>
-  );
-}
-
 /** A bar that creeps on time (never looks stuck), for a wait of about `ms`. */
 function Creep({ ms = 6000 }: { ms?: number }) {
   const [p, setP] = useState(0);

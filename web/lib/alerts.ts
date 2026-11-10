@@ -118,22 +118,25 @@ export async function authorize(wallet: Address, change: string, s: Signed, scop
     good = p256.verify(sig, msg, pub, { prehash: false, lowS: false });
   } catch {}
   if (!good) return "Bad signature.";
-  // one use per signature
-  if (!(await once(`sig:${keccak256(sig)}`, 600))) return "Already used. Try again.";
+  // one use per signature. By r alone: (r, n−s) checks out too (lowS is off), and it must not count as a new one
+  if (!(await once(`sig:${s.r.toLowerCase()}`, 600))) return "Already used. Try again.";
   // an owner on a chain where the wallet is deployed; only a wallet deployed nowhere goes by its counterfactual
   // address (else a passkey a recovery replaced would keep its say here forever)
   const signer = signerAddress(s.qx, s.qy);
-  let deployed = false;
-  for (const c of CHAINS) {
-    const url = upstreamRpc(c.id);
-    if (!url) continue;
-    const pc = createPublicClient({ transport: http(url) });
-    const code = await pc.getCode({ address: wallet }).catch(() => undefined);
-    if (!code || code === "0x") continue;
-    deployed = true;
-    const owners = (await pc.readContract({ address: wallet, abi: abi.safe, functionName: "getOwners" }).catch(() => [])) as Address[];
-    if (owners.some(o => o.toLowerCase() === signer.toLowerCase())) return null;
-  }
+  // every chain at once (it was 14 chains one after another, before every alerts change and every drop claim)
+  const on = await Promise.all(
+    CHAINS.map(async c => {
+      const url = upstreamRpc(c.id);
+      if (!url) return null;
+      const pc = createPublicClient({ transport: http(url) });
+      const code = await pc.getCode({ address: wallet }).catch(() => undefined);
+      if (!code || code === "0x") return null;
+      const owners = (await pc.readContract({ address: wallet, abi: abi.safe, functionName: "getOwners" }).catch(() => [])) as Address[];
+      return owners.some(o => o.toLowerCase() === signer.toLowerCase());
+    }),
+  );
+  if (on.some(owner => owner === true)) return null;
+  const deployed = on.some(owner => owner !== null);
   if (!deployed && safeAddress(signer).toLowerCase() === wallet.toLowerCase()) return null;
   return "This passkey isn't a key of that wallet.";
 }
@@ -198,11 +201,15 @@ export async function notify(wallet: Address, c: Contacts, subject: string, text
 export type Request = { chainId: number; wallet: Address; executeAfter: number; newOwners: Address[] };
 
 /** Every listed wallet's running recovery, on every chain (one multicall per chain). */
-export async function running(list: Address[]): Promise<Request[]> {
+export async function running(list: Address[], failed: string[] = []): Promise<Request[]> {
   const out: Request[] = [];
-  for (const c of CHAINS) {
+  // every chain at once, and one chain's RPC being down must not stop the alerts on the others: it's named in `failed`
+  await Promise.all(CHAINS.map(c => one(c).catch(e => failed.push(`${c.name}: ${e?.shortMessage || "couldn't read it"}`))));
+  return out;
+
+  async function one(c: (typeof CHAINS)[number]) {
     const url = upstreamRpc(c.id);
-    if (!url || !list.length) continue;
+    if (!url || !list.length) return;
     const pc = createPublicClient({ chain: c.chain, transport: http(url) });
     // every module: a 7-day request stays readable after a move off it, but only an enabled module can run it
     const mods = RECOVERY_MODULES;
@@ -223,7 +230,6 @@ export async function running(list: Address[]): Promise<Request[]> {
       });
     });
   }
-  return out;
 }
 
 const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;

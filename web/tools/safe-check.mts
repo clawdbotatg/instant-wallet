@@ -1,5 +1,5 @@
 // Checks lib/safe/core.ts against the chain: the TS address math must match what the deployed factories compute.
-// npx tsx tools/safe-check.ts <rpc>
+// npx tsx tools/safe-check.mts <rpc>
 import { createPublicClient, http, keccak256, toBytes, type Hex } from "viem";
 import { p256 } from "@noble/curves/nist.js";
 import { abi, initializer, rolesAddress, safeAddress, signerAddress } from "../lib/safe/core";

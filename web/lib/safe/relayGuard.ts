@@ -233,5 +233,4 @@ export function plainRecipientCheck(getCode: (a: Address) => Promise<Hex | undef
   };
 }
 
-export const isMulticall = (a: Address) => a.toLowerCase() === MULTICALL3.toLowerCase();
 export type { Hex };

@@ -111,7 +111,8 @@ export function publicClient(chainId: number) {
   if (!c) {
     const info = chainById(chainId);
     if (!info) throw new Error(`chain ${chainId} not enabled`);
-    c = createPublicClient({ chain: info.chain, transport: http(rpcPath(chainId)), batch: { multicall: false } });
+    // reads asked in the same tick go to /api/rpc as one request (it takes up to 50), not one request each
+    c = createPublicClient({ chain: info.chain, transport: http(rpcPath(chainId), { batch: { batchSize: 50, wait: 0 } }), batch: { multicall: false } });
     clients.set(chainId, c);
   }
   return c;

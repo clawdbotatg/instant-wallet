@@ -152,12 +152,14 @@ Suggested first: 1, 3, 5, 12, 20.
 
 ## Speed
 
-- [ ] **20. Browser reads go out one request each.**
-  `lib/chains.ts:114`: `http(rpcPath(chainId))` with no `batch`. `readChain` makes ~2 requests on an undeployed
-  chain, ~20 on a deployed one, every 12 s over 14 chains. Estimated, not measured: ~118 requests a tick for a
-  wallet on 5 chains. Fix: `http(url, { batch: { batchSize: 50, wait: 0 } })`; the proxy already takes 50.
-  Note: the proxy's limit (600 a minute per IP) counts calls, not requests, so batching cuts requests, not that
-  count. To cut the count: cache `getCode(RECOVERY_60D)` per chain (`lib/safe/state.ts:161`, never changes) and
+- [x] **20. Browser reads go out one request each.**
+  `lib/chains.ts` `publicClient`: now `http(url, { batch: { batchSize: 50, wait: 0 } })`, so reads asked in the same
+  tick are one request to `/api/rpc`. Checked against the live proxy on Base, Gnosis and Arc: 65 reads in 1
+  request, and one bad call doesn't fail the rest. Not checked in a browser.
+
+- [ ] **20b. The read count itself.** The proxy's limit (600 a minute per IP) counts calls, not requests, so
+  batching didn't lower that count (estimated, not measured: ~118 calls every 12 s for a wallet on 5 chains, close
+  to the limit). To cut it: cache `getCode(RECOVERY_60D)` per chain (`lib/safe/state.ts:161`, never changes) and
   `getCode(burnerSigner)` (`lib/safe/send.ts:135,249`, asked twice in a row).
 
 - [ ] **21. Keys and Limits re-read the whole Activity history every 2 s while they wait.**

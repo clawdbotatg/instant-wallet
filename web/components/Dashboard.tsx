@@ -65,17 +65,18 @@ const stat = (label: string, value: string | number) => (
 );
 
 /** One bar per day, the last 30. */
-function Bars({ title, days }: { title: string; days: { date: string; n: number }[] }) {
-  const max = Math.max(1, ...days.map(d => d.n));
+function Bars({ title, days, money }: { title: string; days: { date: string; n: number }[]; money?: boolean }) {
+  const max = Math.max(money ? 0.01 : 1, ...days.map(d => d.n));
+  const show = (n: number) => (money ? usd(n) : n);
   return (
     <div className="card stack" style={{ gap: 10 }}>
       <div className="row" style={{ justifyContent: "space-between" }}>
         <b>{title}</b>
-        <span className="fine">30 days · most {max}</span>
+        <span className="fine">30 days · most {show(max)}</span>
       </div>
       <div className="row" style={{ gap: 2, alignItems: "flex-end", height: 80 }}>
         {days.map(d => (
-          <div key={d.date} title={`${d.date}: ${d.n}`} style={{ flex: 1, height: `${Math.max(2, (d.n / max) * 100)}%`, borderRadius: 3, background: d.n ? "var(--green-fill)" : "rgba(127,127,127,.25)" }} />
+          <div key={d.date} title={`${d.date}: ${show(d.n)}`} style={{ flex: 1, height: `${Math.max(2, (d.n / max) * 100)}%`, borderRadius: 3, background: d.n ? "var(--green-fill)" : "rgba(127,127,127,.25)" }} />
         ))}
       </div>
     </div>
@@ -185,14 +186,18 @@ export function Dashboard() {
             {stat("Wallets", t.wallets)}
             {stat("Holding $1+", t.funded)}
             {stat("New, 7 days", t.new7)}
+            {stat("New, 30 days", t.new30)}
             {stat("Active, 7 days", t.active7)}
             {stat("Active, 30 days", t.active30)}
-            {stat("New, 30 days", t.new30)}
             {stat("Tx, 7 days", t.tx7)}
             {stat("Tx, 30 days", t.tx30)}
+            {stat("Fees, 7 days", usd(t.fee7 ?? 0))}
+            {stat("Fees, 30 days", usd(t.fee30 ?? 0))}
+            {stat("Fees, all time", usd(t.feeUsd ?? 0))}
           </div>
           <Line points={t.usd} />
           <Bars title="Transactions a day" days={t.days.map(d => ({ date: d.date, n: d.tx }))} />
+          <Bars title="Relay fees a day" money days={t.days.map(d => ({ date: d.date, n: d.fee ?? 0 }))} />
           <Bars title="New wallets a day" days={t.days.map(d => ({ date: d.date, n: d.new }))} />
           {rows("By chain", t.chains.map(c => ({ name: c.name, usd: c.usd, note: `${c.wallets} ${c.wallets === 1 ? "wallet" : "wallets"}${c.stale ? ", not read this time" : ""}` })))}
           {rows("By coin", t.coins.map(c => ({ name: c.symbol, usd: c.usd })))}
@@ -201,7 +206,8 @@ export function Dashboard() {
           {t.noPrice.length > 0 && <p className="fine">No price, not counted: {t.noPrice.join(", ")}.</p>}
           <p className="fine">
             Read from the chains, nothing tracked in the app. A wallet counts once it has sent its first transaction. Money counts the coin and the
-            well-known tokens on each chain; other tokens and lending or staking positions are left out.
+            well-known tokens on each chain; other tokens and lending or staking positions are left out. Fees are what wallets paid the relay, before
+            the gas it spent.
           </p>
         </>
       )}

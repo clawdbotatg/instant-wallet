@@ -1,10 +1,12 @@
 import "server-only";
-import { type Address, type Hex, decodeAbiParameters, decodeFunctionResult, encodeFunctionData, formatUnits, getAddress, keccak256, pad, parseAbi, toBytes, toHex, zeroAddress } from "viem";
+import { type Address, type Hex, decodeAbiParameters, decodeFunctionData, decodeFunctionResult, encodeFunctionData, formatUnits, getAddress, keccak256, pad, parseAbi, toBytes, toHex, zeroAddress } from "viem";
 import { CHAINS, type ChainInfo } from "./chains";
 import { kv } from "./kv";
 import { alchemyNetwork, rpc } from "./rpcServer";
-import { DAO, MULTICALL3, RECOVERY_7D } from "./safe/config";
-import { abi, safeAddress } from "./safe/core";
+import { DAO, MULTICALL3, MULTISEND_CALL_ONLY, RECOVERY_7D } from "./safe/config";
+import { type Call, abi, safeAddress } from "./safe/core";
+import { feePaid, unpackMultiSend } from "./safe/fee";
+import { relayer } from "./safe/relayCore";
 import { POPULAR } from "./safe/swap";
 
 /**
@@ -19,6 +21,10 @@ import { POPULAR } from "./safe/swap";
  * Money: the native coin and the well-known tokens (Swap's list) of every wallet on every chain, one Multicall3 read
  * per chain. Other tokens aren't counted: a made-up price on one would make up the total.
  *
+ * Relay fees: a wallet's batch ends with a payment to the relay, in USDC or the chain's coin. A Safe logs each
+ * transaction it runs (SafeMultiSigTransaction, SafeModuleTransaction), so the fee is read out of those. The coin is
+ * priced at the time of the read, not of the payment. A claim card's fee (no Safe) isn't counted.
+ *
  * KV (prefix dash:): `state` = the wallet list, each chain's last scanned block, the daily counts (server only, never
  * sent to a browser); `totals` = what the page gets, no addresses in it; `lock` = one run at a time.
  */
@@ -32,13 +38,18 @@ const T_GUARDIAN = keccak256(toBytes("GuardianAdded(address,address)"));
 const T_SETUP = keccak256(toBytes("SafeSetup(address,address[],uint256,address,address)"));
 const T_EXEC = keccak256(toBytes("ExecutionSuccess(bytes32,uint256)"));
 const T_MODULE = keccak256(toBytes("ExecutionFromModuleSuccess(address)"));
+const T_MULTISIG = keccak256(toBytes("SafeMultiSigTransaction(address,uint256,bytes,uint8,uint256,uint256,uint256,address,address,bytes,bytes)"));
+const T_MODTX = keccak256(toBytes("SafeModuleTransaction(address,address,uint256,bytes,uint8)"));
+const VERSION = 2; // a change in what's read from the logs: bump it and every chain is read again from the start
 const mc = parseAbi(["function getEthBalance(address addr) view returns (uint256)", "function balanceOf(address) view returns (uint256)"]);
 
 type Wallet = { first: number; last: number; chains: number[] };
 type State = {
+  v: number;
+  fee: number; // relay fees so far, dollars
   chains: Record<number, { block?: number; span?: number }>;
   wallets: Record<string, Wallet>; // by lowercase address
-  days: Record<string, { tx: number }>; // by UTC date
+  days: Record<string, { tx: number; fee?: number }>; // by UTC date
   bal: Record<number, { at: number; coins: Record<string, number>; noPrice: string[] }>; // each chain's last good read
   usd: [number, number][]; // [time, total], about hourly
 };
@@ -54,10 +65,13 @@ export type Totals = {
   active30: number;
   tx7: number;
   tx30: number;
+  feeUsd: number; // relay fees, all time
+  fee7: number;
+  fee30: number;
   chains: { id: number; name: string; usd: number; wallets: number; stale: boolean }[];
   coins: { symbol: string; usd: number }[];
   noPrice: string[];
-  days: { date: string; tx: number; new: number }[];
+  days: { date: string; tx: number; new: number; fee: number }[];
   usd: [number, number][];
   behind: string[]; // chains still being read from the start
   unread: string[]; // chains that couldn't be read this run
@@ -85,6 +99,35 @@ async function blockAt(chainId: number, ts: number, head: number): Promise<numbe
 }
 
 type Seen = { wallet: string; ts: number };
+type Fee = { ts: number; usdc: bigint; coin: bigint };
+
+/** The relay's address. RELAYER_ADDRESS is for a machine without the relay's key (local dev). */
+function relayAddress(): Address | undefined {
+  try {
+    return process.env.RELAYER_ADDRESS ? getAddress(process.env.RELAYER_ADDRESS) : relayer().address;
+  } catch {
+    return undefined;
+  }
+}
+
+/** What one logged Safe transaction paid the relay. */
+function feeOf(l: Log, relay: Address, usdc: Address | undefined): { usdc: bigint; eth: bigint } {
+  try {
+    const [to, value, data] =
+      l.topics[0] === T_MULTISIG
+        ? decodeAbiParameters([{ type: "address" }, { type: "uint256" }, { type: "bytes" }], l.data)
+        : (decodeAbiParameters([{ type: "address" }, { type: "address" }, { type: "uint256" }, { type: "bytes" }], l.data).slice(1) as [Address, bigint, Hex]);
+    let calls: Call[] = [{ to, value, data }];
+    if (to.toLowerCase() === MULTISEND_CALL_ONLY.toLowerCase()) calls = unpackMultiSend(data);
+    else if (to.toLowerCase() === MULTICALL3.toLowerCase()) {
+      const m = decodeFunctionData({ abi: abi.multicall3, data });
+      if (m.functionName === "aggregate3Value") calls = m.args[0].map(c => ({ to: c.target, value: c.value, data: c.callData }));
+    }
+    return feePaid(calls, relay, usdc);
+  } catch {
+    return { usdc: 0n, eth: 0n }; // not one of our batches
+  }
+}
 const BATCH = 8; // block ranges read at once on a chain that only answers short ones
 
 const stamper = (chainId: number) => {
@@ -115,23 +158,29 @@ async function deploys(chainId: number, from: number, to: number, known: Set<str
   return out;
 }
 
-/** These wallets' transactions on this chain in a block range, one per transaction however many events it has. */
-async function activity(chainId: number, from: number, to: number, wallets: string[]): Promise<Seen[]> {
-  const when = stamper(chainId);
+/** These wallets' transactions on this chain in a block range (one per transaction however many events it has), and the relay fees in them. */
+async function activity(c: ChainInfo, from: number, to: number, wallets: string[], relay: Address | undefined): Promise<{ txs: Seen[]; fees: Fee[] }> {
+  const when = stamper(c.id);
   const seen = new Set<string>();
-  const out: Seen[] = [];
+  const txs: Seen[] = [];
+  const fees: Fee[] = [];
   for (let i = 0; i < wallets.length; i += 300) {
-    for (const l of await logs(chainId, from, to, wallets.slice(i, i + 300) as Address[], [[T_EXEC, T_MODULE]])) {
+    for (const l of await logs(c.id, from, to, wallets.slice(i, i + 300) as Address[], [[T_EXEC, T_MODULE, T_MULTISIG, T_MODTX]])) {
+      if (l.topics[0] === T_MULTISIG || l.topics[0] === T_MODTX) {
+        const f = relay && feeOf(l, relay, c.usdc);
+        if (f && (f.usdc || f.eth)) fees.push({ ts: await when(l), usdc: f.usdc, coin: f.eth });
+        continue;
+      }
       if (seen.has(l.transactionHash)) continue;
       seen.add(l.transactionHash);
-      out.push({ wallet: l.address.toLowerCase(), ts: await when(l) });
+      txs.push({ wallet: l.address.toLowerCase(), ts: await when(l) });
     }
   }
-  return out;
+  return { txs, fees };
 }
 
 /** Reads a chain on from where the last run stopped, until it's at the head or out of time. True: still behind. */
-async function scanChain(c: ChainInfo, st: State, deadline: number): Promise<boolean> {
+async function scanChain(c: ChainInfo, st: State, deadline: number, relay: Address | undefined, coinUsd: number): Promise<boolean> {
   const cs = (st.chains[c.id] ??= {});
   const head = Number(BigInt(await rpc<Hex>(c.id, "eth_blockNumber", []))) - 3;
   if (cs.block === undefined) cs.block = (await blockAt(c.id, START, head)) - 1;
@@ -140,12 +189,12 @@ async function scanChain(c: ChainInfo, st: State, deadline: number): Promise<boo
     const ranges: [number, number][] = [];
     for (let from = cs.block + 1; from <= head && ranges.length < BATCH; from += span) ranges.push([from, Math.min(head, from + span - 1)]);
     let found: Seen[][];
-    let txs: Seen[][];
+    let acts: { txs: Seen[]; fees: Fee[] }[];
     try {
       // the deploys first: a wallet's transactions can only follow its deploy on this chain
       found = await Promise.all(ranges.map(([a, b]) => deploys(c.id, a, b, new Set(Object.keys(st.wallets)))));
       const here = [...new Set([...Object.entries(st.wallets).filter(([, w]) => w.chains.includes(c.id)).map(([a]) => a), ...found.flat().map(d => d.wallet)])];
-      txs = here.length ? await Promise.all(ranges.map(([a, b]) => activity(c.id, a, b, here))) : [];
+      acts = here.length ? await Promise.all(ranges.map(([a, b]) => activity(c, a, b, here, relay))) : [];
     } catch (e) {
       // some chains only answer a short range (Gnosis: 10,000 blocks): ask for less, and remember
       if (span <= 500) throw e;
@@ -157,11 +206,17 @@ async function scanChain(c: ChainInfo, st: State, deadline: number): Promise<boo
       w.first = Math.min(w.first, d.ts);
       if (!w.chains.includes(c.id)) w.chains.push(c.id);
     }
-    for (const t of txs.flat()) {
+    for (const t of acts.flatMap(a => a.txs)) {
       const w = st.wallets[t.wallet];
       if (!w) continue;
       w.last = Math.max(w.last, t.ts);
       (st.days[day(t.ts)] ??= { tx: 0 }).tx++;
+    }
+    for (const f of acts.flatMap(a => a.fees)) {
+      const usd = Number(formatUnits(f.usdc, 6)) + Number(formatUnits(f.coin, 18)) * coinUsd;
+      st.fee += usd;
+      const d = (st.days[day(f.ts)] ??= { tx: 0 });
+      d.fee = (d.fee ?? 0) + usd;
     }
     cs.block = ranges[ranges.length - 1][1];
   }
@@ -233,7 +288,10 @@ export const totals = () => load<Totals>("totals");
 export async function refresh(): Promise<Totals | null> {
   if ((await kv(["SET", `${P}lock`, 1, "NX", "EX", 100])) !== "OK") return totals();
   try {
-    const st = (await load<State>("state")) ?? { chains: {}, wallets: {}, days: {}, bal: {}, usd: [] };
+    const old = await load<State>("state");
+    const st: State = old?.v === VERSION ? old : { v: VERSION, fee: 0, chains: {}, wallets: {}, days: {}, bal: {}, usd: old?.usd ?? [] };
+    const relay = relayAddress();
+    const coin = await prices(CHAINS.filter(c => !c.nativeIsUsdc).map(c => ({ chainId: c.id, address: zeroAddress, symbol: c.native.symbol })));
     const now = Math.floor(Date.now() / 1000);
     const deadline = Date.now() + 35_000;
     const unread = new Set<string>();
@@ -241,7 +299,7 @@ export async function refresh(): Promise<Totals | null> {
     await Promise.all(
       CHAINS.map(async c => {
         try {
-          if (await scanChain(c, st, deadline)) behind.push(c.name);
+          if (await scanChain(c, st, deadline, relay, c.nativeIsUsdc ? 1 : (coin.get(`${c.id}:${zeroAddress}`) ?? 0))) behind.push(c.name);
         } catch {
           unread.add(c.name);
         }
@@ -296,7 +354,7 @@ export async function refresh(): Promise<Totals | null> {
     const ws = Object.values(st.wallets);
     const born: Record<string, number> = {};
     for (const w of ws) born[day(w.first)] = (born[day(w.first)] ?? 0) + 1;
-    const days = Array.from({ length: 30 }, (_, i) => day(now - (29 - i) * DAY)).map(date => ({ date, tx: st.days[date]?.tx ?? 0, new: born[date] ?? 0 }));
+    const days = Array.from({ length: 30 }, (_, i) => day(now - (29 - i) * DAY)).map(date => ({ date, tx: st.days[date]?.tx ?? 0, new: born[date] ?? 0, fee: st.days[date]?.fee ?? 0 }));
     const t: Totals = {
       at: now,
       totalUsd,
@@ -308,6 +366,9 @@ export async function refresh(): Promise<Totals | null> {
       active30: ws.filter(w => w.last > now - 30 * DAY).length,
       tx7: days.slice(-7).reduce((s, d) => s + d.tx, 0),
       tx30: days.reduce((s, d) => s + d.tx, 0),
+      feeUsd: st.fee,
+      fee7: days.slice(-7).reduce((s, d) => s + d.fee, 0),
+      fee30: days.reduce((s, d) => s + d.fee, 0),
       chains: chains.filter(c => c.usd >= 0.01 || c.wallets || c.stale).sort((a, b) => b.usd - a.usd),
       coins: Object.entries(coins).map(([symbol, usd]) => ({ symbol, usd })).filter(c => c.usd >= 0.01).sort((a, b) => b.usd - a.usd),
       noPrice: [...new Set(Object.values(st.bal).flatMap(b => b.noPrice))],

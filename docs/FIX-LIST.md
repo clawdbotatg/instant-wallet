@@ -183,7 +183,7 @@ Suggested first: 1, 3, 5, 12, 20.
 
 - [ ] **20d. Chains the wallet isn't on** are still read every 12 s (1 call each). Once a minute would do.
 
-- [ ] **21. Keys and Limits re-read the whole Activity history every 2 s while they wait.**
+- [x] **21. Keys and Limits re-read the whole Activity history every 2 s while they wait.**
   `Keys.tsx:135-138`, `Limits.tsx:46` call `onRefresh`, which bumps Activity past its cache on every chain.
   Fix: a states-only refresh.
 

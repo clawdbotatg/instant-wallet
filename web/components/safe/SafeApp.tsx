@@ -561,6 +561,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
               toast={setToast}
               onAccount={a => setAccount(a)}
               onRefresh={refresh}
+              onPoll={loadStates}
               onFund={chainId => setView({ kind: "swap", fund: chainId })}
               onShare={chainId => setView({ kind: "share", chainId })}
             />

@@ -38,6 +38,7 @@ export function Keys({
   toast,
   onAccount,
   onRefresh,
+  onPoll,
   onFund,
   onShare,
 }: {
@@ -47,6 +48,8 @@ export function Keys({
   toast: (m: string) => void;
   onAccount: (a: SafeAccount) => void;
   onRefresh: () => Promise<void> | void;
+  /** the keys only, for the 2 s poll while a change lands (onRefresh also re-reads all of Activity) */
+  onPoll: () => void;
   onFund: (chainId: number) => void;
   onShare: (chainId: number) => void; // Share crypto (QR / NFC card), on the network picked here
 }) {
@@ -131,14 +134,15 @@ export function Keys({
     if (waitDone) {
       setWait(null);
       toast("Done");
+      onRefresh();
       return;
     }
     const t = setInterval(() => {
       if (Date.now() - wait.since > wait.ms + 45_000) setWait(null);
-      else onRefresh();
+      else onPoll();
     }, 2_000);
     return () => clearInterval(t);
-  }, [wait, waitDone, busy, onRefresh, toast]);
+  }, [wait, waitDone, busy, onRefresh, onPoll, toast]);
 
   // read the chain again before building a change: the page can be a block or a poll behind (a key that just
   // landed), and a tx built for the old threshold fails on chain (GS021)
@@ -471,7 +475,7 @@ export function Keys({
       <h2>Instant Wallet is a Safe multisig</h2>
       <ChainSelect value={chainId} onChange={setChainId} />
       {st && (
-        <Summary key={chainId} account={account} st={st} assets={assets} onRefresh={onRefresh} toast={toast}>
+        <Summary key={chainId} account={account} st={st} assets={assets} onRefresh={onRefresh} onPoll={onPoll} toast={toast}>
           {/* every owner, so the rows match "N of M" (an older wallet's wedgie is in 2 slots: 2 rows) */}
           {st.owners.map(o => {
             const gone = drop.includes(o.toLowerCase());
@@ -829,7 +833,7 @@ function OldBurner({ toast }: { toast: (m: string) => void }) {
 
 
 /** This chain's Safe: the daily limit (Face ID alone), M of N for anything else, then the signers (`children`). */
-function Summary({ account, st, assets, onRefresh, toast, children }: { account: SafeAccount; st: ChainState; assets: Asset[]; onRefresh: () => void; toast: (m: string) => void; children: ReactNode }) {
+function Summary({ account, st, assets, onRefresh, onPoll, toast, children }: { account: SafeAccount; st: ChainState; assets: Asset[]; onRefresh: () => void; onPoll: () => void; toast: (m: string) => void; children: ReactNode }) {
   const [edit, setEdit] = useState(false);
   const close = useCallback(() => setEdit(false), []); // stable: the editor's wait effect depends on it
   const coin = nativeSymbol(st.chainId);
@@ -850,7 +854,7 @@ function Summary({ account, st, assets, onRefresh, toast, children }: { account:
           )}
         </p>
       )}
-      {b && edit && <ChainLimit account={account} st={st} assets={assets} onRefresh={onRefresh} toast={toast} onClose={close} />}
+      {b && edit && <ChainLimit account={account} st={st} assets={assets} onRefresh={onRefresh} onPoll={onPoll} toast={toast} onClose={close} />}
       <p>
         {b ? "Anything else" : "Signers"}:{" "}
         <b>

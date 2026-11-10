@@ -19,7 +19,7 @@ import { ErrorLine } from "./WedgieButton";
  * One network's daily limit editor (settings, opened by the pencil on the limit line). Same two taps as everywhere: Save gets it ready (the wedgie connects, fee, nonce), Yes signs
  * (Face ID has to start straight from a tap), then a bar until the chain shows it.
  */
-export function ChainLimit({ account, st, assets, onRefresh, toast, onClose }: { account: SafeAccount; st: ChainState; assets: Asset[]; onRefresh: () => void; toast: (m: string) => void; onClose: () => void }) {
+export function ChainLimit({ account, st, assets, onRefresh, onPoll, toast, onClose }: { account: SafeAccount; st: ChainState; assets: Asset[]; onRefresh: () => void; onPoll: () => void; toast: (m: string) => void; onClose: () => void }) {
   const b = st.budget!;
   const chainId = st.chainId;
   const coin = nativeSymbol(chainId);
@@ -39,13 +39,15 @@ export function ChainLimit({ account, st, assets, onRefresh, toast, onClose }: {
     if (settled) {
       setWait(null);
       toast("Done");
+      onRefresh();
       onClose();
       return;
     }
     const since = Date.now();
-    const t = setInterval(() => (Date.now() - since > wait.ms + 45_000 ? setWait(null) : onRefresh()), 2_000);
+    // the keys only (onPoll): onRefresh re-reads all of Activity on every chain
+    const t = setInterval(() => (Date.now() - since > wait.ms + 45_000 ? setWait(null) : onPoll()), 2_000);
     return () => clearInterval(t);
-  }, [wait, settled, busy, onRefresh, toast, onClose]);
+  }, [wait, settled, busy, onRefresh, onPoll, toast, onClose]);
 
   const usdcAddr = chainById(chainId)?.usdc?.toLowerCase();
   const haveUsdc = assets.some(a => a.chainId === chainId && a.asset.toLowerCase() === usdcAddr && BigInt(a.balance) >= (chainId === 1 ? 10_000_000n : 1_000_000n));

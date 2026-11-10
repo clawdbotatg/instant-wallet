@@ -253,6 +253,11 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
       <div className="stack">
         <h2>Removed</h2>
         <p className="fine">It's off the list. Only Reject stops it for sure: its signatures can still run it until another transaction takes #{w?.tx.nonce.toString()}.</p>
+        {!inWallet && (
+          <a className="btn wide" href="/">
+            Open Instant Wallet
+          </a>
+        )}
       </div>
     );
   if (missing)
@@ -260,6 +265,11 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
       <div className="stack">
         <h2>Transaction not found</h2>
         <p className="fine">Ask for the link again. It may have been executed or replaced already.</p>
+        {!inWallet && (
+          <a className="btn wide" href="/">
+            Open Instant Wallet
+          </a>
+        )}
       </div>
     );
   if (!w || !chain)

@@ -149,16 +149,15 @@ Suggested first: 1, 3, 5, 12, 20.
 - [x] **17. Pulling the WalletConnect sheet down mid-sign tells the site "rejected" while the tx still runs.**
   `components/WalletConnect.tsx:234-238`. Fix: the sheet's close does nothing while busy.
 
-- [ ] **18. Dead ends.**
-  - `Alerts.tsx:50-53,98`: "Loading…" forever if `/api/alerts` fails. `:138`: Telegram is checked once, 8 s later.
-  - `SafeConnect.tsx:102-114`: a failed fee quote leaves a disabled "Getting the fee…".
-  - `TxPage.tsx:247-260`: "Removed" and "Transaction not found" have no way back on the standalone page.
+- [x] **18. Dead ends.** Done 11-10: Alerts keeps trying to load and watches for the Telegram chat to link; a
+  failed fee quote for a site's request is asked again every 5 s; "Removed" and "Transaction not found" link home
+  on the standalone page; a failed Sign in Keys or Limits clears the prepared change (its wedgie port is closed);
+  an old keys read landing late no longer overwrites a newer one; `friendly()` lost the v3 "gas key" line (26).
+
+- [ ] **18b. Left from 18 (small).**
   - `ClaimMaker.tsx:110-114`, `DropAdmin.tsx:340-344`: a PDF that fails does so silently.
   - `RecoverTool.tsx:143-149`: the copy button says nothing. `:75-88`: Start / Finish / Deploy stay live mid-run.
-  - `Keys.tsx:179-181`, `Limits.tsx:96-98`: after a failed Sign, the retry uses a closed wedgie port.
-  - `Welcome.tsx:115`: `friendly()` still says "Your gas key needs a little more ETH" (a v3 thing) in the live app.
-  - Only `SafeConnect.tsx:122` checks the fee quote went stale before signing. Check it once in `finishOwners`.
-  - `SafeApp.tsx:146-150`: `loadStates` has no order guard; an old read landing late overwrites a newer one.
+  - Only `SafeConnect.tsx` checks the fee quote went stale before signing. Check it once in `finishOwners`.
   - `lib/claimBatch.ts:53`: a card's `eth` total adds different coins together (POL + xDAI + ETH).
 
 - [ ] **19. The "Slow internet…" pill fires on calls that are slow by design.**

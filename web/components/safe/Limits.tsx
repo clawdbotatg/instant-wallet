@@ -93,8 +93,9 @@ export function ChainLimit({ account, st, assets, onRefresh, onPoll, toast, onCl
       onRefresh();
     } catch (e: any) {
       setWait(null);
-      if (e instanceof Shared) return setReady(null); // its page has the sheet now
-      setError(friendly(e));
+      // its page has the sheet now (Shared), or it failed: the wedgie's port is closed below, so start again
+      setReady(null);
+      if (!(e instanceof Shared)) setError(friendly(e));
     } finally {
       await ready.close();
       setBusy(false);

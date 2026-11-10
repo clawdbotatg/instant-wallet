@@ -60,6 +60,19 @@ export function Alerts({ account, toast }: { account: SafeAccount; toast: (m: st
   useEffect(() => {
     load();
   }, [load]);
+  // it didn't load (the server blipped): keep trying, don't sit on "Loading…" for good
+  useEffect(() => {
+    if (info) return;
+    const t = setInterval(() => document.hidden || load(), 5_000);
+    return () => clearInterval(t);
+  }, [info, load]);
+  // the Telegram link is out: watch for the chat to link (it was checked once, 8 s after the tap)
+  const linked = !!info?.contacts.telegram;
+  useEffect(() => {
+    if (!tgLink || linked) return;
+    const t = setInterval(() => document.hidden || load(), 4_000);
+    return () => clearInterval(t);
+  }, [tgLink, linked, load]);
 
   async function run(what: string, ch: object, done?: string) {
     setBusy(what);
@@ -135,7 +148,7 @@ export function Alerts({ account, toast }: { account: SafeAccount; toast: (m: st
               <RemoveX disabled={!!busy} busy={busy === "tg"} label="Remove Telegram alerts" onClick={() => run("tg", { op: "telegram-off" }, "Telegram alerts off")} />
             </div>
           ) : tgLink ? (
-            <a className="btn btn-green wide" href={tgLink} target="_blank" rel="noreferrer" onClick={() => setTimeout(load, 8000)}>
+            <a className="btn btn-green wide" href={tgLink} target="_blank" rel="noreferrer">
               Open Telegram and tap Start
             </a>
           ) : (

@@ -149,9 +149,15 @@ export function SafeApp({ link }: { link?: string } = {}) {
       setFresh(true);
     }
   }, [account]);
+  const stAsked = useRef(0);
+  const stShown = useRef(0);
   const loadStates = useCallback(async () => {
     if (!account) return;
+    const n = ++stAsked.current;
     const s = await readAll(account).catch(() => null);
+    // an older read that lands after a newer one is dropped
+    if (!s || n < stShown.current) return;
+    stShown.current = n;
     // a chain that couldn't be read this time keeps what we last knew of it (readAll leaves it out), in the same order
     if (s)
       setStates(prev => {

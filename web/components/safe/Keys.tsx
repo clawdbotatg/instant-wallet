@@ -180,8 +180,10 @@ export function Keys({
       onRefresh();
     } catch (e: any) {
       setWait(null);
-      if (e instanceof Shared) setPending(null); // its page has the sheet now
-      else setErrorRaw({ what: pending.what, msg: friendly(e) });
+      // its page has the sheet now (Shared), or it failed: the wedgie's port is closed below, so a second tap on
+      // this same prepared change would sign into a closed port. Start again from the step's button.
+      setPending(null);
+      if (!(e instanceof Shared)) setErrorRaw({ what: pending.what, msg: friendly(e) });
     } finally {
       await pending.close?.();
       setBusy(null);

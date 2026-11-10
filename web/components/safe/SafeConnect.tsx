@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { type Hash, formatUnits } from "viem";
 import { CHAINS, chainById, nativeSymbol } from "@/lib/chains";
 import { amount as fmtAmount, short, feeText } from "@/lib/format";
@@ -85,6 +85,7 @@ function SafeRequest({
   const [error, setError] = useState<string | null>(null);
   const [prepared, setPrepared] = useState<Prepared | null>(null);
   const [tick, setTick] = useState(0);
+  const quoteFailed = useRef(false); // the error on screen is a failed fee quote (cleared when the next one lands)
   // no choosing who signs (Austin, 10-29): a transaction is Face ID, then its page, where any other signer adds theirs
   // and the site gets its answer when it's sent; a message (the site needs it back here) is the first set that can sign
   const queue = !!st && pending.kind === "calls" && signThenQueue(st, account);
@@ -106,20 +107,32 @@ function SafeRequest({
   useEffect(() => {
     if (!st || !calls || busy) return;
     let live = true;
+    let again: ReturnType<typeof setTimeout> | undefined;
     setPrepared(null);
     (async () => {
       const dappGas = await siteGas(st.chainId, account.address, calls!);
       const p = await prepareOwners({ account, state: st, calls: calls!, signers, feeToken, dappGas, label: pending.dapp.name });
-      if (live) setPrepared(p);
-    })().catch(e => live && setError(friendly(e)));
+      if (!live) return;
+      setPrepared(p);
+      if (quoteFailed.current) setError(null);
+      quoteFailed.current = false;
+    })().catch(e => {
+      if (!live) return;
+      // say why, and ask again in 5 s: the button must not sit on "Getting the fee…" for good
+      setError(friendly(e));
+      quoteFailed.current = true;
+      again = setTimeout(() => setTick(t => t + 1), 5_000);
+    });
     return () => {
       live = false;
+      clearTimeout(again);
     };
   }, [st?.chainId, st?.nonce, signers.join(), feeToken, tick]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function go() {
     if (!st) return;
     setError(null);
+    quoteFailed.current = false;
     let w: Wedgie | null = null;
     try {
       if (pending.kind === "calls" && !prepared) return;

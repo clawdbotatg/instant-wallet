@@ -158,7 +158,8 @@ export type ChainState = {
 export async function readChain(chainId: number, a: SafeAccount): Promise<ChainState> {
   const pc = publicClient(chainId);
   const safe = a.address;
-  const [code, code60] = await Promise.all([pc.getCode({ address: safe }).catch(() => undefined), pc.getCode({ address: RECOVERY_60D }).catch(() => undefined)]);
+  // a failed read throws (the caller keeps what it knew): guessing "not deployed" would show a live wallet as a new one
+  const [code, code60] = await Promise.all([pc.getCode({ address: safe }), pc.getCode({ address: RECOVERY_60D }).catch(() => undefined)]);
   const deployed = !!code && code !== "0x";
   const has60 = !!code60 && code60 !== "0x";
   if (!deployed)
@@ -238,7 +239,8 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
   // paired it), anything else signs through a browser wallet
   const slots = a.wedgie ? wedgieSigners(a.wedgie).map(x => x.toLowerCase()) : [];
   const others = o.filter(x => x.toLowerCase() !== a.burnerSigner.toLowerCase());
-  const codes = await Promise.all(others.map(x => (slots.includes(x.toLowerCase()) ? (`0x${"00".repeat(PASSKEY_SIGNER_SIZE)}` as Hex) : pc.getCode({ address: x }).catch(() => "0x00" as Hex))));
+  const codes = await Promise.all(others.map(x => (slots.includes(x.toLowerCase()) ? (`0x${"00".repeat(PASSKEY_SIGNER_SIZE)}` as Hex) : pc.getCode({ address: x }))));
+  // (no catch there: a failed read once made a wedgie a browser wallet for a refresh: wrong level, wrong fee kind, "fee too low")
   const isPasskey = (i: number) => !!codes[i] && codes[i] !== "0x" && size(codes[i]!) === PASSKEY_SIGNER_SIZE;
   const known = typeof window === "undefined" ? {} : loadSigners(safe);
   const friend = (x: Address) => !!known[x.toLowerCase()]?.passkey && !slots.includes(x.toLowerCase());

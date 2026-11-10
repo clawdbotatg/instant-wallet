@@ -62,7 +62,7 @@ Suggested first: 1, 3, 5, 12, 20.
   Fix: allow only push hosts (`fcm.googleapis.com`, `*.push.apple.com`, `updates.push.services.mozilla.com`,
   `*.notify.windows.com`) and pass a timeout.
 
-- [ ] **9. A failed `getCode` turns a wedgie into a browser wallet.**
+- [x] **9. A failed `getCode` turns a wedgie into a browser wallet.**
   `lib/safe/state.ts:241`. `.catch(() => "0x00")` makes `isPasskey` false, so `hasWedgie`, the level and the fee
   kind are wrong for that refresh ("fee too low"). Fix: throw so that chain is skipped this tick, or keep the last
   answer.

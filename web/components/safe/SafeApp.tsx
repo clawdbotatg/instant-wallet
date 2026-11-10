@@ -147,7 +147,8 @@ export function SafeApp({ link }: { link?: string } = {}) {
   const loadStates = useCallback(async () => {
     if (!account) return;
     const s = await readAll(account).catch(() => null);
-    if (s) setStates(s);
+    // a chain that couldn't be read this time keeps what we last knew of it (readAll leaves it out), in the same order
+    if (s) setStates(prev => { const all = [...s, ...prev.filter(p => !s.some(x => x.chainId === p.chainId))]; return CHAINS.map(c => all.find(x => x.chainId === c.id)).filter((x): x is ChainState => !!x); });
   }, [account]);
   // Activity reads the chain again on every refresh (a sheet closed, a pull, back to the app), not just once
   const [actTick, setActTick] = useState(0);

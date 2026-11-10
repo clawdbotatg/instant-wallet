@@ -51,7 +51,7 @@ Suggested first: 1, 3, 5, 12, 20.
   c. `lib/drops.ts:323`: drops use the relay's one lock per chain, which gives up after 10 s. A QR on a slide with
      dozens of claims at once returns "The relay is busy" and stalls normal sends on that chain.
 
-- [ ] **7. `authorize` lets a replaced passkey back in when the RPC errors.**
+- [x] **7. `authorize` lets a replaced passkey back in when the RPC errors.**
   `lib/alerts.ts` `authorize`. A failed `getCode` reads as "not deployed"; if every chain the wallet lives on
   errors, the counterfactual check passes a passkey that a recovery replaced. Fix: answer "Couldn't check the
   wallet. Try again." when any chain's read fails.

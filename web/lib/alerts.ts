@@ -129,16 +129,21 @@ export async function authorize(wallet: Address, change: string, s: Signed, scop
   const on = await Promise.all(
     CHAINS.map(async c => {
       const url = upstreamRpc(c.id);
-      if (!url) return null;
+      if (!url) return "none";
       const pc = createPublicClient({ transport: http(url) });
-      const code = await pc.getCode({ address: wallet }).catch(() => undefined);
-      if (!code || code === "0x") return null;
-      const owners = (await pc.readContract({ address: wallet, abi: abi.safe, functionName: "getOwners" }).catch(() => [])) as Address[];
-      return owners.some(o => o.toLowerCase() === signer.toLowerCase());
+      try {
+        const code = await pc.getCode({ address: wallet });
+        if (!code || code === "0x") return "none";
+        const owners = (await pc.readContract({ address: wallet, abi: abi.safe, functionName: "getOwners" })) as Address[];
+        return owners.some(o => o.toLowerCase() === signer.toLowerCase()) ? "owner" : "not";
+      } catch {
+        return "unknown"; // a failed read is not "not deployed": that guess let a replaced passkey back in
+      }
     }),
   );
-  if (on.some(owner => owner === true)) return null;
-  const deployed = on.some(owner => owner !== null);
+  if (on.includes("owner")) return null;
+  if (on.includes("unknown")) return "Couldn't check the wallet. Try again.";
+  const deployed = on.includes("not");
   if (!deployed && safeAddress(signer).toLowerCase() === wallet.toLowerCase()) return null;
   return "This passkey isn't a key of that wallet.";
 }

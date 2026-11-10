@@ -23,11 +23,11 @@ export function SimSetting({ toast }: { toast: (m: string) => void }) {
   return (
     <div className="stack" style={{ gap: 8 }}>
       <p className="fine">
-        Works out what a transaction sends and gets before you sign. Run{" "}
+        Use{" "}
         <a href="https://github.com/clawdbotatg/clear-sim" target="_blank" rel="noopener noreferrer">
           your own
-        </a>{" "}
-        and put its address here.
+        </a>
+        . Empty uses ours.
       </p>
       <div className="row" style={{ gap: 8 }}>
         <input className="grow" value={url} onChange={e => setUrl(e.target.value)} placeholder={SIM_DEFAULT} inputMode="url" autoCapitalize="off" autoCorrect="off" />

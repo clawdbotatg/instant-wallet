@@ -226,7 +226,45 @@ async function price(assets: Asset[]) {
     }),
   );
   await twinCheck(assets);
+  await secondOpinion(assets);
   for (const a of assets) a.usd = a.price === null ? null : Number(a.formatted) * a.price;
+}
+
+/** DefiLlama's name for each chain (its prices come from its own reading of the pools, not Alchemy's or DexScreener's). */
+const LLAMA: Record<number, string> = { 1: "ethereum", 8453: "base", 42161: "arbitrum", 10: "optimism", 137: "polygon", 56: "bsc", 43114: "avax", 100: "xdai", 42220: "celo", 146: "sonic", 999: "hyperliquid", 9745: "plasma" };
+const CHECK_USD = 20; // a row worth less can't make the total lie by much
+const llamaCache = new Map<string, { at: number; v: number | null }>();
+
+/**
+ * Any token row worth $20 or more gets a second opinion (DefiLlama). Ours more than twice theirs: theirs it is.
+ * Only ever down: a wallet that looks too poor for a minute is a far smaller lie than one that looks rich.
+ * They have no price for it (or we can't reach them): ours stays.
+ */
+async function secondOpinion(assets: Asset[]) {
+  const id = (a: Asset) => `${LLAMA[a.chainId]}:${a.asset}`;
+  const big = assets.filter(a => a.asset !== ETH && LLAMA[a.chainId] && a.price !== null && Number(a.formatted) * a.price >= CHECK_USD);
+  const need = [...new Set(big.map(id))].filter(k => {
+    const hit = llamaCache.get(k);
+    return !(hit && Date.now() - hit.at < PRICE_MS);
+  });
+  for (let i = 0; i < need.length; i += 50) {
+    const batch = need.slice(i, i + 50);
+    const j = await fetch(`https://coins.llama.fi/prices/current/${batch.join(",")}`, { cache: "no-store", signal: AbortSignal.timeout(3_000) })
+      .then(r => (r.ok ? r.json() : null))
+      .catch(() => null);
+    if (!j?.coins) continue; // failed: not "no price", so nothing cached
+    const got = new Map(Object.entries(j.coins as Record<string, { price?: number; confidence?: number; timestamp?: number }>).map(([k, v]) => [k.toLowerCase(), v]));
+    for (const k of batch) {
+      const c = got.get(k.toLowerCase());
+      // a guess they aren't sure of, or a day-old one, is no second opinion
+      const ok = c && Number.isFinite(c.price) && c.price! > 0 && (c.confidence ?? 0) >= 0.8 && Date.now() / 1000 - (c.timestamp ?? 0) < 86_400;
+      llamaCache.set(k, { at: Date.now(), v: ok ? c.price! : null });
+    }
+  }
+  for (const a of big) {
+    const v = llamaCache.get(id(a))?.v;
+    if (v && a.price! > v * 2) a.price = v;
+  }
 }
 
 /** A well-known token's twin on Ethereum (same symbol in Swap's list there), by `chainId:address` lowercase. */

@@ -187,7 +187,7 @@ Suggested first: 1, 3, 5, 12, 20.
   `Keys.tsx:135-138`, `Limits.tsx:46` call `onRefresh`, which bumps Activity past its cache on every chain.
   Fix: a states-only refresh.
 
-- [ ] **22. Home re-renders every 3 s with nothing changed.**
+- [x] **22. Home re-renders every 3 s with nothing changed.**
   `SafeApp.tsx:133-144`: `keepLate` returns a new object each poll. Each render redoes `rolesAddress` + `dangers`
   per waiting card (`WhatItDoes.tsx:136`) and `howSigns` / `loadSigners` per owner (`Keys.tsx:479-485`).
   Fix: skip `setPortfolio` when nothing changed; memo those.

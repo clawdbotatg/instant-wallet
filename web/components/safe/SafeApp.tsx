@@ -38,6 +38,9 @@ import type { Session } from "../WalletConnect";
 
 const WATCH = "watch"; // credentialId of a ?watch= view
 
+/** JSON.stringify's replacer for a chain's state (it has bigints). */
+const big = (_: string, v: unknown) => (typeof v === "bigint" ? `${v}n` : v);
+
 type View = { kind: "home" } | { kind: "send"; asset?: Asset; scanned?: string } | { kind: "swap"; fund?: number } | { kind: "apps" } | { kind: "receive" } | { kind: "deposit" } | { kind: "keys" } | { kind: "share"; chainId: number } | { kind: "sendAll" } | { kind: "tx"; chainId: number; safe: Address; code: string };
 
 /** Instant Wallet on a Safe: a big balance, Deposit / Apps, the connected sites above the coins, the address pill opens Receive, settings bottom left (signatures needed / signers; the wedgie lives in there), a send button on each asset, a scan button (addresses, claim cards, WalletConnect QRs). */
@@ -123,6 +126,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
     }
   };
 
+  const same = (a: unknown, b: unknown) => JSON.stringify(a, big) === JSON.stringify(b, big);
   // the balance shows as soon as it lands; the keys read (slower, several calls per network) never holds it up
   const busy = useRef(false);
   const loadBalance = useCallback(async () => {
@@ -137,6 +141,8 @@ export function SafeApp({ link }: { link?: string } = {}) {
     if (p?.assets) {
       setPortfolio(prev => {
         const m = keepLate(p, prev);
+        // nothing changed: keep the same object, so Home doesn't draw itself again every 3 s
+        if (prev && same(m, prev)) return prev;
         savePortfolio(account.address, m);
         return m;
       });
@@ -147,7 +153,13 @@ export function SafeApp({ link }: { link?: string } = {}) {
     if (!account) return;
     const s = await readAll(account).catch(() => null);
     // a chain that couldn't be read this time keeps what we last knew of it (readAll leaves it out), in the same order
-    if (s) setStates(prev => { const all = [...s, ...prev.filter(p => !s.some(x => x.chainId === p.chainId))]; return CHAINS.map(c => all.find(x => x.chainId === c.id)).filter((x): x is ChainState => !!x); });
+    if (s)
+      setStates(prev => {
+        // a chain that reads the same keeps its old object, and all the same keeps the old list: nothing draws again
+        const all = [...s.map(x => prev.find(p => p.chainId === x.chainId && same(p, x)) ?? x), ...prev.filter(p => !s.some(x => x.chainId === p.chainId))];
+        const next = CHAINS.map(c => all.find(x => x.chainId === c.id)).filter((x): x is ChainState => !!x);
+        return next.length === prev.length && next.every((x, i) => x === prev[i]) ? prev : next;
+      });
   }, [account]);
   // Activity reads the chain again on every refresh (a sheet closed, a pull, back to the app), not just once
   const [actTick, setActTick] = useState(0);

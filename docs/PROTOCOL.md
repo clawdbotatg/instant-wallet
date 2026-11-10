@@ -1,6 +1,6 @@
 # Instant Wallet protocol
 
-> v3.1 sends are ERC-4337 user ops with gas paid in USDC: formats and flow in `docs/GAS.md`.
+> History: the first version. The v3 wallet that followed it was removed 2026-11-10 (git has it).
 
 The one document every piece reads: the contract, the web app (facilitator + device queue), the
 firmware, and the tests. If the contract changes a digest, this file changes, and so do the app

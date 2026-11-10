@@ -2,11 +2,9 @@ import { Core } from "@walletconnect/core";
 import { WalletKit, type WalletKitTypes } from "@reown/walletkit";
 import { buildApprovedNamespaces, getSdkError } from "@walletconnect/utils";
 import {
+  type Address,
   type Hash,
   type Hex,
-  concat,
-  encodeAbiParameters,
-  encodeFunctionData,
   getAddress,
   hashMessage,
   hashTypedData,
@@ -15,20 +13,15 @@ import {
   toHex,
   numberToHex,
 } from "viem";
-import { factoryAbi } from "./abi";
-import { KIND_WEBAUTHN } from "./address";
-import { CHAINS, FACTORY, SENDABLE, publicClient } from "./chains";
+import { CHAINS, SENDABLE, publicClient } from "./chains";
 import { extRespond, isExt } from "./extension";
 import { appRespond, isApp } from "./safeapps";
-import { signDigest } from "./passkey";
-import type { Account } from "./types";
-import { type Call, isDeployed, sendCalls } from "./wallet";
 
 /**
  * Instant Wallet as a WalletConnect wallet (Reown WalletKit). A site shows a wc: QR, the scan button reads it,
  * the site connects. What a site can ask, and what happens:
  *
- *   eth_sendTransaction        one call  → a card → Face ID → one signed batch (metaExecute / user op)
+ *   eth_sendTransaction        one call  → a card → Face ID → one Safe transaction
  *   wallet_sendCalls (5792)    N calls   → one card → one Face ID → one atomic batch (approve + swap in one go)
  *   wallet_getCapabilities     answered at once: atomic "supported" on every enabled chain
  *   wallet_getCallsStatus      answered at once from the batch's receipt
@@ -38,6 +31,9 @@ import { type Call, isDeployed, sendCalls } from "./wallet";
  *
  * eth_sign (blind hash signing) is never offered.
  */
+
+/** One call a site asks for. */
+export type Call = { target: Address; value: bigint; data: Hex };
 
 export const PROJECT_ID = process.env.NEXT_PUBLIC_WC_PROJECT_ID || "3a8170812b534d0ff9d794f19a901d64"; // SE-2's public id
 
@@ -57,7 +53,6 @@ const EVENTS = ["chainChanged", "accountsChanged"];
 const WC_CHAINS = CHAINS.filter(c => SENDABLE.has(c.id));
 export const WC_CHAIN_IDS = WC_CHAINS.map(c => c.id);
 
-const ERC6492_MAGIC: Hex = "0x6492649264926492649264926492649264926492649264926492649264926492";
 
 export type Kit = Awaited<ReturnType<typeof WalletKit.init>>;
 let kit: Promise<Kit> | null = null;
@@ -230,40 +225,6 @@ function typedPreview(t: any): string {
   const lines = [`${t.domain?.name ?? "Unknown app"} · ${t.primaryType}`];
   for (const [k, v] of Object.entries(t.message ?? {})) lines.push(`${k}: ${typeof v === "object" ? JSON.stringify(v) : String(v)}`);
   return lines.join("\n");
-}
-
-// ---------------------------------------------------------------- doing it
-
-/** Approve: run the batch (one Face ID) or sign the message, and answer the site. */
-export async function approve(pending: Pending, account: Account, onStage?: (s: string) => void): Promise<void> {
-  if (pending.kind === "calls") {
-    const hash = await sendCalls(pending.chainId, account, pending.calls, { onStage: onStage as any });
-    remember(hash, pending.chainId);
-    await respond(pending.topic, pending.id, pending.method === "wallet_sendCalls" ? { id: hash } : hash);
-    return;
-  }
-  onStage?.("signing");
-  await respond(pending.topic, pending.id, await sign1271(pending.chainId, account, pending.hash));
-}
-
-/** ERC-1271 signature over `hash`: signerId ‖ passkey signature of the wallet-scoped digest; 6492 if undeployed. */
-export async function sign1271(chainId: number, account: Account, hash: Hex): Promise<Hex> {
-  const digest = hashTypedData({
-    domain: { name: "InstantWallet", version: "3", chainId, verifyingContract: account.address },
-    types: { InstantWalletMessage: [{ name: "hash", type: "bytes32" }] },
-    primaryType: "InstantWalletMessage",
-    message: { hash },
-  });
-  const { signature } = await signDigest(account.credentialId, digest);
-  const sig = concat([account.signerId, signature]);
-  if (await isDeployed(chainId, account.address)) return sig;
-  if (!FACTORY) return sig;
-  const deploy = encodeFunctionData({
-    abi: factoryAbi,
-    functionName: "createWallet",
-    args: [account.qx, account.qy, KIND_WEBAUTHN, account.credentialIdHash],
-  });
-  return concat([encodeAbiParameters([{ type: "address" }, { type: "bytes" }, { type: "bytes" }], [FACTORY, deploy, sig]), ERC6492_MAGIC]);
 }
 
 // ---------------------------------------------------------------- EIP-5792 status

@@ -214,7 +214,7 @@ Suggested first: 1, 3, 5, 12, 20.
 
 ## Delete?
 
-- [ ] **26. The v3 wallet.** Nothing links to `/v3`, `/wedgie`, `/guardian`; `/api/bundler` serves only them.
+- [x] **26. The v3 wallet.** Removed 11-10 (3 wallets on Base held $0.85 in all; git has the code). Nothing links to `/v3`, `/wedgie`, `/guardian`; `/api/bundler` serves only them.
   Goes with it: `components/App.tsx`, `Send.tsx`, `Settings.tsx`, `Safety.tsx`, `Welcome.tsx` (move `friendly()`
   out first: ~20 live files import it), `lib/wallet.ts`, `userop.ts`, `cold.ts`, `abi.ts`, the v3 parts of
   `walletconnect.ts` / `WalletConnect.tsx`, tools `e2e.mjs`, `wc-e2e.mjs`, `cold-e2e.mjs`, `aa-live.mjs`,

@@ -29,7 +29,7 @@ The link is about 100.
 - **Making keys and links:** `generatePrivateKey()` (viem) and `claimUrl(origin, key)` in `lib/claim.ts`.
 - **Keeping keys for take-back:** `iw.cards` in localStorage, in `components/ClaimMaker.tsx`.
 - **Sending from the wallet:** `plan` + `budgetSend` / `ownersSend` in `lib/safe/send.ts` (what `SafeSend.tsx` uses).
-  The live site is the Safe wallet (`SafeApp`); `Settings.tsx` / `lib/wallet.ts` are the old `/v3` wallet.
+  The live site is the Safe wallet (`SafeApp`); the old `/v3` wallet was removed 2026-11-10.
 - **Applinks:** a tapped `instantwallet.io` link opens the app if it's installed, Safari if not. Both work.
 
 ## To build

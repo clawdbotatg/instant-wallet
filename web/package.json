@@ -7,8 +7,7 @@
     "prebuild": "mkdir -p public/colibri && cp node_modules/@corpus-core/colibri-stateless/c4w.wasm public/colibri/c4w.wasm",
     "build": "next build",
     "start": "next start",
-    "check-types": "tsc --noEmit",
-    "abi": "node tools/abi.mjs"
+    "check-types": "tsc --noEmit"
   },
   "engines": {
     "node": ">=20"

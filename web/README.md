@@ -1,7 +1,6 @@
 # Instant Wallet — the website
 
 The live app: a passkey wallet on a Gnosis Safe, same address on 14 networks. What's built: `../docs/SAFE-APP.md`.
-The older v3 wallet (our own contract, ERC-4337) is still at `/v3`, not linked from anywhere.
 
 ```sh
 npm install
@@ -37,9 +36,8 @@ Names only. Values live in Vercel and in `web/.env.local` (gitignored).
 | `NEXT_PUBLIC_VAPID_KEY`, `VAPID_PRIVATE_KEY` | recovery alerts by push |
 | `DROP_SECRET`, `DROP_ADMINS` | drops (`../docs/DROPS.md`) |
 | `LOCAL_TOKENS`, `LOCAL_TOKENS_ONLY`, `NEXT_PUBLIC_LOCAL_TOKENS`, `NEXT_PUBLIC_TEST_FEE_ALLOWANCE` | tests on a fork only |
-| `BUNDLER_URL_<chain>`, `BUNDLER_PRIVATE_KEY` | `/v3` only |
 
 ## Tests
 
 The table in `../docs/SAFE-APP.md` ("Tests"). Each tool's header says how to set it up. The tools that say
-`npx tsx` need nothing installed. `tools/e2e.mjs`, `wc-e2e.mjs`, `cold-e2e.mjs` and `aa-live.mjs` test `/v3`.
+`npx tsx` need nothing installed.

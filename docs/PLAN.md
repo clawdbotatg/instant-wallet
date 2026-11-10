@@ -6,7 +6,7 @@
 
 2026-10-05. **This is the master doc.** It replaces the rules in `ROLES.md` and `COLD-STORAGE.md` (no more
 "one key waits 48 h"). Details: `SAFE.md` (research), `WEDGIE-SAFE.md` (wedgie as owner, tested),
-`LEVELS.md` (dials), `GAS.md` (fees). Our own `InstantWallet` 3.2 contract is shelved, never deployed.
+`LEVELS.md` (dials). Our own `InstantWallet` 3.2 contract is shelved, never deployed.
 
 ## In one paragraph
 

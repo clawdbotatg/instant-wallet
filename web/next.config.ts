@@ -14,7 +14,7 @@ const config: NextConfig = {
     // (/api/safe/queue sets its own: wedgie.dev/safe shares that queue)
     return [{ source: "/:path((?!api/safe/queue).*)", headers: [{ key: "Access-Control-Allow-Origin", value: "https://instantwallet.io" }] }];
   },
-  // the Safe build moved from /safe to / (2026-10-06); the v3 wallet is at /v3
+  // the Safe build moved from /safe to / (2026-10-06)
   async redirects() {
     return [
       { source: "/safe", destination: "/", permanent: false },

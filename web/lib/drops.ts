@@ -165,18 +165,20 @@ export async function createDrop(admin: Address, n: NewDrop): Promise<Drop> {
   return d;
 }
 
-export async function updateDrop(id: string, ch: { paused?: boolean; ended?: boolean; minutes?: number }): Promise<Drop> {
-  const d = await getDrop(id);
-  if (!d) throw new DropRefused("No such drop.", 404);
-  if (typeof ch.paused === "boolean") d.paused = ch.paused;
-  if (ch.ended) d.ended = true;
-  if (typeof ch.minutes === "number") {
-    if (ch.minutes > 0) d.closesAt = Date.now() + Math.floor(ch.minutes) * 60_000;
-    else delete d.closesAt;
-  }
-  await saveDrop(d);
-  return d;
-}
+export const updateDrop = (id: string, ch: { paused?: boolean; ended?: boolean; minutes?: number }): Promise<Drop> =>
+  // one at a time per drop: two changes at once (pause, and a new closing time) both land
+  withLock(`drop:${id}`, async () => {
+    const d = await getDrop(id);
+    if (!d) throw new DropRefused("No such drop.", 404);
+    if (typeof ch.paused === "boolean") d.paused = ch.paused;
+    if (ch.ended) d.ended = true;
+    if (typeof ch.minutes === "number") {
+      if (ch.minutes > 0) d.closesAt = Date.now() + Math.floor(ch.minutes) * 60_000;
+      else delete d.closesAt;
+    }
+    await saveDrop(d);
+    return d;
+  });
 
 /** Why a drop can't pay now, or null. */
 export function closed(d: Drop, claimed: number): string | null {

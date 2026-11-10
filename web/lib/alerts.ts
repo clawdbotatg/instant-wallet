@@ -8,6 +8,7 @@ import { CHAINS, chainById } from "./chains";
 import { upstreamRpc } from "./rpcServer";
 import { RECOVERY_MODULES } from "./safe/config";
 import { abi, safeAddress, signerAddress } from "./safe/core";
+import { withLock } from "./safe/relayGuard";
 import { bytesToBase64url, hexToBytes } from "./webauthn";
 
 /**
@@ -72,6 +73,15 @@ export async function putContacts(w: Address, c: Contacts) {
     await kv(["SADD", `${P}wallets`, w.toLowerCase()]);
   }
 }
+/** Read, edit, save, one at a time per wallet: two changes at once (an email and a new device) both land.
+ * Send nothing inside `edit`: the lock lasts 20 s. */
+export const changeContacts = (w: Address, edit: (c: Contacts) => void): Promise<Contacts> =>
+  withLock(`contacts:${w.toLowerCase()}`, async () => {
+    const c = await getContacts(w);
+    edit(c);
+    await putContacts(w, c);
+    return c;
+  });
 export const wallets = async (): Promise<Address[]> => ((await kv(["SMEMBERS", `${P}wallets`])) as string[]).map(x => getAddress(x));
 /** First caller wins: a send that must happen once (SET NX). */
 export const once = async (key: string, ttlSec: number) => (await kv(["SET", P + key, 1, "NX", "EX", ttlSec])) === "OK";
@@ -219,10 +229,10 @@ export async function notify(wallet: Address, c: Contacts, subject: string, text
       if (!ok) dead.add(p.endpoint);
     }
     // `c` may be only some of the wallet's contacts: take the dead devices out of what's saved, nothing else
-    if (dead.size) {
-      const saved = await getContacts(wallet);
-      if (saved.push?.some(p => dead.has(p.endpoint))) await putContacts(wallet, { ...saved, push: saved.push.filter(p => !dead.has(p.endpoint)) });
-    }
+    if (dead.size)
+      await changeContacts(wallet, saved => {
+        saved.push = saved.push?.filter(p => !dead.has(p.endpoint));
+      });
   }
   return errs;
 }

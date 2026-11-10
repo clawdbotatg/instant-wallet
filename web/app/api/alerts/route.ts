@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAddress, isAddress } from "viem";
-import { type Contacts, type Signed, authorize, channels, getContacts, masked, notify, pushHost, putContacts, stash } from "@/lib/alerts";
+import { type Contacts, type Signed, authorize, channels, getContacts, masked, changeContacts, notify, pushHost, stash } from "@/lib/alerts";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +28,8 @@ export async function POST(req: NextRequest) {
   if (bad) return NextResponse.json({ error: bad }, { status: 403 });
   const ch = JSON.parse(b.change);
   const old = await getContacts(wallet);
-  const c: Contacts = { ...old, at: Date.now() };
+  // what this change does to the saved contacts: run on a fresh read, under the wallet's lock (changeContacts)
+  let edit: ((c: Contacts) => void) | undefined;
   const removed = (what: string) =>
     notify(wallet, old, "Your recovery alerts changed", `${what} on your Instant Wallet ${wallet}. If this wasn't you, someone has your passkey: open the app and check your keys.`);
   let link: string | undefined;
@@ -38,12 +39,12 @@ export async function POST(req: NextRequest) {
       if (!EMAIL.test(email)) return NextResponse.json({ error: "That email doesn't look right." }, { status: 400 });
       if (!channels().email) return NextResponse.json({ error: "Email alerts aren't set up on this server yet." }, { status: 503 });
       if (old.email && old.email !== email) await removed(`The alert email was changed to ${email}`);
-      c.email = email;
+      edit = c => void (c.email = email);
       break;
     }
     case "email-off":
       await removed("Email alerts were turned off");
-      delete c.email;
+      edit = c => void delete c.email;
       break;
     case "telegram": {
       if (!channels().telegram) return NextResponse.json({ error: "Telegram alerts aren't set up on this server yet." }, { status: 503 });
@@ -54,24 +55,25 @@ export async function POST(req: NextRequest) {
     }
     case "telegram-off":
       await removed("Telegram alerts were turned off");
-      delete c.telegram;
+      edit = c => void delete c.telegram;
       break;
     case "push": {
       const sub = ch.sub;
       if (!pushHost(sub?.endpoint) || !sub.keys?.p256dh || !sub.keys?.auth) return NextResponse.json({ error: "bad push subscription" }, { status: 400 });
-      c.push = [...(old.push ?? []).filter(p => p.endpoint !== sub.endpoint), { endpoint: sub.endpoint, keys: { p256dh: sub.keys.p256dh, auth: sub.keys.auth } }].slice(-8);
+      edit = c => void (c.push = [...(c.push ?? []).filter(p => p.endpoint !== sub.endpoint), { endpoint: sub.endpoint, keys: { p256dh: sub.keys.p256dh, auth: sub.keys.auth } }].slice(-8));
       break;
     }
     case "push-off":
       await removed("Notifications were turned off on a device");
-      c.push = (old.push ?? []).filter(p => p.endpoint !== ch.endpoint);
+      edit = c => void (c.push = (c.push ?? []).filter(p => p.endpoint !== ch.endpoint));
       break;
     case "test":
       break;
     default:
       return NextResponse.json({ error: "unknown change" }, { status: 400 });
   }
-  if (ch.op !== "telegram") await putContacts(wallet, c);
+  const change = edit;
+  const c: Contacts = change ? await changeContacts(wallet, c => (change(c), void (c.at = Date.now()))) : old;
   // a new contact (or a test) gets a message now: you see it works
   let errors: string[] = [];
   const fresh: Contacts =

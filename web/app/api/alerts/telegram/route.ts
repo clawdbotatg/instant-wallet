@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAddress } from "viem";
-import { getContacts, notify, putContacts, sendTelegram, take } from "@/lib/alerts";
+import { changeContacts, getContacts, notify, sendTelegram, take } from "@/lib/alerts";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
   const old = await getContacts(wallet);
   if (old.telegram && old.telegram !== chat)
     await notify(wallet, { telegram: old.telegram }, "Your recovery alerts changed", `Telegram alerts for your Instant Wallet ${wallet} moved to another chat. If this wasn't you, open the app and check your keys.`);
-  await putContacts(wallet, { ...old, telegram: chat, at: Date.now() });
+  await changeContacts(wallet, c => void ((c.telegram = chat), (c.at = Date.now())));
   await sendTelegram(chat, `Recovery alerts are on. If anyone starts a recovery on your Instant Wallet ${wallet}, you'll hear about it here.`).catch(() => {});
   return NextResponse.json({ ok: true });
 }

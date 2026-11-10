@@ -42,7 +42,7 @@ Suggested first: 1, 3, 5, 12, 20.
   `app/api/safe/queue/route.ts` (POST, DELETE) and `app/api/safe/invite/route.ts` (PUT): read, edit, write on one
   JSON blob. Now each inside `withLock`.
 
-- [ ] **5b. The same read-edit-write, still open.** `lib/drops.ts:168-178` (`updateDrop`: two admin changes at
+- [x] **5b. The same read-edit-write, still open.** `lib/drops.ts:168-178` (`updateDrop`: two admin changes at
   once), alert contacts (`app/api/alerts/route.ts:30,74`, `app/api/alerts/telegram/route.ts:30-33`,
   `lib/alerts.ts:191`: an email change and a push change at once, one is lost). The alert ones send messages
   between the read and the write, so the lock (20 s) has to wrap only the read and write.

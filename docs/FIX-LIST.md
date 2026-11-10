@@ -104,7 +104,7 @@ Suggested first: 1, 3, 5, 12, 20.
 
 ## What people see
 
-- [ ] **12. "What it does" is asked once and kept for the page's life, failures too.**
+- [x] **12. "What it does" is asked once and kept for the page's life, failures too.**
   `components/safe/WhatItDoes.tsx:31-48,96-127`. A waiting tx that showed "Would fail now" still says so after the
   wallet is funded; a simulator blip leaves a card with no coins until reload. This is expectation #1.
   Fix: never keep a failed ask; keep the coins ~30 s and ask again while the card is on screen.

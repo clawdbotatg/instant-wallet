@@ -28,22 +28,25 @@ type Told = { what: string; short?: string; fields: Field[]; who?: string; swap?
 type Move = { symbol: string; amount: string; usd?: number; unknown?: boolean };
 type Got = { calls: Told[] | null; sim: Sim | null; feeUsd: Record<string, number> };
 
-// one ask per set of calls, kept for the page's life
-const got = new Map<string, Promise<Got>>();
+// one ask per set of calls. The words never change, so they're kept for the page's life. The coins come from a run on
+// the latest block, so they're kept for SIM_LIFE only (a tx that "would fail now" works once the wallet is funded).
+// A failed ask is never kept: the next look asks again.
+const SIM_LIFE = 30_000;
+const got = new Map<string, { p: Promise<Got>; at: number }>();
 const said = new Map<string, Promise<Told[] | null>>();
 
 /** Each call in words from our server (/api/explain: clear signing, else a Uniswap swap), one ask per set of calls. */
 export function explainCalls(chainId: number, safe: Address, calls: Call[]): Promise<Told[] | null> {
   if (!calls.length) return Promise.resolve(null);
   const body = JSON.stringify({ chain: chainId, safe, calls: calls.map(c => ({ to: c.to, value: String(c.value), data: c.data })) });
-  if (!said.has(body))
-    said.set(
-      body,
-      fetch("/api/explain", { method: "POST", headers: { "content-type": "application/json" }, body })
-        .then(r => (r.ok ? r.json() : null))
-        .then(j => (Array.isArray(j?.calls) ? (j.calls as Told[]) : null))
-        .catch(() => null),
-    );
+  if (!said.has(body)) {
+    const p: Promise<Told[] | null> = fetch("/api/explain", { method: "POST", headers: { "content-type": "application/json" }, body })
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => (Array.isArray(j?.calls) ? (j.calls as Told[]) : null))
+      .catch(() => null);
+    said.set(body, p);
+    p.then(v => v === null && said.get(body) === p && said.delete(body));
+  }
   return said.get(body)!;
 }
 
@@ -95,7 +98,8 @@ export function intents(chainId: number, safe: Address, calls: Call[], told: Tol
 
 function ask(chainId: number, safe: Address, calls: Call[], tx?: SafeTxLike) {
   const body = JSON.stringify({ chain: chainId, safe, calls: calls.map(c => ({ to: c.to, value: String(c.value), data: c.data })), op: tx?.operation, to: tx?.to });
-  if (!got.has(body)) {
+  const had = got.get(body);
+  if (!had || Date.now() - had.at > SIM_LIFE) {
     // the words from our server; the coins from clear-sim, asked from here (lib/safe/sim.ts: the user's own simulator if set)
     const words = explainCalls(chainId, safe, calls);
     const fees: Record<string, bigint> = {};
@@ -118,12 +122,11 @@ function ask(chainId: number, safe: Address, calls: Call[], tx?: SafeTxLike) {
         return moves(a, fees);
       })
       .catch(() => null);
-    got.set(
-      body,
-      Promise.all([words, coins]).then(([w, s]) => ({ calls: w, sim: s, feeUsd })),
-    );
+    const p = Promise.all([words, coins]).then(([w, s]) => ({ calls: w, sim: s, feeUsd }));
+    got.set(body, { p, at: Date.now() });
+    p.then(g => (!g.sim || (calls.length > 0 && !g.calls)) && got.get(body)?.p === p && got.delete(body));
   }
-  return got.get(body)!;
+  return got.get(body)!.p;
 }
 
 /** What a Safe tx does: first what it does to your coins (clear-sim runs it on the latest block: you pay, you get),
@@ -142,9 +145,14 @@ export function WhatItDoes({ chainId, safe, calls, tx }: { chainId: number; safe
   useEffect(() => {
     let live = true;
     setRes(null);
-    if (calls.length || tx) ask(chainId, safe, calls, tx).then(t => live && setRes(t));
+    if (!(calls.length || tx)) return;
+    const look = () => ask(chainId, safe, calls, tx).then(t => live && setRes(t));
+    look();
+    // while it's on screen, run it again as the coins go stale (the old answer stays up until the new one lands)
+    const t = setInterval(() => !document.hidden && look(), SIM_LIFE + 1_000);
     return () => {
       live = false;
+      clearInterval(t);
     };
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
   const [eth, setEth] = useState(0);

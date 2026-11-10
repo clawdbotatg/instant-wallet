@@ -1,15 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { type Address, formatUnits, toHex } from "viem";
+import { type Address, formatUnits } from "viem";
 import { chainById, explorerTx } from "@/lib/chains";
 import { cardsPdf } from "@/lib/claimBatch";
-import { type DropInfo, dropAmount, dropSig, dropUrl } from "@/lib/dropClient";
+import { type DropInfo, dropAmount, dropUrl } from "@/lib/dropClient";
 import { short } from "@/lib/format";
-import { type SafeAccount, loadAccount } from "@/lib/safe/state";
 import { CopyAddress, CopyLink, Eject, Qr, TimedBar, Who, copy, useToast } from "./bits";
+import { AdminLogin, SESSION } from "./AdminLogin";
 import { friendly } from "./Welcome";
-import { bio } from "@/lib/passkey";
 
 type Drop = {
   id: string;
@@ -35,7 +34,6 @@ type Detail = {
   claims: { code: string; wallet: Address; tx: string; at: number }[];
 };
 
-const SESSION = "iw.dropAdmin";
 const dec = (t: Drop["token"]) => (t === "usdc" ? 6 : 18);
 const amt = (d: Drop) => dropAmount({ ...d, decimals: d.usd ? 6 : dec(d.token) });
 /** "$5" for a USDC drop or a dollar-priced ETH drop. */
@@ -67,12 +65,10 @@ function status(d: Drop, claimed: number) {
 
 /** /drops: make drops, fill their pots, print cards or show a crowd QR, take back what's left (lib/drops.ts). */
 export function DropAdmin() {
-  const [account, setAccount] = useState<SafeAccount | null | undefined>(undefined);
   const [authed, setAuthed] = useState(false);
   const [drops, setDrops] = useState<Drop[] | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   const [making, setMaking] = useState(false);
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useToast();
 
@@ -88,72 +84,12 @@ export function DropAdmin() {
   }, []);
 
   useEffect(() => {
-    setAccount(loadAccount());
     try {
       if (localStorage.getItem(SESSION)) load();
     } catch {}
   }, [load]);
 
-  async function login() {
-    if (!account) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const sig = await dropSig(account, "login");
-      const j = await api("login", { wallet: account.address, sig });
-      localStorage.setItem(SESSION, JSON.stringify({ token: j.token, wallet: j.wallet }));
-      await load();
-    } catch (e: any) {
-      setError(friendly(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function walletLogin() {
-    const eth = (window as any).ethereum;
-    if (!eth) return setError("No wallet in this browser. Open this page in your wallet's browser, or on a computer with MetaMask or Rabby.");
-    setBusy(true);
-    setError(null);
-    try {
-      const [wallet] = await eth.request({ method: "eth_requestAccounts" });
-      const { message } = await api("challenge");
-      const signature = await eth.request({ method: "personal_sign", params: [toHex(message), wallet] });
-      const j = await api("login", { wallet, message, signature });
-      localStorage.setItem(SESSION, JSON.stringify({ token: j.token, wallet: j.wallet }));
-      await load();
-    } catch (e: any) {
-      setError(friendly(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  if (account === undefined) return null;
-
-  if (!authed)
-    return (
-      <div className="app">
-        <div className="welcome">
-          <h1>Drops</h1>
-          <p className="fine">A pot of money and codes for it: cards to print, or one QR for a crowd. Each code pays into a new Instant Wallet.</p>
-          {account ? (
-            <button className="btn btn-green wide" onClick={login} disabled={busy}>
-              {busy ? "…" : `Log in with ${bio()}`}
-            </button>
-          ) : (
-            <>
-              <p>Make your Instant Wallet first, on this device.</p>
-              <a className="btn btn-green wide" href="/">Open Instant Wallet</a>
-            </>
-          )}
-          <button className="btn wide" onClick={walletLogin} disabled={busy}>
-            Log in with a wallet
-          </button>
-          {error && <p className="err">{error}</p>}
-        </div>
-      </div>
-    );
+  if (!authed) return <AdminLogin title="Drops" blurb="A pot of money and codes for it: cards to print, or one QR for a crowd. Each code pays into a new Instant Wallet." onDone={load} />;
 
   return (
     <div className="app">

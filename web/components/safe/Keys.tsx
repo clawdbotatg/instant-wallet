@@ -1,5 +1,6 @@
 "use client";
 
+import { RpcSetting } from "./RpcSetting";
 import { SimSetting } from "./SimSetting";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { type Address, type Hex, encodeFunctionData, formatUnits, zeroAddress } from "viem";
@@ -742,6 +743,10 @@ export function Keys({
 
       <Step title="Recovery alerts" key="alerts">
         <Alerts account={account} toast={toast} />
+      </Step>
+
+      <Step title={`Your node on ${chainById(chainId)?.name}`} key={`rpc${chainId}`}>
+        <RpcSetting chainId={chainId} toast={toast} />
       </Step>
 
       <Step title="Simulator" key="sim">

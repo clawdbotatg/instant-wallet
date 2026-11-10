@@ -1,4 +1,4 @@
-import { type Address, type Chain, createPublicClient, http } from "viem";
+import { type Address, type Chain, type Transport, createPublicClient, http } from "viem";
 import { arbitrum, arc, avalanche, base, bsc, celo, foundry, gnosis, hyperEvm, mainnet, optimism, plasma, polygon, robinhood, sonic } from "viem/chains";
 
 /**
@@ -8,7 +8,8 @@ import { arbitrum, arc, avalanche, base, bsc, celo, foundry, gnosis, hyperEvm, m
  *
  *   NEXT_PUBLIC_CHAINS           all of them (default), a few ("8453,1"), or "31337" for a local anvil
  *
- * Browsers never see an RPC key: reads go through /api/rpc/<chainId>.
+ * Browsers never see an RPC key: reads go through /api/rpc/<chainId>, or to your own node on the networks where you
+ * set one (Settings → Your node).
  */
 
 export type ChainInfo = {
@@ -111,8 +112,10 @@ export function publicClient(chainId: number) {
   if (!c) {
     const info = chainById(chainId);
     if (!info) throw new Error(`chain ${chainId} not enabled`);
-    // reads asked in the same tick go to /api/rpc as one request (it takes up to 50), not one request each
-    c = createPublicClient({ chain: info.chain, transport: http(rpcPath(chainId), { batch: { batchSize: 50, wait: 0 } }), batch: { multicall: false } });
+    // reads asked in the same tick go out as one request (/api/rpc takes up to 50), not one request each
+    const to = (url: string) => http(url, { batch: { batchSize: 50, wait: 0 } });
+    const own = ownRpc(chainId);
+    c = createPublicClient({ chain: info.chain, transport: own ? split(to(own), to(proxyPath(chainId))) : to(proxyPath(chainId)), batch: { multicall: false } });
     clients.set(chainId, c);
   }
   return c;
@@ -133,9 +136,40 @@ export async function codeOnce(chainId: number, address: Address): Promise<`0x${
   return code;
 }
 
+const proxyPath = (chainId: number) => `${typeof window === "undefined" ? "" : window.location.origin}/api/rpc/${chainId}`;
+
+/** Where this browser reads a chain and sends its signed txs: your own node if you set one, else our proxy. */
 export function rpcPath(chainId: number): string {
-  return `${typeof window === "undefined" ? "" : window.location.origin}/api/rpc/${chainId}`;
+  return ownRpc(chainId) || proxyPath(chainId);
 }
+
+/** Your own node, per network (Settings → Your node), kept in this browser. No fallback to ours: if it's down, reads fail. */
+const OWN = "iws.rpc";
+function ownRpcs(): Record<string, string> {
+  try {
+    return JSON.parse(localStorage.getItem(OWN) || "{}") || {};
+  } catch {
+    return {};
+  }
+}
+export const ownRpc = (chainId: number): string | undefined => ownRpcs()[chainId] || undefined;
+export function setOwnRpc(chainId: number, url: string | null) {
+  const all = ownRpcs();
+  if (url) all[chainId] = url;
+  else delete all[chainId];
+  try {
+    localStorage.setItem(OWN, JSON.stringify(all));
+  } catch {}
+  clients.delete(chainId); // the next read builds a client on the new address
+}
+/** Everything to your node, except Alchemy's own methods (a token's name in Activity): no node has those. */
+const split =
+  (own: Transport, ours: Transport): Transport =>
+  o => {
+    const a = own(o);
+    const b = ours(o);
+    return { ...a, request: ((args: any, opts: any) => (String(args.method).startsWith("alchemy_") ? b : a).request(args, opts)) as typeof a.request };
+  };
 
 export const explorerTx = (chainId: number, hash: string) =>
   chainById(chainId)?.explorer ? `${chainById(chainId)!.explorer}/tx/${hash}` : undefined;

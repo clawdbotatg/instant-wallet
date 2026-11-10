@@ -20,7 +20,7 @@ Suggested first: 1, 3, 5, 12, 20.
   `app/api/safe/pending/route.ts:106-118`. DELETE needs only chain, safe and hash, and the open GET gives the hash.
   The queue's DELETE needs an owner's signature. Fix: the same signature, or remove the park path (item 26b).
 
-- [ ] **3. The relay marks a tx "already sent" before sending it.**
+- [x] **3. The relay marks a tx "already sent" before sending it.**
   `app/api/safe/relay/route.ts:185-194`. `once("tx:…", 3600)` then `withChainLock(sendTransaction)`. If the lock is
   busy (503) or the node says no, the key stays and the retry gets 409 "Already sent." for an hour.
   Fix: take the key back when it surely didn't go out (lock busy, or the node answered with an RPC error). Keep it

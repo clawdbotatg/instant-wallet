@@ -65,6 +65,9 @@ export async function once(key: string, ttlSec: number): Promise<boolean> {
   return (await kv(["SET", P + key, 1, "NX", "EX", ttlSec])) === "OK";
 }
 
+/** Take a once() back: what it guarded didn't happen after all. */
+export const forget = (key: string) => kv(["DEL", P + key]).catch(() => {});
+
 async function bump(key: string, ttlSec: number): Promise<number> {
   const v = Number(await kv(["INCR", P + key]));
   if (v === 1) await kv(["EXPIRE", P + key, ttlSec]);

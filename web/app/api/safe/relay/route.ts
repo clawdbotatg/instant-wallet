@@ -26,7 +26,7 @@ import {
 import { GAS_BUDGET, type SendKind, feePaid, rolesCalls, unpackMultiSend } from "@/lib/safe/fee";
 import { authCall, validAuth } from "@/lib/claim";
 import { L1_ALLOWANCE, clients, quote, tipFloor } from "@/lib/safe/relayCore";
-import { RelayRefused, admit, checkCalls, once, plainRecipientCheck, reverted, withChainLock } from "@/lib/safe/relayGuard";
+import { RelayRefused, admit, checkCalls, forget, once, plainRecipientCheck, reverted, withChainLock } from "@/lib/safe/relayGuard";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60; // after the answer, waits for the receipt (Ethereum ~12 s) so a revert is caught and the wallet refused
@@ -183,15 +183,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "fee too low", need: { feeEth: q.feeEth, feeUsdc: q.feeUsdc } }, { status: 402 });
 
     // one submission per signed tx: a reverted Safe tx keeps its nonce, so the same body could be replayed forever
-    if (!(await once(`tx:${chainId}:${keccak256(data)}`, 3600))) throw new RelayRefused("Already sent.", 409);
+    const sentKey = `tx:${chainId}:${keccak256(data)}`;
+    if (!(await once(sentKey, 3600))) throw new RelayRefused("Already sent.", 409);
     const floor = tipFloor(chainId);
     const fees = floor
-      ? await pc.estimateFeesPerGas().then(f => {
-          const tip = f.maxPriorityFeePerGas > floor ? f.maxPriorityFeePerGas : floor;
-          return { maxPriorityFeePerGas: tip, maxFeePerGas: f.maxFeePerGas - f.maxPriorityFeePerGas + tip };
-        })
+      ? await pc
+          .estimateFeesPerGas()
+          .then(f => {
+            const tip = f.maxPriorityFeePerGas > floor ? f.maxPriorityFeePerGas : floor;
+            return { maxPriorityFeePerGas: tip, maxFeePerGas: f.maxFeePerGas - f.maxPriorityFeePerGas + tip };
+          })
+          .catch(async e => {
+            await forget(sentKey); // nothing was sent yet
+            throw e;
+          })
       : {};
-    const hash = await withChainLock(chainId, () => wc.sendTransaction({ to, data, gas: (gas * 13n) / 10n, chain: info.chain, ...fees }));
+    const hash = await withChainLock(chainId, () => wc.sendTransaction({ to, data, gas: (gas * 13n) / 10n, chain: info.chain, ...fees })).catch(async (e: any) => {
+      // it surely didn't go out (the lock was busy, or the node itself said no): let the retry through, not "Already
+      // sent." for an hour. A timeout or a dropped connection stays marked: that one may have gone out.
+      // ("already known" is the node saying it has this very tx: it did go out.)
+      const said = e?.walk?.((x: any) => x?.name === "RpcRequestError");
+      if (e instanceof RelayRefused || (said && !/already known|known transaction/i.test(String(said.message)))) await forget(sentKey);
+      throw e;
+    });
     // answer with the hash now (the wallet shows progress, a site gets its answer); the revert check runs after
     after(async () => {
       const rc = await pc.waitForTransactionReceipt({ hash, timeout: 55_000 }).catch(() => null);

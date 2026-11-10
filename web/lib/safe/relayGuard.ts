@@ -82,7 +82,7 @@ export async function flag(key: string, ttlSec: number) {
   await kv(["SET", P + key, 1, "EX", ttlSec]);
 }
 
-/** A JSON value kept for a while (a transaction parked for the wedgie). */
+/** A JSON value kept for a while (the shared tx queue, an invite). */
 export async function stash(key: string, v: unknown, ttlSec: number) {
   await kv(["SET", P + key, JSON.stringify(v), "EX", ttlSec]);
 }

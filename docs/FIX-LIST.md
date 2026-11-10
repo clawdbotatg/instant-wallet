@@ -16,7 +16,8 @@ Suggested first: 1, 3, 5, 12, 20.
   Fix: take the `sent:` / `soon:` key back when nobody was reached; answer 500 so the workflow goes red.
   Watch out: a channel that always fails must not make the working ones repeat every 5 minutes.
 
-- [ ] **2. Anyone can delete any wallet's parked wedgie tx.**
+- [x] **2. Anyone can delete any wallet's parked wedgie tx.** (Fixed by removing the park path: nothing parked
+  since 10-30 and a parked tx lived 7 days.)
   `app/api/safe/pending/route.ts:106-118`. DELETE needs only chain, safe and hash, and the open GET gives the hash.
   The queue's DELETE needs an owner's signature. Fix: the same signature, or remove the park path (item 26b).
 
@@ -206,8 +207,7 @@ Suggested first: 1, 3, 5, 12, 20.
   `walletconnect.ts` / `WalletConnect.tsx`, tools `e2e.mjs`, `wc-e2e.mjs`, `cold-e2e.mjs`, `aa-live.mjs`,
   `relay-tip-demo.mjs`, `abi.mjs`, the 4337 methods in `app/api/rpc`. Those three e2e tools open `/` and are
   broken today (v3 moved to `/v3`). `docs/V3.md`, `docs/GAS.md`.
-  **26b. The park-for-the-wedgie path**: `lib/safe/pending.ts`, `PendingCard.tsx`, `app/api/safe/pending`,
-  `tools/safe-park-e2e.mjs`. Nothing parks since 10-30 and a parked tx lives 7 days.
+  **26b. The park-for-the-wedgie path**: removed (item 2).
 
 - [ ] **27. The first version.** `packages/nextjs`, `packages/mobile`, `firmware/`, `emu/`, `tools/`, `.cursor/`
   (its rule says never push without `/push`), root `package.json` / `yarn.lock` / `.yarn/` / `.yarnrc.yml`,

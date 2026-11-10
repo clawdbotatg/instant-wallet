@@ -16,7 +16,7 @@ export default function Privacy() {
       <ul className="fine">
         <li>Transactions you send, so our relay can pay the gas and put them on chain. They are public on the blockchain anyway.</li>
         <li>Your wallet address and IP address, to limit abuse of the relay. Kept for at most a few days.</li>
-        <li>A signed transaction you park for a hardware key (the wedgie hand-off), for up to 7 days.</li>
+        <li>A transaction waiting for its other signers, with the signatures so far, for up to 30 days.</li>
       </ul>
       <h3>Other services</h3>
       <ul className="fine">

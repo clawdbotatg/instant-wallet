@@ -24,7 +24,6 @@ import { AppFrame, AppList } from "./Apps";
 import type { AppEntry } from "@/lib/apps";
 import { type Confirm, SafeWelcome, signIn } from "./SafeWelcome";
 import { WedgieProgress } from "./WedgieButton";
-import { PendingCards } from "./PendingCard";
 import { TxPage } from "./TxPage";
 import { WaitingCards } from "./Waiting";
 import { Activity } from "./Activity";
@@ -372,7 +371,6 @@ export function SafeApp({ link }: { link?: string } = {}) {
           </button>
         </div>
 
-        <PendingCards account={account} states={states} onDone={refresh} />
         {dropCode && (
           <div className="card stack">
             <b>You have money to claim</b>

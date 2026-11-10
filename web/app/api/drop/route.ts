@@ -4,7 +4,9 @@ import { type Signed, authorize } from "@/lib/alerts";
 import { DropRefused, byCode, claim, claimedCount, closed, decimals, usedCard, walletClaimed } from "@/lib/drops";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60; // waits for the transfer to land (Ethereum ~12 s), so a failed one gives the code back
+// A claim waits up to 25 s for its turn, then up to 45 s to land (a failed one gives the code back).
+// Killed mid-claim, its code is held for good: keep this well above that.
+export const maxDuration = 120;
 
 /**
  * Drops (lib/drops.ts), the claimer's side.

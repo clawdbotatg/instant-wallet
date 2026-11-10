@@ -141,13 +141,13 @@ async function unlock(k: string, mine: string) {
 }
 
 /** A per-chain lock around nonce pick + broadcast. */
-export const withChainLock = <T>(chainId: number, fn: () => Promise<T>) => withLock(`lock:${chainId}`, fn);
+export const withChainLock = <T>(chainId: number, fn: () => Promise<T>, waitMs?: number) => withLock(`lock:${chainId}`, fn, waitMs);
 
-/** One holder at a time (another key's nonce: a drop's pot). */
-export async function withLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
+/** One holder at a time (another key's nonce: a drop's pot). Gives up after `waitMs`. */
+export async function withLock<T>(key: string, fn: () => Promise<T>, waitMs = 10_000): Promise<T> {
   // the holder's own mark: a holder that ran past the lock's 20 s must not delete the next holder's lock on its way out
   const mine = crypto.randomUUID();
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < waitMs / 250; i++) {
     if ((await kv(["SET", P + key, mine, "NX", "EX", 20])) === "OK") {
       try {
         return await fn();

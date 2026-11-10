@@ -24,7 +24,7 @@ import {
 } from "@/lib/drops";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 120; // take-back is two sends, each up to 25 s in line + 45 s to land
 
 /**
  * Drops, the giver's side (/drops). Face ID once to log in (an admin wallet's passkey over "login", scope "drops";

@@ -47,14 +47,18 @@ Suggested first: 1, 3, 5, 12, 20.
   `lib/alerts.ts:191`: an email change and a push change at once, one is lost). The alert ones send messages
   between the read and the write, so the lock (20 s) has to wrap only the read and write.
 
-- [ ] **6. Drop claims.**
-  a. `lib/drops.ts:215-238`: the hold is `SET "pending" NX` with no life. A function killed mid-claim (the route has
-     60 s; lock wait + estimate + landing can pass it) burns the code for good, with no log row. A life on
-     "pending" risks a double pay (the USDC nonce is random), so this one needs a decision.
-  b. `lib/drops.ts:351-352`: if the kv write of the nonce fails after an ETH claim went out, `claim()` releases the
-     code and it can be claimed again. Fix: make that write best-effort.
-  c. `lib/drops.ts:323`: drops use the relay's one lock per chain, which gives up after 10 s. A QR on a slide with
-     dozens of claims at once returns "The relay is busy" and stalls normal sends on that chain.
+- [x] **6. Drop claims.** (b and c; a is 6a below)
+  b. If the kv write of the nonce failed after an ETH claim went out, `claim()` released the code and it could be
+     claimed again. Done: that write is best-effort.
+  c. Dozens of claims at once got "The relay is busy" after 10 s. Done: a claim waits 25 s for its turn, and the
+     drop routes run 120 s, so a claim isn't killed mid-way. Not fixed: claims and normal sends still share one
+     lock per chain (the relay's nonce), so a big drop still slows sends on that chain.
+
+- [ ] **6a. A claim killed mid-way holds its code for good.** `lib/drops.ts` `claim`: the hold is
+  `SET "pending" NX` with no life and no log row. Much rarer now (routes run 120 s). A plain life on "pending"
+  risks a double pay. A safe way, to decide: USDC signs a nonce made from the code (a second pay reverts on
+  chain; `authorizationState` says if the first landed); ETH saves the pot nonce in the hold before sending and a
+  retry reuses it.
 
 - [x] **7. `authorize` lets a replaced passkey back in when the RPC errors.**
   `lib/alerts.ts` `authorize`. A failed `getCode` reads as "not deployed"; if every chain the wallet lives on

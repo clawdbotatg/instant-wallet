@@ -275,6 +275,9 @@ const domains = new Map<number, { name: string; version: string }>();
 /** What one USDC claim costs the pot in fees right now (6 decimals). */
 export const usdcFee = async (chainId: number) => BigInt((await quote(chainId, "claim")).feeUsdc);
 
+/** How long a claim waits its turn to send. With the 45 s wait to land it stays well inside the routes' 120 s. */
+const CLAIM_WAIT = 25_000;
+
 /** USDC: the pot signs value → `to` and the fee → the relay; the relay submits both. "all" = everything but the fee. */
 export async function sendUsdc(chainId: number, key: Hex, to: Address, value: bigint | "all"): Promise<Hex> {
   const { info, pc, wc } = clients(chainId);
@@ -322,7 +325,8 @@ export async function sendUsdc(chainId: number, key: Hex, to: Address, value: bi
   });
   if (gas > GAS_BUDGET.claim) throw new Error("that claim costs more gas than it should");
   const fees = await tipped(pc, chainId);
-  const hash = await withChainLock(chainId, () => wc.sendTransaction({ to: MULTICALL3, data, gas: (gas * 13n) / 10n, chain: info.chain, ...fees }));
+  // a QR on a slide is dozens of claims at once, one relay send at a time: wait in line (25 s), don't refuse
+  const hash = await withChainLock(chainId, () => wc.sendTransaction({ to: MULTICALL3, data, gas: (gas * 13n) / 10n, chain: info.chain, ...fees }), CLAIM_WAIT);
   await landed(pc, hash).catch(async e => {
     // many claims at once each saw enough in the pot; the ones that ran it dry say so
     const now = (await pc.readContract({ address: usdc, abi: abi.erc20, functionName: "balanceOf", args: [pot.address] }).catch(() => 0n)) as bigint;
@@ -351,9 +355,10 @@ export async function sendEth(chainId: number, key: Hex, to: Address, value: big
     // a load-balanced RPC can lag our own last send: never reuse a nonce
     const nonce = last !== null && Number(last) + 1 > pending ? Number(last) + 1 : pending;
     const h = await wc.sendTransaction({ to, value: v, gas, nonce, chain: info.chain, maxFeePerGas: f.maxFeePerGas, maxPriorityFeePerGas: f.maxPriorityFeePerGas });
-    await kv(["SET", `${P}nonce:${chainId}:${pot.address}`, nonce, "EX", 3600]);
+    // it's sent: a failed write here must not throw, or claim() gives the code back and it pays twice
+    await kv(["SET", `${P}nonce:${chainId}:${pot.address}`, nonce, "EX", 3600]).catch(() => {});
     return h;
-  });
+  }, CLAIM_WAIT);
   await landed(pc, hash);
   return hash;
 }

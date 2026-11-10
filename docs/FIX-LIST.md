@@ -27,12 +27,16 @@ Suggested first: 1, 3, 5, 12, 20.
   Fix: take the key back when it surely didn't go out (lock busy, or the node answered with an RPC error). Keep it
   on a timeout or dropped connection: that one may have gone out.
 
-- [ ] **4. The relay's chain lock.**
-  `lib/safe/relayGuard.ts:128-139`. 20 s life and a plain `DEL` on the way out: a send slower than 20 s deletes the
-  next holder's lock, and two sends can share a relayer nonce. The relay keeps no nonce memory; drops do
-  (`lib/drops.ts:342-352`). Fix: a random token, delete only your own; the same last-nonce rule as drops.
-  Also `bump()` (`relayGuard.ts:68`, `drops.ts:200`): INCR then EXPIRE in two calls. If the second fails the counter
-  never expires and that IP or wallet is refused for good. Fix: `SET key 0 EX ttl NX`, then INCR.
+- [x] **4. The relay's chain lock.**
+  `lib/safe/relayGuard.ts` `withLock`: each holder puts its own mark on the lock and deletes it only if it's still
+  its own, so a send slower than the lock's 20 s can't delete the next holder's lock. `bump()` (there and in
+  `lib/drops.ts`) sets the counter's life first, then counts, so a counter can't be left without a life.
+  Checked in memory mode only (no Upstash keys on this machine): one holder at a time, released after.
+
+- [ ] **4b. The relay keeps no memory of its last nonce.** Drops do (`lib/drops.ts` `sendEth`: never below last + 1,
+  for an RPC that lags our own last send). Not copied to the relay on purpose: if a sent tx is ever dropped by the
+  network, last + 1 leaves a gap and every later relay send on that chain sticks until the memory expires (1 h).
+  Today a lagging RPC gives the user an error and they retry. Decide which is worse.
 
 - [x] **5. The shared tx queue loses a signature when two owners sign at once.**
   `app/api/safe/queue/route.ts` (POST, DELETE) and `app/api/safe/invite/route.ts` (PUT): read, edit, write on one

@@ -198,9 +198,9 @@ export async function byCode(raw: string): Promise<{ code: string; drop: Drop } 
 // ---------------------------------------------------------------- claiming
 
 async function bump(key: string, ttl: number) {
-  const v = Number(await kv(["INCR", P + key]));
-  if (v === 1) await kv(["EXPIRE", P + key, ttl]);
-  return v;
+  // the life first, then the count (relayGuard's bump: a counter must never be left without a life)
+  await kv(["SET", P + key, 0, "EX", ttl, "NX"]);
+  return Number(await kv(["INCR", P + key]));
 }
 
 /**

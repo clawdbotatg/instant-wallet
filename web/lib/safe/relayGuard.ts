@@ -69,9 +69,10 @@ export async function once(key: string, ttlSec: number): Promise<boolean> {
 export const forget = (key: string) => kv(["DEL", P + key]).catch(() => {});
 
 async function bump(key: string, ttlSec: number): Promise<number> {
-  const v = Number(await kv(["INCR", P + key]));
-  if (v === 1) await kv(["EXPIRE", P + key, ttlSec]);
-  return v;
+  // the life first, then the count: INCR then EXPIRE left a counter that never expired if the second call failed,
+  // and that IP or wallet was refused for good
+  await kv(["SET", P + key, 0, "EX", ttlSec, "NX"]);
+  return Number(await kv(["INCR", P + key]));
 }
 
 export async function flagged(key: string): Promise<boolean> {
@@ -124,17 +125,34 @@ export async function reverted(safe: Address, ip: string, swap = false) {
   await flag(`badip:${ip}`, 86_400);
 }
 
+/** Delete the lock only if it's still ours (one step on Redis, so nothing can slip between the look and the delete). */
+async function unlock(k: string, mine: string) {
+  if (!URL_ || !TOKEN) {
+    const cur = mem.get(k);
+    if (cur && cur.until > Date.now() && cur.v === mine) mem.delete(k);
+    return;
+  }
+  try {
+    await kv(["EVAL", "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end", 1, k, mine]);
+  } catch {
+    // no scripts on this store: look, then delete. A lock left held would stall every send on the chain for 20 s.
+    if ((await kv(["GET", k])) === mine) await kv(["DEL", k]);
+  }
+}
+
 /** A per-chain lock around nonce pick + broadcast. */
 export const withChainLock = <T>(chainId: number, fn: () => Promise<T>) => withLock(`lock:${chainId}`, fn);
 
 /** One holder at a time (another key's nonce: a drop's pot). */
 export async function withLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
+  // the holder's own mark: a holder that ran past the lock's 20 s must not delete the next holder's lock on its way out
+  const mine = crypto.randomUUID();
   for (let i = 0; i < 40; i++) {
-    if (await once(key, 20)) {
+    if ((await kv(["SET", P + key, mine, "NX", "EX", 20])) === "OK") {
       try {
         return await fn();
       } finally {
-        await kv(["DEL", P + key]).catch(() => {});
+        await unlock(P + key, mine).catch(() => {});
       }
     }
     await new Promise(r => setTimeout(r, 250));

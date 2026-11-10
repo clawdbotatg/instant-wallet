@@ -44,9 +44,8 @@ export function RpcSetting({ chainId, toast }: { chainId: number; toast: (m: str
   };
   return (
     <div className="stack" style={{ gap: 8 }}>
-      <p className="fine">Use your own RPC. Empty uses ours.</p>
       <div className="row" style={{ gap: 8 }}>
-        <input className="grow" value={url} onChange={e => setUrl(e.target.value)} placeholder="https://…" inputMode="url" autoCapitalize="off" autoCorrect="off" />
+        <input className="grow" value={url} onChange={e => setUrl(e.target.value)} placeholder="Your RPC URL" inputMode="url" autoCapitalize="off" autoCorrect="off" />
         <button className="btn btn-sm" onClick={save} disabled={busy}>
           {busy ? "Checking…" : "Save"}
         </button>
@@ -55,11 +54,10 @@ export function RpcSetting({ chainId, toast }: { chainId: number; toast: (m: str
         <>
           <label className="row fine" style={{ gap: 8 }}>
             <input type="checkbox" checked={light} onChange={e => saveLight(e.target.checked)} />
-            Run a light client. Simulates here, not on our server.
+            Run a light client
           </label>
           {light && (
             <div className="stack" style={{ gap: 4 }}>
-              <span className="fine">Colibri prover:</span>
               <div className="row" style={{ gap: 8 }}>
                 <input className="grow" value={prover} onChange={e => setProver(e.target.value)} placeholder={PROVER[chainId]} inputMode="url" autoCapitalize="off" autoCorrect="off" />
                 <button className="btn btn-sm" onClick={() => (saveLight(true), toast(prover.trim() ? "Using your prover" : "Using Colibri's prover"))}>

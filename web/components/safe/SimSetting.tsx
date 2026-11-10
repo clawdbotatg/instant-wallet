@@ -22,13 +22,6 @@ export function SimSetting({ toast }: { toast: (m: string) => void }) {
   };
   return (
     <div className="stack" style={{ gap: 8 }}>
-      <p className="fine">
-        Use{" "}
-        <a href="https://github.com/clawdbotatg/clear-sim" target="_blank" rel="noopener noreferrer">
-          your own
-        </a>
-        . Empty uses ours.
-      </p>
       <div className="row" style={{ gap: 8 }}>
         <input className="grow" value={url} onChange={e => setUrl(e.target.value)} placeholder={SIM_DEFAULT} inputMode="url" autoCapitalize="off" autoCorrect="off" />
         <button className="btn btn-sm" onClick={save}>

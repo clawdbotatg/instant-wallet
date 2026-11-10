@@ -162,9 +162,12 @@ Suggested first: 1, 3, 5, 12, 20.
   the other owners' signers, the burner's signer. By count, not measured: a wallet on 5 of 14 chains goes from
   ~118 calls every 12 s to ~89.
 
-- [ ] **20c. Still ~89 calls every 12 s (~445 a minute against 600).** What's left per deployed chain: owners,
-  threshold, nonce, modules, guard, 3 recovery modules × 2 reads, Roles members, 3 allowances. Ideas: one
-  multicall per chain (1 call, not 16); read chains the wallet isn't on once a minute, not every 12 s.
+- [x] **20c. One multicall per chain.** `readChain` (`lib/safe/state.ts`) reads owners, threshold, nonce, modules,
+  the 3 recovery modules, Roles' members and the 3 allowances in one Multicall3 call. Checked against the old
+  code on the live wallet (Base, Ethereum, Arbitrum, Gnosis, Optimism, each owner as "this phone"): the same
+  answer every time, 14-18 calls down to 2-3 per chain. Not checked in a browser.
+
+- [ ] **20d. Chains the wallet isn't on** are still read every 12 s (1 call each). Once a minute would do.
 
 - [ ] **21. Keys and Limits re-read the whole Activity history every 2 s while they wait.**
   `Keys.tsx:135-138`, `Limits.tsx:46` call `onRefresh`, which bumps Activity past its cache on every chain.

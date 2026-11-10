@@ -1,6 +1,6 @@
 import { type Address, type Hex, getAddress, keccak256, size, toBytes, toHex, zeroAddress } from "viem";
 import { CHAINS, codeOnce, publicClient } from "../chains";
-import { DAO, KEY_ETH, KEY_FEE_USDC, KEY_USDC, RECOVERY_14D, RECOVERY_60D, RECOVERY_7D, RECOVERY_DAYS, RECOVERY_MODULES } from "./config";
+import { DAO, KEY_ETH, KEY_FEE_USDC, KEY_USDC, MULTICALL3, RECOVERY_14D, RECOVERY_60D, RECOVERY_7D, RECOVERY_DAYS, RECOVERY_MODULES } from "./config";
 import { abi, rolesAddress, safeAddress, signerAddress } from "./core";
 import { VERIFIERS_SLOT2 } from "./config";
 
@@ -193,44 +193,55 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
       friends: [],
       level: 1,
     };
-  const read = (functionName: any, args: any[] = [], address: Address = safe, ab: any = abi.safe) =>
-    pc.readContract({ address, abi: ab, functionName, args } as any) as Promise<any>;
   const roles = rolesAddress(safe);
-  const [owners, threshold, nonce, rolesOn, mods, guardWord] = await Promise.all([
-    read("getOwners"),
-    read("getThreshold"),
-    read("nonce"),
-    read("isModuleEnabled", [roles]),
-    read("getModulesPaginated", ["0x0000000000000000000000000000000000000001", 20n]),
+  // everything in one call (Multicall3), not 16 calls per chain every 12 s. The guard's slot and Roles' code ride along.
+  const PAGE = ["0x0000000000000000000000000000000000000001", 20n] as const;
+  const c = (address: Address, ab: any, functionName: string, args: readonly unknown[] = []) => ({ address, abi: ab, functionName, args }) as any;
+  const [res, guardWord, rolesCode] = await Promise.all([
+    pc.multicall({
+      multicallAddress: MULTICALL3,
+      allowFailure: true,
+      batchSize: 0, // one eth_call, never split
+      contracts: [
+        c(safe, abi.safe, "getOwners"),
+        c(safe, abi.safe, "getThreshold"),
+        c(safe, abi.safe, "nonce"),
+        c(safe, abi.safe, "isModuleEnabled", [roles]),
+        c(safe, abi.safe, "getModulesPaginated", PAGE),
+        ...RECOVERY_MODULES.flatMap(m => [c(m, abi.recovery, "getGuardians", [safe]), c(m, abi.recovery, "getRecoveryRequest", [safe])]),
+        c(roles, abi.roles, "getModulesPaginated", PAGE),
+        c(roles, abi.roles, "allowances", [KEY_USDC]),
+        c(roles, abi.roles, "allowances", [KEY_ETH]),
+        c(roles, abi.roles, "allowances", [KEY_FEE_USDC]),
+      ],
+    }) as Promise<{ status: "success" | "failure"; result?: any }[]>,
     pc.getStorageAt({ address: safe, slot: GUARD_SLOT }).catch(() => undefined),
+    codeOnce(chainId, roles).catch(() => undefined),
   ]);
+  const opt = (k: number) => (res[k].status === "success" ? res[k].result : null); // a read that may fail: null
+  // the wallet's own reads must all land: a guess here is a wrong wallet on screen (the caller keeps what it knew)
+  const must = (k: number) => {
+    if (res[k].status !== "success") throw new Error("Couldn't read the wallet. Try again.");
+    return res[k].result;
+  };
+  const [owners, threshold, nonce, rolesOn, mods] = [must(0), must(1), must(2), must(3), must(4)];
   const guard = guardWord && BigInt(guardWord) ? getAddress(`0x${guardWord.slice(-40)}`) : null;
   const modules = (mods[0] as string[]).map(x => getAddress(x));
   // your own recovery address: the 14-day module once it's on, else the 7-day one
   const rm = modules.includes(RECOVERY_14D) ? RECOVERY_14D : RECOVERY_7D;
-  const recs = await Promise.all(
-    RECOVERY_MODULES.map(async m => {
-      const [g, r] = await Promise.all([read("getGuardians", [safe], m, abi.recovery).catch(() => null), read("getRecoveryRequest", [safe], m, abi.recovery).catch(() => null)]);
-      return { module: m, days: RECOVERY_DAYS[m], guardians: g ? (g as string[]).map(x => getAddress(x)) : null, request: toRecovery(r) };
-    }),
-  );
+  const recs = RECOVERY_MODULES.map((m, k) => {
+    const g = opt(5 + 2 * k);
+    return { module: m, days: RECOVERY_DAYS[m], guardians: g ? (g as string[]).map(x => getAddress(x)) : null, request: toRecovery(opt(6 + 2 * k)) };
+  });
   const recoveries = recs.filter(r => modules.includes(r.module));
   const stored = recs.every(r => r.guardians) ? Object.fromEntries(recs.map(r => [r.module, r.guardians!])) : null;
   let budget: ChainState["budget"] = null;
-  const rolesCode = await codeOnce(chainId, roles).catch(() => undefined);
-  const members: Address[] | null =
-    rolesCode && rolesCode !== "0x"
-      ? await read("getModulesPaginated", ["0x0000000000000000000000000000000000000001", 20n], roles, abi.roles)
-          .then((r: any) => (r[0] as string[]).map(x => getAddress(x)))
-          .catch(() => null)
-      : [];
+  const at = 5 + 2 * RECOVERY_MODULES.length; // Roles' reads start here
+  const rm0 = opt(at);
+  const members: Address[] | null = rolesCode && rolesCode !== "0x" ? (rm0 ? (rm0[0] as string[]).map(x => getAddress(x)) : null) : [];
   const member = !!members?.some(m => m.toLowerCase() === a.burnerSigner.toLowerCase());
   if (rolesOn && member) {
-    const [u, e, f] = await Promise.all([
-      read("allowances", [KEY_USDC], roles, abi.roles).catch(() => null),
-      read("allowances", [KEY_ETH], roles, abi.roles).catch(() => null),
-      read("allowances", [KEY_FEE_USDC], roles, abi.roles).catch(() => null),
-    ]);
+    const [u, e, f] = [opt(at + 1), opt(at + 2), opt(at + 3)];
     // the fee allowance: null on a wallet set up before it existed (its USDC fee still comes off the limit)
     if (u && e) budget = { usdc: avail(u), eth: avail(e), usdcMax: u[1], ethMax: e[1], feeUsdc: f && f[2] > 0n ? avail(f) : null };
   }

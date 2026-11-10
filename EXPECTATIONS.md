@@ -56,8 +56,8 @@ Words:
 - Signing says **Sign**. Declining says **Reject**. Never Yes / Approve / Confirm on a signature.
 - Running a signed tx is **Execute** (Executing…, ✓ Executed). Never send.
 - A finished screen says **Done**, white (the only button, nothing to compete with). Never OK.
-- Fewest words (11-10). If the title and the box already say it, no sentence under it. A box that uses a default
-  when empty says so in its placeholder: "Default RPC", or the default address itself.
+- Fewest words (11-10). Make it obvious with less on screen. Never a sentence that explains what the screen
+  already shows.
 
 Button colors (10-30):
 - Green = the one obvious action.

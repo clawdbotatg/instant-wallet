@@ -11,7 +11,7 @@ import { MULTICALL3 } from "./safe/config";
 import { abi } from "./safe/core";
 import { GAS_BUDGET } from "./safe/fee";
 import { L1_ALLOWANCE, clients, quote, tipFloor } from "./safe/relayCore";
-import { withChainLock, withLock } from "./safe/relayGuard";
+import { NONCE_MEMORY, pickNonce, relaySend, withLock } from "./safe/relayGuard";
 
 /**
  * Drops (docs/DROPS.md): one pot of money, many codes. A card code pays once; a crowd code (one QR on a slide) pays
@@ -326,7 +326,13 @@ export async function sendUsdc(chainId: number, key: Hex, to: Address, value: bi
   if (gas > GAS_BUDGET.claim) throw new Error("that claim costs more gas than it should");
   const fees = await tipped(pc, chainId);
   // a QR on a slide is dozens of claims at once, one relay send at a time: wait in line (25 s), don't refuse
-  const hash = await withChainLock(chainId, () => wc.sendTransaction({ to: MULTICALL3, data, gas: (gas * 13n) / 10n, chain: info.chain, ...fees }), CLAIM_WAIT);
+  const hash = await relaySend(
+    chainId,
+    me,
+    () => pc.getTransactionCount({ address: me, blockTag: "pending" }),
+    nonce => wc.sendTransaction({ to: MULTICALL3, data, gas: (gas * 13n) / 10n, nonce, chain: info.chain, ...fees }),
+    CLAIM_WAIT,
+  );
   await landed(pc, hash).catch(async e => {
     // many claims at once each saw enough in the pot; the ones that ran it dry say so
     const now = (await pc.readContract({ address: usdc, abi: abi.erc20, functionName: "balanceOf", args: [pot.address] }).catch(() => 0n)) as bigint;
@@ -352,11 +358,11 @@ export async function sendEth(chainId: number, key: Hex, to: Address, value: big
     const cost = gas * f.maxFeePerGas + (chainId === 1 ? 0n : 1_000_000_000_000n); // + an L2's L1 data fee
     const v = value === "all" ? bal - cost : value;
     if (v <= 0n || bal < v + cost) throw new DropRefused("The pot is empty. Ask whoever made this drop to top it up.", 410);
-    // a load-balanced RPC can lag our own last send: never reuse a nonce
-    const nonce = last !== null && Number(last) + 1 > pending ? Number(last) + 1 : pending;
+    // a load-balanced RPC can lag our own last send: never reuse a nonce (remembered 10 s only: see relaySend)
+    const nonce = pickNonce(pending, last === null ? null : Number(last));
     const h = await wc.sendTransaction({ to, value: v, gas, nonce, chain: info.chain, maxFeePerGas: f.maxFeePerGas, maxPriorityFeePerGas: f.maxPriorityFeePerGas });
     // it's sent: a failed write here must not throw, or claim() gives the code back and it pays twice
-    await kv(["SET", `${P}nonce:${chainId}:${pot.address}`, nonce, "EX", 3600]).catch(() => {});
+    await kv(["SET", `${P}nonce:${chainId}:${pot.address}`, nonce, "EX", NONCE_MEMORY]).catch(() => {});
     return h;
   }, CLAIM_WAIT);
   await landed(pc, hash);

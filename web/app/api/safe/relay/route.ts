@@ -27,7 +27,7 @@ import { GAS_BUDGET, type SendKind, feePaid, rolesCalls, unpackMultiSend } from 
 import { authCall, validAuth } from "@/lib/claim";
 import { L1_ALLOWANCE, clients, quote, tipFloor } from "@/lib/safe/relayCore";
 import { tooMany } from "@/lib/limit";
-import { RelayRefused, admit, checkCalls, forget, once, plainRecipientCheck, reverted, withChainLock } from "@/lib/safe/relayGuard";
+import { RelayRefused, admit, checkCalls, forget, once, plainRecipientCheck, relaySend, reverted } from "@/lib/safe/relayGuard";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60; // after the answer, waits for the receipt (Ethereum ~12 s) so a revert is caught and the wallet refused
@@ -201,7 +201,12 @@ export async function POST(req: NextRequest) {
             throw e;
           })
       : {};
-    const hash = await withChainLock(chainId, () => wc.sendTransaction({ to, data, gas: (gas * 13n) / 10n, chain: info.chain, ...fees })).catch(async (e: any) => {
+    const hash = await relaySend(
+      chainId,
+      me,
+      () => pc.getTransactionCount({ address: me, blockTag: "pending" }),
+      nonce => wc.sendTransaction({ to, data, gas: (gas * 13n) / 10n, nonce, chain: info.chain, ...fees }),
+    ).catch(async (e: any) => {
       // it surely didn't go out (the lock was busy, or the node itself said no): let the retry through, not "Already
       // sent." for an hour. A timeout or a dropped connection stays marked: that one may have gone out.
       // ("already known" is the node saying it has this very tx: it did go out.)

@@ -33,10 +33,12 @@ Suggested first: 1, 3, 5, 12, 20.
   `lib/drops.ts`) sets the counter's life first, then counts, so a counter can't be left without a life.
   Checked in memory mode only (no Upstash keys on this machine): one holder at a time, released after.
 
-- [ ] **4b. The relay keeps no memory of its last nonce.** Drops do (`lib/drops.ts` `sendEth`: never below last + 1,
-  for an RPC that lags our own last send). Not copied to the relay on purpose: if a sent tx is ever dropped by the
-  network, last + 1 leaves a gap and every later relay send on that chain sticks until the memory expires (1 h).
-  Today a lagging RPC gives the user an error and they retry. Decide which is worse.
+- [x] **4b. The relay keeps no memory of its last nonce.** It does now, for 10 s (`lib/safe/relayGuard.ts`
+  `relaySend`, used by the relay and by USDC drop claims; an ETH pot's memory went from 1 h to the same 10 s).
+  A lagging RPC is a block or two behind, so 10 s covers it. A tx the network dropped leaves a gap for 10 s at most:
+  the next send after that takes the node's count and fills it. Without the memory a lagging RPC gave an error, or
+  (fees up 10%) the new tx took the place of the one before. Checked with a fake node only
+  (`tools/relay-nonce-check.mts`), not with a real send.
 
 - [x] **5. The shared tx queue loses a signature when two owners sign at once.**
   `app/api/safe/queue/route.ts` (POST, DELETE) and `app/api/safe/invite/route.ts` (PUT): read, edit, write on one

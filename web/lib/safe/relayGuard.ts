@@ -143,6 +143,41 @@ async function unlock(k: string, mine: string) {
 /** A per-chain lock around nonce pick + broadcast. */
 export const withChainLock = <T>(chainId: number, fn: () => Promise<T>, waitMs?: number) => withLock(`lock:${chainId}`, fn, waitMs);
 
+/** How long a key's last nonce is remembered, in seconds. */
+export const NONCE_MEMORY = 10;
+/** The node's pending count, or one past our own last send when the node is behind it. */
+export const pickNonce = (pending: number, last: number | null) => (last !== null && last + 1 > pending ? last + 1 : pending);
+
+/**
+ * One relayer send: its turn on the chain (the lock), a nonce, the broadcast.
+ * A load-balanced RPC can lag our own last send and count that send's nonce as free: the node then refuses the next
+ * tx, or (fees up 10%) swaps it for the one before, which never lands. So the last nonce is remembered, but for 10 s
+ * only: lag is a block or two. Remembered for long, a tx the network dropped leaves a gap, and every later send
+ * on that chain waits behind it. After 10 s the next send takes the node's count, which fills the gap.
+ * `count` and `send` come from the caller (its clients); a failed send is not remembered.
+ */
+export function relaySend(chainId: number, who: Address, count: () => Promise<number>, send: (nonce: number) => Promise<Hex>, waitMs?: number): Promise<Hex> {
+  return withChainLock(
+    chainId,
+    async () => {
+      const k = `${P}nonce:${chainId}:${who.toLowerCase()}`;
+      const [pending, last] = await Promise.all([
+        // nothing was sent: say so in a way the caller knows is safe to retry
+        count().catch(() => {
+          throw new RelayRefused("The relay is busy. Try again.", 503);
+        }),
+        kv(["GET", k]).catch(() => null),
+      ]);
+      const nonce = pickNonce(pending, last === null ? null : Number(last));
+      const hash = await send(nonce);
+      // it's sent: a failed write here must not throw (the caller would think it didn't go out)
+      await kv(["SET", k, nonce, "EX", NONCE_MEMORY]).catch(() => {});
+      return hash;
+    },
+    waitMs,
+  );
+}
+
 /** One holder at a time (another key's nonce: a drop's pot). Gives up after `waitMs`. */
 export async function withLock<T>(key: string, fn: () => Promise<T>, waitMs = 10_000): Promise<T> {
   // the holder's own mark: a holder that ran past the lock's 20 s must not delete the next holder's lock on its way out

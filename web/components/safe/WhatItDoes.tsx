@@ -6,7 +6,7 @@ import { amount, short, usd } from "@/lib/format";
 import { Money, WhatFor, Who, Words } from "../bits";
 import { WARN, describe, ours, relayFee } from "@/lib/safe/describe";
 import type { Call } from "@/lib/safe/core";
-import { type Sim, asSafeTx, moves, simulate } from "@/lib/safe/sim";
+import { type Sim, asSafeTx, lightOn, moves, simulate } from "@/lib/safe/sim";
 import { RECOVERY_DAYS } from "@/lib/safe/config";
 import { rolesAddress } from "@/lib/safe/core";
 import { type Mark, MARKS, dangers } from "clear-signing-safe-kit";
@@ -26,7 +26,7 @@ type SafeTxLike = { to: Address; value: bigint; data: Hex; operation: 0 | 1 };
 type Field = { label: string; value: string; address?: string };
 type Told = { what: string; short?: string; fields: Field[]; who?: string; swap?: { pay: Move & { most?: boolean }; get: Move & { least?: boolean } }; src?: Exclude<Mark, "bot" | "raw"> } | null;
 type Move = { symbol: string; amount: string; usd?: number; unknown?: boolean };
-type Got = { calls: Told[] | null; sim: Sim | null; feeUsd: Record<string, number> };
+type Got = { calls: Told[] | null; sim: Sim | null; feeUsd: Record<string, number>; light?: "ok" | "failed" };
 
 // one ask per set of calls. The words never change, so they're kept for the page's life. The coins come from a run on
 // the latest block, so they're kept for SIM_LIFE only (a tx that "would fail now" works once the wallet is funded).
@@ -110,6 +110,8 @@ function ask(chainId: number, safe: Address, calls: Call[], tx?: SafeTxLike) {
     // the Safe tx itself when we have it (a delegatecall must run as one), else these calls as the batch we'd send
     // the fee in dollars: its share of what the simulator priced that token at
     const feeUsd: Record<string, number> = {};
+    // the light client (Settings): checked in this browser, or it says it couldn't. Never the unchecked answer.
+    let light: Got["light"] = lightOn(chainId) ? "ok" : undefined;
     const coins = simulate(chainId, safe, tx ?? asSafeTx(calls))
       .then(a => {
         if (!a) return null;
@@ -121,8 +123,8 @@ function ask(chainId: number, safe: Address, calls: Call[], tx?: SafeTxLike) {
           }
         return moves(a, fees);
       })
-      .catch(() => null);
-    const p = Promise.all([words, coins]).then(([w, s]) => ({ calls: w, sim: s, feeUsd }));
+      .catch(() => (light && (light = "failed"), null));
+    const p = Promise.all([words, coins]).then(([w, s]) => ({ calls: w, sim: s, feeUsd, light }));
     got.set(body, { p, at: Date.now() });
     p.then(g => (!g.sim || (calls.length > 0 && !g.calls)) && got.get(body)?.p === p && got.delete(body));
   }
@@ -186,6 +188,7 @@ export function WhatItDoes({ chainId, safe, calls, tx }: { chainId: number; safe
         <Said key={`d${i}`} text={WARN + w} />
       ))}
       {reject && <Said text="Reject: the other transaction at this number can never run." />}
+      {res?.light === "failed" && <Said text={`${WARN}Couldn't check the coins in this browser`} />}
       {!res ? (
         <span className="fine">Checking what it does…</span>
       ) : sim?.fails ? (
@@ -210,6 +213,7 @@ export function WhatItDoes({ chainId, safe, calls, tx }: { chainId: number; safe
               {res?.feeUsd[f.token] !== undefined && ` (${usd(res.feeUsd[f.token])})`}
             </span>
           ))}
+          {res?.light === "ok" && <span className="fine">Checked in this browser</span>}
         </div>
       ) : swapLines.length ? (
         <div className="stack" style={{ gap: 4 }}>{swapLines}</div>

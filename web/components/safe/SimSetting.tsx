@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { SIM_DEFAULT, setSimUrl, simUrl } from "@/lib/safe/sim";
+import { SIM_DEFAULT, setSimUrl, setWedgieSim, simUrl, wedgieSim } from "@/lib/safe/sim";
 
 /** Settings → Simulator: which clear-sim works out what a transaction moves (lib/safe/sim.ts). Yours, if you run one. */
 export function SimSetting({ toast }: { toast: (m: string) => void }) {
   const [url, setUrl] = useState("");
-  useEffect(() => setUrl(simUrl() === SIM_DEFAULT ? "" : simUrl()), []);
+  const [onWedgie, setOnWedgie] = useState(true);
+  useEffect(() => (setUrl(simUrl() === SIM_DEFAULT ? "" : simUrl()), setOnWedgie(wedgieSim())), []);
   const save = async () => {
     const u = url.trim().replace(/\/$/, "");
     if (u) {
@@ -34,6 +35,10 @@ export function SimSetting({ toast }: { toast: (m: string) => void }) {
           Save
         </button>
       </div>
+      <label className="row fine" style={{ gap: 8 }}>
+        <input type="checkbox" checked={onWedgie} onChange={e => (setWedgieSim(e.target.checked), setOnWedgie(e.target.checked))} />
+        Show the coins on the wedgie. It asks the simulator. Off: the wedgie shows the words only.
+      </label>
     </div>
   );
 }

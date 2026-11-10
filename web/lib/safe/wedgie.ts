@@ -1,6 +1,7 @@
 import { type Address, type Hex, getAddress } from "viem";
 import { wedgieSign } from "clear-signing-safe-kit";
 import { type SafeTx, type Sig, encodeWebAuthn } from "./core";
+import { wedgieSim } from "./sim";
 
 /**
  * The wedgie over Web Serial (Chrome / Edge on a computer), running the Safe signer app (clawdbotatg/wedgie-safe).
@@ -638,7 +639,8 @@ export class Wedgie {
       ask: (m, ms) => (m.type === "safe_sign" && !this.drive ? this.signAsk(m, ms) : this.request(m, ms)),
       fresh: !this.drive, // over USB this page reopens the port if it restarts to read on a clean heap (signAsk)
       ...(this.drive ? {} : { askRaw: (m: Record<string, unknown>, raw: Uint8Array, ms: number) => this.requestBytes(m, raw, ms) }),
-      hello,
+      // Settings → Simulator, "Show the coins on the wedgie" off: nothing is asked from clear-sim, it shows the words
+      hello: wedgieSim() ? hello : { ...hello, safe_sim: undefined },
       tx,
       ...(this.drive ? { chunk: DRIVE_CHUNK, lineMax: DRIVE_LINE_MAX } : {}),
       progress: p => activity({ what: "Sending it to your wedgie", p: 0.05 + 0.85 * p }),

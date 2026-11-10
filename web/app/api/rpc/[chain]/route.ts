@@ -14,6 +14,7 @@ const ALLOW = new Set([
   "eth_getBlockByNumber", "eth_getBlockByHash", "eth_getTransactionReceipt", "eth_getTransactionByHash", "eth_getTransactionCount",
   "eth_estimateGas", "eth_gasPrice", "eth_sendRawTransaction", "eth_maxPriorityFeePerGas", "eth_feeHistory", "net_version",
   "eth_sendUserOperation", "eth_estimateUserOperationGas", "eth_getUserOperationReceipt", "eth_getUserOperationByHash", "eth_supportedEntryPoints",
+  "eth_getProof", "eth_createAccessList", // the light client (lib/safe/light.ts): the proofs it checks
   "alchemy_getTokenBalances", "alchemy_getTokenMetadata", "alchemy_getAssetTransfers",
 ]);
 // a page that waits reads every second or two; past these, the IP waits (the key costs money)

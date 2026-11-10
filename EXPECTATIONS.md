@@ -17,9 +17,15 @@ What Instant Wallet must always do. If a change breaks one, it doesn't ship. In 
 - Money out is red with a −. Money in is green with a +. Dollars next to it.
 - The coins come from the simulator (clear-sim, sim.wedgie.dev), its answer checked. You can point the
   wallet at your own simulator (Settings → Simulator).
+- On Ethereum and Gnosis you can have this browser work the coins out itself (a light client: the node proves
+  every answer). It says "Checked in this browser". If it can't prove an answer it says so in red: never the
+  unchecked answer, never the simulator instead.
+- Reads and transactions go to your own node on any network where you set one (Settings → Your node). Never a
+  fallback to ours.
 - Anything that could take everything says so in red, first: a delegatecall that isn't a plain batch, a
   module, a guard, a fallback handler.
-- The wedgie shows the same thing on its own screen.
+- The wedgie shows the same thing on its own screen. Its coins come from clear-sim only (the one answer it can
+  check). Turn that off (Settings → Simulator) and it shows the words, no coins, and no simulator is asked.
 
 Where it lives: `WhatItDoes`, `<Money>`, clear-signing-safe-kit (`dangers`, `simulate`, the explainer).
 

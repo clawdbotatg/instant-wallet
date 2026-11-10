@@ -23,6 +23,7 @@ Push to main deploys (Vercel, root `web/`). Before pushing a UI change: `node we
 ## Read
 
 - `EXPECTATIONS.md`: what the wallet must always do. Read it first.
+- `docs/FIX-LIST.md`: what's known to be wrong, to fix one at a time.
 - `docs/SAFE-APP.md`: what's built, the relay, the tests.
 - `docs/CUSTODY.md`, `docs/MULTI-SIGNER.md`: signers, daily limit, shared transactions.
 - `docs/CLAIM.md`, `docs/DROPS.md`, `docs/NFC-SHARE.md`: giving money away by QR, card or code.

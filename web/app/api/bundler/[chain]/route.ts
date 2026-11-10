@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { type Hex, createPublicClient, createWalletClient, http, numberToHex, parseAbi, parseAbiItem } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { chainById } from "@/lib/chains";
-import { upstreamRpc } from "@/lib/rpcServer";
+import { mustRpc } from "@/lib/rpcServer";
 import { ENTRY_POINT, type RpcUserOp, pack } from "@/lib/userop";
 
 export const dynamic = "force-dynamic";
@@ -56,7 +56,7 @@ const opEvent = parseAbiItem(
 /** A minimal bundler: one op per handleOps, simulated by the EntryPoint call itself. */
 async function self(chainId: number, method: string, params: any[]): Promise<unknown> {
   const chain = chainById(chainId)!.chain;
-  const pc = createPublicClient({ chain, transport: http(upstreamRpc(chainId)) });
+  const pc = createPublicClient({ chain, transport: http(mustRpc(chainId)) });
   if (method === "eth_supportedEntryPoints") return [ENTRY_POINT];
   if (method === "pimlico_getUserOperationGasPrice") {
     // Base-like: a tiny tip over twice the base fee (a node's default tip, e.g. anvil's 1 gwei, is 1000x too much)
@@ -74,7 +74,7 @@ async function self(chainId: number, method: string, params: any[]): Promise<unk
     if (!key) throw new Error("BUNDLER_PRIVATE_KEY not set");
     const account = privateKeyToAccount(key);
     const op = pack(params[0] as RpcUserOp);
-    const wc = createWalletClient({ account, chain, transport: http(upstreamRpc(chainId)) });
+    const wc = createWalletClient({ account, chain, transport: http(mustRpc(chainId)) });
     const hash = await pc.readContract({ address: ENTRY_POINT, abi: epAbi, functionName: "getUserOpHash", args: [op] });
     const { request } = await pc.simulateContract({ account, address: ENTRY_POINT, abi: epAbi, functionName: "handleOps", args: [[op], account.address] });
     await pc.waitForTransactionReceipt({ hash: await wc.writeContract(request) });

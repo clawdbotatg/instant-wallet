@@ -12,7 +12,8 @@ import { privateKeyToAccount } from "viem/accounts";
 import { base } from "viem/chains";
 import { instantWalletAbi, factoryAbi } from "../lib/abi.ts";
 
-const LIVE = "https://mainnet.base.org";
+if (!process.env.ALCHEMY_API_KEY) throw new Error("set ALCHEMY_API_KEY (no public RPCs)");
+const LIVE = `https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`;
 const FORK_FROM = process.argv[2] || LIVE;
 const PORT = 8611;
 const USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createPublicClient, getAddress, http, isAddress, parseAbi } from "viem";
 import { mainnet } from "viem/chains";
-import { upstreamRpc } from "@/lib/rpcServer";
+import { mustRpc } from "@/lib/rpcServer";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
     const chunk: Record<string, { index: number; amount: string; proof: string[] }> = await fetch(`${CHUNKS}${start}.json`).then(r => r.json());
     const hit = chunk[getAddress(addr)] ?? chunk[addr];
     if (!hit) return NextResponse.json({});
-    const client = createPublicClient({ chain: mainnet, transport: http(upstreamRpc(1)) });
+    const client = createPublicClient({ chain: mainnet, transport: http(mustRpc(1)) });
     const claimed = await client.readContract({
       address: UNI_DISTRIBUTOR,
       abi: parseAbi(["function isClaimed(uint256 index) view returns (bool)"]),

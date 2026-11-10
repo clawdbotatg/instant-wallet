@@ -17,7 +17,8 @@ const EP = "0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108";
 const PM = "0x0578cFB241215b77442a541325d6A4E6dFE700Ec";
 const USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 const RAW = 1, ZERO = pad("0x0");
-const pub = createPublicClient({ chain: base, transport: http(process.env.BASE_RPC_URL || "https://mainnet.base.org") });
+if (!process.env.ALCHEMY_API_KEY && !process.env.BASE_RPC_URL) throw new Error("set ALCHEMY_API_KEY (no public RPCs)");
+const pub = createPublicClient({ chain: base, transport: http(process.env.BASE_RPC_URL || `https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`) });
 const bundler = async (method, params) => {
   const j = await fetch(BUNDLER, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) }).then(r => r.json());
   if (j.error) throw new Error(`${method}: ${JSON.stringify(j.error)}`);

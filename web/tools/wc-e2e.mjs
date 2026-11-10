@@ -60,7 +60,8 @@ await page.getByText("Sign this?").waitFor({ timeout: 30000 });
 await page.screenshot({ path: `${OUT}/wc-2-sign.png` });
 await page.getByText("Approve with Face ID").click();
 const signature = await sigP;
-const pc = createPublicClient({ chain: base, transport: http(process.env.BASE_RPC || "https://mainnet.base.org") });
+if (!process.env.ALCHEMY_API_KEY && !process.env.BASE_RPC) throw new Error("set ALCHEMY_API_KEY (no public RPCs)");
+const pc = createPublicClient({ chain: base, transport: http(process.env.BASE_RPC || `https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`) });
 ok(await pc.verifyMessage({ address, message, signature }), "personal_sign verifies on Base (ERC-1271 via ERC-6492, wallet not deployed)");
 
 const calls = [

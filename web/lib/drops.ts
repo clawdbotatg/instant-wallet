@@ -6,7 +6,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { CHAINS, knownChain } from "./chains";
 import { AUTH_TYPES, type ClaimAuth, authCall, usdc3009 } from "./claim";
 import { kv } from "./kv";
-import { upstreamRpc } from "./rpcServer";
+import { mustRpc } from "./rpcServer";
 import { MULTICALL3 } from "./safe/config";
 import { abi } from "./safe/core";
 import { GAS_BUDGET } from "./safe/fee";
@@ -253,7 +253,7 @@ const slot0 = [{ type: "function", name: "slot0", stateMutability: "view", input
 /** Dollars per ETH, from the pool right now. */
 export async function ethUsd(chainId: number): Promise<number> {
   const [pool, usdcFirst] = POOLS[chainId] ?? POOLS[1];
-  const pc = createPublicClient({ chain: knownChain(POOLS[chainId] ? chainId : 1)!.chain, transport: http(upstreamRpc(POOLS[chainId] ? chainId : 1)) });
+  const pc = createPublicClient({ chain: knownChain(POOLS[chainId] ? chainId : 1)!.chain, transport: http(mustRpc(POOLS[chainId] ? chainId : 1)) });
   const [sqrt] = await pc.readContract({ address: pool, abi: slot0, functionName: "slot0" });
   const p = (Number(sqrt) / 2 ** 96) ** 2; // token1 per token0, smallest units
   const v = usdcFirst ? 1e12 / p : p * 1e12;
@@ -339,7 +339,7 @@ export async function sendUsdc(chainId: number, key: Hex, to: Address, value: bi
 export async function sendEth(chainId: number, key: Hex, to: Address, value: bigint | "all"): Promise<Hex> {
   const { info, pc } = clients(chainId);
   const pot = privateKeyToAccount(key);
-  const wc = createWalletClient({ chain: info.chain, transport: http(upstreamRpc(chainId)!), account: pot });
+  const wc = createWalletClient({ chain: info.chain, transport: http(mustRpc(chainId)), account: pot });
   const hash = await withLock(`pot:${chainId}:${pot.address}`, async () => {
     const [f, bal, pending, last] = await Promise.all([
       tipped(pc, chainId, true),
@@ -430,5 +430,5 @@ export async function walletChallenge(): Promise<string> {
 export async function walletLogin(wallet: Address, message: string, signature: Hex): Promise<boolean> {
   const n = /\nnonce: ([0-9a-f]{24})$/.exec(message)?.[1];
   if (!n || !(await kv(["DEL", `${P}ch:${n}`]))) return false;
-  return createPublicClient({ chain: knownChain(1)!.chain, transport: http(upstreamRpc(1)) }).verifyMessage({ address: wallet, message, signature });
+  return createPublicClient({ chain: knownChain(1)!.chain, transport: http(mustRpc(1)) }).verifyMessage({ address: wallet, message, signature });
 }

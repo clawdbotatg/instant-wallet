@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createPublicClient, http, isAddress } from "viem";
 import { mainnet } from "viem/chains";
 import { avatarUrl, nameAddress, primaryName } from "clear-signing-safe-kit";
-import { upstreamRpc } from "@/lib/rpcServer";
+import { mustRpc } from "@/lib/rpcServer";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   const name = req.nextUrl.searchParams.get("name");
   const address = req.nextUrl.searchParams.get("address");
   const chain = Number(req.nextUrl.searchParams.get("chain") || 0) || undefined;
-  const client = createPublicClient({ chain: mainnet, transport: http(upstreamRpc(1)) });
+  const client = createPublicClient({ chain: mainnet, transport: http(mustRpc(1)) });
   const keep = { headers: { "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=604800" } };
   try {
     if (name) {

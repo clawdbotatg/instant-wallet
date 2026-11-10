@@ -93,7 +93,7 @@ Suggested first: 1, 3, 5, 12, 20.
   - `app/api/safe/relay/route.ts:164`: `admit()` runs after a dozen RPC reads, so refused callers still cost reads.
   - `app/api/alerts/route.ts:15-19`: an open GET shows the first 2 letters and the domain of a wallet's alert email.
 
-- [ ] **11. Public RPC when the Alchemy key is missing.**
+- [x] **11. Public RPC when the Alchemy key is missing.**
   These pass `http(upstreamRpc(id))` unchecked, so viem falls back to the chain's public RPC: `app/api/ens`,
   `uni`, `onramp`, `portfolio:63`, `bundler:59,77`, `lib/drops.ts:254,426`. Others throw "chain not enabled".
   Fix: one helper that throws. Also `web/tools/aa-live.mjs:20`, `wc-e2e.mjs:63`, `relay-tip-demo.mjs:15` and

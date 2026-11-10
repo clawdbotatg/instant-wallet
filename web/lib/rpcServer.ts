@@ -11,6 +11,13 @@ export function upstreamRpc(chainId: number): string | undefined {
   return key && net ? `https://${net}.g.alchemy.com/v2/${key}` : undefined;
 }
 
+/** The same, or it throws: viem's http(undefined) quietly uses the chain's public RPC, and we never use those. */
+export function mustRpc(chainId: number): string {
+  const url = upstreamRpc(chainId);
+  if (!url) throw new Error(`no RPC for chain ${chainId}`);
+  return url;
+}
+
 export const alchemyNetwork = (chainId: number) => knownChain(chainId)?.alchemy;
 
 export async function rpc<T>(chainId: number, method: string, params: unknown[]): Promise<T> {

@@ -4,7 +4,7 @@ import { sha256 } from "@noble/hashes/sha2.js";
 import { NextRequest, NextResponse } from "next/server";
 import { type Hex, createPublicClient, getAddress, http, isAddress, isHex } from "viem";
 import { base } from "viem/chains";
-import { upstreamRpc } from "@/lib/rpcServer";
+import { mustRpc } from "@/lib/rpcServer";
 import { abi, safeAddress, signerAddress } from "@/lib/safe/core";
 import { onrampChallenge } from "@/lib/onramp";
 import { once } from "@/lib/safe/relayGuard";
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
 
   // ...and that passkey is this wallet's owner
   const signer = signerAddress(b.qx, b.qy);
-  const client = createPublicClient({ chain: base, transport: http(upstreamRpc(8453)) });
+  const client = createPublicClient({ chain: base, transport: http(mustRpc(8453)) });
   try {
     const code = await client.getCode({ address });
     const owns =

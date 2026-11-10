@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import { type Address, createPublicClient, erc20Abi, formatUnits, getAddress, http, isAddress } from "viem";
 import { CHAINS, ETH, chainById } from "@/lib/chains";
-import { alchemyNetwork, rpc, upstreamRpc } from "@/lib/rpcServer";
+import { alchemyNetwork, rpc, mustRpc } from "@/lib/rpcServer";
 import type { Asset, Portfolio } from "@/lib/types";
 import { POPULAR } from "@/lib/safe/swap";
 
@@ -60,7 +60,7 @@ function row(chainId: number, asset: Address, symbol: string, name: string, deci
 }
 
 async function chainAssets(chainId: number, wallet: Address): Promise<Asset[]> {
-  const client = createPublicClient({ chain: chainById(chainId)!.chain, transport: http(upstreamRpc(chainId)) });
+  const client = createPublicClient({ chain: chainById(chainId)!.chain, transport: http(mustRpc(chainId)) });
   const info = chainById(chainId)!;
   const eth = await client.getBalance({ address: wallet });
   // Arc's native balance is its USDC token's balance again: list it once, as the token
@@ -225,7 +225,53 @@ async function price(assets: Asset[]) {
       }
     }),
   );
+  await twinCheck(assets);
   for (const a of assets) a.usd = a.price === null ? null : Number(a.formatted) * a.price;
+}
+
+/** A well-known token's twin on Ethereum (same symbol in Swap's list there), by `chainId:address` lowercase. */
+const TWIN = new Map<string, Address>();
+for (const [id, list] of Object.entries(POPULAR)) {
+  if (Number(id) === 1) continue;
+  for (const t of list) {
+    const m = (POPULAR[1] ?? []).find(x => x.symbol === t.symbol && x.address !== ETH);
+    if (m && t.address !== ETH) TWIN.set(`${id}:${t.address.toLowerCase()}`, getAddress(m.address));
+  }
+}
+
+/**
+ * A well-known token on another chain costs what it costs on Ethereum. One bad pool on Base had Alchemy AND DexScreener
+ * both saying wstETH was $133M (0.0008 of it showed as $106,374). More than 20% off Ethereum's price: Ethereum's it is.
+ */
+async function twinCheck(assets: Asset[]) {
+  const key = process.env.ALCHEMY_API_KEY;
+  const mine = assets.filter(a => TWIN.has(`${a.chainId}:${a.asset.toLowerCase()}`));
+  if (!key || !mine.length) return;
+  const twins = [...new Set(mine.map(a => TWIN.get(`${a.chainId}:${a.asset.toLowerCase()}`)!))];
+  const need = twins.filter(t => {
+    const hit = priceCache.get(`1:${t}`);
+    return !(hit && hit.v !== null && Date.now() - hit.at < PRICE_MS);
+  });
+  if (need.length) {
+    const j = await fetch(`https://api.g.alchemy.com/prices/v1/${key}/tokens/by-address`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ addresses: need.slice(0, 25).map(address => ({ network: alchemyNetwork(1), address })) }),
+      cache: "no-store",
+    })
+      .then(r => r.json())
+      .catch(() => null);
+    for (const d of j?.data ?? []) {
+      const v = Number(d?.prices?.find((p: any) => p.currency === "usd")?.value);
+      if (Number.isFinite(v) && v > 0) priceCache.set(`1:${getAddress(d.address)}`, { at: Date.now(), v });
+    }
+  }
+  for (const a of mine) {
+    const hit = priceCache.get(`1:${TWIN.get(`${a.chainId}:${a.asset.toLowerCase()}`)}`);
+    // an old Ethereum price is still far better than one that's off by thousands of times
+    if (!hit?.v) continue;
+    if (a.price === null || Math.abs(a.price - hit.v) / hit.v > 0.2) a.price = hit.v;
+  }
 }
 
 const DEX_MS = 5 * 60_000;

@@ -124,9 +124,10 @@ Suggested first: 1, 3, 5, 12, 20.
   Fix: never keep a failed ask; keep the coins ~30 s and ask again while the card is on screen.
 
 - [ ] **13. Waits of 5 s+ with no progress bar.**
-  `SendAll.tsx:214-230` · `Waiting.tsx:143-145` (reject) · `SafeApp.tsx` (budget turn-off) ·
-  `RecoveryAlert.tsx:80-82` (Cancelling…) · `Claim.tsx:468-471` (the normal claim; the xdai branch has one) ·
-  `SafeSwap.tsx:352-358` ("On its way…") · `SimSetting.tsx:14`.
+  Done 11-10: a cross-chain swap ("On its way…": `TimeBar`, sized to the route's usual time) and Send everything
+  (the send bar under each network's button).
+  Left: `Waiting.tsx` (reject) · `SafeApp.tsx` (budget turn-off) · `RecoveryAlert.tsx` (Cancelling…) ·
+  `Claim.tsx` (the normal claim; the xdai branch has one) · `SimSetting.tsx`.
 
 - [ ] **14. Bare `short(…)` addresses where the rule says `<Who>` / `<Words>`.**
   `RecoveryAlert.tsx:75` (who is taking the wallet: the one that matters) · `Activity.tsx:196-199` (Received from) ·

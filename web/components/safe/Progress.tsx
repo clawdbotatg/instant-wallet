@@ -77,3 +77,32 @@ export function Progress({ stage, chainId, hash }: { stage: Stage | string | nul
     </div>
   );
 }
+
+/**
+ * A wait we only know the usual length of (a bridge): a bar toward that time and the time so far. It starts when it
+ * first shows. Take it away when the wait ends.
+ */
+export function TimeBar({ seconds, label }: { seconds: number; label: string }) {
+  const [t0] = useState(() => Date.now());
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const i = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(i);
+  }, []);
+  const expect = Math.max(5, seconds);
+  const secs = Math.max(0, Math.round((now - t0) / 1000));
+  // the same curve as Progress: toward 90% over the usual time, then it creeps
+  const p = Math.min(0.97, 0.9 * (1 - Math.exp((-2.3 * secs) / expect)) + (secs > expect ? 0.07 * (1 - Math.exp(-(secs - expect) / (expect * 4))) : 0));
+  const clock = secs < 60 ? `${secs} s` : `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
+  return (
+    <div className="stack" style={{ gap: 6, alignSelf: "stretch" }}>
+      <div className="progress">
+        <div style={{ width: `${Math.max(3, p * 100)}%`, transitionDuration: "1000ms" }} />
+      </div>
+      <p className="fine" style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+        <span>{label}</span>
+        <span>{clock}</span>
+      </p>
+    </div>
+  );
+}

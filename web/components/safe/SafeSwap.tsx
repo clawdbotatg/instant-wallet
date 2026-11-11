@@ -14,7 +14,7 @@ import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
 import { Eject, Money, WhatFor, TokenIcon, GreenButton } from "../bits";
 import { ChainSelect, type Opt, Select, SignerChoice, assetOpt } from "./Pick";
-import { Progress } from "./Progress";
+import { Progress, TimeBar } from "./Progress";
 import { friendly } from "@/lib/friendly";
 import { ErrorLine } from "./WedgieButton";
 
@@ -355,7 +355,7 @@ export function SafeSwap({
           <Money amount={amountIn} symbol={route.from.symbol} usd={fromUsd} />
           <Money amount={formatUnits(BigInt(route.toAmount), route.to.decimals)} symbol={`${route.to.symbol}${crossChain ? ` on ${toName}` : ""}`} usd={toUsd} get />
         </div>
-        {crossChain && !landed && !failed && <p className="fine">Usually about {Math.max(1, Math.round(route.seconds / 60))} min. You can close this.</p>}
+        {crossChain && !landed && !failed && <TimeBar seconds={route.seconds} label={`Usually about ${Math.max(1, Math.round(route.seconds / 60))} min. You can close this.`} />}
         {failed && <p className="fine">{arrival?.substatus === "REFUNDED" ? `Refunded to your wallet on ${chainById(chainId)?.name}.` : "Check the explorer; LI.FI usually refunds."}</p>}
         {arrival?.substatus === "PARTIAL" && <p className="fine">It arrived as a different token than planned (the bridge's fallback).</p>}
         {url && <Eject href={url} title="See it on the explorer">Explorer</Eject>}

@@ -9,6 +9,7 @@ import { hotAvailable } from "@/lib/safe/hot";
 import {
   type FeeToken,
   type Prepared,
+  type Stage,
   Shared,
   finishOwners,
   getQuote,
@@ -22,6 +23,7 @@ import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
 import { AddressInput, Eject, Money, TokenIcon } from "../bits";
 import { friendly } from "@/lib/friendly";
+import { Progress } from "./Progress";
 import { ErrorLine } from "./WedgieButton";
 
 // each token past the first adds a transfer to the batch: quote that much more gas
@@ -33,6 +35,7 @@ type Row = {
   net?: Record<string, bigint>;
   hash?: Hash;
   error?: string;
+  send?: Stage; // where the send is, for the bar
 };
 
 /**
@@ -134,6 +137,7 @@ export function SendAll({
         wedgie = await Wedgie.connect();
         r.prepared.opts.wedgie = wedgie;
       }
+      r.prepared.opts.onStage = (s, h) => setRows((x) => ({ ...x, [chainId]: { ...x[chainId], send: s, hash: h ?? x[chainId]?.hash } }));
       const hash = await finishOwners(r.prepared);
       set(chainId, { ...r, stage: "done", hash });
     } catch (e: any) {
@@ -229,6 +233,7 @@ export function SendAll({
                       : `Send all on ${chainById(chainId)?.name}`}
               </button>
             )}
+            {r.stage === "busy" && <Progress stage={r.send ?? null} chainId={chainId} hash={r.hash} />}
           </div>
         );
       })}

@@ -36,9 +36,9 @@ function client(chainId: number, rpc: string, prover: string, wasm?: string): Pr
   if (!c) {
     c = import("@corpus-core/colibri-stateless").then(m => {
       if (wasm) m.set_wasm_url(wasm);
-      // "latest" may be 5 minutes old (the default, 1 minute, failed on a phone when the prover ran behind: "proof for
+      // "latest" may be 90 s old (measured 11-11: proofs run 14 to 38 s old) (the default, 1 minute, failed on a phone when the prover ran behind: "proof for
       // latest too old"). A proof that is still too old is asked for again, twice, a block apart.
-      const lc = new m.default({ chainId, rpcs: [rpc], prover: [prover], prover_mode: "hybrid", proofStrategy: m.Strategy.VerifiedOnly, max_latest_age_seconds: 300 }) as unknown as Lc;
+      const lc = new m.default({ chainId, rpcs: [rpc], prover: [prover], prover_mode: "hybrid", proofStrategy: m.Strategy.VerifiedOnly, max_latest_age_seconds: 90 }) as unknown as Lc;
       const request = async (a: { method: string; params: unknown[] }, left = 2): Promise<any> => {
         try {
           return await lc.request(a);

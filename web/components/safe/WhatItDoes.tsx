@@ -189,13 +189,17 @@ export function WhatItDoes({ chainId, safe, calls, tx, same, quiet }: { chainId:
   // quiet (the Send sheet, whose title already says it once): only trouble shows
   if (quiet)
     return (
-      <div data-what style={{ display: "contents" }}>
+      <div data-what className="stack" style={{ gap: 4, paddingBottom: 8 }}>
         {warns.map((w, i) => (
           <Said key={`d${i}`} text={WARN + w} />
         ))}
         {res?.light === "failed" && <Said text={`${WARN}Couldn't check the coins in this browser`} />}
-        {res?.light === "failed" && res.why && <span className="fine">{res.why}</span>}
+        {res?.light === "failed" && res.why && <span className="fine">{res.why.split(": ").pop()}</span>}
         {sim?.fails && <Said text={`${WARN}Would fail now`} />}
+        {/* the run's own answer, one line: what leaves the wallet */}
+        {!res && <span className="fine">Checking…</span>}
+        {sim && !sim.fails && sim.pay.map((m, i) => <Money key={`p${i}`} amount={m.amount} symbol={m.symbol} usd={m.usd} />)}
+        {sim && !sim.fails && sim.get.map((m, i) => <Money key={`g${i}`} amount={m.amount} symbol={m.symbol} usd={m.usd} get />)}
       </div>
     );
   return (
@@ -205,7 +209,7 @@ export function WhatItDoes({ chainId, safe, calls, tx, same, quiet }: { chainId:
       ))}
       {reject && <Said text="Reject: the other transaction at this number can never run." />}
       {res?.light === "failed" && <Said text={`${WARN}Couldn't check the coins in this browser`} />}
-      {res?.light === "failed" && res.why && <span className="fine">{res.why}</span>}
+      {res?.light === "failed" && res.why && <span className="fine" style={{ display: "block" }}>{res.why.split(": ").pop()}</span>}
       {!res ? (
         <span className="fine">Checking what it does…</span>
       ) : sim?.fails ? (

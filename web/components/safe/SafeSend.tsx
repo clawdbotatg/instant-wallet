@@ -306,7 +306,8 @@ export function SafeSend({
           Send {asset.price ? `${usd2(Number(amountIn) * asset.price)} of ${asset.symbol}` : what} to {who}?
         </h2>
         <div className="card">
-          {ran && quote && <WhatItDoes quiet chainId={chainId} safe={account.address} calls={[transfer(asset.asset as Address, resolved, base), feeCall(quote, feeToken)]} />}
+          {/* only while you decide: once it's signed the run has nothing left to say */}
+          {ran && quote && !busy && <WhatItDoes quiet chainId={chainId} safe={account.address} calls={[transfer(asset.asset as Address, resolved, base), feeCall(quote, feeToken)]} />}
           <div className="line">
             <span>To</span>
             <span className="mono" style={{ fontSize: 13, textAlign: "right", overflowWrap: "anywhere" }}>{resolved}</span>

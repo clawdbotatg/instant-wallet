@@ -36,7 +36,19 @@ function client(chainId: number, rpc: string, prover: string, wasm?: string): Pr
   if (!c) {
     c = import("@corpus-core/colibri-stateless").then(m => {
       if (wasm) m.set_wasm_url(wasm);
-      return new m.default({ chainId, rpcs: [rpc], prover: [prover], prover_mode: "hybrid", proofStrategy: m.Strategy.VerifiedOnly }) as unknown as Lc;
+      // "latest" may be 2 minutes old (the default, 1 minute, failed on a phone when the prover ran behind: "proof for
+      // latest too old"). A proof that is still too old is asked for again, twice, a block apart.
+      const lc = new m.default({ chainId, rpcs: [rpc], prover: [prover], prover_mode: "hybrid", proofStrategy: m.Strategy.VerifiedOnly, max_latest_age_seconds: 120 }) as unknown as Lc;
+      const request = async (a: { method: string; params: unknown[] }, left = 2): Promise<any> => {
+        try {
+          return await lc.request(a);
+        } catch (e: any) {
+          if (!left || !/too old/i.test(String(e?.message || e))) throw e;
+          await new Promise(r => setTimeout(r, 4000));
+          return request(a, left - 1);
+        }
+      };
+      return { request } as Lc;
     });
     made.set(k, c);
     c.catch(() => made.delete(k));

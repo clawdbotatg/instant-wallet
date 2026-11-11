@@ -42,7 +42,7 @@ Where it lives: `WhatItDoes`, `<Money>`, clear-signing-safe-kit (`dangers`, `sim
 | Money moving | `<Money>`: out red −, in green +, dollars after in gray | a hand-written + or − |
 | Leaving the wallet (explorer, Safe{Wallet}, a tx's page) | `<Eject>`: white pill (the height of every pill), new window, as wide as its words, on the right. A whole row that leaves (a position, a connected site) says ↗ after its name. With a line of its own (under a progress bar) it is `big`: a normal button's height. On a finished screen `<DoneBar>`: Done and Explorer in one row, same height | a hand-rolled pill link, a pill stretched across the page |
 | A tx's link for the other signers | `<CopyLink>`: dark gray, copies. The only way to share a tx | a pop-out, a second Share button |
-| An address | `<Who>` (name over short address, avatar or blockie). Every one, on every screen (11-11) | a bare `short(…)`, a full address in mono, one shortened by hand |
+| An address | `<Who>` (name over short address, avatar or blockie). Every one, on every screen (11-11). On one line (a headline, a button, under a QR code) it is `<Who flat>`. In an error or a tx's label: the full address in the words, drawn by `<Words>` | a bare `short(…)`, a full address in mono, one shortened by hand, a `<Blockie>` placed by hand |
 | A send | says who to: "Send to" and their `<Who>` (Activity, a waiting tx, signing) | "Send" alone |
 | A wedgie | its own screen's address + blockie (`shownAs`, `wedgieHome`) | its signer contract, an ENS avatar |
 | An address in a tx's words | `<Words>`: each full address drawn as `<Who>` | bare hex, `short(…)` in the text |

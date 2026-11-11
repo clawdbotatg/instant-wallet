@@ -15,7 +15,9 @@ const RULES = [
   { re: /\bPress [ABXY]\b|\bthe [ABXY] button\b/, say: "wedgie buttons are <GreenButton /> or 'the green button', never A/B/X/Y" },
   { re: /[>"`]\s*[+−]\{|\{get \? "\+" : "−"\}/, say: "money with a hand-written + or −: use <Money>" },
   { re: /\b(send|sends|sent) it (yourself|myself)\b|relay (is )?send/i, say: "a signed tx is executed, not sent" },
-  { re: /\.map\(short\)|<span className="mono">\{short\(/, say: "a bare short address: use <Who> (or <Words> for one inside a sentence)", skip: ["components/DropAdmin.tsx"] }, // a copy button's label
+  // every address is <Who> (Austin 11-11, twice). "// plain text:" on the line: a string no part can go in (the passkey's name in the phone)
+  { re: /\bshort\((?!.*\/\/ plain text:)(?!.*from "@\/lib\/format")/, say: "a bare short address: use <Who> (flat: one line; or <Words> for one inside a sentence; a full address in an error's words)" },
+  { re: /<Blockie\b/, say: "a blockie placed by hand: use <Who>", skip: ["components/safe/SafeSend.tsx", "components/safe/Join.tsx", "components/safe/Keys.tsx", "components/safe/TxPage.tsx", "components/safe/WedgieButton.tsx"] },
   { re: /\bmono\b[^>]*>\s*(new key )?\{(a|address|addr|resolved|to|owner|signer|safe|account\.\w+)\}/, say: "a bare full address: use <Who> (blockie, name)" },
   { re: /\.slice\(0, 6\)\}…/, say: "an address shortened by hand: use <Who>" },
   { re: /`\$\{(many \? )?`?\$\{n \+ 1\}\. /, say: "a tx step numbered by hand: its <SrcTag> mark goes there (kit MARKS)" },
@@ -25,13 +27,15 @@ const DARK_OK = [SHARED, "components/Receive.tsx", "components/safe/Keys.tsx"]; 
 RULES.push({ re: /btn-dark|pill dark/, say: "dark gray is only the copy button (<CopyLink>): make it white", skip: DARK_OK });
 
 const files = [];
-(function walk(d) {
+function walk(d) {
   for (const f of readdirSync(d)) {
     const p = join(d, f);
     if (statSync(p).isDirectory()) walk(p);
     else if (p.endsWith(".tsx")) files.push(p);
   }
-})(join(root, "components"));
+}
+walk(join(root, "components"));
+walk(join(root, "app"));
 
 let bad = 0;
 for (const p of files) {

@@ -20,7 +20,7 @@ import {
   wedgieSupported,
   WEDGIE_TAKEN,
 } from "@/lib/safe/wedgie";
-import { Blockie, Who } from "../bits";
+import { Blockie, Who, Words } from "../bits";
 
 /** The wedgie, drawn after the device render (design/brand/device-mark.png): white shell, a bill and a card behind, knob, screen, four buttons. */
 export function WedgieIcon({ size = 44, sad = false }: { size?: number; sad?: boolean }) {
@@ -59,7 +59,7 @@ export function WedgieIcon({ size = 44, sad = false }: { size?: number; sad?: bo
 
 /** An error line; "the wedgie is busy in another tab" gets the sad wedgie. */
 export function ErrorLine({ text }: { text: string }) {
-  if (!text.includes(WEDGIE_TAKEN)) return <p className="err">{text}</p>;
+  if (!text.includes(WEDGIE_TAKEN)) return <p className="err"><Words text={text} /></p>;
   return (
     <div className="row" style={{ gap: 14 }}>
       <WedgieIcon size={64} sad />

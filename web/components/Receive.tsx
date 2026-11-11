@@ -4,10 +4,9 @@ import { useEffect, useState } from "react";
 import { type Address, parseUnits } from "viem";
 import { CHAINS } from "@/lib/chains";
 import { requestLink, requestUri } from "@/lib/parse";
-import { short } from "@/lib/format";
 import { loadRequestLink, saveRequestLink } from "@/lib/store";
 import type { Account } from "@/lib/types";
-import { Blockie, ChainIcon, CopyIcon, Money, PencilIcon, Qr, SwitchIcon, WhatFor, copy } from "./bits";
+import { ChainIcon, CopyIcon, Money, PencilIcon, Qr, SwitchIcon, WhatFor, Who, copy } from "./bits";
 import { ChainSelect } from "./safe/Pick";
 
 /**
@@ -86,7 +85,7 @@ export function Receive({
           }
         >
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, color: "var(--ink)" }}>
-            <span className="mono" style={{ fontSize: 17, fontWeight: 600 }}>{short(account.address)}</span>
+            <span style={{ fontSize: 17, fontWeight: 600 }}><Who flat plain address={account.address} /></span>
             <CopyIcon />
           </div>
         </Qr>
@@ -104,8 +103,7 @@ export function Receive({
         {copied && (
           <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px 10px 10px", borderRadius: 999, background: "var(--ink)", color: "#fff", boxShadow: "0 10px 30px -8px rgba(0,0,0,.5)", animation: "fade .15s" }}>
-              <Blockie address={account.address} size={30} />
-              <span className="mono" style={{ fontSize: 15 }}>{short(account.address)}</span>
+              <span style={{ fontSize: 15 }}><Who flat plain address={account.address} size={30} /></span>
               <b>{copied}</b>
             </div>
           </div>

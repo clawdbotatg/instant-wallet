@@ -17,7 +17,7 @@ import {
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { ErrorLine } from "./WedgieButton";
 import { friendly } from "@/lib/friendly";
-import { CopyLink, Eject, RemoveX } from "../bits";
+import { CopyLink, Eject, RemoveX, Words } from "../bits";
 import { WhatItDoes } from "./WhatItDoes";
 
 /** Home: transactions waiting for signatures, on every network where this wallet needs more than one. */
@@ -128,7 +128,7 @@ export function WaitingCards({
             <div className="recess stack" style={{ gap: 6 }}>
               <div className="row" style={{ justifyContent: "space-between", gap: 8 }}>
                 <span className="fine">
-                  {w.label ?? `Transaction #${w.tx.nonce}`} · {chainById(w.chainId)?.name}
+                  <Words text={w.label ?? `Transaction #${w.tx.nonce}`} chain={w.chainId} /> · {chainById(w.chainId)?.name}
                 </span>
                 <span className="row" style={{ gap: 6 }}>
                   {app && (

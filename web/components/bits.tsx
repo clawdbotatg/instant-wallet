@@ -87,9 +87,10 @@ export function useName(a?: string | null, chain?: number) {
 /**
  * An address, the same everywhere: its ENS avatar (else its blockie), its name over the short address. plain: the
  * blockie only, never an avatar (a wedgie: the picture must match its screen). label: a word over it instead of the
- * name (the name then sits beside the short address).
+ * name (the name then sits beside the short address). flat: one line at the size of the words around it (a headline,
+ * a button, under a QR code): the picture, then the name, else the short address.
  */
-export function Who({ address, chain, size = 22, plain, label, link, inline }: { address: string; chain?: number; size?: number; plain?: boolean; label?: string; link?: string; inline?: boolean }) {
+export function Who({ address, chain, size = 22, plain, label, link, inline, flat }: { address: string; chain?: number; size?: number; plain?: boolean; label?: string; link?: string; inline?: boolean; flat?: boolean }) {
   const { name, avatar } = useName(plain ? null : address, chain);
   const [bad, setBad] = useState(false);
   const pic = avatar && !bad ? (
@@ -98,6 +99,13 @@ export function Who({ address, chain, size = 22, plain, label, link, inline }: {
     <Blockie address={address} size={size} />
   );
   const top = label ?? name;
+  if (flat)
+    return (
+      <span style={{ display: "inline-flex", alignItems: "center", gap: "0.35em", minWidth: 0, maxWidth: "100%", verticalAlign: "middle", whiteSpace: "nowrap" }}>
+        {pic}
+        <span className={top ? undefined : "mono"} style={{ overflow: "hidden", textOverflow: "ellipsis", wordBreak: "normal" }}>{top ?? short(address)}</span>
+      </span>
+    );
   const under = label && name ? `${name} · ${short(address)}` : short(address);
   const sub = link ? (
     <a className="mono fine" style={{ fontSize: 12 }} href={link} target="_blank" rel="noopener noreferrer">
@@ -113,7 +121,7 @@ export function Who({ address, chain, size = 22, plain, label, link, inline }: {
       {pic}
       {top ? (
         <span className="stack" style={{ gap: 0, minWidth: 0 }}>
-          <span style={{ fontSize: 15, fontWeight: 600 }}>{top}</span>
+          <span style={{ fontSize: 15, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis" }}>{top}</span>
           {sub}
         </span>
       ) : (

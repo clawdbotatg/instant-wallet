@@ -319,14 +319,14 @@ export function Keys({
         let owners = [...st.owners];
         let thr = st.threshold;
         for (const x of plus) {
-          if (owners.some(o => same(o, x.a))) throw new Error(`${short(x.a)} is already a signer.`);
+          if (owners.some(o => same(o, x.a))) throw new Error(`${x.a} is already a signer.`);
           if (x.key) calls.push(deploySignerCall(x.key.x, x.key.y, VERIFIERS));
           calls.push(safeCall("addOwnerWithThreshold", [x.a, BigInt(thr)]));
           owners = [x.a, ...owners]; // the Safe puts a new owner first
         }
         for (const o of gone) {
           const i = owners.findIndex(x => same(x, o as Address));
-          if (i < 0) throw new Error(`${short(o as Address)} isn't a signer any more.`);
+          if (i < 0) throw new Error(`${o} isn't a signer any more.`);
           if (owners.length < 2) throw new Error("A wallet needs at least one signer.");
           // getOwners is the Safe's linked list in order: the one before it, or the sentinel for the first
           const prev = i === 0 ? "0x0000000000000000000000000000000000000001" : owners[i - 1];

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { type Hash, formatUnits, getAddress, parseUnits, zeroAddress } from "viem";
 import { CHAINS, chainById, explorerAddress, explorerTx, publicClient, nativeSymbol } from "@/lib/chains";
-import { amount as fmtAmount, short, usd, feeText } from "@/lib/format";
+import { amount as fmtAmount, usd, feeText } from "@/lib/format";
 import { abi } from "@/lib/safe/core";
 import type { Quote } from "@/lib/safe/fee";
 import { type FeeToken, type Signer, type Stage, Shared, feeCall, getQuote, ownerSigners, ownersSend, sendKind, signThenQueue, signerOptions, usesWedgie } from "@/lib/safe/send";
@@ -12,7 +12,7 @@ import { POPULAR, type SwapRoute, type Token, swapCalls } from "@/lib/safe/swap"
 import { uniswapRoute } from "@/lib/safe/uniswap";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { DoneBar, Eject, Money, WhatFor, TokenIcon, GreenButton } from "../bits";
+import { DoneBar, Eject, Money, WhatFor, TokenIcon, GreenButton, Who } from "../bits";
 import { ChainSelect, type Opt, Select, SignerChoice, assetOpt } from "./Pick";
 import { Progress, TimeBar } from "./Progress";
 import { friendly } from "@/lib/friendly";
@@ -32,7 +32,7 @@ const tokenOpt = (t: Token | Found): Opt => ({
     "name" in t ? (
       <span className="fine">
         {t.liquidityUsd ? `${compactUsd(t.liquidityUsd)} pool · ` : ""}
-        {short(t.address)}
+        <Who flat plain address={t.address} size={14} />
       </span>
     ) : undefined,
   search: `${t.symbol} ${"name" in t ? t.name : ""} ${t.address}`,
@@ -441,7 +441,7 @@ export function SafeSwap({
           <span className="fine">
             Anyone can make a token called {to.symbol}. This one is{" "}
             <Eject href={explorerAddress(to.chainId, to.address) ?? ""} title="See it on the explorer">
-              {short(to.address)}
+              <Who flat plain address={to.address} size={16} />
             </Eject>
             {"liquidityUsd" in to && (to as Found).liquidityUsd ? ` · ${compactUsd((to as Found).liquidityUsd!)} in its pools` : ""}.
           </span>

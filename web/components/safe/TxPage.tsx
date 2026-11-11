@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type Address, type Hash, type Hex, encodeFunctionData, getAddress, isAddress, parseAbi, size, zeroAddress } from "viem";
 import { chainById, explorerTx, publicClient } from "@/lib/chains";
-import { short } from "@/lib/format";
 import { recoverKeys, bio } from "@/lib/passkey";
 import { MULTISEND_CALL_ONLY } from "@/lib/safe/config";
 import { type Call, type Sig, abi, batch, execData, safeTxHash, signerAddress } from "@/lib/safe/core";
@@ -17,7 +16,7 @@ import { passkeySign } from "@/lib/safe/sign";
 import { startSending } from "@/lib/safe/sending";
 import { type ChainState, keyFromCode, loadAccount, loadSigners, readChain, wedgieHome, wedgieSigners } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
-import { BioSigner, Blockie, CopyLink, Eject, GreenButton, RemoveX, Who, useToast } from "../bits";
+import { BioSigner, Blockie, CopyLink, Eject, GreenButton, RemoveX, Who, Words, useToast } from "../bits";
 import { friendly } from "@/lib/friendly";
 import { Progress } from "./Progress";
 import { ErrorLine } from "./WedgieButton";
@@ -109,7 +108,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
   // all of one press at once: a wedgie signs as two owners, and adding them one by one from the same `w` kept only the last
   async function add(...ss: Sig[]) {
     if (!w || !chain) return;
-    for (const s of ss) if (!chain.owners.some(o => eq(o, s.signer))) throw new Error(`${short(s.signer)} isn't a signer on this wallet.`);
+    for (const s of ss) if (!chain.owners.some(o => eq(o, s.signer))) throw new Error(`${s.signer} isn't a signer on this wallet.`);
     const next: Waiting = {
       ...w,
       sigs: [...w.sigs.filter(x => !ss.some(s => eq(x.owner, s.signer))), ...ss.map(s => ({ owner: s.signer, signature: sigHex(s) }))],
@@ -181,7 +180,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
       const call = { to: safe, value: 0n, data: encodeFunctionData({ abi: abi.safe, functionName: "approveHash", args: [w.hash] }) };
       try {
         await ownersSend({ account: me, state: st, calls: [call], signers: ownerSigners(st, me), feeToken: bal >= (chainId === 1 ? 10_000_000n : 1_000_000n) ? "usdc" : "eth",
-          label: `Approve #${w.tx.nonce} on ${short(safe)}` });
+          label: `Approve #${w.tx.nonce} on ${safe}` });
       } catch (e) {
         if (e instanceof Shared) return; // your wallet needs more signers: its own tx page opened; this one counts it once it runs
         throw e;
@@ -328,7 +327,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
         </a>
       )}
       <div className="row" style={{ justifyContent: "space-between", gap: 8 }}>
-        <h2>{w.label ?? `Transaction #${w.tx.nonce}`}</h2>
+        <h2><Words text={w.label ?? `Transaction #${w.tx.nonce}`} chain={w.chainId} /></h2>
         <span className="row" style={{ gap: 6 }}>
           {app && (
             <Eject href={app} title="Open in Safe{Wallet}">

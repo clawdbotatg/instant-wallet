@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { type Address, type Hash, formatUnits, getAddress, isAddress, parseUnits, zeroAddress } from "viem";
 import { chainById, explorerTx, nativeSymbol } from "@/lib/chains";
-import { amount as fmtAmount, short, usd, feeText } from "@/lib/format";
+import { amount as fmtAmount, usd, feeText } from "@/lib/format";
 import { isClaimLink } from "@/lib/claim";
 import { isXdai } from "@/lib/brand";
 import { dropCode } from "@/lib/dropClient";
@@ -256,7 +256,7 @@ export function SafeSend({
       const h =
         p.path === "budget"
           ? await budgetSend({ account, state: st, calls, feeToken, quote: quote ?? undefined, onStage })
-          : await ownersSend({ account, state: st, calls, signers, feeToken, wedgie, quote: quote ?? undefined, onStage, label: `Send ${what} to ${who}` });
+          : await ownersSend({ account, state: st, calls, signers, feeToken, wedgie, quote: quote ?? undefined, onStage, label: `Send ${what} to ${toInput.includes(".") ? toInput : resolved}` });
       setHash(h);
       setStage("done");
     } catch (e: any) {
@@ -270,7 +270,6 @@ export function SafeSend({
 
   const what = asset && amountIn ? `${fmtAmount(amountIn)} ${asset.symbol}` : "";
   const usd2 = (v: number) => "$" + v.toFixed(2);
-  const who = resolved ? (toInput.includes(".") ? toInput : short(resolved)) : "";
 
 
   if (stage === "done" && resolved) {
@@ -303,7 +302,7 @@ export function SafeSend({
       <div className="stack confirm">
         {/* said once (Austin 11-10): dollars, the coin, who. The run still happens: it speaks only when something is wrong */}
         <h2>
-          Send {asset.price ? `${usd2(Number(amountIn) * asset.price)} of ${asset.symbol}` : what} to {who}?
+          Send {asset.price ? `${usd2(Number(amountIn) * asset.price)} of ${asset.symbol}` : what} to <Who flat address={resolved} chain={chainId} label={toInput.includes(".") ? toInput : undefined} />?
         </h2>
         <div className="card">
           {/* only while you decide: once it's signed the run has nothing left to say */}

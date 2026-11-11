@@ -3,10 +3,9 @@
 import { useEffect, useState } from "react";
 import { type Address, type Hex, encodeFunctionData, getAddress, isAddress } from "viem";
 import { CHAINS, chainById, explorerTx, publicClient } from "@/lib/chains";
-import { short } from "@/lib/format";
 import { DAO, RECOVERY_7D, RECOVERY_DAYS, RECOVERY_MODULES, SAFE_FACTORY } from "@/lib/safe/config";
 import { abi, deploySafeCall, safeAddress } from "@/lib/safe/core";
-import { Band, Words, copy, useAddressScan } from "../bits";
+import { Band, Who, Words, copy, useAddressScan } from "../bits";
 import { ChainSelect } from "./Pick";
 import { friendly } from "@/lib/friendly";
 
@@ -87,7 +86,13 @@ export function RecoverTool() {
     }
   }
 
-  const name = (g: Address) => (g.toLowerCase() === DAO.toLowerCase() ? "dao.buidlguidl.eth" : short(g));
+  const names = (gs: readonly Address[], sep: string) =>
+    gs.map((g, i) => (
+      <span key={g}>
+        {i > 0 && sep}
+        <Who flat plain address={g} size={16} label={g.toLowerCase() === DAO.toLowerCase() ? "dao.buidlguidl.eth" : undefined} />
+      </span>
+    ));
   const pending = info?.mods.filter(m => m.executeAfter > 0) ?? [];
 
   return (
@@ -107,7 +112,7 @@ export function RecoverTool() {
       {info && (
         <p className="fine">
           On {chainById(chainId)?.name}: {info.deployed ? "deployed" : "not deployed yet"}. Recovery:{" "}
-          {info.mods.map(m => `${m.guardians.map(name).join(", ")} (${RECOVERY_DAYS[m.module]} days)`).join(", ") || "none"}.
+          {info.mods.length ? info.mods.map((m, i) => <span key={m.module}>{i > 0 && ", "}{names(m.guardians, ", ")} ({RECOVERY_DAYS[m.module]} days)</span>) : "none"}.
           {pending.map(m => (
             <span key={m.module}>
               {" "}
@@ -142,7 +147,7 @@ export function RecoverTool() {
         </div>
         {info?.mods.map((m, i) => (
           <button key={m.module} className={`btn ${i === 0 ? "btn-green" : ""} wide`} disabled={!startData || !info.deployed} onClick={() => startData && run(m.module, startData, "Start")}>
-            Start as {m.guardians.map(name).join(" or ")} ({RECOVERY_DAYS[m.module]} days)
+            Start as {names(m.guardians, " or ")} ({RECOVERY_DAYS[m.module]} days)
           </button>
         ))}
         {startData && info?.mods.some(m => m.guardians.some(g => g.toLowerCase() === DAO.toLowerCase())) && (

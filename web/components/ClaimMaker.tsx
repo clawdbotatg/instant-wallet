@@ -6,7 +6,6 @@ import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { CHAINS } from "@/lib/chains";
 import { claimUrl } from "@/lib/claim";
 import { type CardBalance, cardBalances, cardsPdf, fillWithWallet, fmtUsdc } from "@/lib/claimBatch";
-import { short } from "@/lib/format";
 import { CopyAddress, CopyLink, Qr, Who, copy, useToast } from "./bits";
 
 /**
@@ -252,7 +251,7 @@ export function ClaimMaker() {
                 <p className="fine">Send USDC or ETH on {CHAINS.map(x => x.name).join(" or ")} to this address. Scan it with your wallet, or copy it.</p>
                 <div onClick={async () => (await copy(a)) && setToast("Address copied")} style={{ cursor: "pointer" }}>
                   <Qr value={a} center={a}>
-                    <span className="mono" style={{ marginTop: 8, fontWeight: 600 }}>{short(a)}</span>
+                    <span style={{ marginTop: 8, fontWeight: 600 }}><Who flat plain address={a} /></span>
                   </Qr>
                 </div>
                 <p className="fine center">Waiting for money…</p>

@@ -53,7 +53,7 @@ export function PayLink() {
   const chain = p.chainId ? chainById(p.chainId) : undefined;
   const isEth = !p.asset || p.asset === ETH;
   const isUsdc = !!p.asset && p.asset.toLowerCase() === chain?.usdc?.toLowerCase();
-  const symbol = isEth ? (chain?.native.symbol ?? "ETH") : isUsdc ? "USDC" : short(p.asset!);
+  const symbol = isEth ? (chain?.native.symbol ?? "ETH") : isUsdc ? "USDC" : short(p.asset!); // plain text: a coin with no symbol, named in <Money>
   const amt = p.amount ?? (p.amountBase !== undefined && (isEth || isUsdc) ? formatUnits(p.amountBase, isEth ? 18 : 6) : undefined);
 
   return (

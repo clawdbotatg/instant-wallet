@@ -26,7 +26,7 @@ export default function Privacy() {
       <ul className="fine">
         <li>Your wallet&apos;s address, what it holds and every transaction it makes. Anyone can see these, on any blockchain.</li>
         <li>
-          That it is an Instant Wallet. Every Instant Wallet is made the same way and our relay sends its transactions,
+          That it is an Instant Wallet. Every Instant Wallet is made the same way and our relay executes its transactions,
           so anyone can list them from the chain.
         </li>
         <li>Not who you are. Nothing on chain has your name, unless you link one yourself (an ENS name, a purchase with ID).</li>

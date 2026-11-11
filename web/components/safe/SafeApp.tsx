@@ -267,7 +267,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
     try {
       last = JSON.parse(localStorage.getItem(namedKey) || "null");
     } catch {}
-    const name = `${walletName} · ${ens ?? short(account.address)} · ~${compactUsd(rough)}`;
+    const name = `${walletName} · ${ens ?? short(account.address)} · ~${compactUsd(rough)}`; // plain text: the passkey's name in the phone's own list
     if (name === last?.name) return;
     renamePasskey(account.credentialId, name).then(ok => {
       if (!ok) return;
@@ -391,11 +391,8 @@ export function SafeApp({ link }: { link?: string } = {}) {
             <span>Instant Wallet</span>
           </div>
           <button className="pill me big" onClick={() => setView({ kind: "receive" })}>
-            <Blockie address={account.address} size={38} />
-            <span className="me-text">
-              {customName && <span className="me-name own">{customName}</span>}
-              <span className="mono" style={{ maxWidth: "42vw", overflow: "hidden", textOverflow: "ellipsis" }}>{ensName ?? short(account.address)}</span>
-              {!customName && walletName && <span className="me-name">{walletName}</span>}
+            <span style={{ display: "flex", minWidth: 0, maxWidth: "58vw", overflow: "hidden", textAlign: "left" }}>
+              <Who address={account.address} size={38} label={customName || walletName || undefined} />
             </span>
           </button>
         </div>

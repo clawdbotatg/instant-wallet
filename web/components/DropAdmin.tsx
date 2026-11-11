@@ -5,7 +5,6 @@ import { type Address, formatUnits } from "viem";
 import { chainById, explorerTx } from "@/lib/chains";
 import { cardsPdf } from "@/lib/claimBatch";
 import { type DropInfo, dropAmount, dropUrl } from "@/lib/dropClient";
-import { short } from "@/lib/format";
 import { CopyAddress, CopyLink, Eject, Qr, TimedBar, Who, copy, useToast } from "./bits";
 import { AdminLogin, SESSION } from "./AdminLogin";
 import { friendly } from "@/lib/friendly";
@@ -312,7 +311,7 @@ function DropCard({ id, toast, onClose }: { id: string; toast: (m: string) => vo
       <div onClick={async () => (await copy(d.pot.address)) && toast("Address copied")} style={{ cursor: "pointer", maxWidth: 220, margin: "0 auto", width: "100%" }}>
         <Qr value={d.pot.address} center={d.pot.address} />
       </div>
-      <CopyAddress address={d.pot.address} style={{ alignSelf: "center" }} label={<span className="mono">{short(d.pot.address)}</span>} />
+      <CopyAddress address={d.pot.address} style={{ alignSelf: "center" }} label={<Who flat plain address={d.pot.address} size={18} />} />
 
       {drop.kind === "crowd" && drop.code && (
         <>

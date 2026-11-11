@@ -14,7 +14,7 @@ import { type Line, Lines, explainCalls, intents } from "./WhatItDoes";
 type Row = { chainId: number; at: string; hash?: string; link?: string; pay: Move[]; get: Move[]; words?: Line[]; from?: string | null; failed?: boolean }; // from: who sent money in; null: not known ("Received")
 const SHOW = 6;
 /** Money that just came in, seen in the balance (read every few seconds) before the chain's history has been read. */
-type Just = { id: number; chainId: number; at: number; get: Move };
+export type Just = { id: number; chainId: number; at: number; get: Move; usd?: number };
 let justId = 1;
 
 /** The last list this browser showed for a wallet, so Activity is there the moment Home opens (the chain read takes 2–3 s). */
@@ -43,9 +43,9 @@ function keep(key: string, rows: Row[]) {
  * the rest) and a row once made is kept, so it costs a call or two. What it's still sending sits on top, "Sending…"
  * (lib/safe/sending.ts). Money in shows the moment the balance has it (`live`: a balance read now, not last open's),
  * who from when the chain read lands. `undeployed`: networks with no Safe yet, so no logs: money in there is asked of
- * Alchemy's transfers.
+ * Alchemy's transfers. `onIn`: told of money in as it's seen (the receive code says it).
  */
-export function Activity({ safe, chains, undeployed = [], assets, late, live, tick }: { safe: Address; chains: number[]; undeployed?: number[]; assets: Asset[]; late?: number[]; live?: boolean; tick?: number }) {
+export function Activity({ safe, chains, undeployed = [], assets, late, live, tick, onIn }: { safe: Address; chains: number[]; undeployed?: number[]; assets: Asset[]; late?: number[]; live?: boolean; tick?: number; onIn?: (got: Just[]) => void }) {
   const [by, setBy] = useState<{ key: string; rows: Record<number, Row[]> }>({ key: "", rows: {} });
   const [out, setOut] = useState<Sending[]>(() => sendingNow());
   const [just, setJust] = useState<Just[]>([]);
@@ -108,10 +108,11 @@ export function Activity({ safe, chains, undeployed = [], assets, late, live, ti
       if (!main || now.late.includes(a.chainId) || prev.late.includes(a.chainId)) continue;
       if (sendingNow().some(s => s.chainId === a.chainId && s.safe.toLowerCase() === safe.toLowerCase())) continue;
       const more = BigInt(a.balance) - (prev.bal.get(`${a.chainId}:${tok}`) ?? 0n);
-      if (more > 0n) add.push({ id: justId++, chainId: a.chainId, at: Date.now(), get: { token: tok === zeroAddress ? "eth" : tok, symbol: main.symbol, amount: formatUnits(more, main.decimals) } as Move });
+      if (more > 0n) add.push({ id: justId++, chainId: a.chainId, at: Date.now(), get: { token: tok === zeroAddress ? "eth" : tok, symbol: main.symbol, amount: formatUnits(more, main.decimals) } as Move, usd: a.price ? a.price * Number(formatUnits(more, main.decimals)) : undefined });
     }
     if (!add.length) return;
     setJust(j => [...add, ...j]);
+    onIn?.(add); // the receive code, if it's up, says so too
     read();
   }, [assets, late, live, safe]); // eslint-disable-line react-hooks/exhaustive-deps
   // shown until the chain's own row for it is in the list (one on that network from about then), ten minutes at most

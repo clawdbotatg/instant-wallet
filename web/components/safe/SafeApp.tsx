@@ -26,7 +26,7 @@ import { type Confirm, SafeWelcome, signIn } from "./SafeWelcome";
 import { WedgieProgress } from "./WedgieButton";
 import { TxPage } from "./TxPage";
 import { WaitingCards } from "./Waiting";
-import { Activity } from "./Activity";
+import { Activity, type Just } from "./Activity";
 import { SafeConnectLayer } from "./SafeConnect";
 import { NftGrid } from "./Nfts";
 import { PositionList } from "./Positions";
@@ -168,8 +168,13 @@ export function SafeApp({ link }: { link?: string } = {}) {
       });
   }, [account]);
   const fastUntil = useRef(0);
+  // money that came in while the receive code is up: shown on it, gone when it closes
+  const [got, setGot] = useState<Just[]>([]);
+  const receiving = useRef(false);
   useEffect(() => {
+    receiving.current = view.kind === "receive";
     fastUntil.current = view.kind === "receive" ? Date.now() + 180_000 : 0;
+    setGot([]);
   }, [view.kind]);
   // Activity reads the chain again on every refresh (a sheet closed, a pull, back to the app), not just once
   const [actTick, setActTick] = useState(0);
@@ -528,7 +533,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
         </div>}
         <PositionList address={account.address} assets={fresh ? portfolio?.assets : undefined} onTotal={setPosUsd} onReceipts={setReceipts} />
         <NftGrid address={account.address} />
-        <Activity safe={account.address} chains={states.filter(s => s.deployed).map(s => s.chainId)} undeployed={states.filter(s => !s.deployed).map(s => s.chainId)} assets={portfolio?.assets ?? []} late={portfolio?.late} live={fresh} tick={actTick} />
+        <Activity safe={account.address} chains={states.filter(s => s.deployed).map(s => s.chainId)} undeployed={states.filter(s => !s.deployed).map(s => s.chainId)} assets={portfolio?.assets ?? []} late={portfolio?.late} live={fresh} tick={actTick} onIn={j => receiving.current && setGot(g => [...j, ...g])} />
       </div>
 
       <button className="fab fab-settings" aria-label="Settings" onClick={() => setView({ kind: "keys" })}>
@@ -552,6 +557,8 @@ export function SafeApp({ link }: { link?: string } = {}) {
             <Receive
               account={{ address: account.address } as any}
               toast={setToast}
+              got={got}
+              onSeen={() => setGot([])}
               name={walletName}
               onName={setName}
               onSwitch={anotherPasskey}

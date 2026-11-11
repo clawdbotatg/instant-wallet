@@ -7,7 +7,7 @@ import { requestLink, requestUri } from "@/lib/parse";
 import { short } from "@/lib/format";
 import { loadRequestLink, saveRequestLink } from "@/lib/store";
 import type { Account } from "@/lib/types";
-import { Blockie, CopyIcon, PencilIcon, Qr, SwitchIcon, copy } from "./bits";
+import { Blockie, ChainIcon, CopyIcon, Money, PencilIcon, Qr, SwitchIcon, WhatFor, copy } from "./bits";
 import { ChainSelect } from "./safe/Pick";
 
 /**
@@ -15,9 +15,12 @@ import { ChainSelect } from "./safe/Pick";
  * copies it and says so. Request → an amount, token and network, and the QR becomes an EIP-681 payment request.
  * "Include instantwallet.io link (any phone camera opens it)" (on by default, remembered) wraps it in a web link so any phone camera opens it
  * (/[...link]); off, it's the bare ethereum: request other wallets' scanners read.
+ * `got`: money that landed while this is up: "Received" and the amount over the code, until a tap (`onSeen`).
  */
 export function Receive({
   account,
+  got = [],
+  onSeen,
   name,
   onName,
   onSignOut,
@@ -25,6 +28,8 @@ export function Receive({
 }: {
   account: Account;
   toast?: (m: string) => void;
+  got?: { id: number; chainId: number; get: { amount: string; symbol: string }; usd?: number }[];
+  onSeen?: () => void;
   name?: string | null; // the wallet's name, as the title (tap to edit) when onName is given
   onName?: (name: string | null) => void; // null: back to the default name
   onSignOut?: () => void; // a "Sign out of this device" button at the bottom
@@ -60,6 +65,7 @@ export function Receive({
     return () => clearTimeout(t);
   }, [copied]);
   const onTap = async () => {
+    if (got.length) return onSeen?.();
     if (uri) (await copy(uri)) && setCopied("Request copied");
     else (await copy(account.address)) && setCopied("Copied");
   };
@@ -84,6 +90,17 @@ export function Receive({
             <CopyIcon />
           </div>
         </Qr>
+        {got.length > 0 && (
+          <div role="status" style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", alignContent: "center", gap: 8, borderRadius: 22, background: "#fff", animation: "fade .15s" }}>
+            <WhatFor>Received</WhatFor>
+            {got.map(g => (
+              <span key={g.id} className="row" style={{ gap: 8 }}>
+                <ChainIcon chainId={g.chainId} size={22} />
+                <Money amount={g.get.amount} symbol={g.get.symbol} usd={g.usd} size={28} get />
+              </span>
+            ))}
+          </div>
+        )}
         {copied && (
           <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px 10px 10px", borderRadius: 999, background: "var(--ink)", color: "#fff", boxShadow: "0 10px 30px -8px rgba(0,0,0,.5)", animation: "fade .15s" }}>

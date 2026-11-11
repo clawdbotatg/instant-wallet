@@ -13,6 +13,22 @@ import { type Line, Lines, explainCalls, intents } from "./WhatItDoes";
 type Row = { chainId: number; at: string; hash?: string; link?: string; pay: Move[]; get: Move[]; words?: Line[]; from?: string; failed?: boolean };
 const SHOW = 6;
 
+/** The last list this browser showed for a wallet, so Activity is there the moment Home opens (the chain read takes 2–3 s). */
+const KEPT = "iws:activity:";
+function kept(key: string): Row[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(KEPT + key) || "[]");
+    return Array.isArray(v) ? v : [];
+  } catch {
+    return [];
+  }
+}
+function keep(key: string, rows: Row[]) {
+  try {
+    localStorage.setItem(KEPT + key, JSON.stringify(rows));
+  } catch {}
+}
+
 /**
  * Home: the last few things this wallet did and got, on every network it's on, newest first. From the chain itself
  * (clear-signing-safe-kit chainHistory, as wedgie.dev's Activity): runs, and money in from the main tokens only (a
@@ -27,6 +43,7 @@ export function Activity({ safe, chains, assets, tick }: { safe: Address; chains
   const [landed, setLanded] = useState(0);
   const key = `${safe}|${chains.join()}`;
   const seen = useRef("");
+  const byChain = useRef(new Map<number, Row[]>());
   useEffect(() => {
     let later: ReturnType<typeof setTimeout> | undefined;
     const off = onSending(l => {
@@ -47,9 +64,25 @@ export function Activity({ safe, chains, assets, tick }: { safe: Address; chains
     // the first read may use the kit's cache; every later one goes to the chain
     const fresh = seen.current === key;
     seen.current = key;
-    Promise.all(chains.map(c => rowsOn(c, safe, fresh).catch(() => [] as Row[])))
-      .then(r => live && setRows(r.flat().sort((a, b) => (a.at < b.at ? 1 : -1)).slice(0, SHOW)))
-      .catch(() => {});
+    const top = () => [...byChain.current.values()].flat().sort((a, b) => (a.at < b.at ? 1 : -1)).slice(0, SHOW);
+    if (!fresh) {
+      // a wallet just opened: the list this browser saw last shows at once; the chain's own replaces it as it answers
+      byChain.current = new Map();
+      for (const r of kept(key)) byChain.current.set(r.chainId, [...(byChain.current.get(r.chainId) ?? []), r]);
+      setRows(byChain.current.size ? top() : null);
+    }
+    // each network's rows go in when it answers (the slowest one held all of them back); one that fails keeps its last
+    let left = chains.length;
+    for (const c of chains)
+      rowsOn(c, safe, fresh)
+        .then(r => live && byChain.current.set(c, r), () => {})
+        .then(() => {
+          left--;
+          if (!live) return;
+          const t = top();
+          if (t.length || !left) setRows(t);
+          if (!left) keep(key, t);
+        });
     return () => {
       live = false;
     };

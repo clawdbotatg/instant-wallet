@@ -16,6 +16,8 @@ const RULES = [
   { re: /[>"`]\s*[+−]\{|\{get \? "\+" : "−"\}/, say: "money with a hand-written + or −: use <Money>" },
   { re: /\b(send|sends|sent) it (yourself|myself)\b|relay (is )?send/i, say: "a signed tx is executed, not sent" },
   { re: /\.map\(short\)|<span className="mono">\{short\(/, say: "a bare short address: use <Who> (or <Words> for one inside a sentence)", skip: ["components/DropAdmin.tsx"] }, // a copy button's label
+  { re: /\bmono\b[^>]*>\s*(new key )?\{(a|address|addr|resolved|to|owner|signer|safe|account\.\w+)\}/, say: "a bare full address: use <Who> (blockie, name)" },
+  { re: /\.slice\(0, 6\)\}…/, say: "an address shortened by hand: use <Who>" },
   { re: /`\$\{(many \? )?`?\$\{n \+ 1\}\. /, say: "a tx step numbered by hand: its <SrcTag> mark goes there (kit MARKS)" },
 ];
 // dark gray is the copy button only (Austin 10-30: most buttons white); Switch account he asked for by name

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type { Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { burnerKey, isXdai, plantTestBurner } from "@/lib/brand";
-import { copy } from "../bits";
+import { Who, copy } from "../bits";
 import { claimKey } from "@/lib/claim";
 import { Claim } from "../Claim";
 import { SafeApp } from "./SafeApp";
@@ -55,7 +55,9 @@ function Planted({ k }: { k: Hex }) {
       <div className="welcome">
         <h1>Test Burner</h1>
         <p>A fake old Burner Wallet key is saved in this browser. Send it a little xDAI on Gnosis:</p>
-        <div className="recess mono">{a}</div>
+        <div className="recess">
+          <Who plain address={a} />
+        </div>
         <button className="btn wide" onClick={async () => setCopied(await copy(a))}>
           {copied ? "Copied" : "Copy address"}
         </button>

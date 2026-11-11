@@ -310,7 +310,7 @@ export function SafeSend({
           {ran && quote && !busy && <WhatItDoes quiet chainId={chainId} safe={account.address} calls={[transfer(asset.asset as Address, resolved, base), feeCall(quote, feeToken)]} />}
           <div className="line">
             <span>To</span>
-            <span className="mono" style={{ fontSize: 13, textAlign: "right", overflowWrap: "anywhere" }}>{resolved}</span>
+            <Who address={resolved} chain={chainId} label={toInput.includes(".") ? toInput : undefined} />
           </div>
           <div className="line">
             <span>Network</span>
@@ -364,7 +364,7 @@ export function SafeSend({
           <div className="field">
             <label>To</label>
             <div className="input">
-              {resolved && <Blockie address={resolved} size={30} />}
+              {resolved && !toInput.includes(".") && <Blockie address={resolved} size={30} />}
               <input value={toInput} onChange={e => setToInput(e.target.value)} placeholder="0x… or name.eth" autoCapitalize="none" autoCorrect="off" spellCheck={false} />
               <button
                 className="pill"
@@ -378,7 +378,7 @@ export function SafeSend({
               </button>
             </div>
             {resolving && <span className="fine">Looking up {toInput}…</span>}
-            {resolved && toInput.includes(".") && <span className="fine mono">{resolved}</span>}
+            {resolved && toInput.includes(".") && <Who address={resolved} chain={chainId} />}
           </div>
 
           <div className="field">

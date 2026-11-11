@@ -220,8 +220,8 @@ export function ClaimMaker() {
                 const url = claimUrl(window.location.origin, c.key);
                 return (
                   <div key={c.key} className="row" style={{ justifyContent: "space-between", gap: 8, padding: "6px 0" }}>
-                    <span className="mono fine">
-                      {i + 1}. {short(addrOf(c))}
+                    <span className="fine">
+                      {i + 1}. <Who plain inline size={18} address={addrOf(c)} />
                     </span>
                     <span className="fine">{s === "ready" ? label(bal[addrOf(c)]) : s === "loading" ? "…" : s}</span>
                     {s === "ready" && (

@@ -14,7 +14,7 @@ import { getQuote, waitFor } from "@/lib/safe/send";
 import { createPasskey } from "@/lib/passkey";
 import { type SafeAccount, accountFor, loadAccount, saveAccount } from "@/lib/safe/state";
 import type { Asset, Nft } from "@/lib/types";
-import { CopyAddress, Money, TimedBar } from "./bits";
+import { CopyAddress, Money, TimedBar, Who } from "./bits";
 import { SafeWelcome } from "./safe/SafeWelcome";
 import { friendly } from "@/lib/friendly";
 
@@ -517,7 +517,7 @@ function Stuck({ stuck, nfts, safes, uni, address }: { stuck: Asset[]; nfts: Nft
           {gas[id] ? `about ${parseFloat(Number(formatUnits(gas[id], 18)).toPrecision(2))}` : "a little"} {nativeSymbol(id)} for gas to:
         </p>
       ))}
-      <div className="mono" style={{ fontSize: 13 }}>{address}</div>
+      <Who plain address={address} />
       <CopyAddress address={address} />
       <p className="fine">Then reload this page.</p>
     </div>

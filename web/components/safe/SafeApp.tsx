@@ -11,7 +11,7 @@ import { loadHidden, loadPortfolio, loadShown, saveHidden, savePortfolio, saveSh
 import { dropOtherBudgetsCalls } from "@/lib/safe/core";
 import { type Prepared, Shared, finishOwners, ownerSigners, prepareOwners } from "@/lib/safe/send";
 import { friendly } from "@/lib/friendly";
-import { AppsIcon, Blockie, DepositIcon, GearIcon, ScanIcon, SendIcon, Sheet, sheetOpen, TokenIcon, TrashIcon, CopyLink, useName, useToast } from "../bits";
+import { AppsIcon, Blockie, DepositIcon, GearIcon, ScanIcon, SendIcon, Sheet, sheetOpen, TokenIcon, TrashIcon, CopyLink, Who, useName, useToast } from "../bits";
 import { Receive } from "../Receive";
 import { Deposit } from "./Deposit";
 import { Keys } from "./Keys";
@@ -430,7 +430,9 @@ export function SafeApp({ link }: { link?: string } = {}) {
             <p className="fine">
               This phone&apos;s new key isn&apos;t an owner of this wallet yet. Send your recovery address (the DAO, or your own recovery wallet) this link. After they start it, it takes 7 days (with a wedgie: 14 from your own recovery address, 60 from the DAO).
             </p>
-            <span className="mono" style={{ fontSize: 12 }}>new key {account.burnerSigner}</span>
+            <span className="fine">
+              new key <Who plain inline size={18} address={account.burnerSigner} />
+            </span>
             <CopyLink link={`${window.location.origin}/recover?wallet=${account.address}&owner=${account.burnerSigner}`} message="Link copied" label="Copy the recovery link" />
           </div>
         )}

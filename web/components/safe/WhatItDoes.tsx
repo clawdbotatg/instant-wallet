@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { type Address, type Hex, formatUnits } from "viem";
+import { type Address, type Hex, formatUnits, getAddress } from "viem";
 import { amount, short, usd } from "@/lib/format";
 import { Money, WhatFor, Who, Words } from "../bits";
 import { WARN, describe, ours, relayFee } from "@/lib/safe/describe";
@@ -19,6 +19,12 @@ function sendUsd(chainId: number, c: Call, eth: number): number | undefined {
   const usdc = chainById(chainId)?.usdc;
   if (usdc && c.to.toLowerCase() === usdc.toLowerCase() && c.data.slice(0, 10).toLowerCase() === "0xa9059cbb" && c.data.length >= 138)
     return Number(BigInt("0x" + c.data.slice(74, 138))) / 1e6;
+}
+
+/** Who a plain send pays (the chain's coin, or a token transfer), so its headline can say so. */
+function sentTo(c: Call): string | undefined {
+  if (c.data === "0x" && c.value > 0n) return c.to;
+  if (c.data.slice(0, 10).toLowerCase() === "0xa9059cbb" && c.data.length >= 138) return getAddress("0x" + c.data.slice(34, 74));
 }
 
 type SafeTxLike = { to: Address; value: bigint; data: Hex; operation: 0 | 1 };
@@ -85,7 +91,10 @@ export function intents(chainId: number, safe: Address, calls: Call[], told: Tol
     const mine = ours(chainId, c);
     if (mine?.startsWith("Network fee")) return [];
     const t = mine ? null : told?.[i];
-    const text = mine ?? (t ? ((brief && t.short) || t.what) : describe(chainId, safe, c));
+    const said = mine ?? (t ? ((brief && t.short) || t.what) : describe(chainId, safe, c));
+    // a send always says who to (Austin 11-11: Activity said "Send" and never where); <Words> draws it as <Who>
+    const to = mine ? undefined : sentTo(c);
+    const text = to && !/0x[0-9a-fA-F]{40}/.test(said) ? `${said} to ${to}` : said;
     if (text.startsWith("Call ")) return [];
     const approve = /^(Let|Stop) /.test(text) || t?.what === "Approve";
     // "Morpho DAO" goes unsaid after "Borrow from Morpho Market"

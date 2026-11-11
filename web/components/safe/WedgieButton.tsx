@@ -20,7 +20,7 @@ import {
   wedgieSupported,
   WEDGIE_TAKEN,
 } from "@/lib/safe/wedgie";
-import { Blockie } from "../bits";
+import { Blockie, Who } from "../bits";
 
 /** The wedgie, drawn after the device render (design/brand/device-mark.png): white shell, a bill and a card behind, knob, screen, four buttons. */
 export function WedgieIcon({ size = 44, sad = false }: { size?: number; sad?: boolean }) {
@@ -306,7 +306,7 @@ export function WedgiePanel({
 
           {st.key && st.tone !== "ok" && (
             <p className="fine">
-              On its screen: <b className="mono">{`${wedgieHome(st.key).slice(0, 6)}…${wedgieHome(st.key).slice(-4)}`}</b>
+              On its screen: <Who plain inline size={18} address={wedgieHome(st.key)} />
             </p>
           )}
 

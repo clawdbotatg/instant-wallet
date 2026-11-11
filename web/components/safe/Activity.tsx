@@ -6,12 +6,15 @@ import { chainById, publicClient } from "@/lib/chains";
 import type { Asset } from "@/lib/types";
 import { callsOf, relayFee } from "@/lib/safe/describe";
 import { type Sending, onSending, sendingNow } from "@/lib/safe/sending";
-import { type Move, chainHistory, moved, moves, safeLogs } from "clear-signing-safe-kit";
+import { type Move, chainHistory, inTokens, moved, moves } from "clear-signing-safe-kit";
 import { ChainIcon, Eject, Money, WhatFor, Who } from "../bits";
 import { type Line, Lines, explainCalls, intents } from "./WhatItDoes";
 
 type Row = { chainId: number; at: string; hash?: string; link?: string; pay: Move[]; get: Move[]; words?: Line[]; from?: string; failed?: boolean };
 const SHOW = 6;
+/** Money that just came in, seen in the balance (read every few seconds) before the chain's history has been read. */
+type Just = { id: number; chainId: number; at: number; get: Move };
+let justId = 1;
 
 /** The last list this browser showed for a wallet, so Activity is there the moment Home opens (the chain read takes 2–3 s). */
 const KEPT = "iws:activity:";
@@ -34,62 +37,87 @@ function keep(key: string, rows: Row[]) {
  * (clear-signing-safe-kit chainHistory, as wedgie.dev's Activity): runs, and money in from the main tokens only (a
  * 0-value or unknown-token "transfer" is address poisoning). Each run leads with what it was for, in clear signing's
  * words (Austin 10-30: red and green alone don't say why); what it moved (its receipt, the fee apart) sits small under it.
- * Read again, past the kit's minute-long cache, on every `tick` (Home's refresh: a sheet closed, a pull, back to the
- * app) and when something this page sent lands. What it's still sending sits on top, "Sending…" (lib/safe/sending.ts).
+ * Read again on every `tick` (Home's refresh: a sheet closed, a pull, back to the app), when something this page sent
+ * lands, and when a balance goes up. A read after the first asks the chain only for the blocks since (the kit keeps
+ * the rest) and a row once made is kept, so it costs a call or two. What it's still sending sits on top, "Sending…"
+ * (lib/safe/sending.ts). Money in shows the moment the balance has it (`live`: a balance read now, not last open's),
+ * who from when the chain read lands. `undeployed`: networks with no Safe yet, so no logs: money in there is asked of
+ * Alchemy's transfers.
  */
-export function Activity({ safe, chains, assets, tick }: { safe: Address; chains: number[]; assets: Asset[]; tick?: number }) {
-  const [rows, setRows] = useState<Row[] | null>(null);
+export function Activity({ safe, chains, undeployed = [], assets, late, live, tick }: { safe: Address; chains: number[]; undeployed?: number[]; assets: Asset[]; late?: number[]; live?: boolean; tick?: number }) {
+  const [by, setBy] = useState<{ key: string; rows: Record<number, Row[]> }>({ key: "", rows: {} });
   const [out, setOut] = useState<Sending[]>(() => sendingNow());
+  const [just, setJust] = useState<Just[]>([]);
   const [landed, setLanded] = useState(0);
-  const key = `${safe}|${chains.join()}`;
-  const seen = useRef("");
-  const byChain = useRef(new Map<number, Row[]>());
+  // networks with no Safe that hold something: the only ones worth asking
+  const bare = undeployed.filter(c => assets.some(a => a.chainId === c));
+  const key = `${safe}|${chains.join()}|${bare.join()}`;
+  const later = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // read the chain now, and again a beat later (a node can answer the receipt, or the balance, a block before its logs)
+  const read = () => {
+    setLanded(n => n + 1);
+    clearTimeout(later.current);
+    later.current = setTimeout(() => setLanded(n => n + 1), 5_000);
+  };
   useEffect(() => {
-    let later: ReturnType<typeof setTimeout> | undefined;
     const off = onSending(l => {
       setOut(sendingNow());
-      if (!l) return;
-      // read the chain now, and again a beat later (a node can answer the receipt a block before its logs)
-      setLanded(n => n + 1);
-      clearTimeout(later);
-      later = setTimeout(() => setLanded(n => n + 1), 5_000);
+      if (l) read();
     });
     return () => {
       off();
-      clearTimeout(later);
+      clearTimeout(later.current);
     };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    let live = true;
-    // the first read may use the kit's cache; every later one goes to the chain
-    const fresh = seen.current === key;
-    seen.current = key;
-    const top = () => [...byChain.current.values()].flat().sort((a, b) => (a.at < b.at ? 1 : -1)).slice(0, SHOW);
-    if (!fresh) {
-      // a wallet just opened: the list this browser saw last shows at once; the chain's own replaces it as it answers
-      byChain.current = new Map();
-      for (const r of kept(key)) byChain.current.set(r.chainId, [...(byChain.current.get(r.chainId) ?? []), r]);
-      setRows(byChain.current.size ? top() : null);
-    }
-    // each network's rows go in when it answers (the slowest one held all of them back); one that fails keeps its last
-    let left = chains.length;
-    for (const c of chains)
-      rowsOn(c, safe, fresh)
-        .then(r => live && byChain.current.set(c, r), () => {})
-        .then(() => {
-          left--;
-          if (!live) return;
-          const t = top();
-          if (t.length || !left) setRows(t);
-          if (!left) keep(key, t);
-        });
+    let on = true;
+    // each network shows as it answers; one that fails keeps what it showed
+    const put = (c: number, r: Row[]) => on && setBy(b => ({ key: safe, rows: { ...(b.key === safe ? b.rows : {}), [c]: r } }));
+    for (const c of chains) rowsOn(c, safe).then(r => put(c, r), () => {});
+    for (const c of bare) insOn(c, safe).then(r => put(c, r), () => {});
     return () => {
-      live = false;
+      on = false;
     };
   }, [key, tick, landed]); // eslint-disable-line react-hooks/exhaustive-deps
+  const rows = by.key === safe ? Object.values(by.rows).flat().sort((a, b) => (a.at < b.at ? 1 : -1)).slice(0, SHOW) : [];
+
+  // a balance went up between two reads of now: a row at once, then the chain is read for the rest. Only the coins
+  // the chain's history shows (the network's own, the main tokens), never while this page's own send is landing there
+  // (a swap's proceeds belong to its row), never a network that didn't answer this time or the last, never on coming back to the tab
+  const was = useRef<{ safe: string; bal: Map<string, bigint>; late: number[] } | null>(null);
+  const back = useRef(0);
+  useEffect(() => {
+    const h = () => document.hidden || (back.current = Date.now());
+    document.addEventListener("visibilitychange", h);
+    return () => document.removeEventListener("visibilitychange", h);
+  }, []);
+  useEffect(() => {
+    if (!live) return void (was.current = null);
+    const prev = was.current?.safe === safe ? was.current : null;
+    const now = { safe, bal: new Map(assets.map(a => [`${a.chainId}:${a.asset.toLowerCase()}`, BigInt(a.balance)])), late: late ?? [] };
+    was.current = now;
+    if (!prev) return;
+    // just back from away (nothing was read meanwhile): what came in then isn't "now", Home's refresh reads the chain for it
+    if (Date.now() - back.current < 10_000) return;
+    const add: Just[] = [];
+    for (const a of assets) {
+      const tok = a.asset.toLowerCase();
+      const info = chainById(a.chainId);
+      const main = tok === zeroAddress ? { symbol: info?.native.symbol ?? "ETH", decimals: 18 } : inTokens(a.chainId, info?.usdc)[tok];
+      if (!main || now.late.includes(a.chainId) || prev.late.includes(a.chainId)) continue;
+      if (sendingNow().some(s => s.chainId === a.chainId && s.safe.toLowerCase() === safe.toLowerCase())) continue;
+      const more = BigInt(a.balance) - (prev.bal.get(`${a.chainId}:${tok}`) ?? 0n);
+      if (more > 0n) add.push({ id: justId++, chainId: a.chainId, at: Date.now(), get: { token: tok === zeroAddress ? "eth" : tok, symbol: main.symbol, amount: formatUnits(more, main.decimals) } as Move });
+    }
+    if (!add.length) return;
+    setJust(j => [...add, ...j]);
+    read();
+  }, [assets, late, live, safe]); // eslint-disable-line react-hooks/exhaustive-deps
+  // shown until the chain's own row for it is in the list (one on that network from about then), ten minutes at most
+  const fresh = just.filter(j => Date.now() - j.at < 600_000 && !rows.some(r => r.chainId === j.chainId && Date.parse(r.at) >= j.at - 120_000));
   // still on its way: this wallet's, and not already in the chain's list
-  const ours = out.filter(s => s.safe.toLowerCase() === safe.toLowerCase() && !rows?.some(r => s.hash && r.hash === s.hash.toLowerCase()));
-  if (!rows?.length && !ours.length) return null;
+  const ours = out.filter(s => s.safe.toLowerCase() === safe.toLowerCase() && !rows.some(r => s.hash && r.hash === s.hash.toLowerCase()));
+  if (!rows.length && !ours.length && !fresh.length) return null;
   // dollars at today's price (what the home list uses)
   const usd = (chainId: number, m: Move) => {
     const a = assets.find(x => x.chainId === chainId && x.asset.toLowerCase() === (m.token === "eth" ? zeroAddress : m.token));
@@ -101,11 +129,20 @@ export function Activity({ safe, chains, assets, tick }: { safe: Address; chains
       {ours.map(s => (
         <SendingRow key={`s${s.id}`} s={s} assets={assets} usd={usd} />
       ))}
-      {(rows ?? []).map((r, i) => (
-        <div key={i} className="recess stack" style={{ gap: 4 }}>
+      {fresh.map(j => (
+        <div key={`j${j.id}`} className="recess stack" style={{ gap: 4 }}>
+          <span className="fine row" style={{ gap: 5 }}>
+            {day(j.at)} · <ChainIcon chainId={j.chainId} size={14} /> {chainById(j.chainId)?.name}
+          </span>
+          <WhatFor>Received</WhatFor>
+          <Money amount={j.get.amount} symbol={j.get.symbol} usd={usd(j.chainId, j.get)} size={14} get />
+        </div>
+      ))}
+      {rows.map((r, i) => (
+        <div key={r.hash ? `${r.chainId}:${r.hash}` : i} className="recess stack" style={{ gap: 4 }}>
           <div className="row" style={{ justifyContent: "space-between", gap: 8 }}>
             <span className="fine row" style={{ gap: 5 }}>
-              {new Date(r.at).toLocaleDateString(undefined, { month: "short", day: "numeric" })} · <ChainIcon chainId={r.chainId} size={14} /> {chainById(r.chainId)?.name}
+              {day(r.at)} · <ChainIcon chainId={r.chainId} size={14} /> {chainById(r.chainId)?.name}
             </span>
             {r.link && <Eject href={r.link} title="Open in the explorer" />}
           </div>
@@ -123,8 +160,11 @@ export function Activity({ safe, chains, assets, tick }: { safe: Address; chains
   );
 }
 
+const day = (at: string | number) => new Date(at).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+
 /** One this page sent that isn't on chain yet: a dashed card, a spinner and "Sending…" where the date goes, its words
- * (clear signing's, as the rows under it) and what it sends out, read from its own calls. */
+ * (clear signing's, as the rows under it) and what it sends out, read from its own calls. Landed: the same card turns
+ * solid where it is (the date, no dashes, no spinner) until the chain's own row takes its place. */
 function SendingRow({ s, assets, usd }: { s: Sending; assets: Asset[]; usd: (chainId: number, m: Move) => number | undefined }) {
   const [words, setWords] = useState<Line[] | undefined>();
   useEffect(() => {
@@ -139,11 +179,10 @@ function SendingRow({ s, assets, usd }: { s: Sending; assets: Asset[]; usd: (cha
   const pay = paysOut(s, assets);
   const link = s.hash && chainById(s.chainId)?.explorer ? `${chainById(s.chainId)!.explorer}/tx/${s.hash}` : undefined;
   return (
-    <div className="recess stack" style={{ gap: 4, outline: "2px dashed rgba(31,166,65,.55)", outlineOffset: -2 }} aria-label="Sending, not on chain yet">
+    <div className="recess stack" style={s.landed ? { gap: 4 } : { gap: 4, outline: "2px dashed rgba(31,166,65,.55)", outlineOffset: -2 }} aria-label={s.landed ? undefined : "Sending, not on chain yet"}>
       <div className="row" style={{ justifyContent: "space-between", gap: 8 }}>
         <span className="fine row" style={{ gap: 5 }}>
-          <span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
-          <b>{s.landed ? "Sent" : s.hash ? "Sending…" : "Sending to the network…"}</b> · <ChainIcon chainId={s.chainId} size={14} /> {chainById(s.chainId)?.name}
+          {s.landed ? day(Date.now()) : <><span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /><b>{s.hash ? "Sending…" : "Sending to the network…"}</b></>} · <ChainIcon chainId={s.chainId} size={14} /> {chainById(s.chainId)?.name}
         </span>
         {link && <Eject href={link} title="Open in the explorer" />}
       </div>
@@ -180,7 +219,41 @@ function paysOut(s: Sending, assets: Asset[]): Move[] {
   return out;
 }
 
-async function rowsOn(chainId: number, safe: Address, fresh = false): Promise<Row[]> {
+/** A row once made doesn't change (it's on chain): made once per page, however often the list is read. */
+const made = new Map<string, Promise<Row>>();
+function once(k: string, make: () => Promise<Row>) {
+  let p = made.get(k);
+  if (!p) {
+    made.set(k, (p = make()));
+    p.catch(() => made.delete(k));
+  }
+  return p;
+}
+
+/** Money in on a network where the Safe isn't made yet (nothing logs it there): Alchemy's transfers to the address,
+ * the network's coin and the main tokens only, as the chain's history shows. */
+async function insOn(chainId: number, safe: Address): Promise<Row[]> {
+  const info = chainById(chainId);
+  const toks = inTokens(chainId, info?.usdc);
+  const r: any = await publicClient(chainId).request({
+    method: "alchemy_getAssetTransfers" as any,
+    params: [{ fromBlock: "0x0", toBlock: "latest", toAddress: safe, category: ["external", "erc20"], excludeZeroValue: true, withMetadata: true, order: "desc", maxCount: "0x32" }] as any,
+  });
+  const rows = new Map<string, Row>();
+  for (const x of (r?.transfers ?? []) as any[]) {
+    const tok = x.category === "external" ? null : toks[String(x.rawContract?.address).toLowerCase()];
+    if (x.category !== "external" && !tok) continue;
+    const v = BigInt(x.rawContract?.value ?? "0x0");
+    if (v === 0n || !x.metadata?.blockTimestamp) continue;
+    const hash = String(x.hash).toLowerCase();
+    const row: Row = rows.get(hash) ?? { chainId, at: String(x.metadata.blockTimestamp).replace(".000Z", "Z"), hash, link: info?.explorer ? `${info.explorer}/tx/${hash}` : undefined, pay: [], get: [], from: x.from };
+    row.get.push({ token: tok ? String(x.rawContract.address).toLowerCase() : "eth", symbol: tok ? tok.symbol : (info?.native.symbol ?? "ETH"), amount: formatUnits(v, tok ? tok.decimals : 18) } as Move);
+    rows.set(hash, row);
+  }
+  return [...rows.values()].slice(0, SHOW);
+}
+
+async function rowsOn(chainId: number, safe: Address): Promise<Row[]> {
   const info = chainById(chainId);
   const rpc = (method: string, params: unknown[]) => publicClient(chainId).request({ method: method as any, params: params as any });
   const usdc = info?.usdc?.toLowerCase();
@@ -192,11 +265,10 @@ async function rowsOn(chainId: number, safe: Address, fresh = false): Promise<Ro
   };
   const native = info?.native.symbol ?? "ETH";
   const link = (h: string) => (info?.explorer ? `${info.explorer}/tx/${h}` : undefined);
-  // fresh: read the Safe's logs again now (chainHistory then uses them), not the kit's copy from up to a minute ago
-  if (fresh) await safeLogs(rpc, chainId, safe, SHOW + 5, true);
-  const list = await chainHistory(rpc, chainId, safe, info?.usdc, SHOW);
+  // the chain as it is now: the kit asks only for the blocks since its last read
+  const list = await chainHistory(rpc, chainId, safe, info?.usdc, SHOW, true);
   return Promise.all(
-    list.map(async (t: any): Promise<Row> => {
+    list.map((t: any) => once(`${chainId}:${safe}:${t.transactionHash ?? t.txHash}:${t.txType}`, async (): Promise<Row> => {
       if (t.txType !== "MULTISIG_TRANSACTION") {
         const get = (t.transfers as any[]).map(x => {
           const sym = x.type === "ETHER_TRANSFER" ? native : x.tokenInfo.symbol;
@@ -220,7 +292,7 @@ async function rowsOn(chainId: number, safe: Address, fresh = false): Promise<Ro
       const m = moves(await moved(rpc, safe, t.transactionHash, out, native, token), fees);
       // nothing moved and nothing to say (a call it didn't log): it changed the wallet
       return { ...row, pay: m.pay, get: m.get, words: words ?? (!m.pay.length && !m.get.length ? [{ text: "Changed the wallet", src: "raw" as const }] : undefined) };
-    }),
+    })),
   );
 }
 

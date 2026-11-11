@@ -167,6 +167,10 @@ export function SafeApp({ link }: { link?: string } = {}) {
         return next.length === prev.length && next.every((x, i) => x === prev[i]) ? prev : next;
       });
   }, [account]);
+  const fastUntil = useRef(0);
+  useEffect(() => {
+    fastUntil.current = view.kind === "receive" ? Date.now() + 180_000 : 0;
+  }, [view.kind]);
   // Activity reads the chain again on every refresh (a sheet closed, a pull, back to the app), not just once
   const [actTick, setActTick] = useState(0);
   const refresh = useCallback(async () => {
@@ -180,8 +184,10 @@ export function SafeApp({ link }: { link?: string } = {}) {
     setPortfolio(loadPortfolio(account.address));
     setFresh(false);
     refresh();
-    // balance every 3 s, keys every 12 s; nothing while the tab is hidden
-    const b = setInterval(() => document.hidden || loadBalance(), 3_000);
+    // balance every 3 s (every second while the receive code is up, its first 3 minutes: someone is paying you now),
+    // keys every 12 s; nothing while the tab is hidden
+    let n = 0;
+    const b = setInterval(() => document.hidden || ((Date.now() < fastUntil.current || ++n % 3 === 0) && loadBalance()), 1_000);
     const k = setInterval(() => document.hidden || loadStates(), 12_000);
     // back from another app: read now, don't wait for the next tick
     const back = () => document.hidden || refresh();
@@ -522,7 +528,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
         </div>}
         <PositionList address={account.address} assets={fresh ? portfolio?.assets : undefined} onTotal={setPosUsd} onReceipts={setReceipts} />
         <NftGrid address={account.address} />
-        <Activity safe={account.address} chains={states.filter(s => s.deployed).map(s => s.chainId)} assets={portfolio?.assets ?? []} tick={actTick} />
+        <Activity safe={account.address} chains={states.filter(s => s.deployed).map(s => s.chainId)} undeployed={states.filter(s => !s.deployed).map(s => s.chainId)} assets={portfolio?.assets ?? []} late={portfolio?.late} live={fresh} tick={actTick} />
       </div>
 
       <button className="fab fab-settings" aria-label="Settings" onClick={() => setView({ kind: "keys" })}>

@@ -101,7 +101,7 @@ export function Who({ address, chain, size = 22, plain, label, link, inline }: {
   const under = label && name ? `${name} · ${short(address)}` : short(address);
   const sub = link ? (
     <a className="mono fine" style={{ fontSize: 12 }} href={link} target="_blank" rel="noopener noreferrer">
-      {under}
+      {under} ↗
     </a>
   ) : (
     <span className="mono fine" style={{ fontSize: 12 }}>

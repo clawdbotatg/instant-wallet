@@ -24,13 +24,15 @@ export async function GET(req: NextRequest) {
   const wallet = getAddress(a);
   // a slow chain shows nothing this round rather than holding up the other thirteen
   // (it keeps running after the reply, so its scan is cached for the next poll; `late` tells the page to keep its last rows)
-  const LATE = Symbol();
-  const timer = () => new Promise<typeof LATE>(r => setTimeout(() => r(LATE), 6_000));
-  const work = CHAINS.map(c => chainAssets(c.id, wallet).catch(() => [] as Asset[]));
+  const LATE = null;
+  const timer = () => new Promise<null>(r => setTimeout(() => r(LATE), 6_000));
+  // a chain that failed is late too, never "holds nothing": the page keeps its last rows (an empty answer made every
+  // coin there vanish, then come back as money just received)
+  const work = CHAINS.map(c => chainAssets(c.id, wallet).catch((): Asset[] | null => LATE));
   after(Promise.allSettled(work));
   const perChain = await Promise.all(work.map(w => Promise.race([w, timer()])));
   const late = CHAINS.filter((_, i) => perChain[i] === LATE).map(c => c.id);
-  const assets = perChain.flatMap(x => (x === LATE ? [] : x));
+  const assets = perChain.flatMap(x => x ?? []);
   await price(assets);
   assets.sort((x, y) => (y.usd ?? -1) - (x.usd ?? -1) || Number(y.formatted) - Number(x.formatted));
   const priced = assets.filter(x => x.usd !== null);

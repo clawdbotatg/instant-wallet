@@ -13,6 +13,7 @@ import { type Prepared, Shared, finishOwners, ownerSigners, prepareOwners } from
 import { friendly } from "@/lib/friendly";
 import { AppsIcon, Blockie, DepositIcon, GearIcon, ScanIcon, SendIcon, Sheet, sheetOpen, TokenIcon, TrashIcon, CopyLink, Who, useName, useToast } from "../bits";
 import { Receive } from "../Receive";
+import { sendingNow } from "@/lib/safe/sending";
 import { Deposit } from "./Deposit";
 import { Keys } from "./Keys";
 import { Share } from "./Share";
@@ -194,8 +195,17 @@ export function SafeApp({ link }: { link?: string } = {}) {
     let n = 0;
     const b = setInterval(() => document.hidden || ((Date.now() < fastUntil.current || ++n % 3 === 0) && loadBalance()), 1_000);
     const k = setInterval(() => document.hidden || loadStates(), 12_000);
-    // back from another app: read now, don't wait for the next tick
-    const back = () => document.hidden || refresh();
+    // back from another app: read now, don't wait for the next tick; and a newer deploy loads itself (a phone left
+    // open ran old code for hours: nothing else ever reloads it), only on Home with nothing open or being sent
+    const back = () => {
+      if (document.hidden) return;
+      refresh();
+      if (sheetOpen() || sendingNow().length) return;
+      fetch("/api/version", { cache: "no-store" })
+        .then(r => r.json())
+        .then(live => live?.build && process.env.NEXT_PUBLIC_BUILD && live.build !== process.env.NEXT_PUBLIC_BUILD && !sheetOpen() && !sendingNow().length && window.location.reload())
+        .catch(() => {});
+    };
     document.addEventListener("visibilitychange", back);
     return () => {
       clearInterval(b);

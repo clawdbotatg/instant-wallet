@@ -96,16 +96,24 @@ export function Activity({ safe, chains, undeployed = [], assets, late, live, ti
     if (!live) return void (was.current = null);
     const prev = was.current?.safe === safe ? was.current : null;
     const now = { safe, bal: new Map(assets.map(a => [`${a.chainId}:${a.asset.toLowerCase()}`, BigInt(a.balance)])), late: late ?? [] };
+    // a network that didn't answer this time keeps what it last said, so money that came in meanwhile still counts
+    // as new on its next answer
+    // (the same for one whose every coin is gone at once: far more often a read that failed than a wallet emptied)
+    const here = new Set(assets.map(a => a.chainId));
+    if (prev) for (const [k, v] of prev.bal) if (now.late.includes(Number(k.split(":")[0])) || !here.has(Number(k.split(":")[0]))) now.bal.set(k, v);
     was.current = now;
     if (!prev) return;
     // just back from away (nothing was read meanwhile): what came in then isn't "now", Home's refresh reads the chain for it
     if (Date.now() - back.current < 10_000) return;
     const add: Just[] = [];
+    const had = new Set([...prev.bal.keys()].map(k => Number(k.split(":")[0])));
     for (const a of assets) {
       const tok = a.asset.toLowerCase();
       const info = chainById(a.chainId);
       const main = tok === zeroAddress ? { symbol: info?.native.symbol ?? "ETH", decimals: 18 } : inTokens(a.chainId, info?.usdc)[tok];
-      if (!main || now.late.includes(a.chainId) || prev.late.includes(a.chainId)) continue;
+      if (!main || now.late.includes(a.chainId)) continue;
+      // a network that had nothing and now has several coins didn't just get paid: it's the first time it answered
+      if (!had.has(a.chainId) && assets.filter(x => x.chainId === a.chainId).length > 1) continue;
       if (sendingNow().some(s => s.chainId === a.chainId && s.safe.toLowerCase() === safe.toLowerCase())) continue;
       const more = BigInt(a.balance) - (prev.bal.get(`${a.chainId}:${tok}`) ?? 0n);
       if (more > 0n) add.push({ id: justId++, chainId: a.chainId, at: Date.now(), get: { token: tok === zeroAddress ? "eth" : tok, symbol: main.symbol, amount: formatUnits(more, main.decimals) } as Move, usd: a.price ? a.price * Number(formatUnits(more, main.decimals)) : undefined });

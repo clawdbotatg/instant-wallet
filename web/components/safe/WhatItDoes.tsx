@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { type Address, type Hex, formatUnits } from "viem";
 import { amount, short, usd } from "@/lib/format";
 import { Money, WhatFor, Who, Words } from "../bits";
@@ -134,8 +134,10 @@ function ask(chainId: number, safe: Address, calls: Call[], tx?: SafeTxLike) {
 /** What a Safe tx does: first what it does to your coins (clear-sim runs it on the latest block: you pay, you get),
  * the fee (read from its own call to the relay), then each step in words: ours (describe.ts `ours`: fee, approvals, swaps), else clear signing (ERC-7730,
  * the words the wedgie shows) where the registry has it, else describe.ts. */
-export function WhatItDoes({ chainId, safe, calls, tx }: { chainId: number; safe: Address; calls: Call[]; tx?: SafeTxLike }) {
+export function WhatItDoes({ chainId, safe, calls, tx, same }: { chainId: number; safe: Address; calls: Call[]; tx?: SafeTxLike; same?: string }) {
   const [res, setRes] = useState<Got | null>(null);
+  // `same`: a swap gets a new route every 20 s. While this stays the same, the old answer stays up until the new one lands.
+  const was = useRef<string | undefined>(undefined);
   // what could take everything (clear-signing-safe-kit, the same rules wedgie.dev uses): a delegatecall that isn't a
   // plain batch, a module that isn't ours, a guard, a fallback handler
   const known = [...Object.keys(RECOVERY_DAYS), rolesAddress(safe)].map(a => a.toLowerCase());
@@ -146,7 +148,8 @@ export function WhatItDoes({ chainId, safe, calls, tx }: { chainId: number; safe
   const key = `${chainId}|${tx?.operation ?? 0}|${tx?.to ?? ""}|${calls.map(c => c.to + c.data + c.value).join()}`;
   useEffect(() => {
     let live = true;
-    setRes(null);
+    if (same === undefined || same !== was.current) setRes(null);
+    was.current = same;
     if (!(calls.length || tx)) return;
     const look = () => ask(chainId, safe, calls, tx).then(t => live && setRes(t));
     look();

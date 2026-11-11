@@ -25,6 +25,8 @@ import { AddressInput, Eject, Money, TokenIcon } from "../bits";
 import { friendly } from "@/lib/friendly";
 import { Progress } from "./Progress";
 import { ErrorLine } from "./WedgieButton";
+import { callsOf } from "@/lib/safe/describe";
+import { WhatItDoes } from "./WhatItDoes";
 
 // each token past the first adds a transfer to the batch: quote that much more gas
 const PER_TOKEN_GAS = 45_000n;
@@ -177,10 +179,13 @@ export function SendAll({
           !r.prepared.opts.self &&
           feeText(r.prepared.fee, r.prepared.opts.feeToken, nativeSymbol(chainId));
         const url = r.hash && explorerTx(chainId, r.hash);
+        // the same as the card you sign on Home: the batch you're about to sign, run by the simulator
+        const ran = r.prepared && r.prepared.opts.state.deployed ? r.prepared.t : null;
         return (
           <div key={chainId} className="card stack">
             <b>{chainById(chainId)?.name}</b>
-            <div className="send-all-list">
+            {ran && <WhatItDoes chainId={chainId} safe={account.address} calls={callsOf(ran)} tx={ran} />}
+            <div className="send-all-list" style={ran ? { display: "none" } : undefined}>
               {held.map((a) => {
                 const n = r.net?.[a.asset] ?? BigInt(a.balance);
                 return (
@@ -202,12 +207,12 @@ export function SendAll({
                 );
               })}
             </div>
-            {held.length > 5 && (
+            {held.length > 5 && !ran && (
               <span className="fine">
                 {held.length} tokens · scroll to see all
               </span>
             )}
-            {fee && <span className="fine">Fee {fee}</span>}
+            {fee && !ran && <span className="fine">Fee {fee}</span>}
             {r.prepared?.opts.self && <span className="fine">No fee. Your browser wallet executes it and pays the gas.</span>}
             {r.error && <ErrorLine text={r.error} />}
             {r.stage === "done" ? (

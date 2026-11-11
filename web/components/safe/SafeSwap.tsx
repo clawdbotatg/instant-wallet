@@ -6,7 +6,7 @@ import { CHAINS, chainById, explorerAddress, explorerTx, publicClient, nativeSym
 import { amount as fmtAmount, short, usd, feeText } from "@/lib/format";
 import { abi } from "@/lib/safe/core";
 import type { Quote } from "@/lib/safe/fee";
-import { type FeeToken, type Signer, type Stage, Shared, getQuote, ownerSigners, ownersSend, sendKind, signThenQueue, signerOptions, usesWedgie } from "@/lib/safe/send";
+import { type FeeToken, type Signer, type Stage, Shared, feeCall, getQuote, ownerSigners, ownersSend, sendKind, signThenQueue, signerOptions, usesWedgie } from "@/lib/safe/send";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { POPULAR, type SwapRoute, type Token, swapCalls } from "@/lib/safe/swap";
 import { uniswapRoute } from "@/lib/safe/uniswap";
@@ -17,6 +17,7 @@ import { ChainSelect, type Opt, Select, SignerChoice, assetOpt } from "./Pick";
 import { Progress, TimeBar } from "./Progress";
 import { friendly } from "@/lib/friendly";
 import { ErrorLine } from "./WedgieButton";
+import { WhatItDoes } from "./WhatItDoes";
 
 const SLIPPAGE_BPS = 50;
 const tokenOf = (a: Asset): Token => ({ chainId: a.chainId, address: a.asset, symbol: a.symbol, decimals: a.decimals, logo: a.logo, priceUsd: a.price ?? undefined });
@@ -376,6 +377,9 @@ export function SafeSwap({
     confirming: "Confirming…",
   };
   const lost = fromUsd && toUsd ? 1 - toUsd / fromUsd : null;
+  // the same as the card you sign on Home: the batch we'd send (the swap + the fee), run by the simulator.
+  // Not across networks (what you get lands on the other one), nor before the wallet is on this network.
+  const ran = !!route && !!fee && !!from && !!to && !!st?.deployed && tokenOf(from).chainId === to.chainId;
   const ready = !!route && !!fee && !feeShort && !needsComputer && !quoting;
 
   return (
@@ -451,7 +455,9 @@ export function SafeSwap({
         // always the same rows, so nothing below jumps while a price loads: blanks until there's a route
         <div className={`card confirm${route ? "" : " pending"}`}>
           <div className="stack" style={{ gap: 4, paddingBottom: 8 }}>
-            {route ? (
+            {ran && route && fee && from && to ? (
+              <WhatItDoes chainId={chainId} safe={account.address} calls={[...swapCalls(route), feeCall(fee, feeToken)]} same={`${from.asset}|${to.address}|${amountIn}`} />
+            ) : route ? (
               <>
                 <WhatFor>Swap {route.from.symbol} for {route.to.symbol} on {route.via === "uniswap" ? "Uniswap" : "LI.FI"}</WhatFor>
                 <Money amount={amountIn} symbol={route.from.symbol} usd={fromUsd} />
@@ -494,10 +500,12 @@ export function SafeSwap({
               <span>—</span>
             )}
           </div>
-          <div className="line">
-            <span>Network fee</span>
-            <span>{route ? feeLabel : "—"}</span>
-          </div>
+          {!ran && (
+            <div className="line">
+              <span>Network fee</span>
+              <span>{route ? feeLabel : "—"}</span>
+            </div>
+          )}
           <div className="line">
             <span>Signed by</span>
             <SignerChoice options={options} value={signers} onChange={setChosen} disabled={busy} note={st && signThenQueue(st, account) ? "then the wedgie or the others, on the next screen" : undefined} />

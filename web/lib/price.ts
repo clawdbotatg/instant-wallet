@@ -16,3 +16,10 @@ export function nativeUsd(chainId: number): Promise<number> {
     native.set(chainId, fetch(`/api/price?chain=${chainId}`).then(r => r.json()).then(j => Number(j?.usd) || 0, () => 0));
   return native.get(chainId)!;
 }
+
+/** Tokens in dollars, by address (lowercase), from our price server. A token with no price is left out. */
+export async function tokensUsd(chainId: number, tokens: string[]): Promise<Record<string, number>> {
+  if (!tokens.length) return {};
+  const j = await fetch(`/api/price?chain=${chainId}&tokens=${tokens.join(",")}`).then(r => r.json()).catch(() => null);
+  return j?.usd ?? {};
+}

@@ -1,7 +1,7 @@
 import type { Address } from "viem";
 import { SIM_DEFAULT, type SafeTxLike, type SimAnswer, simulate as run } from "clear-signing-safe-kit";
 import { chainById, nativeSymbol, rpcPath } from "@/lib/chains";
-import { nativeUsd } from "@/lib/price";
+import { nativeUsd, tokensUsd } from "@/lib/price";
 import { LIGHT_CHAINS, PROVER, WRAPPED, lightRun, lightWarm } from "./light";
 
 /**
@@ -71,13 +71,16 @@ const warm = (chainId: number) => lightWarm(chainId, rpcPath(chainId), lightProv
 // a page that opens with it on starts it now, so the first transaction doesn't wait for it
 if (typeof window !== "undefined") setTimeout(() => LIGHT_CHAINS.filter(lightOn).forEach(warm), 2000);
 
-/** The light client's answer, with what we can price: the native coin, its wrapped coin, USDC. */
+/** The light client's answer, with dollars. A price isn't on the chain, so no node can prove it: it comes from our
+ * price server (Alchemy), as everywhere else in the wallet. */
 async function light(chainId: number, safe: Address, tx: SafeTxLike): Promise<SimAnswer> {
   const a = await lightRun({ chainId, safe, tx, rpc: rpcPath(chainId), prover: lightProver(chainId), wasm: WASM });
   const usdc = chainById(chainId)?.usdc?.toLowerCase();
   const coin = a.changes.some(c => c.token === "eth" || c.token === WRAPPED[chainId]) ? await nativeUsd(chainId) : 0;
+  const rest = a.changes.map(c => c.token).filter(t => t !== "eth" && t !== usdc && t !== WRAPPED[chainId]);
+  const priced = await tokensUsd(chainId, [...new Set(rest)]);
   const changes = a.changes.map(c => {
-    const each = c.token === usdc ? 1 : c.token === "eth" || c.token === WRAPPED[chainId] ? coin : 0;
+    const each = c.token === usdc ? 1 : c.token === "eth" || c.token === WRAPPED[chainId] ? coin : priced[c.token] ?? 0;
     return { ...c, symbol: c.token === "eth" ? nativeSymbol(chainId) : c.symbol, usd: each && c.decimals >= 0 ? String((Number(c.amount) / 10 ** c.decimals) * each) : "" };
   });
   return { ...a, changes, tx: "", nonce: "", sig: "", r: "", s: "" };

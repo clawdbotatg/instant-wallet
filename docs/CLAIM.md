@@ -55,8 +55,9 @@ take-back. Make cards on a device you keep.
 1. Scan the QR with the phone camera, tap the NFC tag, or open the link.
 2. The page shows **Someone sent you $X** and what it is (for example `5 USDC + 0.001 ETH`).
 3. No wallet on this phone yet: the normal welcome shows under it. **Create wallet** (Face ID) or **I already have
-   one**. The wallet's address exists right away, before it's on chain, so the money can go straight to it.
-4. Tap **Claim it**. A few seconds later: **It's in your wallet $X** (after fees), then **Open my wallet**.
+   one**. The wallet's address exists right away, before it's on chain, so the money can go straight to it. The claim
+   then starts by itself.
+4. Already had a wallet: tap **Claim it**. A few seconds later: **It's in your wallet $X** (after fees), then **Open my wallet**.
 5. Open the same card again later: **Nothing on it: it was claimed already, or it hasn't been filled yet.**
 
 Already have Instant Wallet open? The scan button on the home screen reads claim QRs too: it opens the claim on the

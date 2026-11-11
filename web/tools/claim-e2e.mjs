@@ -53,12 +53,9 @@ await page.getByText("Someone sent you").waitFor({ timeout: 20000 });
 await page.getByText("5 USDC").first().waitFor({ timeout: 20000 });
 ok(!page.url().includes("#"), "the key leaves the address bar");
 await page.screenshot({ path: `${OUT}/claim-1-new-phone.png` });
-await page.getByText("Create wallet").tap();
-await page.getByText("Claim it").waitFor({ timeout: 20000 });
-const acct = await page.evaluate(() => JSON.parse(localStorage.getItem("iws.account")));
-await page.screenshot({ path: `${OUT}/claim-2-ready.png` });
-await page.getByText("Claim it").tap();
+await page.getByText("Create wallet").tap(); // the claim starts by itself: no second tap
 await page.getByText("Open my wallet").waitFor({ timeout: 90000 });
+const acct = await page.evaluate(() => JSON.parse(localStorage.getItem("iws.account")));
 await page.screenshot({ path: `${OUT}/claim-3-done.png` });
 const got = usdcOf(acct.address);
 const fee = usdcOf(relayer) - relayerUsdc;

@@ -279,13 +279,14 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
   const value = Number(formatUnits(usdcTotal, 6)) + natives.reduce((t, c) => t + nativeValue(c.chainId, c.eth), 0) + movable.reduce((t, a) => t + (a.usd ?? 0), 0);
   const empty = onChain !== null && usdcTotal === 0n && ethTotal === 0n && tokens.length === 0 && nfts.length === 0 && safes.length === 0 && !uni;
 
-  /** `make`: xdai.io's one button: no wallet on this phone yet, so the passkey is made first, then the sweep runs. */
-  async function claim(make = false) {
+  /** `make`: xdai.io's one button: no wallet on this phone yet, so the passkey is made first, then the sweep runs.
+   *  `ready`: the wallet the welcome just made or signed in to: the claim starts by itself, no second tap. */
+  async function claim(make = false, ready?: SafeAccount) {
     if (!key || !onChain) return;
     setBusy(true);
     setError(null);
     try {
-      let account = acct;
+      let account = ready ?? acct;
       if (!account && make) {
         const pk = await createPasskey("Instant Wallet");
         account = accountFor(pk.credentialId, pk.qx, pk.qy);
@@ -449,6 +450,7 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
           onReady={a => {
             saveAccount(a);
             setAccount(a);
+            claim(false, a);
           }}
         />
         {burner && (

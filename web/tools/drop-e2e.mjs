@@ -75,9 +75,7 @@ ok(!b.url().includes("#"), "the code leaves the address bar");
 await b.getByText("2 USDC on Base").waitFor({ timeout: 20000 });
 ok(await b.getByText("$2.00").first().isVisible(), "it shows $2.00, 2 USDC on Base");
 await b.screenshot({ path: `${OUT}/drop-3-new-phone.png` });
-await b.getByText("Create wallet").tap();
-await b.getByText("Claim $2.00").waitFor({ timeout: 20000 });
-await b.getByText("Claim $2.00").tap();
+await b.getByText("Create wallet").tap(); // the claim starts by itself: no second tap
 await b.getByText("Open my wallet").waitFor({ timeout: 60000 }).catch(() => dump(b, "drop-4-fail"));
 await b.screenshot({ path: `${OUT}/drop-4-done.png` });
 const bw = await wallet(b);

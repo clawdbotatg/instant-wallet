@@ -14,13 +14,14 @@ import { friendly } from "@/lib/friendly";
 import { bio } from "@/lib/passkey";
 
 
-/** /d#CODE: a drop (lib/dropClient.ts). Make a wallet if this phone has none, then Face ID once and it's paid. */
+/** /d#CODE: a drop (lib/dropClient.ts). Make a wallet if this phone has none: the claim then starts by itself. */
 export function Drop() {
   const [code, setCode] = useState<string | null | undefined>(undefined);
   const [typed, setTyped] = useState("");
   const [info, setInfo] = useState<DropInfo | null>(null);
   const [missing, setMissing] = useState<string | null>(null);
-  const [account, setAccount] = useState<SafeAccount | null | undefined>(undefined);
+  const [acct, setAccount] = useState<SafeAccount | null | undefined>(undefined);
+  const account = acct;
   const [price, setPrice] = useState(0);
   const [busy, setBusy] = useState<"sign" | "send" | null>(null);
   const [done, setDone] = useState(false);
@@ -89,12 +90,17 @@ export function Drop() {
   const value = info ? (info.token === "usdc" || info.usd ? usd(tokens) : price ? usd(tokens * price) : dropAmount(info)) : "…";
   const net = info && chainById(info.chainId)?.name;
 
-  async function claim() {
+  /** `fresh`: the wallet the welcome just made or signed in to: the claim starts by itself. If the browser won't
+   *  ask for the passkey without a tap, the Claim button is there, no error shown. */
+  async function claim(fresh?: SafeAccount) {
+    const account = fresh ?? acct;
     if (!account || !code) return;
     setBusy("sign");
     setError(null);
+    let signed = false;
     try {
       const sig = await dropSig(account, `claim ${code}`);
+      signed = true;
       setBusy("send");
       const r = await fetch("/api/drop", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ code, wallet: account.address, sig }) });
       const j = await r.json().catch(() => ({}));
@@ -105,7 +111,7 @@ export function Drop() {
       clearStash();
       setDone(true);
     } catch (e: any) {
-      setError(friendly(e));
+      if (signed || !fresh) setError(friendly(e));
     } finally {
       setBusy(null);
     }
@@ -150,6 +156,7 @@ export function Drop() {
           onReady={a => {
             saveAccount(a);
             setAccount(a);
+            claim(a);
           }}
         />
       </>
@@ -159,7 +166,7 @@ export function Drop() {
     <div className="app">
       <div className="welcome">
         {header}
-        <button className="btn btn-green wide" onClick={claim} disabled={!!busy || !info}>
+        <button className="btn btn-green wide" onClick={() => claim()} disabled={!!busy || !info}>
           {busy ? "Claiming…" : `Claim ${value}`}
         </button>
         {busy === "send" && (

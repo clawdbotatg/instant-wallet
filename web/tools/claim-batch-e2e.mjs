@@ -74,8 +74,7 @@ await cdp.send("WebAuthn.addVirtualAuthenticator", {
   options: { protocol: "ctap2", ctap2Version: "ctap2_1", transport: "internal", hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
 });
 await p2.goto(`${APP}/pk#${cards[0].key}`);
-await p2.getByText("Create wallet").click();
-await p2.getByText("Claim it").click();
+await p2.getByText("Create wallet").click(); // the claim starts by itself
 await p2.getByText("Open my wallet").waitFor({ timeout: 90000 });
 await page.getByText(`${N - 1} ready · 1 claimed`).waitFor({ timeout: 30000 });
 ok(true, "the batch shows 1 claimed");

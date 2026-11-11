@@ -28,8 +28,8 @@ only pays a passkey wallet, so a code is worth nothing without making a wallet.
 ## Claim one (them)
 
 1. Scan the QR (`instantwallet.io/d#CODE`), or go to `instantwallet.io/d` and type the code.
-2. "You get $5". No wallet: **Create wallet** (Face ID). Then **Claim $5** (Face ID again: proves the wallet is
-   theirs). A few seconds, with a progress bar. Then **Open my wallet**.
+2. "You get $5". No wallet: **Create wallet** (Face ID), and the claim starts by itself (Face ID again: proves the
+   wallet is theirs). Already had a wallet: **Claim $5**. A few seconds, with a progress bar. Then **Open my wallet**.
 3. The code is kept on the phone for a day. If they leave mid-setup, the home screen shows **You have money to claim**.
    The in-app scanner reads drop QRs too. An empty home screen has a **Have a code?** link.
 

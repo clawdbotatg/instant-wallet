@@ -119,7 +119,7 @@ export function PositionList({
         <a key={p.id} className="asset" href={p.url} target="_blank" rel="noopener noreferrer">
           <div className="logo">{p.icon ? <img src={p.icon} alt="" /> : p.protocol.slice(0, 2)}</div>
           <div className="grow">
-            <div className="sym">{p.name}</div>
+            <div className="sym">{p.name} ↗</div>
             <div className="fine">
               {[TYPE[p.type] ?? p.type, chainById(p.chainId)?.name, p.tokens.join(" + ")].filter(Boolean).join(" · ")}
             </div>

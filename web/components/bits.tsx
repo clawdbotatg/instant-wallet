@@ -338,7 +338,7 @@ export function Money({ amount: a, symbol, usd: u, get, least, size = 20 }: { am
 export function Eject({ href, title, big, children }: { href: string; title: string; big?: boolean; children?: React.ReactNode }) {
   // never stretched: as wide as its words, on the right when it has a line of its own. `big`: a full-height button (next to Done, under a progress bar)
   return (
-    <a className={big ? "btn" : "pill"} href={href} target="_blank" rel="noopener noreferrer" title={title} aria-label={title} style={big ? { flex: "none", padding: "0 20px", justifySelf: "end" } : { height: 32, padding: "0 10px", fontSize: 13, flex: "none", justifySelf: "end" }}>
+    <a className={big ? "btn" : "pill"} href={href} target="_blank" rel="noopener noreferrer" title={title} aria-label={title} style={big ? { flex: "none", padding: "0 20px", justifySelf: "end" } : { flex: "none", justifySelf: "end", ...(children ? {} : { width: 38, padding: 0, justifyContent: "center" }) }}>
       {children ? (
         <>{children} ↗</>
       ) : (

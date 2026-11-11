@@ -455,7 +455,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
               <div key={x.topic} className="asset">
                 <div className="logo">{x.icon ? <img src={x.icon} alt="" /> : (x.name || "?").slice(0, 1)}</div>
                 <a className="grow" href={x.url} target="_blank" rel="noopener noreferrer">
-                  <div className="sym">{x.name || "A site"}</div>
+                  <div className="sym">{x.name || "A site"} ↗</div>
                   <div className="fine">{x.url.replace(/^https?:\/\//, "")}</div>
                 </a>
                 <button className="pill stop" onClick={() => disconnect(x.topic).catch(() => {})}>

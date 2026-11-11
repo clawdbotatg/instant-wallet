@@ -81,5 +81,10 @@ for (const p of files) {
   if (relative(root, p) === SHARED) continue;
   if (/<Eject (?!big\b)[^>]*>\s*\n\s*Explorer/.test(readFileSync(p, "utf8"))) (bad++, console.log(`${relative(root, p)}  Explorer on its own line: <Eject big>`));
 }
+// a row that leaves the wallet says ↗ after its name (Austin 11-11)
+for (const p of files) {
+  for (const m of readFileSync(p, "utf8").matchAll(/<a\b[^>]*className="(?:asset|grow)"[^>]*target="_blank"[^>]*>[\s\S]{0,400}/g))
+    if (!m[0].includes("↗")) (bad++, console.log(`${relative(root, p)}  a row that leaves the wallet: ↗ after its name`));
+}
 console.log(bad ? `\n${bad} not the same as everywhere else` : "same everywhere ✓");
 process.exit(bad ? 1 : 0);

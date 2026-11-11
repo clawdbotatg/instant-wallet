@@ -109,8 +109,9 @@ Suggested first: 1, 3, 5, 12, 20.
     false "nothing to claim"). Not checked against Uniswap's data.
   - `app/api/ens/route.ts:19`: name → address can be served up to 7 days old.
   - `app/api/price/route.ts:11-12` and `lib/price.ts:15-16`: a failed price (0) is cached.
-  - `lib/safe/relayGuard.ts:109,121`, `lib/drops.ts:212`: 60 sends an hour per IP and a 1-day ban after one revert.
-    A crowd on one Wi-Fi shares an IP.
+  - Done 11-10 for the relay: a revert refuses that wallet for a day and the IP only at its third revert in a day;
+    the IP's send cap is the route's 240 an hour, not 60 (`tools/relay-ban-check.mts`). Still as it was for drops
+    (`lib/drops.ts:212`): a crowd on one Wi-Fi shares an IP.
   - Done 11-10: `lib/alerts.ts` `authorize` checks origin, rpId and the UV flag, as `app/api/onramp` does
     (`tools/passkey-site-check.mts`).
   - Three ETH prices: Coinbase from the browser (`lib/price.ts`), Coinbase on the server (`relayCore.ts:45`), and a

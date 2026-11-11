@@ -10,8 +10,8 @@ import { approvesRouter, checkSwap, isSwapTarget } from "./swap";
  *     known router that pay this wallet with no approval left behind; arbitrary calls only in an owner-signed
  *     batch from a site (WalletConnect), never into the wallet itself, and its reverts count like a swap's
  *   - one submission per signed tx (a reverted Safe tx keeps its nonce, so a signed body could be replayed)
- *   - rate limits per IP and per wallet; a wallet whose relayed tx reverted is refused for a day; many reverts pause
- *     the relay for an hour
+ *   - rate limits per IP and per wallet; a wallet whose relayed tx reverted is refused for a day, and its IP after
+ *     three in a day
  *   - one send at a time per chain (relayer nonces)
  * State lives in Upstash Redis (RELAY_KV_URL / RELAY_KV_TOKEN, keys "iws:"), else in this instance's memory.
  */
@@ -109,21 +109,26 @@ export class RelayRefused extends Error {
 }
 
 export async function admit(ip: string, safe: Address) {
-  if (await flagged(`badip:${ip}`)) throw new RelayRefused("A send from here failed on chain recently. Try again tomorrow.");
+  if (await flagged(`badip:${ip}`)) throw new RelayRefused("Sends from here failed on chain today. Try again tomorrow.");
   if (await flagged(`bad:${safe}`)) throw new RelayRefused("This wallet's last relayed transaction failed on chain. Try again tomorrow.");
-  if ((await bump(`ip:${ip}`, 3600)) > 60) throw new RelayRefused("Too many sends from here this hour.");
+  // per IP: the relay route's own cap (240 an hour). A room on one Wi-Fi is one IP, and 60 an hour was a small room.
   if ((await bump(`safe:${safe}`, 3600)) > 40) throw new RelayRefused("Too many sends from this wallet this hour.");
 }
 
+/** Reverts from one IP in a day before the IP itself is refused. */
+export const IP_REVERTS = 3;
+
 /**
- * A relayed tx reverted: refuse that wallet and that IP for a day (no global pause: it would be a free outage).
+ * A relayed tx reverted: refuse that wallet for a day (no global pause: it would be a free outage).
  * A swap or a site's call can revert honestly (the price moved past the slippage between the estimate and the
  * block): the third one in a day counts.
+ * The IP is refused only at its third revert in a day: a room on one Wi-Fi is one IP, and one person's failed send
+ * locked everyone out. Three still stops someone making a new wallet for each try.
  */
 export async function reverted(safe: Address, ip: string, swap = false) {
   if (swap && (await bump(`swaprev:${safe}`, 86_400)) < 3) return;
   await flag(`bad:${safe}`, 86_400);
-  await flag(`badip:${ip}`, 86_400);
+  if ((await bump(`iprev:${ip}`, 86_400)) >= IP_REVERTS) await flag(`badip:${ip}`, 86_400);
 }
 
 /** Delete the lock only if it's still ours (one step on Redis, so nothing can slip between the look and the delete). */

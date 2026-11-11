@@ -1,16 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { type Address, type Hex, formatUnits, zeroAddress } from "viem";
+import { type Address, type Hex, formatUnits, keccak256, toHex, zeroAddress } from "viem";
 import { chainById, publicClient } from "@/lib/chains";
 import type { Asset } from "@/lib/types";
+import { MULTICALL3 } from "@/lib/safe/config";
 import { callsOf, relayFee } from "@/lib/safe/describe";
 import { type Sending, onSending, sendingNow } from "@/lib/safe/sending";
 import { type Move, chainHistory, inTokens, moved, moves } from "clear-signing-safe-kit";
 import { ChainIcon, Eject, Money, WhatFor, Who } from "../bits";
 import { type Line, Lines, explainCalls, intents } from "./WhatItDoes";
 
-type Row = { chainId: number; at: string; hash?: string; link?: string; pay: Move[]; get: Move[]; words?: Line[]; from?: string; failed?: boolean };
+type Row = { chainId: number; at: string; hash?: string; link?: string; pay: Move[]; get: Move[]; words?: Line[]; from?: string | null; failed?: boolean }; // from: who sent money in; null: not known ("Received")
 const SHOW = 6;
 /** Money that just came in, seen in the balance (read every few seconds) before the chain's history has been read. */
 type Just = { id: number; chainId: number; at: number; get: Move };
@@ -146,12 +147,12 @@ export function Activity({ safe, chains, undeployed = [], assets, late, live, ti
             </span>
             {r.link && <Eject href={r.link} title="Open in the explorer" />}
           </div>
-          {(r.from || r.words) && <WhatFor>{r.from ? <>Received from <From a={r.from} chainId={r.chainId} /></> : <Lines lines={r.words!} chain={r.chainId} />}</WhatFor>}
+          {(r.from !== undefined || r.words) && <WhatFor>{r.from ? <>Received from <From a={r.from} chainId={r.chainId} /></> : r.from === null ? "Received" : <Lines lines={r.words!} chain={r.chainId} />}</WhatFor>}
           {r.failed && <span style={{ fontSize: 15, color: "#c62828", fontWeight: 600 }}>⚠️ Failed: nothing moved</span>}
           {(r.pay.length > 0 || r.get.length > 0) && (
             <div className="row" style={{ gap: "2px 12px", flexWrap: "wrap" }}>
-              {r.pay.map((m, j) => <Money key={`p${j}`} amount={m.amount} symbol={m.symbol} usd={usd(r.chainId, m)} size={r.from || r.words ? 14 : 17} />)}
-              {r.get.map((m, j) => <Money key={`g${j}`} amount={m.amount} symbol={m.symbol} usd={usd(r.chainId, m)} size={r.from || r.words ? 14 : 17} get />)}
+              {r.pay.map((m, j) => <Money key={`p${j}`} amount={m.amount} symbol={m.symbol} usd={usd(r.chainId, m)} size={r.from !== undefined || r.words ? 14 : 17} />)}
+              {r.get.map((m, j) => <Money key={`g${j}`} amount={m.amount} symbol={m.symbol} usd={usd(r.chainId, m)} size={r.from !== undefined || r.words ? 14 : 17} get />)}
             </div>
           )}
         </div>
@@ -230,6 +231,21 @@ function once(k: string, make: () => Promise<Row>) {
   return p;
 }
 
+const MOD_OK = keccak256(toHex("ExecutionFromModuleSuccess(address)"));
+const RAN_OK = keccak256(toHex("ExecutionSuccess(bytes32,uint256)"));
+/** Who paid, when the money came through Multicall3 (how a daily-limit send pays: the chain names Multicall3 as the
+ * sender): the one other Safe that ran in that transaction; or whoever sent the transaction, when it called
+ * Multicall3 itself; else not known (null), never a wrong name. */
+async function paidBy(rpc: (m: string, p: unknown[]) => Promise<any>, safe: Address, hash: string): Promise<string | null> {
+  const r = await rpc("eth_getTransactionReceipt", [hash]).catch(() => null);
+  if (!r) return null;
+  const ran = new Set<string>((r.logs as any[]).filter(l => (l.topics[0] === MOD_OK || l.topics[0] === RAN_OK) && l.address.toLowerCase() !== safe.toLowerCase()).map(l => l.address.toLowerCase()));
+  if (ran.size === 1) return [...ran][0];
+  return !ran.size && r.to?.toLowerCase() === MULTICALL3.toLowerCase() ? r.from : null;
+}
+const real = async (rpc: (m: string, p: unknown[]) => Promise<any>, safe: Address, hash: string, from?: string) =>
+  from && from.toLowerCase() === MULTICALL3.toLowerCase() ? paidBy(rpc, safe, hash) : (from ?? null);
+
 /** Money in on a network where the Safe isn't made yet (nothing logs it there): Alchemy's transfers to the address,
  * the network's coin and the main tokens only, as the chain's history shows. */
 async function insOn(chainId: number, safe: Address): Promise<Row[]> {
@@ -237,12 +253,12 @@ async function insOn(chainId: number, safe: Address): Promise<Row[]> {
   const toks = inTokens(chainId, info?.usdc);
   const r: any = await publicClient(chainId).request({
     method: "alchemy_getAssetTransfers" as any,
-    params: [{ fromBlock: "0x0", toBlock: "latest", toAddress: safe, category: ["external", "erc20"], excludeZeroValue: true, withMetadata: true, order: "desc", maxCount: "0x32" }] as any,
+    params: [{ fromBlock: "0x0", toBlock: "latest", toAddress: safe, category: ["external", "erc20", ...(chainId === 1 || chainId === 137 ? ["internal"] : [])], excludeZeroValue: true, withMetadata: true, order: "desc", maxCount: "0x32" }] as any,
   });
   const rows = new Map<string, Row>();
   for (const x of (r?.transfers ?? []) as any[]) {
-    const tok = x.category === "external" ? null : toks[String(x.rawContract?.address).toLowerCase()];
-    if (x.category !== "external" && !tok) continue;
+    const tok = x.category === "erc20" ? toks[String(x.rawContract?.address).toLowerCase()] : null;
+    if (x.category === "erc20" && !tok) continue;
     const v = BigInt(x.rawContract?.value ?? "0x0");
     if (v === 0n || !x.metadata?.blockTimestamp) continue;
     const hash = String(x.hash).toLowerCase();
@@ -250,7 +266,8 @@ async function insOn(chainId: number, safe: Address): Promise<Row[]> {
     row.get.push({ token: tok ? String(x.rawContract.address).toLowerCase() : "eth", symbol: tok ? tok.symbol : (info?.native.symbol ?? "ETH"), amount: formatUnits(v, tok ? tok.decimals : 18) } as Move);
     rows.set(hash, row);
   }
-  return [...rows.values()].slice(0, SHOW);
+  const rpc = (method: string, params: unknown[]) => publicClient(chainId).request({ method: method as any, params: params as any });
+  return Promise.all([...rows.values()].slice(0, SHOW).map(row => once(`${chainId}:${safe}:${row.hash}:in`, async () => ({ ...row, from: await real(rpc, safe, row.hash!, row.from ?? undefined) }))));
 }
 
 async function rowsOn(chainId: number, safe: Address): Promise<Row[]> {
@@ -275,7 +292,7 @@ async function rowsOn(chainId: number, safe: Address): Promise<Row[]> {
           const dec = x.type === "ETHER_TRANSFER" ? 18 : x.tokenInfo.decimals;
           return { token: x.type === "ETHER_TRANSFER" ? "eth" : String(x.tokenAddress).toLowerCase(), symbol: sym, amount: formatUnits(BigInt(x.value), dec) };
         });
-        return { chainId, at: t.executionDate, hash: String(t.txHash).toLowerCase(), link: link(t.txHash), pay: [], get, from: t.transfers[0]?.from };
+        return { chainId, at: t.executionDate, hash: String(t.txHash).toLowerCase(), link: link(t.txHash), pay: [], get, from: await real(rpc, safe, t.txHash, t.transfers[0]?.from) };
       }
       // what it ran: known when the Safe logged it (Safe L2) or was called directly; what for, in clear signing's words
       const calls = t.to ? callsOf({ to: t.to as Address, value: BigInt(t.value), data: t.data as Hex, operation: t.operation as 0 | 1 }) : [];

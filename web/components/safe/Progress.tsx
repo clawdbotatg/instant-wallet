@@ -70,7 +70,7 @@ export function Progress({ stage, chainId, hash }: { stage: Stage | string | nul
       </p>
       {why && <p className="fine">{why}</p>}
       {hash && info?.explorer && (
-        <Eject href={`${info.explorer}/tx/${hash}`} title="See it on the explorer">
+        <Eject big href={`${info.explorer}/tx/${hash}`} title="See it on the explorer">
           Explorer
         </Eject>
       )}

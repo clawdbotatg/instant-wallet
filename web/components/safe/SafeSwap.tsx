@@ -12,7 +12,7 @@ import { POPULAR, type SwapRoute, type Token, swapCalls } from "@/lib/safe/swap"
 import { uniswapRoute } from "@/lib/safe/uniswap";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { Eject, Money, WhatFor, TokenIcon, GreenButton } from "../bits";
+import { DoneBar, Eject, Money, WhatFor, TokenIcon, GreenButton } from "../bits";
 import { ChainSelect, type Opt, Select, SignerChoice, assetOpt } from "./Pick";
 import { Progress, TimeBar } from "./Progress";
 import { friendly } from "@/lib/friendly";
@@ -359,10 +359,7 @@ export function SafeSwap({
         {crossChain && !landed && !failed && <TimeBar seconds={route.seconds} label={`Usually about ${Math.max(1, Math.round(route.seconds / 60))} min. You can close this.`} />}
         {failed && <p className="fine">{arrival?.substatus === "REFUNDED" ? `Refunded to your wallet on ${chainById(chainId)?.name}.` : "Check the explorer; LI.FI usually refunds."}</p>}
         {arrival?.substatus === "PARTIAL" && <p className="fine">It arrived as a different token than planned (the bridge's fallback).</p>}
-        {url && <Eject href={url} title="See it on the explorer">Explorer</Eject>}
-        <button className="btn wide" onClick={onDone}>
-          Done
-        </button>
+        <DoneBar onDone={onDone} href={url} />
       </div>
     );
   }

@@ -40,7 +40,7 @@ Where it lives: `WhatItDoes`, `<Money>`, clear-signing-safe-kit (`dangers`, `sim
 | Thing | Always | Never |
 |---|---|---|
 | Money moving | `<Money>`: out red −, in green +, dollars after in gray | a hand-written + or − |
-| Leaving the wallet (explorer, Safe{Wallet}, a tx's page) | `<Eject>`: white pill, new window | a hand-rolled pill link |
+| Leaving the wallet (explorer, Safe{Wallet}, a tx's page) | `<Eject>`: white pill, new window, as wide as its words, on the right. With a line of its own (under a progress bar) it is `big`: a normal button's height. On a finished screen `<DoneBar>`: Done and Explorer in one row, same height | a hand-rolled pill link, a pill stretched across the page |
 | A tx's link for the other signers | `<CopyLink>`: dark gray, copies. The only way to share a tx | a pop-out, a second Share button |
 | An address | `<Who>` (name over short address, avatar or blockie) | a bare `short(…)` in a list |
 | A wedgie | its own screen's address + blockie (`shownAs`, `wedgieHome`) | its signer contract, an ENS avatar |
@@ -58,6 +58,8 @@ Words:
 - A finished screen says **Done**, white (the only button, nothing to compete with). Never OK.
 - Fewest words (11-10). Make it obvious with less on screen. Never a sentence that explains what the screen
   already shows.
+- Say it once (11-10). The Send sheet is one line: "Send $1.00 of ETH to atg.eth?". The check still runs and
+  speaks only when something is wrong (`<WhatItDoes quiet>`). Never "Checked in this browser".
 
 Button colors (10-30):
 - Green = the one obvious action.

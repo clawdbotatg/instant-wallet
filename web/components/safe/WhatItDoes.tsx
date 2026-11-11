@@ -26,7 +26,7 @@ type SafeTxLike = { to: Address; value: bigint; data: Hex; operation: 0 | 1 };
 type Field = { label: string; value: string; address?: string };
 type Told = { what: string; short?: string; fields: Field[]; who?: string; swap?: { pay: Move & { most?: boolean }; get: Move & { least?: boolean } }; src?: Exclude<Mark, "bot" | "raw"> } | null;
 type Move = { symbol: string; amount: string; usd?: number; unknown?: boolean };
-type Got = { calls: Told[] | null; sim: Sim | null; feeUsd: Record<string, number>; light?: "ok" | "failed" };
+type Got = { calls: Told[] | null; sim: Sim | null; feeUsd: Record<string, number>; light?: "ok" | "failed"; why?: string };
 
 // one ask per set of calls. The words never change, so they're kept for the page's life. The coins come from a run on
 // the latest block, so they're kept for SIM_LIFE only (a tx that "would fail now" works once the wallet is funded).
@@ -112,6 +112,7 @@ function ask(chainId: number, safe: Address, calls: Call[], tx?: SafeTxLike) {
     const feeUsd: Record<string, number> = {};
     // the light client (Settings): checked in this browser, or it says it couldn't. Never the unchecked answer.
     let light: Got["light"] = lightOn(chainId) ? "ok" : undefined;
+    let why = ""; // the light client's own error, shown under the red line: never hidden
     const coins = simulate(chainId, safe, tx ?? asSafeTx(calls))
       .then(a => {
         if (!a) return null;
@@ -123,8 +124,8 @@ function ask(chainId: number, safe: Address, calls: Call[], tx?: SafeTxLike) {
           }
         return moves(a, fees);
       })
-      .catch(() => (light && (light = "failed"), null));
-    const p = Promise.all([words, coins]).then(([w, s]) => ({ calls: w, sim: s, feeUsd, light }));
+      .catch(e => (light && ((light = "failed"), (why = String(e?.message || e).slice(0, 200))), null));
+    const p = Promise.all([words, coins]).then(([w, s]) => ({ calls: w, sim: s, feeUsd, light, why }));
     got.set(body, { p, at: Date.now() });
     p.then(g => (!g.sim || (calls.length > 0 && !g.calls)) && got.get(body)?.p === p && got.delete(body));
   }
@@ -134,7 +135,7 @@ function ask(chainId: number, safe: Address, calls: Call[], tx?: SafeTxLike) {
 /** What a Safe tx does: first what it does to your coins (clear-sim runs it on the latest block: you pay, you get),
  * the fee (read from its own call to the relay), then each step in words: ours (describe.ts `ours`: fee, approvals, swaps), else clear signing (ERC-7730,
  * the words the wedgie shows) where the registry has it, else describe.ts. */
-export function WhatItDoes({ chainId, safe, calls, tx, same }: { chainId: number; safe: Address; calls: Call[]; tx?: SafeTxLike; same?: string }) {
+export function WhatItDoes({ chainId, safe, calls, tx, same, quiet }: { chainId: number; safe: Address; calls: Call[]; tx?: SafeTxLike; same?: string; quiet?: boolean }) {
   const [res, setRes] = useState<Got | null>(null);
   // `same`: a swap gets a new route every 20 s. While this stays the same, the old answer stays up until the new one lands.
   const was = useRef<string | undefined>(undefined);
@@ -185,6 +186,18 @@ export function WhatItDoes({ chainId, safe, calls, tx, same }: { chainId: number
   ));
   // coins in and out say it all; the steps show when no coins move (a signer, a limit), the run failed, or a step warns
   const steps = danger || !sim || !!sim.fails || (!sim.pay.length && !sim.get.length) || calls.some(c => describe(chainId, safe, c).startsWith(WARN));
+  // quiet (the Send sheet, whose title already says it once): only trouble shows
+  if (quiet)
+    return (
+      <div data-what style={{ display: "contents" }}>
+        {warns.map((w, i) => (
+          <Said key={`d${i}`} text={WARN + w} />
+        ))}
+        {res?.light === "failed" && <Said text={`${WARN}Couldn't check the coins in this browser`} />}
+        {res?.light === "failed" && res.why && <span className="fine">{res.why}</span>}
+        {sim?.fails && <Said text={`${WARN}Would fail now`} />}
+      </div>
+    );
   return (
     <div data-what style={{ display: "contents" }}>
       {warns.map((w, i) => (
@@ -192,6 +205,7 @@ export function WhatItDoes({ chainId, safe, calls, tx, same }: { chainId: number
       ))}
       {reject && <Said text="Reject: the other transaction at this number can never run." />}
       {res?.light === "failed" && <Said text={`${WARN}Couldn't check the coins in this browser`} />}
+      {res?.light === "failed" && res.why && <span className="fine">{res.why}</span>}
       {!res ? (
         <span className="fine">Checking what it does…</span>
       ) : sim?.fails ? (
@@ -216,7 +230,6 @@ export function WhatItDoes({ chainId, safe, calls, tx, same }: { chainId: number
               {res?.feeUsd[f.token] !== undefined && ` (${usd(res.feeUsd[f.token])})`}
             </span>
           ))}
-          {res?.light === "ok" && <span className="fine">Checked in this browser</span>}
         </div>
       ) : swapLines.length ? (
         <div className="stack" style={{ gap: 4 }}>{swapLines}</div>

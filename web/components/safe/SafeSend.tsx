@@ -15,7 +15,7 @@ import { type FeeToken, type Signer, type Stage, Shared, budgetSend, feeCall, ge
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { Blockie, ChainChip, Eject, GreenButton, Money, ScanIcon, TokenIcon, Who, useSheetBack } from "../bits";
+import { Blockie, ChainChip, DoneBar, GreenButton, Money, ScanIcon, TokenIcon, Who, useSheetBack } from "../bits";
 import { Scanner } from "../Scanner";
 import { Select, assetOpt } from "./Pick";
 import { friendly } from "@/lib/friendly";
@@ -269,6 +269,7 @@ export function SafeSend({
   }
 
   const what = asset && amountIn ? `${fmtAmount(amountIn)} ${asset.symbol}` : "";
+  const usd2 = (v: number) => "$" + v.toFixed(2);
   const who = resolved ? (toInput.includes(".") ? toInput : short(resolved)) : "";
 
 
@@ -280,10 +281,7 @@ export function SafeSend({
         <h2>Executed</h2>
         {asset && <Money amount={amountIn} symbol={asset.symbol} usd={asset.price ? Number(amountIn) * asset.price : null} />}
         <Who address={resolved} chain={chainId} label={toInput.includes(".") ? toInput : undefined} />
-        {url && <Eject href={url} title="See it on the explorer">Explorer</Eject>}
-        <button className="btn wide" onClick={onDone}>
-          Done
-        </button>
+        <DoneBar onDone={onDone} href={url} />
       </div>
     );
   }
@@ -301,54 +299,32 @@ export function SafeSend({
     };
     return (
       <div className="stack confirm">
-        <h2>Send {what}?</h2>
+        {/* said once (Austin 11-10): dollars, the coin, who. The run still happens: it speaks only when something is wrong */}
+        <h2>
+          Send {asset.price ? `${usd2(Number(amountIn) * asset.price)} of ${asset.symbol}` : what} to {who}?
+        </h2>
         <div className="card">
-          {/* the same as the card you sign on Home: the batch we'd send (this + the fee), run by the simulator */}
-          {ran && quote && (
-            <div className="stack" style={{ gap: 4, paddingBottom: 8 }}>
-              <WhatItDoes chainId={chainId} safe={account.address} calls={[transfer(asset.asset as Address, resolved, base), feeCall(quote, feeToken)]} />
-            </div>
-          )}
+          {ran && quote && <WhatItDoes quiet chainId={chainId} safe={account.address} calls={[transfer(asset.asset as Address, resolved, base), feeCall(quote, feeToken)]} />}
           <div className="line">
             <span>To</span>
-            <Who address={resolved} chain={chainId} label={toInput.includes(".") ? toInput : undefined} />
+            <span className="mono" style={{ fontSize: 13, textAlign: "right", overflowWrap: "anywhere" }}>{resolved}</span>
           </div>
-          {toInput.includes(".") && (
-            <div className="line">
-              <span>Address</span>
-              <span className="mono" style={{ fontSize: 13 }}>{resolved}</span>
-            </div>
-          )}
-          {!ran && (
-            <div className="line">
-              <span>Amount</span>
-              <Money amount={amountIn} symbol={asset.symbol} usd={asset.price ? Number(amountIn) * asset.price : null} size={17} />
-            </div>
-          )}
           <div className="line">
             <span>Network</span>
             <ChainChip chainId={chainId} />
           </div>
-          {!ran && (
-            <div className="line">
-              <span>Fee</span>
-              <span>{feeLabel}</span>
-            </div>
-          )}
+          <div className="line">
+            <span>Fee</span>
+            <span>{feeLabel}</span>
+          </div>
           <div className="line">
             <span>Signed by</span>
-            {p ? <SignerChoice options={options} value={signers} onChange={setChosen} disabled={busy} note={st && signThenQueue(st, account) ? "then the wedgie or the others, on the next screen" : undefined} /> : <span>…</span>}
+            {p ? <SignerChoice options={options} value={signers} onChange={setChosen} disabled={busy} note={p.path === "budget" ? "daily budget" : st && signThenQueue(st, account) ? "then the wedgie or the others" : undefined} /> : <span>…</span>}
           </div>
           {!st?.deployed && (
             <div className="line">
               <span>First send here</span>
               <span className="fine">deploys your wallet on {chainById(chainId)?.name}</span>
-            </div>
-          )}
-          {p?.path === "budget" && (
-            <div className="line">
-              <span>Daily budget</span>
-              <span className="fine">within your Instant wallet's daily budget</span>
             </div>
           )}
         </div>

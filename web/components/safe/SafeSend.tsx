@@ -437,6 +437,9 @@ export function SafeSend({
                   }}
                   placeholder="0"
                 />
+                <button className="pill" onClick={max} disabled={maxing}>
+                  {maxing ? "…" : "Max"}
+                </button>
                 {price ? (
                   <button className="pill" onClick={switchUnit} aria-label={dollars ? `Type ${asset.symbol} instead` : "Type dollars instead"}>
                     {dollars ? "USD" : asset.symbol} ⇅
@@ -445,20 +448,17 @@ export function SafeSend({
                   <span className="unit">{asset.symbol}</span>
                 )}
               </div>
-              {/* the amount's other unit and Max on one line; the limit under it, one short line (Austin 11-10) */}
+              {/* Max sits in the box, like Swap; under it one line: the other unit, and the limit in a few words (Austin 11-10) */}
               <div className="row" style={{ justifyContent: "space-between" }}>
                 <span className="fine">
                   {!amountIn || !price ? "" : dollars ? `= ${fmtAmount(amountIn)} ${asset.symbol}` : `≈ ${usd(Number(amountIn) * price)}`}
                 </span>
-                <button className="pill" onClick={max} disabled={maxing}>
-                  {maxing ? "…" : "Max"}
-                </button>
+                <span className="fine" style={{ whiteSpace: "nowrap" }}>
+                  {st?.budget && (sendingUsdc || sendingEth)
+                    ? `${sendingUsdc ? `${fmtAmount(formatUnits(st.budget.usdc, 6))} USDC` : price ? usd(Number(formatUnits(st.budget.eth, 18)) * price) : `${fmtAmount(formatUnits(st.budget.eth, 18))} ${nativeSymbol(chainId)}`} left today`
+                    : `You have ${asset.usd ? usd(asset.usd) : `${fmtAmount(asset.formatted)} ${asset.symbol}`}`}
+                </span>
               </div>
-              <span className="fine">
-                {st?.budget && (sendingUsdc || sendingEth)
-                  ? `${sendingUsdc ? `${fmtAmount(formatUnits(st.budget.usdc, 6))} USDC` : price ? usd(Number(formatUnits(st.budget.eth, 18)) * price) : `${fmtAmount(formatUnits(st.budget.eth, 18))} ${nativeSymbol(chainId)}`} left today`
-                  : `You have ${asset.usd ? usd(asset.usd) : `${fmtAmount(asset.formatted)} ${asset.symbol}`}`}
-              </span>
               {tooMuch && <span className="err">More than you have</span>}
             </div>
           )}

@@ -173,7 +173,7 @@ async function send(to, pickText, amount, shot, keys) {
   // the chosen way to sign (a pressed-in pill when there's a choice)
   const signedBy = (await line.locator(".pill.on").count()) ? await line.locator(".pill.on").textContent() : (await line.textContent()).replace(/^Signed by/, "");
   await go.tap();
-  await page.getByText("Sent", { exact: true }).waitFor({ timeout: 90000 }).catch(async e => {
+  await page.getByRole("heading", { name: "Executed", exact: true }).waitFor({ timeout: 90000 }).catch(async e => {
     console.log("on screen:", await page.locator(".err").allTextContents());
     await page.screenshot({ path: `${OUT}/${shot}-error.png` });
     throw e;
@@ -198,7 +198,8 @@ ok(BigInt(cast(`balance ${BOB}`)) > 0n, "ETH send arrived (fee in ETH)"); // the
 // ---------------------------------------------------------------- swaps (level 1: Face ID alone)
 async function swap(fromSym, amount, toSym, via, shot) {
   await page.evaluate(v => localStorage.setItem("iws.swapVia", v), via); // force one source, to test both
-  await page.locator(".balance .btn", { hasText: "Swap" }).tap();
+  await page.locator(".balance .btn", { hasText: "Apps" }).tap(); // Swap is the first app (no Swap button on Home)
+  await page.locator(".apps .asset", { has: page.locator(".sym", { hasText: /^Swap$/ }) }).tap();
   // From: a select box with a filter
   const fromSel = page.locator(".swap .field").first().locator(".pill.select");
   if (!((await fromSel.textContent()) || "").includes(fromSym)) {
@@ -219,7 +220,7 @@ async function swap(fromSym, amount, toSym, via, shot) {
     await page.locator(".swap .picker .pill", { has: page.locator("b", { hasText: new RegExp(`^${toSym}$`) }) }).first().tap();
   }
   await page.screenshot({ path: `${OUT}/${shot}-to.png` });
-  await page.locator(".swap .get").waitFor({ timeout: 30000 });
+  await page.locator(".swap .confirm:not(.pending)").waitFor({ timeout: 30000 }); // the card stops being blank once there is a route
   await page.waitForFunction(() => !document.querySelector(".go-swap")?.disabled, null, { timeout: 30000 });
   const how = await page.locator(".swap .via").textContent();
   await page.screenshot({ path: `${OUT}/${shot}-swap.png` });
@@ -366,7 +367,7 @@ await page2.getByText("Review").tap();
 await page2.locator(".confirm .btn-green").waitFor({ timeout: 15000 });
 await page2.waitForTimeout(1500);
 await page2.locator(".confirm .btn-green").tap();
-await page2.getByText("Sent", { exact: true }).waitFor({ timeout: 90000 }).catch(async e => {
+await page2.getByRole("heading", { name: "Executed", exact: true }).waitFor({ timeout: 90000 }).catch(async e => {
   console.log("on screen:", await page2.locator(".err").allTextContents());
   throw e;
 });

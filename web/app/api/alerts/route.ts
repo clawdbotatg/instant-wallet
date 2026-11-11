@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
   const b = await req.json().catch(() => null);
   if (!b || !isAddress(b.wallet) || typeof b.change !== "string" || b.change.length > 4000 || !b.sig) return NextResponse.json({ error: "bad request" }, { status: 400 });
   const wallet = getAddress(b.wallet);
-  const bad = await authorize(wallet, b.change, b.sig as Signed);
+  const bad = await authorize(wallet, b.change, b.sig as Signed, req.headers.get("host") || "");
   if (bad) return NextResponse.json({ error: bad }, { status: 403 });
   const ch = JSON.parse(b.change);
   const old = await getContacts(wallet);

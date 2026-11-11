@@ -117,13 +117,24 @@ export type Signed = { qx: Hex; qy: Hex; authenticatorData: Hex; clientDataField
 /**
  * A change is the wallet's own when its passkey signed it (P-256 over WebAuthn, as Safe's passkey signer checks)
  * and that passkey owns the wallet: its counterfactual Safe, or an owner on a chain where it's deployed.
+ * `host` is the request's Host header: the signature must be from that site.
  */
-export async function authorize(wallet: Address, change: string, s: Signed, scope = "alerts"): Promise<string | null> {
+export async function authorize(wallet: Address, change: string, s: Signed, host: string, scope = "alerts"): Promise<string | null> {
   if (!s || !Number.isFinite(s.ts) || Math.abs(Date.now() - s.ts) > 5 * 60_000) return "That took too long. Try again.";
   if (![s.qx, s.qy, s.authenticatorData, s.r, s.s].every(v => typeof v === "string" && /^0x[0-9a-fA-F]*$/.test(v)) || typeof s.clientDataFields !== "string") return "Bad signature.";
   const digest = changeDigest(wallet, change, s.ts, scope);
   const json = `{"type":"webauthn.get","challenge":"${bytesToBase64url(hexToBytes(digest))}",${s.clientDataFields}}`;
-  const msg = sha256(new Uint8Array([...hexToBytes(s.authenticatorData), ...sha256(new TextEncoder().encode(json))]));
+  // signed on this site, and the device checked who it was (Face ID, a PIN): the same three checks as the onramp.
+  // The passkey is tied to this site by the browser already; this is the server not taking that on trust.
+  const authData = hexToBytes(s.authenticatorData);
+  let origin = "";
+  try {
+    origin = new URL(JSON.parse(json).origin).host;
+  } catch {}
+  const rp = sha256(new TextEncoder().encode(host.split(":")[0]));
+  if (!host || origin !== host || authData.length < 37 || !rp.every((x, i) => x === authData[i])) return "Wrong site.";
+  if (!(authData[32] & 0x04)) return "Your passkey didn't check it was you. Try again.";
+  const msg = sha256(new Uint8Array([...authData, ...sha256(new TextEncoder().encode(json))]));
   const pub = new Uint8Array([4, ...hexToBytes(s.qx), ...hexToBytes(s.qy)]);
   const sig = new Uint8Array([...hexToBytes(s.r), ...hexToBytes(s.s)]);
   let good = false;

@@ -30,8 +30,8 @@ function key() {
 // a passkey signature, built the way a browser's WebAuthn assertion is
 function sign(k: ReturnType<typeof key>, wallet: string, change: string, ts = Date.now()) {
   const h = keccak256(toBytes(`Instant Wallet alerts\n${wallet.toLowerCase()}\n${change}\n${ts}`));
-  const authData = new Uint8Array([...sha256(new TextEncoder().encode("instantwallet.io")), 5, 0, 0, 0, 0]);
-  const fields = '"origin":"https://instantwallet.io","crossOrigin":false';
+  const authData = new Uint8Array([...sha256(new TextEncoder().encode(new URL(APP).hostname)), 5, 0, 0, 0, 0]);
+  const fields = `"origin":"${new URL(APP).origin}","crossOrigin":false`;
   const json = `{"type":"webauthn.get","challenge":"${b64url(toBytes(h))}",${fields}}`;
   const msg = sha256(new Uint8Array([...authData, ...sha256(new TextEncoder().encode(json))]));
   const sig = p256.sign(msg, k.pk, { prehash: false, format: "compact" });

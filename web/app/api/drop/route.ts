@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     const f = await byCode(b.code);
     if (!f) throw new DropRefused("That code isn't one of ours.", 404);
     const wallet = getAddress(b.wallet);
-    const bad = await authorize(wallet, `claim ${f.code}`, b.sig as Signed, "drops");
+    const bad = await authorize(wallet, `claim ${f.code}`, b.sig as Signed, req.headers.get("host") || "", "drops");
     if (bad) throw new DropRefused(bad, 403);
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "?";
     return NextResponse.json(await claim(f.code, f.drop, wallet, ip));

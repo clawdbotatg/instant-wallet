@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
       if (typeof b.message === "string") {
         if (!(await walletLogin(w, b.message, b.signature))) throw new DropRefused("That signature didn't check out. Try again.", 403);
       } else {
-        const bad = await authorize(w, "login", b.sig as Signed, "drops");
+        const bad = await authorize(w, "login", b.sig as Signed, req.headers.get("host") || "", "drops");
         if (bad) throw new DropRefused(bad, 403);
       }
       if (!isAdmin(w)) throw new DropRefused("This wallet can't make drops.", 403);

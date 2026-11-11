@@ -111,8 +111,8 @@ Suggested first: 1, 3, 5, 12, 20.
   - `app/api/price/route.ts:11-12` and `lib/price.ts:15-16`: a failed price (0) is cached.
   - `lib/safe/relayGuard.ts:109,121`, `lib/drops.ts:212`: 60 sends an hour per IP and a 1-day ban after one revert.
     A crowd on one Wi-Fi shares an IP.
-  - Two passkey checks: `app/api/onramp` checks origin, rpId and the UV flag; `lib/alerts.ts` `authorize` checks
-    none of them.
+  - Done 11-10: `lib/alerts.ts` `authorize` checks origin, rpId and the UV flag, as `app/api/onramp` does
+    (`tools/passkey-site-check.mts`).
   - Three ETH prices: Coinbase from the browser (`lib/price.ts`), Coinbase on the server (`relayCore.ts:45`), and a
     Uniswap pool's spot price that sets what an ETH drop pays (`lib/drops.ts:252`).
 

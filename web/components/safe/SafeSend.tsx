@@ -11,7 +11,7 @@ import { parse } from "@/lib/parse";
 import { openWalletConnect } from "@/lib/walletconnect";
 import { transfer } from "@/lib/safe/core";
 import type { Quote } from "@/lib/safe/fee";
-import { type FeeToken, type Signer, type Stage, Shared, budgetSend, getQuote, ownersSend, plan, sendKind, signThenQueue, signerOptions, usesWedgie } from "@/lib/safe/send";
+import { type FeeToken, type Signer, type Stage, Shared, budgetSend, feeCall, getQuote, ownersSend, plan, sendKind, signThenQueue, signerOptions, usesWedgie } from "@/lib/safe/send";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
@@ -22,6 +22,7 @@ import { friendly } from "@/lib/friendly";
 import { SignerChoice } from "./Pick";
 import { Progress } from "./Progress";
 import { ErrorLine } from "./WedgieButton";
+import { WhatItDoes } from "./WhatItDoes";
 
 
 /**
@@ -289,6 +290,7 @@ export function SafeSend({
 
   if (stage !== "form" && resolved && asset && base !== null) {
     const busy = stage !== "review";
+    const ran = !!quote && !!st?.deployed; // a wallet not yet on this network can't be run
     const label: Record<string, React.ReactNode> = {
       quote: "Getting the fee…",
       signing: "Signing…",
@@ -301,6 +303,12 @@ export function SafeSend({
       <div className="stack confirm">
         <h2>Send {what}?</h2>
         <div className="card">
+          {/* the same as the card you sign on Home: the batch we'd send (this + the fee), run by the simulator */}
+          {ran && quote && (
+            <div className="stack" style={{ gap: 4, paddingBottom: 8 }}>
+              <WhatItDoes chainId={chainId} safe={account.address} calls={[transfer(asset.asset as Address, resolved, base), feeCall(quote, feeToken)]} />
+            </div>
+          )}
           <div className="line">
             <span>To</span>
             <Who address={resolved} chain={chainId} label={toInput.includes(".") ? toInput : undefined} />
@@ -311,18 +319,22 @@ export function SafeSend({
               <span className="mono" style={{ fontSize: 13 }}>{resolved}</span>
             </div>
           )}
-          <div className="line">
-            <span>Amount</span>
-            <Money amount={amountIn} symbol={asset.symbol} usd={asset.price ? Number(amountIn) * asset.price : null} size={17} />
-          </div>
+          {!ran && (
+            <div className="line">
+              <span>Amount</span>
+              <Money amount={amountIn} symbol={asset.symbol} usd={asset.price ? Number(amountIn) * asset.price : null} size={17} />
+            </div>
+          )}
           <div className="line">
             <span>Network</span>
             <ChainChip chainId={chainId} />
           </div>
-          <div className="line">
-            <span>Fee</span>
-            <span>{feeLabel}</span>
-          </div>
+          {!ran && (
+            <div className="line">
+              <span>Fee</span>
+              <span>{feeLabel}</span>
+            </div>
+          )}
           <div className="line">
             <span>Signed by</span>
             {p ? <SignerChoice options={options} value={signers} onChange={setChosen} disabled={busy} note={st && signThenQueue(st, account) ? "then the wedgie or the others, on the next screen" : undefined} /> : <span>…</span>}

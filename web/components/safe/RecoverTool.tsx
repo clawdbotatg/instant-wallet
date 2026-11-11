@@ -6,7 +6,7 @@ import { CHAINS, chainById, explorerTx, publicClient } from "@/lib/chains";
 import { short } from "@/lib/format";
 import { DAO, RECOVERY_7D, RECOVERY_DAYS, RECOVERY_MODULES, SAFE_FACTORY } from "@/lib/safe/config";
 import { abi, deploySafeCall, safeAddress } from "@/lib/safe/core";
-import { Band, copy, useAddressScan } from "../bits";
+import { Band, Words, copy, useAddressScan } from "../bits";
 import { ChainSelect } from "./Pick";
 import { friendly } from "@/lib/friendly";
 
@@ -108,7 +108,12 @@ export function RecoverTool() {
         <p className="fine">
           On {chainById(chainId)?.name}: {info.deployed ? "deployed" : "not deployed yet"}. Recovery:{" "}
           {info.mods.map(m => `${m.guardians.map(name).join(", ")} (${RECOVERY_DAYS[m.module]} days)`).join(", ") || "none"}.
-          {pending.map(m => ` A recovery to ${m.newOwners.map(short).join(", ")} is pending until ${new Date(m.executeAfter).toLocaleString()}.`)}
+          {pending.map(m => (
+            <span key={m.module}>
+              {" "}
+              <Words text={`A recovery to ${m.newOwners.join(", ")} is pending until ${new Date(m.executeAfter).toLocaleString()}.`} chain={chainId} />
+            </span>
+          ))}
         </p>
       )}
 

@@ -3,12 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { type Address, type Hex, formatUnits, zeroAddress } from "viem";
 import { chainById, publicClient } from "@/lib/chains";
-import { short } from "@/lib/format";
 import type { Asset } from "@/lib/types";
 import { callsOf, relayFee } from "@/lib/safe/describe";
 import { type Sending, onSending, sendingNow } from "@/lib/safe/sending";
 import { type Move, chainHistory, moved, moves, safeLogs } from "clear-signing-safe-kit";
-import { ChainIcon, Eject, Money, WhatFor, useName } from "../bits";
+import { ChainIcon, Eject, Money, WhatFor, Who } from "../bits";
 import { type Line, Lines, explainCalls, intents } from "./WhatItDoes";
 
 type Row = { chainId: number; at: string; hash?: string; link?: string; pay: Move[]; get: Move[]; words?: Line[]; from?: string; failed?: boolean };
@@ -194,6 +193,5 @@ async function rowsOn(chainId: number, safe: Address, fresh = false): Promise<Ro
 
 
 function From({ a, chainId }: { a: string; chainId: number }) {
-  const { name } = useName(a, chainId);
-  return <>{name ?? short(a)}</>;
+  return <Who address={a} chain={chainId} size={18} inline />;
 }

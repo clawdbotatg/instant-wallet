@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import type { Address, Hex } from "viem";
-import { short } from "@/lib/format";
 import { createPasskey, bio } from "@/lib/passkey";
 import { signerAddress } from "@/lib/safe/core";
 import { loadAccount } from "@/lib/safe/state";
@@ -65,7 +64,7 @@ export function Join() {
         <h2>Sent</h2>
         <Blockie address={done} size={64} />
         <p>
-          Your signer is <span className="mono">{short(done)}</span>. {inv?.from ?? "The wallet's owner"} adds it next. After that, you sign from the links they send
+          Your signer is <Who address={done} size={18} plain inline />. {inv?.from ?? "The wallet's owner"} adds it next. After that, you sign from the links they send
           you, with this {bio()}.
         </p>
       </div>

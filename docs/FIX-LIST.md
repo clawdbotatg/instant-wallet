@@ -130,10 +130,11 @@ Suggested first: 1, 3, 5, 12, 20.
   Left: `Waiting.tsx` (reject) · `SafeApp.tsx` (budget turn-off) · `RecoveryAlert.tsx` (Cancelling…) ·
   `Claim.tsx` (the normal claim; the xdai branch has one) · `SimSetting.tsx`.
 
-- [ ] **14. Bare `short(…)` addresses where the rule says `<Who>` / `<Words>`.**
-  `RecoveryAlert.tsx:75` (who is taking the wallet: the one that matters) · `Activity.tsx:196-199` (Received from) ·
-  `SafeSend.tsx:280` (done screen) · `SafeConnect.tsx:234` · `Join.tsx:66-68` · `ClaimMaker.tsx:224,255` ·
-  `RecoverTool.tsx:90,111` · `SafeWelcome.tsx:155-158` (raw hex).
+- [x] **14. Bare `short(…)` addresses where the rule says `<Who>` / `<Words>`.** Done 11-10: the recovery alert
+  (who is taking the wallet), the recovery tool's pending line, Activity's "Received from", Send's done screen, a
+  site's request ("from"), Join, and the welcome screen's raw hex. `same-check.mjs` now fails on `.map(short)` and a
+  mono `short(…)` span. Left: `ClaimMaker.tsx:224,255` (drops), and the recovery addresses listed as text in
+  `RecoverTool.tsx:90` and `SafeWelcome.tsx:160`.
 
 - [ ] **15. Words and colors against EXPECTATIONS #2. Decide: change, or write the exception down.**
   - `Activity.tsx:114`: "Sending… / Sent" (rule: Executing / Executed). Added on purpose in `6bc331a`.

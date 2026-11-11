@@ -279,7 +279,7 @@ export function SafeSend({
         <div style={{ fontSize: 64 }}>✓</div>
         <h2>Executed</h2>
         {asset && <Money amount={amountIn} symbol={asset.symbol} usd={asset.price ? Number(amountIn) * asset.price : null} />}
-        <p>to {toInput.includes(".") ? toInput : short(resolved)}</p>
+        <Who address={resolved} chain={chainId} label={toInput.includes(".") ? toInput : undefined} />
         {url && <Eject href={url} title="See it on the explorer">Explorer</Eject>}
         <button className="btn wide" onClick={onDone}>
           Done

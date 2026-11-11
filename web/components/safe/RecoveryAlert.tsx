@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { type Address, encodeFunctionData } from "viem";
 import { chainById, explorerAddress } from "@/lib/chains";
-import { short } from "@/lib/format";
 import { abi } from "@/lib/safe/core";
 import { type Prepared, Shared, finishOwners, ownerSigners, prepareOwners } from "@/lib/safe/send";
 import type { ChainState, RecoveryOn, SafeAccount } from "@/lib/safe/state";
@@ -72,10 +71,13 @@ export function RecoveryAlert({
     <div className="card alert">
       <b>{mine ? "Your recovery is running" : "Someone is recovering this wallet"}</b>
       <p className="fine">
-        On {chainById(state.chainId)?.name}, your keys get replaced by {r.newOwners.map(short).join(", ")}
-        {r.newOwners.length > 1 ? ` (any ${r.newThreshold} of them)` : ""} on {when.toLocaleString()}.{" "}
-        {mine ? "That's this phone." : "If that isn't you, cancel it now."}
+        On {chainById(state.chainId)?.name}, on {when.toLocaleString()}, your keys get replaced by
+        {r.newOwners.length > 1 ? ` any ${r.newThreshold} of these` : ""}:
       </p>
+      {r.newOwners.map(o => (
+        <Who key={o} address={o} chain={state.chainId} link={explorerAddress(state.chainId, o) ?? undefined} />
+      ))}
+      <p className="fine">{mine ? "That's this phone." : "If that isn't you, cancel it now."}</p>
       {!mine && state.owners.some(o => o.toLowerCase() === account.burnerSigner.toLowerCase()) && (
         <button className="btn btn-red wide" onClick={ready ? cancel : prepare} disabled={busy}>
           {busy ? (ready ? "Cancelling…" : "Getting ready…") : ready ? "Sign to cancel it" : "Cancel it"}

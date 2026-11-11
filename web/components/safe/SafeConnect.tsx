@@ -3,12 +3,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { type Hash, formatUnits } from "viem";
 import { CHAINS, chainById, nativeSymbol } from "@/lib/chains";
-import { amount as fmtAmount, short, feeText } from "@/lib/format";
+import { amount as fmtAmount, feeText } from "@/lib/format";
 import { siteCalls, siteGas, signForSite } from "@/lib/safe/connect";
 import { type FeeToken, type Prepared, type Signer, type Stage, Shared, finishOwners, ownerSigners, prepareOwners, signThenQueue, signerLabel, usesWedgie } from "@/lib/safe/send";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { type Pending, remember, respond } from "@/lib/walletconnect";
-import { ChainChip, GreenButton } from "../bits";
+import { ChainChip, GreenButton, Who } from "../bits";
 import { ConnectLayer, DappHead, type Session } from "../WalletConnect";
 import { friendly } from "@/lib/friendly";
 import { Progress } from "./Progress";
@@ -248,7 +248,7 @@ function SafeRequest({
         </button>
       )}
       <p className="fine center">
-        from <span className="mono">{short(account.address)}</span>
+        from <Who address={account.address} size={18} inline />
       </p>
     </div>
   );

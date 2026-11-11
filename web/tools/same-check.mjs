@@ -86,5 +86,11 @@ for (const p of files) {
   for (const m of readFileSync(p, "utf8").matchAll(/<a\b[^>]*className="(?:asset|grow)"[^>]*target="_blank"[^>]*>[\s\S]{0,400}/g))
     if (!m[0].includes("↗")) (bad++, console.log(`${relative(root, p)}  a row that leaves the wallet: ↗ after its name`));
 }
+// two button heights (Austin 11-11): every small one (pill, btn-sm) is as tall as a pill
+{
+  const css = readFileSync(root + "app/globals.css", "utf8");
+  const h = c => css.match(new RegExp(`^\\.${c} \\{[^}]*height: (\\d+)px`, "m"))?.[1];
+  if (h("pill") !== h("btn-sm")) (bad++, console.log(`app/globals.css  .btn-sm is ${h("btn-sm")} tall, .pill is ${h("pill")}: small buttons are one height`));
+}
 console.log(bad ? `\n${bad} not the same as everywhere else` : "same everywhere ✓");
 process.exit(bad ? 1 : 0);

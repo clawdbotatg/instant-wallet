@@ -66,6 +66,8 @@ Button colors (10-30):
 - Dark gray = copy the link (`<CopyLink>`), and Switch account. Nothing else.
 - Red = it destroys something: remove (✕), delete, disconnect, sign out, cancel something onchain, or something went wrong (a bug report). Closing a window is not red: Back, Close, Done, Cancel (a form) are white.
 - White = everything else: most buttons. Reject, `<Eject>`, a second choice (NFC card), Add a wedgie.
+Button sizes (11-11):
+- Two heights. The main button is 56. Every small one (a pill, `btn-sm`, `<Eject>`) is 38.
 
 ## 3. A wedgie is shown as itself
 

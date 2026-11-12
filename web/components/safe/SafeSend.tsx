@@ -333,12 +333,43 @@ export function SafeSend({
     );
   }
 
+  // the To box: the same one on the scan screen and on the form (the scan pill only on the form: the scan screen is the scanner)
+  const toField = (onScanScreen: boolean) => (
+    <div className="field">
+      <label>To</label>
+      <div className="input">
+        {resolved && !toName && <Blockie address={resolved} size={30} />}
+        <input value={toInput} onChange={e => setToInput(addressIn(e.target.value))} onKeyDown={e => e.key === "Enter" && onScanScreen && resolved && leaveScan()} placeholder="0x… or name.eth" autoCapitalize="none" autoCorrect="off" spellCheck={false} />
+        {!onScanScreen && (
+          <button
+            className="pill"
+            onClick={() => {
+              setScanFromForm(true);
+              setScanning(true);
+            }}
+            aria-label="Scan"
+          >
+            <ScanIcon size={20} />
+          </button>
+        )}
+      </div>
+      {resolving && <span className="fine">Looking up {toInput}…</span>}
+      {resolved && toName && <Who address={resolved} chain={chainId} label={toInput.includes(".") ? undefined : toName} />}
+      {resolved && toName && <NameMoved name={toName} address={resolved} />}
+    </div>
+  );
+
   return (
     <div className="stack">
-      <h2>{scanning ? "Scan an address or WalletConnect" : "Send"}</h2>
+      <h2>{scanning ? "Send or scan" : "Send"}</h2>
       {scanning ? (
         <>
-          <Scanner onResult={onScan} />
+          <Scanner short onResult={onScan} />
+          {toField(true)}
+          {/* typed or pasted instead of scanned: green once it is an address or a name that points somewhere */}
+          <button className="btn btn-green wide" disabled={!resolved} onClick={leaveScan}>
+            {resolved ? <>Send to <Who flat address={resolved} chain={chainId} label={toName ?? undefined} /></> : "Send"}
+          </button>
           <button className="btn wide" onClick={pasteAddress}>
             Paste address
           </button>
@@ -348,26 +379,7 @@ export function SafeSend({
         </>
       ) : (
         <>
-          <div className="field">
-            <label>To</label>
-            <div className="input">
-              {resolved && !toName && <Blockie address={resolved} size={30} />}
-              <input value={toInput} onChange={e => setToInput(addressIn(e.target.value))} placeholder="0x… or name.eth" autoCapitalize="none" autoCorrect="off" spellCheck={false} />
-              <button
-                className="pill"
-                onClick={() => {
-                  setScanFromForm(true);
-                  setScanning(true);
-                }}
-                aria-label="Scan"
-              >
-                <ScanIcon size={20} />
-              </button>
-            </div>
-            {resolving && <span className="fine">Looking up {toInput}…</span>}
-            {resolved && toName && <Who address={resolved} chain={chainId} label={toInput.includes(".") ? undefined : toName} />}
-            {resolved && toName && <NameMoved name={toName} address={resolved} />}
-          </div>
+          {toField(false)}
 
           <div className="field">
             <label>What</label>

@@ -44,7 +44,8 @@ async function nativeDecoder(): Promise<Decode | null> {
   }
 }
 
-export function Scanner({ onResult }: { onResult: (text: string) => void }) {
+/** short: less tall (the top and bottom cropped), for a screen that has more under it. */
+export function Scanner({ onResult, short }: { onResult: (text: string) => void; short?: boolean }) {
   const video = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState<string | null>(null);
   const cb = useRef(onResult);
@@ -139,7 +140,7 @@ export function Scanner({ onResult }: { onResult: (text: string) => void }) {
   }, []);
 
   return (
-    <div className="scanner">
+    <div className={short ? "scanner short" : "scanner"}>
       <div>
         <video ref={video} playsInline muted autoPlay />
       </div>

@@ -236,7 +236,7 @@ async function swap(fromSym, amount, toSym, via, shot) {
   await page.waitForTimeout(13000);
   return how;
 }
-{
+if (!process.env.SKIP_SWAPS) {
   const u0 = usdcOf(acct.address), e0 = BigInt(cast(`balance ${acct.address}`));
   const how = await swap("USDC", "100", "ETH", "uniswap", "s4a");
   const u1 = usdcOf(acct.address), e1 = BigInt(cast(`balance ${acct.address}`));
@@ -251,15 +251,75 @@ async function swap(fromSym, amount, toSym, via, shot) {
 }
 
 // ---------------------------------------------------------------- level 2: the wedgie (no hot wallet since 10-14)
+// Settings → Edit signers → Add a wedgie → Find my wedgie (once per browser) → Add it as a signer → Sign.
+// It starts at 1 of 2 (Austin 11-06); `both` taps + for 2 of 2, so big sends need the wedgie.
+const owners = w => cast(`call ${w} "getOwners()(address[])"`).replace(/[\[\]\s]/g, "").split(",").filter(Boolean);
+const until = async (fn, ms) => {
+  for (const end = Date.now() + ms; Date.now() < end; await new Promise(r => setTimeout(r, 1500))) if (fn()) return true;
+  return false;
+};
+async function addWedgie(p, both, who = acct.address) {
+  const n0 = owners(who).length;
+  await p.getByText("Edit signers").tap();
+  await p.getByText("Add a wedgie").tap();
+  const add = p.getByText("Add it as a signer");
+  const find = p.getByText("Find my wedgie");
+  await add.or(find).first().waitFor({ timeout: 20000 });
+  if (!(await add.count())) await find.tap();
+  await add.waitFor({ timeout: 20000 });
+  if (both) await p.getByRole("button", { name: "More", exact: true }).tap();
+  await add.tap();
+  await p.getByRole("button", { name: "Sign", exact: true }).tap();
+  await until(() => owners(who).length > n0, 90000);
+  await p.waitForTimeout(6000); // the page reads it
+}
+// a waiting tx's sheet (Face ID has signed): the wedgie signs, then Execute
+async function wedgieThenExecute(p) {
+  const sheet = p.locator(".sheet").last();
+  await sheet.getByRole("button", { name: "Sign", exact: true }).tap();
+  await sheet.getByRole("button", { name: "Execute", exact: true }).tap({ timeout: 60000 });
+  await sheet.getByText("✓ Executed").waitFor({ timeout: 90000 });
+  await p.keyboard.press("Escape");
+  await p.waitForTimeout(13000);
+}
+// a send over the daily budget on a 2 of 2 wallet: Face ID on the Send sheet, then the tx's own sheet
+async function sendBig(p, to, amount, shot) {
+  await p.locator(".asset", { has: p.locator(".sym", { hasText: /^USDC$/ }) }).first().tap();
+  await p.getByPlaceholder("0x… or name.eth").fill(to);
+  await p.locator("input.amount").fill(amount);
+  await p.getByText("Review").tap();
+  const go = p.locator(".confirm .btn-green");
+  await go.waitFor({ timeout: 15000 });
+  await p.waitForTimeout(1500);
+  const signedBy = await p.locator(".line", { hasText: "Signed by" }).textContent();
+  await go.tap();
+  await p.getByText(/^Sign · 1 of 2$/).waitFor({ timeout: 60000 });
+  await p.screenshot({ path: `${OUT}/${shot}-waiting.png` });
+  await wedgieThenExecute(p);
+  return signedBy;
+}
+// a change that needs the owners: on a 2 of 2 wallet Face ID signs and the tx's sheet opens for the wedgie
+async function maybeWedgie(p) {
+  if (await p.getByText(/^Sign · 1 of 2$/).waitFor({ timeout: 20000 }).then(() => true, () => false)) await wedgieThenExecute(p);
+}
+// Settings (open) → recovery → Edit / learn more → Add a guardian → Sign
+async function addGuardian(p, g) {
+  await p.getByText("Edit / learn more").tap();
+  const box = p.getByPlaceholder("Add a guardian: 0x… or name.eth");
+  const add = p.locator(".row", { has: box }).getByRole("button", { name: "Add", exact: true });
+  ok(await add.isDisabled(), "guardian: Add is off until there's an address");
+  await box.fill(g);
+  await p.waitForTimeout(1500);
+  await add.tap();
+  await p.getByRole("button", { name: "Sign", exact: true }).first().tap({ timeout: 60000 });
+  await maybeWedgie(p);
+}
 await page.locator(".fab-settings").tap();
 ok((await page.getByText("Connect and add", { exact: true }).count()) === 0, "Keys offers no hot wallet");
-await page.getByText("Connect and add the wedgie").tap();
-await page.getByRole("button", { name: "Yes", exact: true }).tap();
-await page.getByText("Done").waitFor({ timeout: 90000 }).catch(() => {});
-await page.waitForTimeout(14000);
+await addWedgie(page, true);
 await page.screenshot({ path: `${OUT}/s5-level2.png`, fullPage: true });
-ok(cast(`call ${acct.address} "getThreshold()(uint256)"`) === "3", "threshold 3 with the wedgie");
-ok(cast(`call ${acct.address} "getOwners()(address[])"`).split(",").length === 3, "3 owners: Instant + the wedgie's two slots");
+ok(cast(`call ${acct.address} "getThreshold()(uint256)"`) === "2", "threshold 2 with the wedgie (2 of 2 picked)");
+ok(cast(`call ${acct.address} "getOwners()(address[])"`).split(",").length === 2, "2 owners: Instant + the wedgie");
 ok(on(acct.address, R14) && on(acct.address, R60) && !on(acct.address, RECOVERY), "pairing the wedgie: 14 + 60-day recovery on, 7-day off");
 ok(guardians(acct.address, R60) === `[${DAO.toLowerCase()}]`, "the DAO is on 60 days");
 ok(guardians(acct.address, R14) === "[]" && guardians(acct.address, RECOVERY) === "[]", "nobody on 14 days yet; the 7-day module emptied");
@@ -269,22 +329,17 @@ await page.waitForTimeout(1000);
 let w1 = wedgieSigns;
 const CAROL = rand();
 const by1 = await send(CAROL, "USDC", "40", "s6");
-ok(usdcOf(CAROL) === 40_000_000n && /Instant/.test(by1) && !/Wedgie/.test(by1) && wedgieSigns === w1, "within the budget: Face ID alone (Roles)");
+ok(usdcOf(CAROL) === 40_000_000n && /daily budget/.test(by1) && wedgieSigns === w1, `within the budget: Face ID alone (${by1})`);
 const DAVE = rand();
-const by2 = await send(DAVE, "USDC", "300", "s7");
-ok(usdcOf(DAVE) === 300_000_000n && /Instant \+ Wedgie/.test(by2) && wedgieSigns === w1 + 1, "over the budget: Face ID + wedgie");
+const by2 = await sendBig(page, DAVE, "300", "s7");
+ok(usdcOf(DAVE) === 300_000_000n && /then the wedgie/.test(by2) && wedgieSigns === w1 + 1, `over the budget: Face ID, then the wedgie (${by2})`);
 
 // ---------------------------------------------------------------- level 3: paper becomes the recovery
 const paper = privateKeyToAccount("0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a").address; // anvil #2
 await page.locator(".fab-settings").tap();
-await page.locator(".guardian input").waitFor();
-ok(await page.locator(".step").filter({ has: page.locator(".guardian") }).getByRole("button", { name: "Save", exact: true }).isDisabled(), "guardian: Save is off until the address changes");
-await page.locator(".guardian input").tap();
-await page.waitForTimeout(300);
-await page.locator(".guardian input").fill(paper);
-await page.locator(".step").filter({ has: page.locator(".guardian") }).getByRole("button", { name: "Save", exact: true }).tap();
-await page.getByRole("button", { name: "Yes", exact: true }).tap();
-await page.waitForTimeout(20000);
+await addGuardian(page, paper);
+await until(() => cast(`call ${R14} "isGuardian(address,address)(bool)" ${acct.address} ${paper}`) === "true", 60000);
+await page.screenshot({ path: `${OUT}/s8-guardian.png`, fullPage: true });
 ok(cast(`call ${R14} "isGuardian(address,address)(bool)" ${acct.address} ${paper}`) === "true", "paper is the recovery address");
 ok(guardians(acct.address, R60) === `[${DAO.toLowerCase()}]`, "the DAO stays on 60 days");
 await page.keyboard.press("Escape");
@@ -300,6 +355,7 @@ await page.screenshot({ path: `${OUT}/s10-recovery-alert.png` });
 ok(await page.getByText("Someone is recovering this wallet").isVisible(), "the app shows the recovery alert");
 await page.getByRole("button", { name: "Cancel it" }).tap();
 await page.getByRole("button", { name: "Sign to cancel it" }).tap();
+await maybeWedgie(page);
 await page.waitForTimeout(25000);
 const req = cast(`call ${R14} "getRecoveryRequest(address)((uint256,uint256,uint64,address[]))" ${acct.address}`);
 ok(/^\(0, 0, 0/.test(req), `recovery cancelled (${req.slice(0, 40)})`);
@@ -311,6 +367,7 @@ await page.waitForTimeout(14000);
 ok(await page.getByText("Someone is recovering this wallet").isVisible(), "the app shows the DAO's recovery");
 await page.getByRole("button", { name: "Cancel it" }).tap();
 await page.getByRole("button", { name: "Sign to cancel it" }).tap();
+await maybeWedgie(page);
 await page.waitForTimeout(25000);
 const req60 = cast(`call ${R60} "getRecoveryRequest(address)((uint256,uint256,uint64,address[]))" ${acct.address}`);
 ok(/^\(0, 0, 0/.test(req60), `the DAO's recovery cancelled (${req60.slice(0, 40)})`);
@@ -387,13 +444,11 @@ ok(modsAfter === rolesAddr, "Roles stays on, ready for this phone");
 // and the recovered phone can level up again (Roles exists: no second deploy), with a new wedgie
 newWedgie();
 await page2.locator(".fab-settings").tap();
-await page2.getByText("Connect and add the wedgie").tap();
-await page2.getByRole("button", { name: "Yes", exact: true }).tap();
-await page2.waitForTimeout(25000);
+await addWedgie(page2, true);
 const errs2 = await page2.locator(".err").allTextContents();
 if (errs2.length) console.log("on screen:", errs2);
 await page2.screenshot({ path: `${OUT}/s14-recovered-levelup.png`, fullPage: true });
-ok(cast(`call ${acct.address} "getThreshold()(uint256)"`) === "3", "the recovered wallet adds a wedgie again");
+ok(cast(`call ${acct.address} "getThreshold()(uint256)"`) === "2", "the recovered wallet adds a wedgie again");
 const members2 = cast(`call ${rolesOf} "getModulesPaginated(address,uint256)(address[],address)" 0x0000000000000000000000000000000000000001 10`);
 ok(members2.toLowerCase().includes(acct2.burnerSigner.toLowerCase().slice(2)), "the new phone has the budget now");
 await page2.screenshot({ path: `${OUT}/s13-recovered-sent.png` });
@@ -422,21 +477,15 @@ await page.waitForTimeout(13000);
 const lvl = async () => (await page.locator(".fab-settings .lvl").textContent()).replace(/\s/g, "");
 ok((await lvl()) === "1/1", "a new wallet: 1/1");
 await page.locator(".fab-settings").tap();
-await page.locator(".guardian input").tap();
-await page.waitForTimeout(300);
-await page.locator(".guardian input").fill(paper);
-await page.locator(".step").filter({ has: page.locator(".guardian") }).getByRole("button", { name: "Save", exact: true }).tap();
-await page.getByRole("button", { name: "Yes", exact: true }).tap();
+await addGuardian(page, paper);
 await page.waitForTimeout(25000);
-ok(cast(`call ${RECOVERY} "isGuardian(address,address)(bool)" ${acct3.address} ${paper}`) === "true", "recovery first (Face ID alone, deploys the wallet too)");
+ok(cast(`call ${R14} "isGuardian(address,address)(bool)" ${acct3.address} ${paper}`) === "true", "recovery first (Face ID alone, deploys the wallet too)");
 let w0 = wedgieSigns;
-await page.getByText("Connect and add the wedgie", { exact: true }).tap();
-await page.getByRole("button", { name: "Yes", exact: true }).tap();
-await page.waitForTimeout(25000);
+await addWedgie(page, true, acct3.address);
 const errs3 = await page.locator(".err").allTextContents();
 if (errs3.length) console.log("on screen:", errs3);
 await page.screenshot({ path: `${OUT}/s15-recovery-then-wedgie.png`, fullPage: true });
-ok(cast(`call ${acct3.address} "getThreshold()(uint256)"`) === "3" && wedgieSigns === w0, "then the wedgie: threshold 3, Face ID alone signed it");
+ok(cast(`call ${acct3.address} "getThreshold()(uint256)"`) === "2" && wedgieSigns === w0, "then the wedgie: threshold 2, Face ID alone signed it");
 ok(guardians(acct3.address, R14) === `[${paper.toLowerCase()}]` && on(acct3.address, R14), "the own recovery address carries over to 14 days");
 ok(guardians(acct3.address, R60) === `[${DAO.toLowerCase()}]` && !on(acct3.address, RECOVERY), "and the DAO comes back on 60 days");
 await page.keyboard.press("Escape");
@@ -444,10 +493,10 @@ await page.waitForTimeout(1000);
 ok((await lvl()) === "2/2", "Instant + wedgie: 2/2");
 const GUS = rand();
 const by4 = await send(GUS, "USDC", "30", "s16");
-ok(usdcOf(GUS) === 30_000_000n && !/Wedgie/.test(by4) && wedgieSigns === w0, "within the budget: Face ID alone");
+ok(usdcOf(GUS) === 30_000_000n && /daily budget/.test(by4) && wedgieSigns === w0, "within the budget: Face ID alone");
 const HAL = rand();
-const by5 = await send(HAL, "USDC", "300", "s17");
-ok(usdcOf(HAL) === 300_000_000n && /^Instant \+ Wedgie/.test(by5) && wedgieSigns === w0 + 1, "over the budget: Face ID + wedgie");
+const by5 = await sendBig(page, HAL, "300", "s17");
+ok(usdcOf(HAL) === 300_000_000n && /then the wedgie/.test(by5) && wedgieSigns === w0 + 1, "over the budget: Face ID, then the wedgie");
 await page.screenshot({ path: `${OUT}/s18-any-order-done.png` });
 
 await browser.close();

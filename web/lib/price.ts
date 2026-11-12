@@ -1,11 +1,12 @@
 import { nativeSymbol } from "@/lib/chains";
 
-/** ETH in dollars, from the browser (Coinbase), once per page. 0: not known. */
+/** ETH in dollars, from our price server (it asked Coinbase from the browser: one more host that saw every review
+ * screen), once per page. 0: not known. */
 let ethPrice = 0;
 export async function ethUsd(): Promise<number> {
   if (ethPrice) return ethPrice;
-  const j = await fetch("https://api.coinbase.com/v2/prices/ETH-USD/spot").then(r => r.json()).catch(() => null);
-  return (ethPrice = Number(j?.data?.amount) || 0);
+  const j = await fetch("/api/price?chain=1").then(r => r.json()).catch(() => null);
+  return (ethPrice = Number(j?.usd) || 0);
 }
 
 /** Any chain's native coin in dollars (ETH, POL, BNB, …), once per chain per page. 0: not known. */

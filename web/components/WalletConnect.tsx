@@ -17,6 +17,8 @@ import {
   approveProposal,
   disconnect,
   getKit,
+  wcKeep,
+  wcWanted,
   pair,
   rejectProposal,
   respondError,
@@ -54,6 +56,12 @@ export function ConnectLayer({
 }) {
   const [kit, setKit] = useState<Kit | null>(null);
   const [sheet, setSheet] = useState(false);
+  // WalletConnect starts (and talks to its servers) only when it's needed: a site is connected, Connect is open, or
+  // a wc: link came in. A wallet that never connects a site never starts it.
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    if (sheet || pairUri || wcWanted()) setOn(true);
+  }, [sheet, pairUri]);
   const [proposal, setProposal] = useState<WalletKitTypes.SessionProposal | null>(null);
   const [queue, setQueue] = useState<Pending[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -68,10 +76,12 @@ export function ConnectLayer({
       icon: s.peer.metadata.icons?.[0],
     }));
     setSessions(list);
+    wcKeep(list.length > 0);
     onSessions?.(list);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
+    if (!on) return;
     let live = true;
     let k: Kit;
     // a proposal only comes from a pairing the user started (a scan, a paste, a link): that was the yes, so connect
@@ -118,7 +128,7 @@ export function ConnectLayer({
         k.off("session_delete", onDelete);
       }
     };
-  }, [address, chainIds?.join(), refreshSessions]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [on, address, chainIds?.join(), refreshSessions]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // the browser extension: sites on this computer ask through it, into the same queue (lib/extension.ts)
   useEffect(() => {
@@ -156,6 +166,7 @@ export function ConnectLayer({
     const open = async (e: Event) => {
       const uri = (e as CustomEvent<string | undefined>).detail;
       setError(null);
+      setOn(true);
       if (!uri) return setSheet(true);
       try {
         await pair(uri);

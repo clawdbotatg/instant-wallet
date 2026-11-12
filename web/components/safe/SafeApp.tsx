@@ -201,11 +201,25 @@ export function SafeApp({ link }: { link?: string } = {}) {
     setFresh(false);
     refresh();
     // balance every 3 s (every second while the receive code is up, its first 3 minutes: someone is paying you now),
-    // keys every 12 s (a chain the wallet isn't on: every fifth time); nothing while the tab is hidden
+    // keys every 12 s (a chain the wallet isn't on: every fifth time); nothing while the tab is hidden.
+    // Left alone on Home for a minute (no touch, key or scroll, nothing open, nothing on its way): balance every 10 s,
+    // keys once a minute. The first touch reads both at once and it's quick again.
     let n = 0;
     let q = 0;
-    const b = setInterval(() => document.hidden || ((Date.now() < fastUntil.current || ++n % 3 === 0) && loadBalance()), 1_000);
-    const k = setInterval(() => document.hidden || loadStates(++q % 5 !== 0), 12_000);
+    let touched = Date.now();
+    const idle = () => Date.now() - touched > 60_000 && !receiving.current && !sheetOpen() && !sendingNow().length;
+    const touch = () => {
+      const was = idle();
+      touched = Date.now();
+      if (was && !document.hidden) {
+        loadBalance();
+        loadStates(true);
+      }
+    };
+    const TOUCH = ["pointerdown", "keydown", "wheel", "touchmove"] as const;
+    TOUCH.forEach(e => window.addEventListener(e, touch, { passive: true, capture: true }));
+    const b = setInterval(() => document.hidden || ((Date.now() < fastUntil.current || ++n % (idle() ? 10 : 3) === 0) && loadBalance()), 1_000);
+    const k = setInterval(() => document.hidden || (++q % 5 !== 0 && idle()) || loadStates(q % 5 !== 0), 12_000);
     // back from another app: read now, don't wait for the next tick; and a newer deploy loads itself (a phone left
     // open ran old code for hours: nothing else ever reloads it), only on Home with nothing open or being sent
     const back = () => {
@@ -221,6 +235,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
     return () => {
       clearInterval(b);
       clearInterval(k);
+      TOUCH.forEach(e => window.removeEventListener(e, touch, { capture: true }));
       document.removeEventListener("visibilitychange", back);
     };
   }, [account, refresh, loadBalance, loadStates]);

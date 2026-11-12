@@ -284,13 +284,15 @@ a clean macOS VM with a virtual passkey and recorded every request. Runs: `20261
 Ethereum). Maps: ethereumtransitauthority.com `#/iw`, `#/iws`, `#/iwt`. Desktop Chromium at phone size; the phone
 (Safari, Face ID, passkey sync) and the wedgie were not captured. This answers `docs/CROPS.md` section 3's "check"s.
 
-- [ ] **32. WalletConnect telemetry on every page load, with an id that lasts.**
+- [x] **32. WalletConnect telemetry on every page load, with an id that lasts.**
   `POST pulse.walletconnect.org/batch`, event `INIT`, with the site, the SDK version and a `client_id`
   (`did:key:…`). The same id was sent in every run, across browser restarts. No dapp was connected.
   `lib/walletconnect.ts:62` (`WalletKit.init`, `new Core({ projectId })`).
   Fix: don't start WalletConnect until someone opens Connect; turn its telemetry off (`telemetryEnabled: false` on
   `Core`: not tried). Then add the host to `same-check.mjs` so it can't come back.
   `docs/CROPS.md` "Data collection: likely passes today" is wrong until this is fixed.
+  Done 11-12: WalletConnect starts only when a site is connected, Connect is open or a wc: link comes in
+  (`wcWanted` / `wcKeep`), and `telemetryEnabled: false`. Not added to `same-check.mjs`.
 
 - [ ] **33. A picture host learns who you pay.**
   The browser loads `euc.li/<name>` for the recipient's ENS avatar on the send form, before anything is signed, and
@@ -298,10 +300,11 @@ Ethereum). Maps: ethereumtransitauthority.com `#/iw`, `#/iws`, `#/iwt`. Desktop 
   (`avatarUrl` in clear-signing-safe-kit).
   Fix: serve avatars through our server (or cache them there), or show a blockie until the send is done.
 
-- [ ] **34. Coinbase sees every review screen.**
+- [x] **34. Coinbase sees every review screen.**
   `lib/price.ts:7` fetches `api.coinbase.com/v2/prices/ETH-USD/spot` from the browser on the swap and token-send
   review. IP only, no address. The server already fetches the same price (`lib/safe/relayCore.ts:48`).
   Fix: take it from `/api/price` or the relay quote.
+  Done 11-12: `lib/price.ts` `ethUsd` reads `/api/price?chain=1`.
 
 - [ ] **35. Idle polling.**
   60 s on Home with nothing happening: 125 requests. `/api/portfolio` 23 times; `eth_getCode` of the wallet on all
@@ -309,15 +312,20 @@ Ethereum). Maps: ethereumtransitauthority.com `#/iw`, `#/iws`, `#/iwt`. Desktop 
   address and the IP to our server, and the address on to Alchemy.
   Fix: `getCode` once per network then only after a send; slow the balance timer when nothing is pending; one
   multicall for the networks that have it.
+  Part done 11-12: left alone on Home for a minute, the balance is read every 10 s (was 3) and the keys once a
+  minute (was 12 s); the first touch reads both at once. Receive, an open sheet or a send on its way stay quick.
+  Left: `getCode` once per network; one multicall.
 
-- [ ] **36. The fee on a small USDC send on Ethereum is bigger than the send.**
+- [x] **36. The fee on a small USDC send on Ethereum is bigger than the send.**
   $0.40 of USDC cost about 0.51 USDC in fee (tx `0xf919d405…2ef8`). $0.50 with 1.03 USDC in the wallet showed
   "Would fail now". The ETH send's fee was $0.43 (it also deployed the wallet); the swap's was $0.20.
   Fix: decide. Warn when the fee is more than the amount, or point small sends at Base.
+  Dropped 11-12: Austin doesn't care about this one.
 
-- [ ] **37. Opening Apps calls two more hosts.**
+- [x] **37. Opening Apps calls two more hosts.**
   5 icons from `instant-wallet-apps.vercel.app` and 5 from `safe-transaction-assets.safe.global` load as soon as
   Apps opens (and Swap is behind Apps). IP only. Fix: ship the icons in the app.
+  Done 11-12: the ten icons are in `public/apps/`.
 
 - [ ] **38. `/api/explain` ran after the relay POST on the ETH send.**
   In `20261111-185710-send-eth-instant` the first `/api/explain` is 0.2 s after `POST /api/safe/relay`. On the swap

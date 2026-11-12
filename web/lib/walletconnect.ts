@@ -57,10 +57,27 @@ export const WC_CHAIN_IDS = WC_CHAINS.map(c => c.id);
 export type Kit = Awaited<ReturnType<typeof WalletKit.init>>;
 let kit: Promise<Kit> | null = null;
 
+/** Does WalletConnect need to start with the page? Only when a site is connected (its requests come over
+ * WalletConnect's socket). "0": this browser had none last time. Never written: not known yet, so start once and find out. */
+const WANTED = "iws:wc";
+export function wcWanted() {
+  try {
+    return localStorage.getItem(WANTED) !== "0";
+  } catch {
+    return true;
+  }
+}
+export function wcKeep(connected: boolean) {
+  try {
+    localStorage.setItem(WANTED, connected ? "1" : "0");
+  } catch {}
+}
+
 export function getKit(): Promise<Kit> {
   if (!kit) {
     kit = WalletKit.init({
-      core: new Core({ projectId: PROJECT_ID }),
+      // no telemetry: it sent an id that lasts to pulse.walletconnect.org on every page load
+      core: new Core({ projectId: PROJECT_ID, telemetryEnabled: false }),
       metadata: {
         name: "Instant Wallet",
         description: "Your money, instantly. Face ID is the key.",

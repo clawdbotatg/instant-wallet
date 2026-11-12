@@ -47,7 +47,7 @@ function keep(key: string, rows: Row[]) {
  */
 export function Activity({ safe, chains, undeployed = [], assets, late, live, tick, onIn }: { safe: Address; chains: number[]; undeployed?: number[]; assets: Asset[]; late?: number[]; live?: boolean; tick?: number; onIn?: (got: Just[]) => void }) {
   const [by, setBy] = useState<{ key: string; rows: Record<number, Row[]> }>({ key: "", rows: {} });
-  const [out, setOut] = useState<Sending[]>(() => sendingNow());
+  const [out, setOut] = useState<Sending[]>([]);
   const [just, setJust] = useState<Just[]>([]);
   const [landed, setLanded] = useState(0);
   // networks with no Safe that hold something: the only ones worth asking
@@ -65,6 +65,8 @@ export function Activity({ safe, chains, undeployed = [], assets, late, live, ti
       setOut(sendingNow());
       if (l) read();
     });
+    // sends this browser kept from before a reload (read here, after the page is up, not while it first draws)
+    setOut(sendingNow());
     return () => {
       off();
       clearTimeout(later.current);

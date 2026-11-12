@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse, after } from "next/server";
-import type { Address, Hex } from "viem";
+import { type Address, type Hex, decodeFunctionResult, erc20Abi } from "viem";
 import { WARN, describe } from "@/lib/safe/describe";
 import { explainer } from "clear-signing-safe-kit/explain";
 import { CHAINS, knownChain } from "@/lib/chains";
@@ -24,7 +24,16 @@ const MAX_DATA = 40_000;
 const explain = explainer({
   token: async (chain, a) => {
     const m = await rpc<any>(chain, "alchemy_getTokenMetadata", [a]).catch(() => null);
-    return m && typeof m.decimals === "number" ? { name: m.name || m.symbol || "", symbol: m.symbol || "?", decimals: m.decimals } : null;
+    if (m && typeof m.decimals === "number") return { name: m.name || m.symbol || "", symbol: m.symbol || "?", decimals: m.decimals };
+    // a node that isn't Alchemy (your own, a fork): ask the token itself, or the amount shows raw ("300000000")
+    const ask = (data: Hex) => rpc<Hex>(chain, "eth_call", [{ to: a, data }, "latest"]);
+    const [d, s] = await Promise.all([ask("0x313ce567"), ask("0x95d89b41").catch(() => null)]); // decimals(), symbol()
+    if (!d || d === "0x") return null;
+    let symbol = "?";
+    try {
+      if (s) symbol = decodeFunctionResult({ abi: erc20Abi, functionName: "symbol", data: s }) || "?";
+    } catch {}
+    return { name: symbol, symbol, decimals: Number(BigInt(d)) };
   },
   chain: id => {
     const k = knownChain(id);

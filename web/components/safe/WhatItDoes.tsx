@@ -71,7 +71,7 @@ export function Lines({ lines, chain }: { lines: Line[]; chain?: number }) {
       {lines.map((l, i) => (
         <span key={i} style={{ display: "block" }}>
           <SrcTag src={l.src} />
-          <Words text={l.text} chain={chain} />
+          <Words text={l.src === "raw" && l.text.startsWith(WARN) ? l.text.slice(WARN.length) : l.text} chain={chain} />
         </span>
       ))}
     </>
@@ -283,7 +283,8 @@ function Said({ text, n = 0, chain, src }: { text: string; n?: number; chain?: n
   return (
     <span style={{ fontSize: 15, color: warn ? "#c62828" : undefined, fontWeight: warn ? 600 : undefined }}>
       {src ? <SrcTag src={src} /> : n ? `${n}. ` : ""}
-      <Words text={text} chain={chain} />
+      {/* the ⚠️ mark already says it: never "⚠️ ⚠️ Fees to…" */}
+      <Words text={src === "raw" && warn ? text.slice(WARN.length) : text} chain={chain} />
     </span>
   );
 }

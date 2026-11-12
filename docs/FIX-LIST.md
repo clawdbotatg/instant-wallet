@@ -124,11 +124,13 @@ Suggested first: 1, 3, 5, 12, 20.
   wallet is funded; a simulator blip leaves a card with no coins until reload. This is expectation #1.
   Fix: never keep a failed ask; keep the coins ~30 s and ask again while the card is on screen.
 
-- [ ] **13. Waits of 5 s+ with no progress bar.**
+- [x] **13. Waits of 5 s+ with no progress bar.**
   Done 11-10: a cross-chain swap ("On its way…": `TimeBar`, sized to the route's usual time) and Send everything
   (the send bar under each network's button).
-  Left: `Waiting.tsx` (reject) · `SafeApp.tsx` (budget turn-off) · `RecoveryAlert.tsx` (Cancelling…) ·
-  `Claim.tsx` (the normal claim; the xdai branch has one) · `SimSetting.tsx`.
+  Done 11-11: Reject (`Waiting.tsx`), the old phone's budget turn-off (`SafeApp.tsx`), cancelling a recovery
+  (`RecoveryAlert.tsx`), funding a share (`Share.tsx`), checking your simulator (`SimSetting.tsx`). `useSendProgress`
+  in `Progress.tsx`. `same-check.mjs` fails on a file that sends a tx and draws no bar.
+  Left: `Claim.tsx` (the normal claim; the xdai branch has one): drops, low.
 
 - [x] **14. Bare `short(…)` addresses where the rule says `<Who>` / `<Words>`.** Done 11-10: the recovery alert
   (who is taking the wallet), the recovery tool's pending line, Activity's "Received from", Send's done screen, a

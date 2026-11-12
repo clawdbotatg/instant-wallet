@@ -92,6 +92,11 @@ for (const p of files) {
   for (const m of readFileSync(p, "utf8").matchAll(/<a\b[^>]*className="(?:asset|grow)"[^>]*target="_blank"[^>]*>[\s\S]{0,400}/g))
     if (!m[0].includes("↗")) (bad++, console.log(`${relative(root, p)}  a row that leaves the wallet: ↗ after its name`));
 }
+// a wait of ~5 s or more gets a bar: a file that sends a tx draws one (<Progress>, or <TimedBar>/<TimeBar> for a wait it only knows the length of)
+for (const p of files) {
+  const src = readFileSync(p, "utf8");
+  if (/\b(finishOwners|ownersSend|budgetSend)\(/.test(src) && !/<(Progress|TimedBar|TimeBar)\b/.test(src)) (bad++, console.log(`${relative(root, p)}  sends a tx with no progress bar: <Progress stage chainId hash>`));
+}
 // two button heights (Austin 11-11): every small one (pill, btn-sm) is as tall as a pill
 {
   const css = readFileSync(root + "app/globals.css", "utf8");

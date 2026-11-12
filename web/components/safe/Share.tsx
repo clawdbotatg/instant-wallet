@@ -15,6 +15,7 @@ import type { Asset } from "@/lib/types";
 import { GreenButton, Qr } from "../bits";
 import { ChainSelect, Select, assetOpt } from "./Pick";
 import { ErrorLine } from "./WedgieButton";
+import { Progress } from "./Progress";
 import { friendly } from "@/lib/friendly";
 
 /** The iOS app's NFC writer (instant-wallet-app InstantWallet/Nfc.swift). Only there. */
@@ -239,6 +240,7 @@ export function Share({ account, states, assets, chainId: startChain, onDone }: 
             <button className="btn btn-green wide" onClick={() => fund(card)} disabled={funding}>
               {funding ? (busyLabel[step] ?? "…") : step === "unfunded" ? "Try again" : "Fund it"}
             </button>
+            <Progress stage={step} chainId={chainId} />
             {!funding && <p className="fine">The {how === "qr" ? "QR" : "card"} is empty until you fund it.</p>}
           </>
         )}

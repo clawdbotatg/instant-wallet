@@ -10,6 +10,7 @@ import { SAFE_SVC } from "@/lib/safe/share";
 import { Eject, Who } from "../bits";
 import { friendly } from "@/lib/friendly";
 import { ErrorLine } from "./WedgieButton";
+import { Progress, useSendProgress } from "./Progress";
 
 /** A recovery is running on this wallet: say so loudly, with the date it lands and a Cancel. */
 export function RecoveryAlert({
@@ -32,6 +33,7 @@ export function RecoveryAlert({
   // only "mine" when it hands the wallet to exactly this phone (a recovery to [this phone, someone else] is not)
   const mine = !!account.recovered && r.newOwners.length === 1 && r.newOwners[0].toLowerCase() === account.burnerSigner.toLowerCase();
   const [ready, setReady] = useState<Prepared | null>(null);
+  const bar = useSendProgress();
   // two taps: get it ready, then sign (Face ID must start straight from a tap)
   async function prepare() {
     setBusy(true);
@@ -57,6 +59,7 @@ export function RecoveryAlert({
     setBusy(true);
     setError(null);
     try {
+      bar.watch(ready);
       await finishOwners(ready);
       setReady(null);
       onDone();
@@ -64,6 +67,7 @@ export function RecoveryAlert({
       if (e instanceof Shared) return setReady(null); // its page has the sheet now
       setError(friendly(e));
     } finally {
+      bar.end();
       setBusy(false);
     }
   }
@@ -83,6 +87,7 @@ export function RecoveryAlert({
           {busy ? (ready ? "Cancelling…" : "Getting ready…") : ready ? "Sign to cancel it" : "Cancel it"}
         </button>
       )}
+      <Progress stage={bar.stage} chainId={state.chainId} hash={bar.hash} />
       {error && <ErrorLine text={error} />}
     </div>
   );

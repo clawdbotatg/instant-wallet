@@ -25,6 +25,7 @@ import { AppFrame, AppList } from "./Apps";
 import type { AppEntry } from "@/lib/apps";
 import { type Confirm, SafeWelcome, signIn } from "./SafeWelcome";
 import { WedgieProgress } from "./WedgieButton";
+import { Progress, useSendProgress } from "./Progress";
 import { TxPage } from "./TxPage";
 import { WaitingCards } from "./Waiting";
 import { Activity, type Just } from "./Activity";
@@ -63,6 +64,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
   const [toast, setToast] = useToast();
   const [dropReady, setDropReady] = useState<Prepared | null>(null);
   const dropping = useRef(false);
+  const dropBar = useSendProgress();
   const [hidden, setHiddenState] = useState<string[]>([]);
   const [shown, setShownState] = useState<string[]>([]);
   const [showHidden, setShowHidden] = useState(false); // the hidden tokens, under the coin list
@@ -379,6 +381,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
         setDropReady(await prepareOwners({ account: account!, state: s, calls, signers: ownerSigners(s, account!), feeToken: feeTokenOn(s.chainId) }));
         return; // the next tap signs (Face ID must start straight from a tap)
       }
+      dropBar.watch(dropReady);
       await finishOwners(dropReady);
       setDropReady(null);
       setToast("The old phone's budget is off");
@@ -387,6 +390,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
       if (e instanceof Shared) return setDropReady(null); // its page has the sheet now
       setToast(friendly(e));
     } finally {
+      dropBar.end();
       dropping.current = false;
     }
   }
@@ -428,6 +432,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
                 <button className="btn btn-red wide" onClick={() => dropOldBudget(s)}>
                   {dropReady ? "Sign to turn it off" : "Turn it off"}
                 </button>
+                {dropReady?.opts.state.chainId === s.chainId && <Progress stage={dropBar.stage} chainId={s.chainId} hash={dropBar.hash} />}
               </div>
             ),
         )}

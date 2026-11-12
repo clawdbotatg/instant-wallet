@@ -19,6 +19,7 @@ import { ErrorLine } from "./WedgieButton";
 import { friendly } from "@/lib/friendly";
 import { CopyLink, Eject, RemoveX, Words } from "../bits";
 import { WhatItDoes } from "./WhatItDoes";
+import { Progress, useSendProgress } from "./Progress";
 
 /** Home: transactions waiting for signatures, on every network where this wallet needs more than one. */
 export function WaitingCards({
@@ -36,6 +37,7 @@ export function WaitingCards({
   // Two taps: get it ready, then sign (Face ID must start straight from a tap).
   const [rejecting, setRejecting] = useState<{ hash: string; ready?: Prepared } | null>(null);
   const signing = useRef(false);
+  const bar = useSendProgress();
   const reject = async (w: Waiting) => {
     const st = states.find(s => s.chainId === w.chainId);
     if (!st) return;
@@ -54,12 +56,14 @@ export function WaitingCards({
     if (signing.current) return; // a second tap while Face ID is up must not sign and post it twice
     signing.current = true;
     try {
+      bar.watch(rejecting.ready);
       await finishOwners(rejecting.ready);
       setList(l => l.filter(x => !(x.w.chainId === w.chainId && x.w.tx.nonce === w.tx.nonce)));
     } catch (e: any) {
       // signed here; its page is open for the other signers
       if (!(e instanceof Shared)) setError(friendly(e));
     } finally {
+      bar.end();
       signing.current = false;
       setRejecting(null);
     }
@@ -160,6 +164,7 @@ export function WaitingCards({
                 {behind ? `Signed · waits on #${next}` : enough ? "Execute" : `Sign · ${w.sigs.length} of ${need}`}
               </a>
             </div>
+            {r && <Progress stage={bar.stage} chainId={w.chainId} hash={bar.hash} />}
           </div>
         );
       })}

@@ -78,6 +78,18 @@ export function Progress({ stage, chainId, hash }: { stage: Stage | string | nul
   );
 }
 
+/** A prepared tx's stages, for <Progress>: `watch(p)` before finishOwners(p), `end()` when it's over. */
+export function useSendProgress() {
+  const [s, set] = useState<{ stage: Stage | null; hash?: Hash }>({ stage: null });
+  return {
+    ...s,
+    watch: (p: { opts: { onStage?: (s: Stage, hash?: Hash) => void } }) => {
+      p.opts.onStage = (stage, h) => set(x => ({ stage, hash: h ?? x.hash }));
+    },
+    end: () => set({ stage: null }),
+  };
+}
+
 /**
  * A wait we only know the usual length of (a bridge): a bar toward that time and the time so far. It starts when it
  * first shows. Take it away when the wait ends.

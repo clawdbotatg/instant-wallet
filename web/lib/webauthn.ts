@@ -50,11 +50,6 @@ export function encodeWebAuthnSignature(auth: WebAuthnAuth): Hex {
   );
 }
 
-/** Raw (device) signature: exactly 64 bytes r || s, low-s. */
-export function encodeRawSignature(r: Hex, s: Hex): Hex {
-  return `0x${r.slice(2).padStart(64, "0")}${bigintToHex32(toLowS(BigInt(s))).slice(2)}`;
-}
-
 export function bytesToBase64url(bytes: Uint8Array): string {
   let binary = "";
   for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);

@@ -156,7 +156,6 @@ export function Receive({
           </button>
         </>
       )}
-      {onSwitch && !asking && APP_LINK && <ShareApp />}
       {onSwitch && !asking && (
         <button className="btn btn-dark wide" onClick={onSwitch}>
           <SwitchIcon />
@@ -244,35 +243,5 @@ function NameTitle({ name, start, address, onClaim }: { name: string | null; sta
         Cancel
       </button>
     </form>
-  );
-}
-
-/** Where to get the app (the TestFlight link for now); "" hides Share Instant Wallet. */
-const APP_LINK = "";
-
-/** "Share Instant Wallet": opens the app's link as a QR; a tap on it copies the link. */
-function ShareApp() {
-  const [open, setOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
-  useEffect(() => {
-    if (!copied) return;
-    const t = setTimeout(() => setCopied(false), 1500);
-    return () => clearTimeout(t);
-  }, [copied]);
-  if (!open)
-    return (
-      <button className="btn wide" onClick={() => setOpen(true)}>
-        Share Instant Wallet
-      </button>
-    );
-  return (
-    <div onClick={async () => (await copy(APP_LINK)) && setCopied(true)} style={{ cursor: "pointer" }}>
-      <Qr value={APP_LINK} top={<b style={{ marginBottom: 10 }}>Get Instant Wallet</b>}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, color: "var(--ink)" }}>
-          <span className="fine">{copied ? "Copied" : "Tap to copy the link"}</span>
-          <CopyIcon />
-        </div>
-      </Qr>
-    </div>
   );
 }

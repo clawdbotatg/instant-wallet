@@ -317,8 +317,6 @@ function toRecovery(req: any): Recovery {
 
 /** With the wedgie: the DAO on the 60-day module (else wherever it is, on an older or wedgie-less wallet). */
 export const daoDays = (st: ChainState) => st.recoveries.find(r => r.guardians?.some(g => g.toLowerCase() === DAO.toLowerCase()))?.days ?? null;
-/** A wedgie wallet whose recovery isn't the 14 + 60-day layout yet (paired before it existed). */
-export const oldLayout = (st: ChainState) => st.hasWedgie && !st.modules.includes(RECOVERY_60D);
 
 /** Zodiac Roles allowance available now: balance plus refills since the last timestamp, capped at maxRefill. */
 function avail(x: readonly [bigint, bigint, bigint, bigint, bigint]): bigint {
@@ -333,12 +331,6 @@ function avail(x: readonly [bigint, bigint, bigint, bigint, bigint]): bigint {
 /** Every chain's state; `skip` leaves chains out (the caller keeps what it knew of them). */
 export async function readAll(a: SafeAccount, skip?: Set<number>): Promise<ChainState[]> {
   return Promise.all(CHAINS.filter(c => !skip?.has(c.id)).map(c => readChain(c.id, a).catch(() => null))).then(r => r.filter((x): x is ChainState => !!x));
-}
-
-/** The browser-wallet owner this device knows (else the first one on chain). */
-export function hotOf(a: SafeAccount, st: ChainState): Address | undefined {
-  if (a.hot && st.wallets.some(o => o.toLowerCase() === a.hot!.toLowerCase())) return a.hot;
-  return st.hot;
 }
 
 /** SafeWebAuthnSignerProxy's runtime size (the burner and both wedgie slots; checked on a Base fork 2026-10-06). */

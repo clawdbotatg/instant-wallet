@@ -227,7 +227,6 @@ div.asset:active { background: none; }
 
 /* Safe build (/): level meter, the key ladder, alerts, paper cards */
 .step { display: grid; gap: 10px; padding: 16px; }
-.step.current { box-shadow: var(--shell-shadow), 0 0 0 3px var(--mint); }
 .step.done { opacity: .92; }
 .keyrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 16px; }
 .alert { display: grid; gap: 8px; box-shadow: var(--shell-shadow), 0 0 0 3px var(--coral); }

@@ -203,7 +203,6 @@ export function WedgiePanel({
   onStatus?: (s: { tone: Status["tone"]; looking: boolean }) => void;
 }) {
   const [peek, setPeek] = useState<Peek | null>(null);
-  const open = true; // mounted = shown
   const [checking, setChecking] = useState(false);
   const [armed, setArmed] = useState(false);
   const [installing, setInstalling] = useState<{ what: string; p?: number } | null>(null);
@@ -266,10 +265,10 @@ export function WedgiePanel({
 
   // on the phone, a wedgie that didn't answer is asked again every 3 s while this sheet is open
   useEffect(() => {
-    if (!open || !wedgieDrive() || peek?.kind !== "silent") return;
+    if (!wedgieDrive() || peek?.kind !== "silent") return;
     const t = window.setTimeout(() => check(true), 3000);
     return () => clearTimeout(t);
-  }, [open, peek, check]);
+  }, [peek, check]);
 
   const st = statusOf(peek, account, states, latest);
   const looking = !peek; // not asked yet (the first check is on its way)

@@ -1,4 +1,4 @@
-import { type Address, type Hex, decodeFunctionData, getAddress, hexToBigInt, size, slice, zeroAddress } from "viem";
+import { type Address, type Hex, decodeFunctionData, getAddress, hexToBigInt, size, slice } from "viem";
 import { MULTICALL3, MULTISEND_CALL_ONLY } from "./config";
 import { type Call, abi } from "./core";
 
@@ -117,5 +117,3 @@ export function rolesCalls(calldata: Hex, roleKey: Hex): Call[] {
   }
   throw new Error("unexpected role target");
 }
-
-export const ZERO = zeroAddress;

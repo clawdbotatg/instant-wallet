@@ -27,12 +27,6 @@ function runWorker(req: WorkerReq): Promise<Extract<WorkerRes, { ok: true }>> {
   });
 }
 
-/** The commitment for hash key `index` (opt-in: the HybridPQSigner is deployed with commit(0)). */
-export async function pqCommit(material: Uint8Array): Promise<Hex> {
-  const r = await runWorker({ kind: "pub", material });
-  return commitOf(r.pkSeed, r.pkRoot);
-}
-
 export type HybridApproval = {
   webauthn: Hex; // the Safe contract-signature payload (checked by the passkey's own signer)
   pkSeed: Hex;

@@ -246,14 +246,13 @@ Suggested first: 1, 3, 5, 12, 20.
 - [ ] **28. `firmware/p256.py`.** `1e0d03f` (11-06) put constant-time signing into this old copy. wedgie-dev removed
   `sign()` the same day. Decide which is right; stop patching this one.
 
-- [ ] **29. Exports nobody uses.**
-  `core.prevOwner` (Keys.tsx:323 hand-writes it instead), `core.setGuardianCalls`, `state.hotOf`,
-  `state.oldLayout`, `fee.ZERO`, `pq/hybrid.pqCommit`, `pq/sphincs.C13`, `webauthn.encodeRawSignature`,
-  `address.KIND_RAW`. Props nobody passes: `SafeSwap` `start`, `Receive` `toast`, `Keys` `Step.done`,
-  `WhatItDoes` `Said.n`. `WedgieButton.tsx:220` `const open = true`. `Receive.tsx` `ShareApp` (`APP_LINK = ""`).
-  CSS: `.fab-wedgie`, `.step.current`. `public/wordmark.png`. `@adraffy/ens-normalize` in `package.json`.
-  About 20 more only need `export` dropped. Comments that name missing files: `describe.ts:81` (`urWords.ts`),
-  `wedgie.ts:20` (`clear.ts`), `pq/sphincs.ts:6` (`pq-check.mts`).
+- [x] **29. Exports nobody uses.**
+  Removed 11-12: `core.prevOwner`, `core.setGuardianCalls`, `state.hotOf`, `state.oldLayout`, `fee.ZERO`,
+  `pq/hybrid.pqCommit`, `webauthn.encodeRawSignature`, `address.KIND_RAW`, `Receive.tsx` `ShareApp`,
+  `WedgieButton.tsx` `const open = true`, `.step.current`, `public/wordmark.png`.
+  Left on purpose: `pq/sphincs.C13` (the comment beside it explains C11 against it). Not done: the props nobody
+  passes, `.fab-wedgie` (it's inside a live xdai selector), `@adraffy/ens-normalize` in `package.json`, the ~20
+  that only need `export` dropped, the three comments that name missing files.
 
 - [ ] **30. Docs that say things that aren't so.**
   - `docs/SAFE-APP.md`: `:5` the b2jn URL (it's instantwallet.io), `:14` "two owners, threshold 3" (now one
@@ -263,8 +262,7 @@ Suggested first: 1, 3, 5, 12, 20.
     `docs/OWN-NODE.md:17` · `docs/XDAI.md:18` (written before the switch) · `docs/APP-STORE.md:36` ·
     `docs/SWAP.md:3,12` · `docs/MULTI-SIGNER.md:72` · `docs/PLATFORMS.md:24-45` · `emu/README.md:36`,
     `emu/SKILL.md:52,63`, `hardware/case/README.md` (scripts that are gone).
-  - `EXPECTATIONS.md:29` says every shared part is in `bits.tsx`; `SrcTag` is in `WhatItDoes.tsx`, `bio()` in
-    `lib/passkey.ts`, `shownAs` / `wedgieHome` in `lib/safe/state.ts`.
+  - Done 11-12: `EXPECTATIONS.md` says where the shared parts that aren't in `bits.tsx` live.
   - Shipped or dropped, could go: `PLAN-drops.md`, `PLAN-recovery-delay.md`, `PLAN-xdai.md` (keep its table of
     what the old Burner left behind, in `docs/XDAI.md`), `docs/PLAN-REVIEW-2026-10-05*.md`,
     `docs/HANDOFF-2026-10-08-wedgie.md`, `docs/WEDGIE-PHONE-DEBUG.md`.
@@ -273,7 +271,7 @@ Suggested first: 1, 3, 5, 12, 20.
   - No `.env.example`. `web/README.md` now lists the names.
 
 - [ ] **31. Checks that miss things.**
-  - `tools/same-check.mjs` walks only `components/`, never `app/` (19 `.tsx` files).
+  - Done: `tools/same-check.mjs` walks `app/` too.
   - `.github/workflows/expect.yaml` runs on docs-only pushes and starts with a blind `sleep 240`; it could wait
     for `/api/version` to show the commit.
   - Ten `.mts` tools say `npx tsx`, and `tsx` isn't a dependency.

@@ -32,7 +32,9 @@ Where it lives: `WhatItDoes`, `<Money>`, clear-signing-safe-kit (`dangers`, `sim
 ## 2. Same thing, same look, everywhere
 
 - A feature asked for in one place goes everywhere that thing shows. Never make Austin ask twice.
-- Every rule below has one shared part in `web/components/bits.tsx`. Use it. Never draw the thing by hand.
+- Every rule below has one shared part. Use it. Never draw the thing by hand. Most are in
+  `web/components/bits.tsx`; `SrcTag` is in `WhatItDoes.tsx`, `bio()` in `lib/passkey.ts`, `shownAs` and
+  `wedgieHome` in `lib/safe/state.ts`.
 - `node web/tools/same-check.mjs` fails on anything hand-drawn. A new rule from Austin goes into that check in the
   same change, or it comes back in a fourth place.
 - Instant Wallet and wedgie.dev share their code through clear-signing-safe-kit, so both say the same.

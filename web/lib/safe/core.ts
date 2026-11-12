@@ -510,9 +510,6 @@ export function guardianListCalls(module: Address, current: Address[], target: A
   return calls;
 }
 
-/** Make `next` the module's only recovery address. */
-export const setGuardianCalls = (module: Address, current: Address[], next: Address): Call[] => guardianListCalls(module, current, [next]);
-
 /**
  * Recovery with the wedgie (Austin 10-15): the DAO on the 60-day module, your own recovery address (if you set one)
  * on the 14-day one, the 7-day one emptied and off (a module keeps its guardians when it's off: emptied, it can't
@@ -561,9 +558,3 @@ export function dropOtherBudgetsCalls(safe: Address, members: Address[], keep: A
 }
 
 export const SENTINEL: Address = "0x0000000000000000000000000000000000000001";
-
-export function prevOwner(owners: Address[], owner: Address): Address {
-  const i = owners.findIndex(o => o.toLowerCase() === owner.toLowerCase());
-  if (i < 0) throw new Error("not an owner");
-  return i === 0 ? SENTINEL : owners[i - 1];
-}

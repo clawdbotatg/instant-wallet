@@ -19,7 +19,7 @@ the card into the person's own passkey wallet, so the card is just cash, not the
    or Ethereum to it: scan it with your wallet (Instant Wallet's scanner reads it as a send) or **Copy address**. It
    says "Waiting for money…" until it lands (it checks every 6 s).
 3. **Step 2, ready:** once money is on it, the card shows what's on it and the **claim QR**. Now: **PDF**, **Copy
-   link**, **Write NFC tag** (Android Chrome, see section 4), or **Take it back**.
+   link**, **Write NFC tag** (Android Chrome, see section 4), or **Take back**.
 4. **Claimed:** once someone claims it, the card collapses to "Claimed" with **Delete**.
 
 A card only shows a claim QR once it holds money, so you can't print an empty card by mistake.
@@ -43,7 +43,7 @@ A card only shows a claim QR once it holds money, so you can't print an empty ca
 
 ### Take back, delete
 
-- **Take it back** opens the card's link in your own browser, which claims it into your own wallet.
+- **Take back** opens the card's link in your own browser, which claims it into your own wallet.
 - **Delete** forgets the key. If the card still holds money it asks first: whoever has the card can still claim it,
   you just lose your way to take it back.
 

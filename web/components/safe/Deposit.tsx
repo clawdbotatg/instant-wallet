@@ -60,16 +60,16 @@ export function Deposit({ account, onReceive }: { account: SafeAccount; onReceiv
       </div>
       <p className="fine">Lands on Base.</p>
       {ready ? (
-        <a className="btn wide" href={ready.url} target="_blank" rel="noopener noreferrer" onClick={() => setReady(null)}>
+        <a className="btn btn-green wide" href={ready.url} target="_blank" rel="noopener noreferrer" onClick={() => setReady(null)}>
           Continue to Coinbase ({ready.asset})
         </a>
       ) : (
-        <button className="btn wide" disabled={!!busy} onClick={() => go(asset)}>
+        <button className="btn btn-green wide" disabled={!!busy} onClick={() => go(asset)}>
           {busy ? `${bio()}…` : `Coinbase · Apple Pay, card`}
         </button>
       )}
       {!ready && (
-        <button className="btn wide" disabled={!!busy} onClick={onReceive}>
+        <button className="btn btn-dark wide" disabled={!!busy} onClick={onReceive}>
           <ReceiveIcon size={24} />
           Send in crypto
         </button>

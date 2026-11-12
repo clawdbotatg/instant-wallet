@@ -564,7 +564,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
                 <div className="fine">{showUsd ? `${amount(a.formatted)} ${a.symbol}` : `**** ${a.symbol}`}</div>
               </div>
               {isDust(a) && (
-                <button className="btn btn-red send-one" aria-label={`Hide ${a.symbol}`} onClick={() => {
+                <button className="btn send-one" aria-label={`Hide ${a.symbol}`} onClick={() => {
                     setHidden([...hidden, keyOf(a)]);
                     setShown(shown.filter(k => k !== keyOf(a)));
                   }}>

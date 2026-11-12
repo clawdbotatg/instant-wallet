@@ -81,7 +81,7 @@ export function PayLink() {
           </>
         )}
         <CopyAddress address={p.to} style={{ alignSelf: "center" }} />
-        <a className="btn wide" href="/">
+        <a className={`btn wide ${isRequest ? "btn-dark" : "btn-green"}`} href="/">
           Make an Instant Wallet ({bio()}, no app)
         </a>
       </div>

@@ -93,10 +93,10 @@ export function Join() {
                   {busy === "mine" ? "Sending…" : "Use this phone's Instant Wallet key"}
                 </button>
               )}
-              <button className={`btn wide ${mine ? "" : "btn-green"}`} onClick={() => answer("signin")} disabled={!!busy}>
+              <button className={`btn wide ${mine ? "btn-dark" : "btn-green"}`} onClick={() => answer("signin")} disabled={!!busy}>
                 {busy === "signin" ? `Check ${bio()}…` : `Use my passkey (${bio()})`}
               </button>
-              <button className="btn wide" onClick={() => answer("new")} disabled={!!busy}>
+              <button className={`btn wide ${mine ? "" : "btn-dark"}`} onClick={() => answer("new")} disabled={!!busy}>
                 {busy === "new" ? "Making it…" : "Make a new passkey for this"}
               </button>
             </>

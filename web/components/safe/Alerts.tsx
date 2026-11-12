@@ -166,7 +166,7 @@ export function Alerts({ account, toast }: { account: SafeAccount; toast: (m: st
             <span>🔔 This device gets notifications</span>
           ) : sub ? (
             <button className="btn btn-green wide" disabled={!!busy} onClick={async () => (await run("push", { op: "push", sub: sub.toJSON() }, "Notifications on")) && setSub(null)}>
-              {busy === "push" ? "…" : `Confirm with ${bio()}`}
+              {busy === "push" ? "…" : `Sign with ${bio()}`}
             </button>
           ) : (
             <button className="btn wide" disabled={!!busy} onClick={allow}>

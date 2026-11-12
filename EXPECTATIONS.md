@@ -87,6 +87,8 @@ Button sizes (11-11):
 
 - Green is the one thing people do next. Two greens are fine when they're in separate parts of a page. The
   other colors: #2, Button colors.
+- The point is the hint (11-12): green shows what to do, dark gray the second thing, the same way on every
+  screen. A rare state with two greens, or two things that matter the same and are both green, is fine.
 - Green follows what's next: when the next thing changes, green moves to it. A button doesn't change color while
   it works (busy, done, failed).
 

@@ -335,7 +335,7 @@ export function WedgiePanel({
             )}
             {st.install && wedgieDrive() && <p className="fine">Install the Safe signer from Chrome or Edge on a computer.</p>}
             {st.drive === "find" && (
-              <button className={`btn wide ${st.get ? "" : "btn-green"}`} onClick={() => openDrivePanel()}>
+              <button className={`btn wide ${st.get ? "btn-dark" : "btn-green"}`} onClick={() => openDrivePanel()}>
                 Find my wedgie
               </button>
             )}
@@ -351,7 +351,7 @@ export function WedgiePanel({
             )}
             {wedgieSerial() && !plugged && !st.install && (
               <button
-                className={`btn wide ${st.get ? "" : "btn-green"}`}
+                className={`btn wide ${st.get ? "btn-dark" : "btn-green"}`}
                 onClick={async () => {
                   if (await Wedgie.pick()) {
                     setArmed(true);

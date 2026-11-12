@@ -194,7 +194,7 @@ export function ClaimMaker() {
             {count("ready") > 0 && <p className="fine">2. Print them: 10 a page, card sheets or plain paper.</p>}
             <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
               {count("ready") > 0 && (
-                <button className="pill" onClick={() => pdf(list)}>
+                <button className={empty ? "pill" : "pill go"} onClick={() => pdf(list)}>
                   Download PDF
                 </button>
               )}
@@ -276,7 +276,7 @@ export function ClaimMaker() {
                 </Qr>
                 <div className="row noprint" style={{ gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
                   <button className="pill" onClick={() => pdf([c])}>
-                    PDF
+                    Download PDF
                   </button>
                   <CopyLink link={url} message="Claim link copied" label="Copy link" />
                   {nfc && (
@@ -285,7 +285,7 @@ export function ClaimMaker() {
                     </button>
                   )}
                   <a className="pill" href={url}>
-                    Take it back
+                    Take back
                   </a>
                 </div>
               </>

@@ -81,7 +81,7 @@ export function Drop() {
           <h1>Have a code?</h1>
           {missing && <p className="err">{missing}</p>}
           {enter}
-          <a className="btn wide" href="/">Open Instant Wallet</a>
+          <a className="btn btn-dark wide" href="/">Open Instant Wallet</a>
         </div>
       </div>
     );
@@ -142,7 +142,7 @@ export function Drop() {
         <div className="welcome">
           {header}
           <p>{info.closed}</p>
-          <a className="btn wide" href="/">Open Instant Wallet</a>
+          <a className="btn btn-green wide" href="/">Open Instant Wallet</a>
         </div>
       </div>
     );

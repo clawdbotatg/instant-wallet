@@ -68,7 +68,7 @@ export function AdminLogin({ title, blurb, onDone }: { title: string; blurb: str
             <a className="btn btn-green wide" href="/">Open Instant Wallet</a>
           </>
         )}
-        <button className="btn wide" onClick={wallet} disabled={busy}>
+        <button className="btn btn-dark wide" onClick={wallet} disabled={busy}>
           Log in with a wallet
         </button>
         {error && <p className="err">{error}</p>}

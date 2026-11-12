@@ -95,6 +95,7 @@ export function RecoverTool() {
       </span>
     ));
   const pending = info?.mods.filter(m => m.executeAfter > 0) ?? [];
+  const due = pending.some(m => Date.now() >= m.executeAfter); // green is on Finish then, not on Start
 
   return (
     <div className="app">
@@ -132,7 +133,7 @@ export function RecoverTool() {
           </div>
           {isAddress(original.trim()) && w && safeAddress(getAddress(original.trim())) !== w && <p className="err">That signer doesn&apos;t make this wallet.</p>}
           <button
-            className="btn wide"
+            className="btn btn-green wide"
             disabled={!w || !isAddress(original.trim()) || safeAddress(getAddress(original.trim())) !== w}
             onClick={() => run(SAFE_FACTORY, deploySafeCall(getAddress(original.trim())).data, "Deploy")}
           >
@@ -147,7 +148,7 @@ export function RecoverTool() {
           <input value={newKey} onChange={e => setNewKey(addressIn(e.target.value))} placeholder="0x… the owner's new key (from their new phone)" autoCapitalize="none" spellCheck={false} />
         </div>
         {info?.mods.map((m, i) => (
-          <button key={m.module} className={`btn ${i === 0 ? "btn-green" : ""} wide`} disabled={!startData || !info.deployed} onClick={() => startData && run(m.module, startData, "Start")}>
+          <button key={m.module} className={`btn ${i === 0 && info.deployed && !due ? "btn-green" : ""} wide`} disabled={!startData || !info.deployed} onClick={() => startData && run(m.module, startData, "Start")}>
             Start as {names(m.guardians, " or ")} ({RECOVERY_DAYS[m.module]} days)
           </button>
         ))}
@@ -165,7 +166,7 @@ export function RecoverTool() {
         <b>2. Finish, after the wait</b>
         {pending.length ? (
           pending.map(m => (
-            <button key={m.module} className="btn wide" disabled={Date.now() < m.executeAfter || !finalizeData} onClick={() => finalizeData && run(m.module, finalizeData, "Finish")}>
+            <button key={m.module} className={`btn wide ${Date.now() >= m.executeAfter ? "btn-green" : ""}`} disabled={Date.now() < m.executeAfter || !finalizeData} onClick={() => finalizeData && run(m.module, finalizeData, "Finish")}>
               {Date.now() >= m.executeAfter ? "Finish the recovery" : `Ready ${new Date(m.executeAfter).toLocaleString()}`}
             </button>
           ))

@@ -553,7 +553,7 @@ export function Keys({
                       <span className="row" style={{ gap: 8 }}>
                         <Addr a={who} chainId={chainId} />
                         <b>{i.answer!.name ?? "Someone"}</b>
-                        <button className="pill go" onClick={() => stage({ a: who, key: { x: i.answer!.x, y: i.answer!.y }, name: i.answer!.name })} disabled={idle}>
+                        <button className="pill" onClick={() => stage({ a: who, key: { x: i.answer!.x, y: i.answer!.y }, name: i.answer!.name })} disabled={idle}>
                           Add
                         </button>
                       </span>

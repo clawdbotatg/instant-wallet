@@ -253,7 +253,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
         <h2>Removed</h2>
         <p className="fine">Off the list. Only Reject stops it for sure.</p>
         {!inWallet && (
-          <a className="btn wide" href="/">
+          <a className="btn btn-green wide" href="/">
             Open Instant Wallet
           </a>
         )}
@@ -265,7 +265,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
         <h2>Transaction not found</h2>
         <p className="fine">Ask for the link again. It may have been executed or replaced already.</p>
         {!inWallet && (
-          <a className="btn wide" href="/">
+          <a className="btn btn-green wide" href="/">
             Open Instant Wallet
           </a>
         )}

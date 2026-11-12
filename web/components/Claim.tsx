@@ -259,7 +259,7 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
         <div className="welcome">
           <h1>Claim</h1>
           <p className="err">This claim link is broken or incomplete. Scan the card again.</p>
-          <a className="btn wide" href="/">Open Instant Wallet</a>
+          <a className="btn btn-green wide" href="/">Open Instant Wallet</a>
         </div>
       </div>
     );
@@ -415,7 +415,7 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
         <div className="welcome">
           {header}
           <p>Nothing on it: it was claimed already, or it hasn&apos;t been filled yet.</p>
-          <a className="btn wide" href="/">Open Instant Wallet</a>
+          <a className="btn btn-green wide" href="/">Open Instant Wallet</a>
         </div>
       </div>
     );

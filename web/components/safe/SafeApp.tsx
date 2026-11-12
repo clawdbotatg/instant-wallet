@@ -35,6 +35,8 @@ import { PositionList } from "./Positions";
 import { stashedCode } from "@/lib/dropClient";
 import { renamePasskey } from "@/lib/passkey";
 import { pullWalletName, pushWalletName } from "@/lib/walletName";
+import { claimName } from "@/lib/nameClaim";
+import { ourLabel } from "@/lib/names";
 import { disconnect } from "@/lib/walletconnect";
 import type { Session } from "../WalletConnect";
 
@@ -223,8 +225,9 @@ export function SafeApp({ link }: { link?: string } = {}) {
     };
   }, [account, refresh, loadBalance, loadStates]);
 
-  // the wallet's name: the user's own once they set one (we never rename it then), else Spending / Savings account
-  // by the rough balance below (under ~$200 is spending money)
+  // the wallet's name: its public one (its own ENS name first, else alice.inst.eth: lib/names.ts), else the private
+  // name it was given before public names (no longer set here), else Spending / Savings account by the rough
+  // balance below (under ~$200 is spending money)
   const [customName, setCustomName] = useState<string | null>(null);
   // synced across the passkey's devices (lib/walletName.ts): theirs wins; one saved before sync goes up
   useEffect(() => {
@@ -245,11 +248,26 @@ export function SafeApp({ link }: { link?: string } = {}) {
       live = false;
     };
   }, [account]);
-  const setName = (n: string | null) => {
+  // its inst.eth name: read once, and set at once by a claim (every <Who> learns it from /api/ens a beat later)
+  const [instName, setInstName] = useState<string | null>(null);
+  useEffect(() => {
+    setInstName(null);
     if (!account) return;
-    saveWalletName(account.address, n);
-    setCustomName(n);
-    if (account.credentialId !== WATCH) pushWalletName(account.credentialId, account.address, n);
+    let live = true;
+    fetch(`/api/names?address=${account.address}`)
+      .then(r => r.json())
+      .then(j => live && setInstName(j?.name ?? null))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [account]);
+  const claim = async (label: string) => {
+    if (!account) return;
+    const j = await claimName(account, label);
+    setInstName(j.name);
+    setToast(`${j.name} is yours`);
+    window.dispatchEvent(new CustomEvent("iws:landed", { detail: account.address })); // every <Who> of this wallet reads its name again
   };
   // the passkey's name in the password manager tracks the wallet: "Savings account · atg.eth · ~$50". Every
   // rename can pop a system notification, so the balance is rough (1-2-5 steps) and sticky: it only moves when the
@@ -272,6 +290,9 @@ export function SafeApp({ link }: { link?: string } = {}) {
   const [ens, setEns] = useState<string | null | undefined>(undefined);
   // the top-right pill shows the ENS name over the address; re-read when a tx lands (an ENS app tx sets it)
   const { name: ensName } = useName(account?.address);
+  // an ENS name of its own comes first; a name just claimed shows before the lookup catches up
+  const publicName = ensName && !ourLabel(ensName) ? ensName : (instName ?? ensName);
+  const title = publicName ?? walletName;
   useEffect(() => {
     if (!account) return;
     setEns(undefined);
@@ -286,7 +307,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
     try {
       last = JSON.parse(localStorage.getItem(namedKey) || "null");
     } catch {}
-    const name = `${walletName} · ${ens ?? short(account.address)} · ~${compactUsd(rough)}`; // plain text: the passkey's name in the phone's own list
+    const name = `${walletName} · ${ens ?? instName ?? short(account.address)} · ~${compactUsd(rough)}`; // plain text: the passkey's name in the phone's own list
     if (name === last?.name) return;
     renamePasskey(account.credentialId, name).then(ok => {
       if (!ok) return;
@@ -294,7 +315,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
         localStorage.setItem(namedKey, JSON.stringify({ name, rough }));
       } catch {}
     });
-  }, [account, namedKey, fresh, posUsd, rough, walletName, ens]);
+  }, [account, namedKey, fresh, posUsd, rough, walletName, ens, instName]);
 
   // the iOS app's pull-down: a newer deploy reloads the whole page; otherwise reload the balance now, with the
   // spinner beside it for at least a beat
@@ -413,7 +434,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
           </div>
           <button className="pill me big" onClick={() => setView({ kind: "receive" })}>
             <span style={{ display: "flex", minWidth: 0, maxWidth: "58vw", overflow: "hidden", textAlign: "left" }}>
-              <Who address={account.address} size={38} label={customName || walletName || undefined} />
+              <Who address={account.address} size={38} label={title || undefined} />
             </span>
           </button>
         </div>
@@ -580,8 +601,9 @@ export function SafeApp({ link }: { link?: string } = {}) {
               toast={setToast}
               got={got}
               onSeen={() => setGot([])}
-              name={walletName}
-              onName={setName}
+              name={title}
+              mine={instName}
+              onClaim={account.credentialId === WATCH ? undefined : claim}
               onSwitch={anotherPasskey}
               onSignOut={() => {
                 setAccount(null);

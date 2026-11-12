@@ -43,6 +43,8 @@ Where it lives: `WhatItDoes`, `<Money>`, clear-signing-safe-kit (`dangers`, `sim
 | Leaving the wallet (explorer, Safe{Wallet}, a tx's page) | `<Eject>`: white pill (the height of every pill), new window, as wide as its words, on the right. A whole row that leaves (a position, a connected site) says ↗ after its name. With a line of its own (under a progress bar) it is `big`: a normal button's height. On a finished screen `<DoneBar>`: Done and Explorer in one row, same height | a hand-rolled pill link, a pill stretched across the page |
 | A tx's link for the other signers | `<CopyLink>`: dark gray, copies. The only way to share a tx | a pop-out, a second Share button |
 | An address | `<Who>` (name over short address, avatar or blockie). Every one, on every screen (11-11). On one line (a headline, a button, under a QR code) it is `<Who flat>`. In an error or a tx's label: the full address in the words, drawn by `<Words>` | a bare `short(…)`, a full address in mono, one shortened by hand, a `<Blockie>` placed by hand |
+| A wallet's name | its own ENS name first, else its `alice.inst.eth` name (11-12). One lookup decides, `/api/ens`, so `<Who>` says the same everywhere | a second lookup that picks a name its own way |
+| Paying a name | `<NameMoved>` under it: red, with where it pointed last time, when it has moved (Send, Send everything, every `<AddressInput>`) | a name looked up and paid with no check |
 | A send | says who to: "Send to" and their `<Who>` (Activity, a waiting tx, signing) | "Send" alone |
 | A wedgie | its own screen's address + blockie (`shownAs`, `wedgieHome`) | its signer contract, an ENS avatar |
 | An address in a tx's words | `<Words>`: each full address drawn as `<Who>` | bare hex, `short(…)` in the text |

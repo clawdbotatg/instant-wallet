@@ -61,6 +61,14 @@ for (const p of files) {
       }
     });
 }
+// a wallet's name is decided in one place, /api/ens: its own ENS name first, else its inst.eth name (Austin 11-12).
+// And a name that gets paid is checked against where it pointed last time (<NameMoved>).
+for (const p of files) {
+  const rel = relative(root, p);
+  const src = readFileSync(p, "utf8");
+  if (/\/api\/names\?address/.test(src) && rel !== "components/safe/SafeApp.tsx") (bad++, console.log(`${rel}  a wallet's name read its own way: <Who> / useName decide it (its own ENS name first)`));
+  if (/\/api\/ens\?name=/.test(src) && rel !== "components/safe/SafeApp.tsx" && !/NameMoved/.test(src)) (bad++, console.log(`${rel}  a name looked up with no <NameMoved>: say so when it points somewhere new`)); // SafeApp: ?watch, never paid
+}
 // a waiting tx's Reject always comes with its ✕ (Austin 10-31: the tx page had Reject and no ✕, Home had both)
 for (const p of files) {
   const src = readFileSync(p, "utf8");

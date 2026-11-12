@@ -7,6 +7,7 @@ import QRCode from "qrcode";
 import { type Address, getAddress, isAddress } from "viem";
 import { chainById } from "@/lib/chains";
 import { amount as fmtAmount, short, usd as fmtUsd, addressIn, nameIn } from "@/lib/format";
+import { movedFrom } from "@/lib/names";
 import { parse } from "@/lib/parse";
 import { bio } from "@/lib/passkey";
 import { Scanner } from "./Scanner";
@@ -106,7 +107,7 @@ export function Who({ address, chain, size = 22, plain, label, link, inline, fla
         <span className={top ? undefined : "mono"} style={{ overflow: "hidden", textOverflow: "ellipsis", wordBreak: "normal" }}>{top ?? short(address)}</span>
       </span>
     );
-  const under = label && name ? `${name} · ${short(address)}` : short(address);
+  const under = label && name && name !== label ? `${name} · ${short(address)}` : short(address);
   const sub = link ? (
     <a className="mono fine" style={{ fontSize: 12 }} href={link} target="_blank" rel="noopener noreferrer">
       {under} ↗
@@ -127,6 +128,21 @@ export function Who({ address, chain, size = 22, plain, label, link, inline, fla
       ) : (
         sub
       )}
+    </span>
+  );
+}
+
+/**
+ * A name that points somewhere new since this browser last paid it (lib/names.ts): said in red, with where it was.
+ * A name's owner can repoint it, and so could whoever breaks into the server that answers for it.
+ */
+export function NameMoved({ name, address }: { name: string; address: string }) {
+  const [was, setWas] = useState<Address | null>(null);
+  useEffect(() => setWas(isAddress(address) ? movedFrom(name, address) : null), [name, address]);
+  if (!was) return null;
+  return (
+    <span className="err">
+      Last time {name.toLowerCase()} was <Who flat address={was} />
     </span>
   );
 }
@@ -724,9 +740,9 @@ export function useAddressScan(onAddress: (to: string) => void) {
 
 /**
  * An address field: the blockie + its ENS name (or 0x12ab…cdef) while idle, the full text while editing.
- * Takes 0x… or name.eth; `onChange` gets the address it resolves to, or null.
+ * Takes 0x… or name.eth; `onChange` gets the address it resolves to (and the name, when one was typed), or null.
  */
-export function AddressInput({ initial, onChange, placeholder = "0x… or name.eth" }: { initial?: Address; onChange: (a: Address | null) => void; placeholder?: string }) {
+export function AddressInput({ initial, onChange, placeholder = "0x… or name.eth" }: { initial?: Address; onChange: (a: Address | null, name?: string) => void; placeholder?: string }) {
   const [text, setText] = useState<string>(initial ?? "");
   const [addr, setAddr] = useState<Address | null>(initial ?? null);
   const [name, setName] = useState<string | null>(null);
@@ -765,7 +781,7 @@ export function AddressInput({ initial, onChange, placeholder = "0x… or name.e
         const a = getAddress(j.address);
         setAddr(a);
         setName(v.toLowerCase());
-        onChange(a);
+        onChange(a, v.toLowerCase());
       }
     }, 350);
     return () => {
@@ -805,6 +821,7 @@ export function AddressInput({ initial, onChange, placeholder = "0x… or name.e
         />
         {scan.pill}
       </div>
+      {addr && name && !isAddress(nameIn(text)) && <NameMoved name={name} address={addr} />}
       {scan.camera}
     </>
   );

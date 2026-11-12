@@ -7,6 +7,7 @@ import { amount as fmtAmount, usd, feeText, addressIn, nameIn } from "@/lib/form
 import { isClaimLink } from "@/lib/claim";
 import { isXdai } from "@/lib/brand";
 import { dropCode } from "@/lib/dropClient";
+import { rememberPaid } from "@/lib/names";
 import { parse } from "@/lib/parse";
 import { openWalletConnect } from "@/lib/walletconnect";
 import { transfer } from "@/lib/safe/core";
@@ -15,7 +16,7 @@ import { type FeeToken, type Signer, type Stage, Shared, budgetSend, feeCall, ge
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { AmountBox, Blockie, ChainChip, DoneBar, GreenButton, Money, ScanIcon, TokenIcon, Who, useSheetBack } from "../bits";
+import { AmountBox, Blockie, ChainChip, DoneBar, GreenButton, Money, NameMoved, ScanIcon, TokenIcon, Who, useSheetBack } from "../bits";
 import { Scanner } from "../Scanner";
 import { Select, assetOpt } from "./Pick";
 import { friendly } from "@/lib/friendly";
@@ -245,6 +246,7 @@ export function SafeSend({
           : await ownersSend({ account, state: st, calls, signers, feeToken, wedgie, quote: quote ?? undefined, onStage, label: `Send ${what} to ${toInput.includes(".") ? toInput : resolved}` });
       setHash(h);
       setStage("done");
+      if (toInput.includes(".")) rememberPaid(nameIn(toInput), resolved);
     } catch (e: any) {
       if (e instanceof Shared) return; // its page has the sheet now
       setError(friendly(e));
@@ -297,6 +299,7 @@ export function SafeSend({
             <span>To</span>
             <Who address={resolved} chain={chainId} label={toInput.includes(".") ? toInput : undefined} />
           </div>
+          {toInput.includes(".") && <NameMoved name={nameIn(toInput)} address={resolved} />}
           <div className="line">
             <span>Network</span>
             <ChainChip chainId={chainId} />
@@ -364,6 +367,7 @@ export function SafeSend({
             </div>
             {resolving && <span className="fine">Looking up {toInput}…</span>}
             {resolved && toInput.includes(".") && <Who address={resolved} chain={chainId} />}
+            {resolved && toInput.includes(".") && <NameMoved name={nameIn(toInput)} address={resolved} />}
           </div>
 
           <div className="field">

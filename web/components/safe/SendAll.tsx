@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { type Address, type Hash, formatUnits, zeroAddress } from "viem";
 import { chainById, explorerTx, nativeSymbol } from "@/lib/chains";
 import { amount as fmtAmount, usd, feeText } from "@/lib/format";
+import { rememberPaid } from "@/lib/names";
 import { transfer } from "@/lib/safe/core";
 import { hotAvailable } from "@/lib/safe/hot";
 import {
@@ -57,6 +58,7 @@ export function SendAll({
   onDone: () => void;
 }) {
   const [to, setTo] = useState<Address | null>(null);
+  const [toName, setToName] = useState<string | null>(null); // the name typed for it, if one was
   const [rows, setRows] = useState<Record<number, Row>>({});
   const [mine, setMine] = useState(false); // your own browser wallet sends it, not our relay
   const [canMine, setCanMine] = useState(false);
@@ -142,6 +144,7 @@ export function SendAll({
       r.prepared.opts.onStage = (s, h) => setRows((x) => ({ ...x, [chainId]: { ...x[chainId], send: s, hash: h ?? x[chainId]?.hash } }));
       const hash = await finishOwners(r.prepared);
       set(chainId, { ...r, stage: "done", hash });
+      if (toName && to) rememberPaid(toName, to);
     } catch (e: any) {
       if (e instanceof Shared) set(chainId, { stage: "idle" }); // its page has the sheet now
       else set(chainId, { stage: "idle", error: friendly(e) }); // get a fresh fee and nonce next time
@@ -156,7 +159,7 @@ export function SendAll({
       <div className="field">
         <label>To</label>
         <AddressInput
-          onChange={(a) => (setTo(a), setRows({}))}
+          onChange={(a, name) => (setTo(a), setToName(name ?? null), setRows({}))}
         />
         {self && <span className="err">That&apos;s this wallet.</span>}
       </div>

@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { type Address, parseUnits } from "viem";
 import { CHAINS } from "@/lib/chains";
+import { NAME_PARENT, labelIn, labelProblem, ourLabel } from "@/lib/names";
+import { bio } from "@/lib/passkey";
 import { requestLink, requestUri } from "@/lib/parse";
 import { nativeUsd } from "@/lib/price";
 import { loadRequestLink, saveRequestLink } from "@/lib/store";
@@ -12,7 +14,8 @@ import { ChainSelect } from "./safe/Pick";
 
 /**
  * One card: your address as a QR (blockie in the middle), the short address + a copy icon under it; a tap anywhere
- * copies it and says so. Request → an amount, token and network, and the QR becomes an EIP-681 payment request.
+ * copies it and says so. The title is the wallet's name; a tap on it takes a public one, alice.inst.eth (lib/names.ts).
+ * The QR always holds the address: other wallets can't read a name. Request → an amount, token and network, and the QR becomes an EIP-681 payment request.
  * "Include instantwallet.io link (any phone camera opens it)" (on by default, remembered) wraps it in a web link so any phone camera opens it
  * (/[...link]); off, it's the bare ethereum: request other wallets' scanners read.
  * `got`: money that landed while this is up: "Received" and the amount over the code, until a tap (`onSeen`).
@@ -22,7 +25,8 @@ export function Receive({
   got = [],
   onSeen,
   name,
-  onName,
+  mine,
+  onClaim,
   onSignOut,
   onSwitch,
 }: {
@@ -30,8 +34,9 @@ export function Receive({
   toast?: (m: string) => void;
   got?: { id: number; chainId: number; get: { amount: string; symbol: string }; usd?: number }[];
   onSeen?: () => void;
-  name?: string | null; // the wallet's name, as the title (tap to edit) when onName is given
-  onName?: (name: string | null) => void; // null: back to the default name
+  name?: string | null; // the wallet's name, as the title (tap to take a public one) when onClaim is given
+  mine?: string | null; // its inst.eth name now ("alice.inst.eth"), where the box starts
+  onClaim?: (label: string) => Promise<void>; // Face ID, then the name is this wallet's; throws with why not
   onSignOut?: () => void; // a "Sign out of this device" button at the bottom
   onSwitch?: () => void; // a "Switch account" button at the top (opens the passkey prompt); also shows "Share Instant Wallet" (the app's link as a QR)
 }) {
@@ -76,16 +81,16 @@ export function Receive({
   };
   return (
     <div className="stack">
-      {!onName && <h2>{asking ? "Request" : "Receive"}</h2>}
+      {!onClaim && <h2>{asking ? "Request" : "Receive"}</h2>}
       <div onClick={onTap} style={{ cursor: "pointer", position: "relative" }}>
         <Qr
           value={uri ?? account.address}
           center={account.address}
           top={
-            onName && (
+            onClaim && (
               // a tap on the name edits it; anywhere else on the card copies
               <div onClick={e => e.stopPropagation()} style={{ cursor: "default", marginBottom: 10 }}>
-                <NameTitle name={name ?? null} onSave={onName} />
+                <NameTitle name={name ?? null} mine={mine ?? null} address={account.address} onClaim={onClaim} />
               </div>
             )
           }
@@ -167,16 +172,37 @@ export function Receive({
   );
 }
 
-/** The wallet's name as the title; tap to edit, Save (empty = back to the default name). */
-function NameTitle({ name, onSave }: { name: string | null; onSave: (name: string | null) => void }) {
+/**
+ * The wallet's name as the title; a tap opens the box for a public name: [alice].inst.eth, free or taken as you
+ * type, Save → Face ID → it's this wallet's. A name it already holds can be picked again.
+ */
+function NameTitle({ name, mine, address, onClaim }: { name: string | null; mine: string | null; address: Address; onClaim: (label: string) => Promise<void> }) {
   const [editing, setEditing] = useState(false);
   const [v, setV] = useState("");
+  const [seen, setSeen] = useState<{ label: string; ok: boolean; problem: string | null } | null>(null); // the server's word on a label
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const local = labelProblem(v);
+  useEffect(() => {
+    if (!editing || !v || local) return;
+    let live = true; // a late answer for an older label must never land on a newer one
+    const t = setTimeout(async () => {
+      const j = await fetch(`/api/names?name=${v}&address=${address}`).then(r => r.json()).catch(() => null);
+      if (live && j?.label === v) setSeen({ label: v, ok: !!(j.free || j.yours), problem: j.problem ?? null });
+    }, 300);
+    return () => {
+      live = false;
+      clearTimeout(t);
+    };
+  }, [editing, v, local, address]);
+  const now = seen?.label === v ? seen : null;
+  const problem = local ?? now?.problem ?? null;
   if (!editing)
     return (
       <h2>
         <button
           aria-label={`Rename ${name ?? "this wallet"}`}
-          onClick={() => (setV(name ?? ""), setEditing(true))}
+          onClick={() => (setV(mine ? (ourLabel(mine) ?? "") : ""), setErr(null), setEditing(true))}
           style={{ border: 0, padding: 0, background: "none", color: "inherit", font: "inherit", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}
         >
           {name ?? "…"}
@@ -188,19 +214,32 @@ function NameTitle({ name, onSave }: { name: string | null; onSave: (name: strin
     );
   return (
     <form
-      className="row"
-      style={{ gap: 8 }}
-      onSubmit={e => {
+      className="stack"
+      onSubmit={async e => {
         e.preventDefault();
-        onSave(v.trim().slice(0, 40) || null);
-        setEditing(false);
+        if (busy || !now?.ok) return;
+        setErr(null);
+        setBusy(true);
+        try {
+          await onClaim(v);
+          setEditing(false);
+        } catch (e: any) {
+          setErr(e?.name === "NotAllowedError" ? "Cancelled" : e?.message || "Try again");
+        } finally {
+          setBusy(false);
+        }
       }}
     >
-      <div className="input" style={{ flex: 1 }}>
-        <input autoFocus maxLength={40} placeholder="Name this wallet" value={v} onChange={e => setV(e.target.value)} />
+      <div className="input">
+        <input autoFocus maxLength={32} placeholder="name" value={v} onChange={e => (setV(labelIn(e.target.value)), setErr(null))} disabled={busy} autoCapitalize="none" autoCorrect="off" spellCheck={false} />
+        <span className="unit" style={{ paddingRight: 8 }}>.{NAME_PARENT}</span>
       </div>
-      <button className="btn btn-green" type="submit">
-        Save
+      {(err || problem) && <span className="err">{err || problem}</span>}
+      <button className="btn btn-green wide" type="submit" disabled={busy || !now?.ok}>
+        {busy ? `${bio()}…` : "Save"}
+      </button>
+      <button className="btn wide" type="button" disabled={busy} onClick={() => setEditing(false)}>
+        Cancel
       </button>
     </form>
   );

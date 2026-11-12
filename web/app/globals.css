@@ -269,7 +269,7 @@ div.asset:active { background: none; }
 .nfts { padding: 8px; }
 .nfts-link { display: block; width: 100%; padding: 12px 0 6px; border: 0; background: none; color: var(--muted); font-size: 15px; cursor: pointer; }
 
-/* xdai.io (lib/brand.ts, PLAN-xdai.md): the same parts in dark plastic, a 🔥 for the mark. Tokens first, then the
+/* xdai.io (lib/brand.ts, docs/XDAI.md): the same parts in dark plastic, a 🔥 for the mark. Tokens first, then the
    few rules above that hard-code a light highlight. */
 html[data-brand="xdai"] {
   --paper: #121212;

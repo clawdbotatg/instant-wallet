@@ -9,7 +9,7 @@ Why the domain matters: the old key is in xdai.io's localStorage, and only a pag
 read it. Passkeys are tied to the domain too, so a wallet made on xdai.io opens only on xdai.io. It's a separate
 wallet from instantwallet.io (decided 10-27).
 
-How it was planned and what was found in the old code: `PLAN-xdai.md`.
+What was found in the old code: the table at the end. (The plan itself was removed 11-12; git has it.)
 
 ---
 
@@ -77,3 +77,18 @@ After a sweep the key moves to `iw.oldBurnerKey`. Settings → **Copy old Burner
   worker file.
 - On a preview, `?brand=xdai` turns the look on, and `?burner=new` plants a fake old key to fund and sweep (off in
   production).
+
+## What the old Burner code left behind (review 10-27, checked on chain)
+
+| what | where | on chain now | covered? |
+|---|---|---|---|
+| key in localStorage `metaPrivateKey`, or a cookie of that name | browser | — | yes |
+| `/pk#<key>` hex or 43-char base64url (printed cards), `/<key>`, `/#<key>` | links/QRs | — | yes |
+| "seed phrase" box (any text → bip39@2 seed, no word check, m/44'/60'/0'/0/0) | Settings | — | yes (Load old Burner Wallet) |
+| xDAI, tokens on Gnosis; DAI, ETH, SAI on Ethereum | the key's address | — | yes (tokens need gas on the key) |
+| **Send-with-link** funds: Links `0x5170DA7a3eF514c9F12A3A49EACAF9d026162a1f` (Gnosis) | contract | **98.8 xDAI** unclaimed, 397 sends from 84 senders, 2020-04..2022-06 | **no**. All expired: only the sender's key can take them back (`executeClaim` signed by the sender) |
+| **Old Burner Safes**: ProxyFactory `0x3BD7460A7B35D371d621119E2f3c1c5845b874c4`, 52 Safes; the Safe's address is in localStorage `<address>safe` | contracts | **~18 xDAI** over ~19 Safes (largest 7.5, 4.98, 2.5) | **no**. The old key is an owner: it could sign the Safe's own transfer |
+| Unclaimed xDai→DAI bridge withdrawals | Ethereum bridge `0x4aa42145…` (pays USDS now) | unknown | no |
+| BurnerVendor `0x57Af069C…` | contract | 152 xDAI | not users': only the super admin can `sweep` |
+| Badges (NFTs) `0xCF964c89…` | contract | — | not moved |
+| old payment links `/<address>;<amount>` | links | — | open Send, but default to Base, not Gnosis |

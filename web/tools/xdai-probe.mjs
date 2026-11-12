@@ -1,4 +1,4 @@
-// xdai.io (PLAN-xdai.md), with no chain: the dark look, the old Burner key's move screen, old key links, the old
+// xdai.io (docs/XDAI.md), with no chain: the dark look, the old Burner key's move screen, old key links, the old
 // service worker's kill switch. The portfolio API is faked so the old key "holds" a token; nothing is sent.
 //   CHROME=<chromium> APP=http://localhost:3100 node tools/xdai-probe.mjs /tmp/shots
 import { chromium } from "playwright-core";

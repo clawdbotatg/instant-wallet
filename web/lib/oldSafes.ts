@@ -4,7 +4,7 @@ import { CHAINS, publicClient, rpcPath } from "./chains";
 import { waitFor } from "./safe/send";
 
 /**
- * The old Burner Wallet's optional Safes (xdai.io, PLAN-xdai.md): Gnosis Safe 1.0.0 on Gnosis, made by its ProxyFactory
+ * The old Burner Wallet's optional Safes (xdai.io, docs/XDAI.md): Gnosis Safe 1.0.0 on Gnosis, made by its ProxyFactory
  * 0x3BD7460A7B35D371d621119E2f3c1c5845b874c4 (all 52 of its creations, 41 still Safes, read from its logs 10-27).
  * Every one has threshold 1, so an owner's old key alone can send what's inside.
  */

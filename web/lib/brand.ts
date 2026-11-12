@@ -5,7 +5,7 @@ import { HDKey } from "viem/accounts";
 import { claimKey } from "./claim";
 
 /**
- * xdai.io (PLAN-xdai.md): the same Instant Wallet in a dark, 🔥 look, on the old Burner Wallet's domain, so the
+ * xdai.io (docs/XDAI.md): the same Instant Wallet in a dark, 🔥 look, on the old Burner Wallet's domain, so the
  * Burner key still in that domain's localStorage can be moved into a passkey Safe. Wallets made there are their own
  * (passkeys belong to the domain).
  *
@@ -52,7 +52,7 @@ export function oldBurnerKey(): Hex | null {
 }
 
 /** Testing only, never on xdai.io or production: `?burner=new` plants a fresh key where the old Burner Wallet kept its key, as if
- *  this browser had used it. Fund its address, reload, and the move screen shows (PLAN-xdai.md). */
+ *  this browser had used it. Fund its address, reload, and the move screen shows (docs/XDAI.md). */
 export function plantTestBurner(): Hex | null {
   if (XDAI_HOSTS.includes(window.location.hostname) || process.env.NEXT_PUBLIC_VERCEL_ENV === "production") return null;
   if (new URLSearchParams(window.location.search).get("burner") !== "new") return null;

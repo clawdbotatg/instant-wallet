@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * `GET /api/uni?address=0x…` -> `{index, amount, proof}` when that address can still claim the 2020 UNI airdrop, else
- * `{}`. xdai.io's sweep (PLAN-xdai.md): old Burner keys that swapped on Uniswap got 400 UNI, and the claim never expires.
+ * `{}`. xdai.io's sweep (docs/XDAI.md): old Burner keys that swapped on Uniswap got 400 UNI, and the claim never expires.
  * The claim data is Uniswap's own, in address-sorted chunks (what app.uniswap.org read); the chain says if it's taken.
  */
 const UNI_DISTRIBUTOR = "0x090D4613473dEE047c3f2706764f49E0821D256e";

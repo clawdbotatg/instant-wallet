@@ -266,8 +266,9 @@ Suggested first: 1, 3, 5, 12, 20.
     `emu/SKILL.md:52,63`, `hardware/case/README.md` (scripts that are gone).
   - Done 11-12: `EXPECTATIONS.md` says where the shared parts that aren't in `bits.tsx` live.
   - Removed 11-12: `PLAN-drops.md`, `PLAN-recovery-delay.md`, `docs/PLAN-REVIEW-2026-10-05*.md`,
-    `docs/HANDOFF-2026-10-08-wedgie.md`, `docs/WEDGIE-PHONE-DEBUG.md`. Kept: `PLAN-xdai.md` (seven live code
-    files point at it, and it holds the table of what the old Burner left behind).
+    `docs/HANDOFF-2026-10-08-wedgie.md`, `docs/WEDGIE-PHONE-DEBUG.md`. Then `PLAN-xdai.md` (Austin 11-12): its table of what the old
+    Burner left behind is now at the end of `docs/XDAI.md`, and the code comments point there. `web/public/service-worker.js` still names
+    it: changing that file's bytes makes old browsers fetch it again.
   - Mark as history: `docs/PLAN.md`, `CONCEPT.md`, `docs/PROTOCOL.md`, `docs/PLATFORMS.md`, `docs/V3.md`,
     `docs/GAS.md`, `docs/COLD-STORAGE.md`, `docs/ROLES.md`, `docs/SAFE.md`, `docs/LEVELS.md`.
   - No `.env.example`. `web/README.md` now lists the names.

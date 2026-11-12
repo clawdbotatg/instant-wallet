@@ -74,8 +74,8 @@ for (const p of files) {
   const rel = relative(root, p);
   const src = readFileSync(p, "utf8");
   if (/btn-dark|pill dark/.test(src) && !/btn-green/.test(src) && !DARK_OK.includes(rel)) (bad++, console.log(`${rel}  a dark gray button with no green one: dark gray is the second choice, else white`));
-  // a copy link on the screen is the second choice: nothing else there is dark gray (SafeWelcome: its copy link shows only after an error inside a wallet app's browser, beside 'I already have one': a known pair)
-  if (/<CopyLink/.test(src) && /btn-dark|pill dark/.test(src) && rel !== SHARED && rel !== "components/safe/SafeWelcome.tsx") (bad++, console.log(`${rel}  a second dark gray button beside a copy link: the copy link is the second choice, make the other white`));
+  // a copy link on the screen is the second choice: nothing else there is dark gray. <CopyLink green> is the one thing left to do, not a second choice
+  if (/<CopyLink(?![^>]*\bgreen\b)/.test(src) && /btn-dark|pill dark/.test(src) && rel !== SHARED) (bad++, console.log(`${rel}  a second dark gray button beside a copy link: the copy link is the second choice, make the other white`));
   if (/(btn-dark|pill dark)[^>]*>\s*Reject\b/.test(src)) (bad++, console.log(`${rel}  Reject is white, not dark gray`));
 }
 // a waiting tx's Reject always comes with its ✕ (Austin 10-31: the tx page had Reject and no ✕, Home had both)

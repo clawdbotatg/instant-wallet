@@ -495,14 +495,15 @@ export function DoneBar({ onDone, href }: { onDone: () => void; href?: string | 
 /**
  * Copy a link: dark gray (the other likely thing to do), never a pop-out. Alone it's a small icon button (a tx's link
  * for the other signers); with `label` a pill with the words. `message`: what the toast says once copied.
+ * `green`: copying is the one thing left to do (the first page inside a wallet app's browser, where passkeys can't work).
  */
-export function CopyLink({ link, message = "Link copied. Share it with the other signers.", label }: { link: string; message?: string; label?: React.ReactNode }) {
+export function CopyLink({ link, message = "Link copied. Share it with the other signers.", label, green }: { link: string; message?: string; label?: React.ReactNode; green?: boolean }) {
   const [toast, setToast] = useToast();
   const go = async () => setToast((await copy(link)) ? message : "Couldn't copy");
   return (
     <>
       {label ? (
-        <button className="pill dark" onClick={go}>
+        <button className={green ? "pill go" : "pill dark"} onClick={go}>
           <CopyIcon size={16} /> {label}
         </button>
       ) : (

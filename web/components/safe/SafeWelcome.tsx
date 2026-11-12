@@ -234,7 +234,7 @@ export function SafeWelcome({ onReady, initialConfirm }: { onReady: (a: SafeAcco
         )}
         {error && <p className="err">{error}</p>}
         {error && walletAppBrowser() && (
-          <CopyLink link={location.href} message="Link copied. Paste it into Safari or Chrome." label="Copy link" />
+          <CopyLink green link={location.href} message="Link copied. Paste it into Safari or Chrome." label="Copy link" />
         )}
         <p className="fine">
           Passkey signer · DIY hardware wallet · Powered by Safe

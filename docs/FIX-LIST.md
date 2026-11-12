@@ -239,9 +239,11 @@ Suggested first: 1, 3, 5, 12, 20.
 
 - [x] **27. The first version.** Removed 11-12 (Austin: yes; git has it): `packages/nextjs`, `packages/mobile`,
   `firmware/`, `emu/`, root `tools/`, `.cursor/`, `design/mockups`.
-  Kept: `hardware/` (the case's 3D files and the build guide are nowhere else: move them to wedgie-dev first),
-  `packages/foundry` whole (contracts, `test/safe`, and its SE-2 wrapper), root `package.json` / `yarn.lock` /
-  `.yarn/` / `.yarnrc.yml` (the wrapper runs through them), `.gitmodules`.
+  Then (Austin: sure): `hardware/` (the first device's case and build guide; wedgie-dev has its own case tool),
+  the first version's contracts (`InstantWallet`, `Factory`, `RelayTip`, `MockUSDC`), their tests, deploy scripts
+  and records, the SE-2 wrapper (`scripts-js`, `Makefile`, `package.json`) and the root yarn files.
+  Kept: `packages/foundry/test/safe`, `contracts/pq`, `script/PQHybridLive.s.sol` and its record, `lib/` (the
+  names resolver builds against it), `.gitmodules`. `forge test --ffi --match-path 'test/safe/*'`: 46 of 46 after.
   Now pointing at a folder that's gone: `design/brand/make.py:7` and `design/gen.py:7` (`packages/nextjs/public/`).
 
 - [x] **28. `firmware/p256.py`.** Gone with `firmware/` (27). wedgie-dev's copy is the one.

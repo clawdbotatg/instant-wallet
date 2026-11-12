@@ -64,7 +64,7 @@ still sign (`hotOf`, the `"hot"` signer in `lib/safe/send.ts`).
 
 | what | command | result |
 |---|---|---|
-| Solidity, Base fork (levels 1/2/4, recovery, groups) | `cd packages/foundry && BASE_RPC_URL=… forge test --match-path 'test/safe/*'` | 38/38 |
+| Solidity, Base fork (levels 1/2/4, recovery, groups, post-quantum) | `cd packages/foundry && BASE_RPC_URL=… forge test --ffi --match-path 'test/safe/*'` (libs: `git submodule update --init`) | 46/46 (11-12) |
 | TS address math = chain | `cd web && npx tsx tools/safe-check.mts <base rpc>` | ok |
 | Full UI journey, fork (virtual passkey, fake MetaMask, fake wedgie) | `tools/safe-e2e.mjs` (setup in its header) | 27/27 on Base and on Ethereum forks |
 | Relay defences, fork | `tools/safe-relay-check.mts` | 10/10 on both forks and against the live relay (Base) |

@@ -36,9 +36,10 @@ Push to main deploys (Vercel, root `web/`). Before pushing a UI change: `node we
 
 ## Also here, not live
 
-- `packages/foundry`, `hardware/`, `design/`: left from the first version (our own contract, a Pico signer;
-  `CONCEPT.md`, `docs/PROTOCOL.md`). The rest of it (its app, firmware, emulator) was removed 11-12; git has it.
-  `packages/foundry/test/safe` still holds the Safe fork tests.
+- `packages/foundry`: the Safe fork tests (`test/safe`) and the post-quantum signer's contracts (`contracts/pq`).
+- `design/`: the brand files.
+- The first version (our own contract, a Pico signer, its case; `CONCEPT.md`, `docs/PROTOCOL.md`) was removed
+  11-12; git has it.
 - `docs/PLAN.md` and the other plan docs are history. `docs/SAFE-APP.md` and `docs/CUSTODY.md` say what's real.
 
-Not audited. MIT. Case v0 by Tomáš Plass (CC BY-NC 4.0), see `hardware/case/`.
+Not audited. MIT.

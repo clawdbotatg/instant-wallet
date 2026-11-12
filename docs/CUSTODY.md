@@ -70,7 +70,7 @@ Learn Roles: https://docs.roles.gnosisguild.org · https://github.com/gnosisguil
 
 The passkey is renamed (WebAuthn Signal API) to "name · ~$50" (`docs/NAMES.md`); a wallet with no name
 is "0xabcd…1234 · ~$50" (no made-up name, 11-12). The balance is rough and sticky
-(changes when it halves or doubles), because every rename can pop an iOS notification. Code:
+(two digits, changes when the real one is more than 15% off it), because every rename can pop an iOS notification. Code:
 `renamePasskey` in `web/lib/passkey.ts`, the rename effect in `web/components/safe/SafeApp.tsx`.
 Next: a public name = an ENS subdomain.
 

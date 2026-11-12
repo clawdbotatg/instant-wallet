@@ -286,8 +286,8 @@ export function SafeApp({ link }: { link?: string } = {}) {
     window.dispatchEvent(new CustomEvent("iws:landed", { detail: account.address })); // every <Who> of this wallet reads its name again
   };
   // the passkey's name in the password manager tracks the wallet: "atg.eth · ~$50". Every
-  // rename can pop a system notification, so the balance is rough (1-2-5 steps) and sticky: it only moves when the
-  // real one halves or doubles. The last name sent is saved, so a
+  // rename can pop a system notification, so the balance is rough (two digits: ~$57, ~$1.2k) and sticky: it only moves
+  // when the real one is more than 15% off it (Austin 11-12; it was halves or doubles). The last name sent is saved, so a
   // reload doesn't rename again.
   const namedKey = account ? `iws.passkeyName.${account.credentialId}` : "";
   const roughRef = useRef<number | null>(null);
@@ -670,17 +670,18 @@ export function SafeApp({ link }: { link?: string } = {}) {
   );
 }
 
-/** The last rough balance while the real one is within half to double of it (and under $1 for 0), else a new one. */
+/** The last rough balance while the real one is within 15% of it (and under $1 for 0), else a new one. */
 function stickyRough(total: number, last: number | null): number {
-  if (last !== null && (last > 0 ? total >= last / 2 && total <= last * 2 : total < 1)) return last;
+  if (last !== null && (last > 0 ? Math.abs(total - last) <= last * 0.15 : total < 1)) return last;
   return roughUsd(total);
 }
 
-/** The nearest 1-2-5 step: 0, 1, 2, 5, 10, 20, 50, 100… */
+/** Two digits: 0, 7, 57, 570, 1200, 57000… */
 function roughUsd(v: number): number {
   if (v < 0.5) return 0;
-  const p = 10 ** Math.floor(Math.log10(v));
-  return [1, 2, 5, 10].map(m => m * p).reduce((a, b) => (Math.abs(Math.log(b / v)) < Math.abs(Math.log(a / v)) ? b : a));
+  if (v < 10) return Math.round(v);
+  const p = 10 ** (Math.floor(Math.log10(v)) - 1);
+  return Math.round(v / p) * p;
 }
-const compactUsd = (v: number) => (v >= 1e6 ? `$${v / 1e6}M` : v >= 1e3 ? `$${v / 1e3}k` : `$${v}`);
+const compactUsd = (v: number) => (v >= 1e6 ? `$${+(v / 1e6).toPrecision(3)}M` : v >= 1e3 ? `$${+(v / 1e3).toPrecision(3)}k` : `$${v}`);
 

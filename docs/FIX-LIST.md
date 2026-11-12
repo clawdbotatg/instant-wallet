@@ -165,8 +165,10 @@ Suggested first: 1, 3, 5, 12, 20.
   - Only `SafeConnect.tsx` checks the fee quote went stale before signing. Check it once in `finishOwners`.
   - `lib/claimBatch.ts:53`: a card's `eth` total adds different coins together (POL + xDAI + ETH).
 
-- [ ] **19. The "Slow internet…" pill fires on calls that are slow by design.**
+- [x] **19. The "Slow internet…" pill fires on calls that are slow by design.**
   `components/NetBar.tsx:22-32`: any fetch over 5 s. LI.FI quotes take 6-15 s, the relay up to 60 s.
+  Done 11-11: `slowAfter` in `NetBar.tsx`. A swap quote counts after 30 s; a relayed send, a drop claim and a drop
+  take-back after 75 s. Everything else still 5 s.
 
 ## Speed
 

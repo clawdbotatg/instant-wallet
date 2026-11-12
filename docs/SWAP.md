@@ -1,6 +1,6 @@
 # Swap
 
-Austin, 2026-10-06: a **Swap** button under the balance (next to Receive) that swaps **any asset on any network to
+Austin, 2026-10-06: **Swap** (first in the Apps list since 10-28) swaps **any asset on any network to
 any other asset on any network**, in our own swap UI.
 
 **Built 2026-10-06:** `components/safe/SafeSwap.tsx` (the sheet), `lib/safe/swap.ts` (routers, token list, the batch,

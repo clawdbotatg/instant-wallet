@@ -34,7 +34,7 @@ const NATIVE_TOKEN: Record<number, Address> = { 42220: "0x471EcE3750Da237f93B8E3
 const funder = privateKeyToAccount(fs.readFileSync(keyFile, "utf8").trim() as Hex);
 const relayer: Address =
   (process.env.RELAYER as Address) ||
-  (await fetch("https://instant-wallet-b2jn.vercel.app/api/safe/relay?chainId=8453&kind=exec").then(r => r.json())).relayer;
+  (await fetch("https://instantwallet.io/api/safe/relay?chainId=8453&kind=exec").then(r => r.json())).relayer;
 
 const syms = [...new Set(CHAINS.map(c => c.native.symbol.toUpperCase()))];
 const px = new Map<string, number>();

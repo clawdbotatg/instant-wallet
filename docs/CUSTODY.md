@@ -27,7 +27,7 @@ Problems:
 **A normal Safe: one vote per key, M of N, one key with a daily limit, recovery for when too many keys are lost.**
 
 1. **First setup stays tiny and never changes.** It sets the address. Passkey as the only owner, rule 1 of 1,
-   recovery (DAO, 7 days; that module is on all 15 chains). Everything else is added later.
+   recovery (DAO, 7 days; that module is on all 14 networks). Everything else is added later.
 2. **One vote per key.** Drop the wedgie's second slot. Lose a key → the others replace it right away. Also
    cheaper: the second slot verifies P-256 in Solidity (~1.1M gas, `web/lib/safe/fee.ts`).
    Cost: passkey + backup can move money without the wedgie. Keep the backup offline.

@@ -13,11 +13,13 @@ What was found in the old code: the table at the end. (The plan itself was remov
 
 ---
 
-## Switching xdai.io over
+## Switching xdai.io over (done 10-29)
 
-Today (10-27) xdai.io is the 2020 Burner build: S3 behind CloudFront `dllztdzvr6cyn.cloudfront.net`. DNS and the
+xdai.io now runs this app. These are the steps that were taken; the rollback at the end still works.
+
+Before (10-27) xdai.io was the 2020 Burner build: S3 behind CloudFront `dllztdzvr6cyn.cloudfront.net`. DNS and the
 domain are in Austin's AWS (account 121420011273), Route 53 hosted zone `Z1YYNBSOM7DK7E`. Everything that build
-calls is dead (its RPC `dai.poa.network` no longer exists), so nothing works there now.
+calls is dead (its RPC `dai.poa.network` no longer exists), so nothing worked there.
 
 1. **Back up the old site.** In S3, find the bucket behind that CloudFront distribution and copy it somewhere (or
    leave it untouched: the rollback below only needs CloudFront to keep serving it).

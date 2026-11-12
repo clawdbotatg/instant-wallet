@@ -1,6 +1,6 @@
 # Instant Wallet on a Gnosis Safe — what's best
 
-> **Superseded / summarized by `PLAN.md` (2026-10-05)** — read that first.
+> **History.** Research from 2026-10-05, summarized by `PLAN.md` (also history). What's real: `SAFE-APP.md`.
 
 2026-10-05. Austin: build on a Safe because it's audited; custom code only where nothing audited fits.
 Research: Safe, Zodiac and Rhinestone source code, audit PDFs, and on-chain code checks on Base + Ethereum.

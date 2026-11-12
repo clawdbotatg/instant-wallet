@@ -14,7 +14,7 @@ our server stays the default.
 | Prices | Alchemy Prices API, DexScreener for the long tail | same |
 | Swap quotes | Uniswap quoter on chain, LI.FI | `app/api/swap` |
 | Send a transaction | our relay (`/api/safe/relay`) pays gas | `app/api/safe` |
-| Preview before signing | none | — |
+| Preview before signing | the simulator (clear-sim, sim.wedgie.dev) | `lib/safe/sim.ts` |
 
 ## With your own node
 

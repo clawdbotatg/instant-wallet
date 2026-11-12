@@ -69,4 +69,4 @@ A wallet switcher for friends (Austin: see it and play with it first).
 
 ## Open
 
-- A Safe API key for Instant Wallet (wedgie.dev has one: `SAFE_API_KEY`, developer.safe.global).
+- Nothing. The Safe API key is set (`SAFE_API_KEY`, used by `/api/safe/svc`).

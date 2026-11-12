@@ -256,22 +256,17 @@ Suggested first: 1, 3, 5, 12, 20.
   passes, `.fab-wedgie` (it's inside a live xdai selector), `@adraffy/ens-normalize` in `package.json`, the ~20
   that only need `export` dropped, the three comments that name missing files.
 
-- [ ] **30. Docs that say things that aren't so.**
-  - `docs/SAFE-APP.md`: `:5` the b2jn URL (it's instantwallet.io), `:14` "two owners, threshold 3" (now one
-    signer, 1 of 2), `:3` "Base and Ethereum" (14 networks), `:54` `web/app/safe/` (no such folder), `:78`.
-    `:15` vs `docs/CUSTODY.md:48`: can you still set your own recovery address? One of them is wrong.
-  - `docs/CLAIM.md:3,70,115,244` · `docs/CUSTODY.md:30` and `PLAN-recovery-delay.md` ("15 chains") ·
-    `docs/OWN-NODE.md:17` · `docs/XDAI.md:18` (written before the switch) · `docs/APP-STORE.md:36` ·
-    `docs/SWAP.md:3,12` · `docs/MULTI-SIGNER.md:72` · `docs/PLATFORMS.md:24-45` · `emu/README.md:36`,
-    `emu/SKILL.md:52,63`, `hardware/case/README.md` (scripts that are gone).
-  - Done 11-12: `EXPECTATIONS.md` says where the shared parts that aren't in `bits.tsx` live.
-  - Removed 11-12: `PLAN-drops.md`, `PLAN-recovery-delay.md`, `docs/PLAN-REVIEW-2026-10-05*.md`,
-    `docs/HANDOFF-2026-10-08-wedgie.md`, `docs/WEDGIE-PHONE-DEBUG.md`. Then `PLAN-xdai.md` (Austin 11-12): its table of what the old
-    Burner left behind is now at the end of `docs/XDAI.md`, and the code comments point there. `web/public/service-worker.js` still names
-    it: changing that file's bytes makes old browsers fetch it again.
-  - Mark as history: `docs/PLAN.md`, `CONCEPT.md`, `docs/PROTOCOL.md`, `docs/PLATFORMS.md`, `docs/V3.md`,
-    `docs/GAS.md`, `docs/COLD-STORAGE.md`, `docs/ROLES.md`, `docs/SAFE.md`, `docs/LEVELS.md`.
-  - No `.env.example`. `web/README.md` now lists the names.
+- [x] **30. Docs that say things that aren't so.** Done 11-12.
+  - Fixed: `docs/SAFE-APP.md` (instantwallet.io, 14 networks, the wedgie is one signer, recovery is the DAO only as
+    `docs/CUSTODY.md` says, no `web/app/safe/`), `docs/CLAIM.md` and two tools (the old b2jn address), `docs/CUSTODY.md`
+    (14 networks), `docs/OWN-NODE.md` (the preview exists), `docs/XDAI.md` (the switch is done), `docs/APP-STORE.md`,
+    `docs/SWAP.md` (Swap is in Apps), `docs/MULTI-SIGNER.md` (the Safe key is set).
+  - Removed: `CONCEPT.md`, `docs/PROTOCOL.md`, `docs/PLATFORMS.md`, `docs/COLD-STORAGE.md`, `docs/ROLES.md`,
+    `docs/LEVELS.md`, and earlier the plan docs and `PLAN-xdai.md` (its table is at the end of `docs/XDAI.md`;
+    `web/public/service-worker.js` still names it: changing that file's bytes makes old browsers fetch it again).
+  - Marked as history: `docs/PLAN.md` (code comments point at it for why the first setup is what it is), `docs/SAFE.md`.
+  - Not checked: `docs/SWAP.md:12` "the wedgie's LI.FI decoding" not built.
+  - No `.env.example`. `web/README.md` lists the names.
 
 - [ ] **31. Checks that miss things.**
   - Done: `tools/same-check.mjs` walks `app/` too.

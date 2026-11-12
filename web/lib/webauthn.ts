@@ -1,7 +1,7 @@
 import { type Hex, encodeAbiParameters } from "viem";
 
 /**
- * WebAuthn signature encoding for InstantWallet (docs/PROTOCOL.md section 2).
+ * WebAuthn signature encoding for InstantWallet (the first version's protocol, section 2; git has it).
  *
  * The contract's `_verify` calls OpenZeppelin `WebAuthn.tryDecodeAuth(signature)`, which reads a
  * FLAT tuple `abi.encode(bytes32 r, bytes32 s, uint256 challengeIndex, uint256 typeIndex,

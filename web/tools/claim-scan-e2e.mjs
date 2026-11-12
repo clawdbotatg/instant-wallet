@@ -28,7 +28,7 @@ setUsdc(c2, 4_000_000n);
 
 // (the QR small in the frame, as a hand holds it: the scan box is the middle 72%)
 // card 2 printed by the live site (another host): the scanner must still claim on this wallet's host
-const link2 = `https://instant-wallet-b2jn.vercel.app/pk#${k2}`;
+const link2 = `https://instantwallet.io/pk#${k2}`;
 const png = `${OUT}/card2-qr.png`, vid = `${OUT}/card2-qr.y4m`;
 await QRCode.toFile(png, link2, { width: 480, margin: 4 });
 execSync(`ffmpeg -y -loglevel error -loop 1 -i ${png} -vf "scale=300:300,pad=640:480:(ow-iw)/2:(oh-ih)/2:white,format=yuv420p" -t 3 -r 10 ${vid}`);

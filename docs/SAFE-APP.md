@@ -1,18 +1,16 @@
 # Instant Wallet on a Safe — what's built (2026-10-06)
 
-The first version of `docs/PLAN.md`: phases 0–2 plus recovery, live on **Base and Ethereum**.
+What's live, on 14 networks (`docs/NETWORKS.md`). Signers and the daily limit: `docs/CUSTODY.md`, which wins where the two differ.
 
-**Use it:** https://instant-wallet-b2jn.vercel.app (the old v3 wallet moved to `/v3`).
-Passkeys are bound to that hostname: a wallet made there won't open on instantwallet.io later (it can be recovered
-onto a new key there, like a lost phone).
+**Use it:** https://instantwallet.io. Passkeys are bound to that hostname.
 
 ## What you can do
 
 | level | how | what it does on chain |
 |---|---|---|
 | 1 Instant wallet | Create wallet (Face ID) | Address exists at once on every chain (counterfactual). First send on a chain deploys the passkey signer + the Safe and runs the send, one relayer tx, fee paid in USDC or ETH inside your own batch. DAO (dao.buidlguidl.eth) is the 7-day recovery from the first setup. |
-| 2 Wedgie | Keys → Connect and add the wedgie (Chrome on a computer, or the iPhone drive) | One batch: deploys Zodiac Roles, gives the burner a daily budget (100 USDC + 0.04 ETH, refills daily), the wedgie becomes two owners (same key, two verifier settings), threshold 3, and recovery changes (10-15): the DAO moves to a 60-day module (Candide's code, we deployed it: `0x6aa9…E960`), your own recovery address to Candide's 14-day one, the 7-day one is emptied and turned off. Big moves and settings need Face ID + the wedgie. A wallet paired before gets a "Make the DAO wait 60 days" button. Not on HyperEVM yet (the deploy needs a big block): pairing there leaves recovery on 7 days. |
-| 3 Own recovery | Keys → Recovery: any address you control (MetaMask, Ledger, ENS, a paper seed) | Without a wedgie: replaces the DAO, 7 days. With one: added on 14 days, the DAO stays on 60. It can only replace lost keys, and you can cancel. Seed cards: `/paper` (OPSEK layout, any 2 of 3). |
+| 2 Wedgie | Keys → Connect and add the wedgie (Chrome on a computer, or the iPhone drive) | The wedgie becomes one signer, 1 of 2 (either signs); a picker makes it 2 of 2. Past 1 of N, Face ID gets a daily limit (Zodiac Roles). Recovery: the DAO moves to the 60-day module. Older wallets have the wedgie twice. |
+| 3 Recovery | the DAO only (7 days, 60 with a wedgie) | Own recovery addresses can't be added any more; old ones still show and still work. It can only replace lost keys, and you can cancel. |
 
 **No hot wallet (Austin 10-14).** Three things only: the passkey, the wedgie, the recovery address. The app no longer
 offers to add a hot wallet. Wallets that added one before still have it as an owner: Keys shows it, and it can
@@ -51,7 +49,7 @@ still sign (`hotOf`, the `"hot"` signer in `lib/safe/send.ts`).
   Candide SocialRecoveryModule (7 d), Zodiac Roles 2.1.1 + MultiSendUnwrapper, MultiSendCallOnly 1.5 (first setup
   only) and 1.4.1 (every other batch: the wedgie's Safe app decodes it), Multicall3. Addresses: `web/lib/safe/config.ts`.
 - App: `web/lib/safe/` (core = addresses, batches, hashes, signatures; send = paths; state = per-chain reads),
-  `web/components/safe/`, `web/app/safe/`.
+  `web/components/safe/`, `web/app/`.
 - Relay: `web/app/api/safe/relay/route.ts`, key `RELAYER_PRIVATE_KEY` (the facilitator 0x4cFa…8A2f). It only relays
   Instant Wallet shapes (ERC-20 transfers; ETH to accounts, 7702 accounts and real Safes; the wallet's own owner/module
   changes, Roles, Candide, createSigner, deployModule of Roles; and in an owner-signed batch, a site's arbitrary
@@ -71,10 +69,9 @@ still sign (`hotOf`, the `"hot"` signer in `lib/safe/send.ts`).
 | WalletConnect, fork (scan a site's QR, 6492/1271 signatures, a 2-call batch, a call into the wallet refused) | `tools/safe-wc-e2e.mjs` | 12/12 on Base |
 | Live first send through the live relay (raw P-256 key) | `tools/safe-live.mts` | passed on Base and Ethereum mainnet |
 
-## Not built yet (PLAN.md phases)
+## Not built yet
 
-- Phase 4 contract (24 h wait on wedgie + one, any-two cancel, travel lock, one-key protect). Until then wedgie + one
-  is instant, as PLAN.md says.
+- A wait on big moves (any-two cancel, travel lock, one-key protect). Today the owners' signatures are instant.
 - 6-month death switch + EAS heir; group wallets UI; AI / skill.md; more chains; the indexer; alerts (push/email);
   changing the daily budget from the app; per-token budgets other than USDC/ETH.
 - Big moves need a computer (MetaMask + the wedgie over Web Serial). The phone does budget sends.

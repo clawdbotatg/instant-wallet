@@ -54,7 +54,7 @@ The sheet's test: block our domains, make the RPC and relay refuse your address,
      move wallet money. It submits `execTransaction` to your node.
   2. **Any relay:** Settings → Relay URL. The relay code is here and MIT, so anyone can run one.
   3. **Signed tx as a file or QR:** anyone with gas can submit it.
-  4. **4337 public bundlers** (`docs/LEVELS.md` dial 2B). Owners only, costs more.
+  4. **4337 public bundlers** (ERC-4337). Owners only, costs more.
   Check the daily-limit (Roles) path can also be submitted by anyone, not just our relay. **check**
 
 ### Revoke (level 2)
@@ -70,7 +70,7 @@ The sheet's test: block our domains, make the RPC and relay refuse your address,
 - **Now:** owners swap keys at once (M of N). No delay, so nothing to cancel. The delay contract (PLAN phase 4)
   was never built.
 - **Should:** changing keys takes two of your keys **and** a wait you set, which your current key can cancel.
-  Rule from `docs/COLD-STORAGE.md`: weakening is slow, protecting is instant.
+  Rule: weakening is slow, protecting is instant.
 - **How:** Zodiac Delay modifier (audited, not ours) in front of owner changes. Reuse the recovery alert and its
   Cancel button for a pending key change.
 

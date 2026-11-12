@@ -33,7 +33,7 @@ Tests (fork + `next dev`, setup in each file's header):
 
 **Answer: yes, it works without asking Safe for anything.** A Safe App is a normal website that talks to its parent
 page through `postMessage` (the Safe Apps SDK). Any page that answers those messages is a Safe, as far as the app
-knows. Our wallet *is* a real Safe, so we can answer them with real data. Nothing is built yet.
+knows. Our wallet *is* a real Safe, so we can answer them with real data. Built: see the top.
 
 There are two gates, and neither one is Safe's:
 

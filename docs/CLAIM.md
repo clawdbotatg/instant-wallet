@@ -1,6 +1,6 @@
 # Claim cards
 
-Built 2026-10-08. Live at https://instant-wallet-b2jn.vercel.app/claim/new.
+Built 2026-10-08. Live at https://instantwallet.io/claim/new.
 
 Money you can hand to someone. It can be a QR on paper, an NFC sticker, or a link. They scan or tap it, make a wallet
 with Face ID, tap **Claim it**, and the money is in their own wallet. They need no app, no ETH and no account first.
@@ -68,7 +68,7 @@ wallet's own site, so the money goes to the wallet you're in.
 ## 2. The link
 
 ```
-https://instant-wallet-b2jn.vercel.app/pk#0x<64 hex characters: the private key>
+https://instantwallet.io/pk#0x<64 hex characters: the private key>
 ```
 
 - **`/pk#0x…`** is Punk Wallet's format, the same one Austin's Burner Wallet paper wallets used. So:
@@ -113,7 +113,7 @@ it costs more to move than it's worth, stays on the card, and the card shows as 
 
 ### Several networks
 
-The page reads USDC and ETH on every network the app runs on (Base, Ethereum) and claims each one in turn. If one fails
+The page reads USDC and ETH on every network the app runs on (14, `docs/NETWORKS.md`) and claims each one in turn. If one fails
 midway, open the card again: what's left is still there.
 
 ---

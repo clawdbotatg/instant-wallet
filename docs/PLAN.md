@@ -1,3 +1,6 @@
+> **History.** The plan from 2026-10-05, not what's built. What's real: `SAFE-APP.md`, `CUSTODY.md`. Code comments
+> point here for why the first setup is what it is. `ROLES.md`, `COLD-STORAGE.md` and `LEVELS.md` were removed 11-12 (git has them).
+
 > **2026-10-14 (Austin): the hot wallet is dropped.** Just the passkey, the wedgie, and the recovery address (DAO at
 > first, then anything you control, e.g. your MetaMask / ENS / a seed on paper cards). Everything below that uses "hot"
 > is from before; phase 4 needs a rethink with two keys.
@@ -652,7 +655,7 @@ A Safe's address is fixed by its first setup, forever, on every chain. So before
 
 ## Status (2026-10-06)
 
-**First version live:** phases 0–2 + recovery on Base and Ethereum at instant-wallet-b2jn.vercel.app. What's
+**First version live:** phases 0–2 + recovery on Base and Ethereum (now instantwallet.io, 14 networks). What's
 built, how to use it, how it's tested, what's not done: `SAFE-APP.md`.
 
 ## Build order (phases)

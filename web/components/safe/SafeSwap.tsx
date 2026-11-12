@@ -229,16 +229,22 @@ export function SafeSwap({
         slippageBps: String(SLIPPAGE_BPS),
       });
       // LI.FI gets a few seconds when Uniswap can answer too (it's the decentralized fallback); longer across chains
-      const lifiP: Promise<SwapRoute | string> =
-        force === "uniswap"
-          ? Promise.resolve("off")
-          : fetch(`/api/swap/quote?${qs}`, { signal: AbortSignal.timeout(sameChain ? 6_000 : 15_000) })
-              .then(async r => {
-                const j = await r.json();
-                return r.ok ? (j as SwapRoute) : String(j.error || r.status);
-              })
-              .catch(e => (e?.name === "TimeoutError" ? "LI.FI didn't answer in time" : friendly(e)));
-      const [uni, lifi] = await Promise.all([uniP, lifiP]);
+      const askLifi = (anon: boolean): Promise<SwapRoute | string> => {
+        const p = new URLSearchParams(qs);
+        if (anon) p.delete("safe");
+        return fetch(`/api/swap/quote?${p}`, { signal: AbortSignal.timeout(sameChain ? 6_000 : 15_000) })
+          .then(async r => {
+            const j = await r.json();
+            return r.ok ? (j as SwapRoute) : String(j.error || r.status);
+          })
+          .catch(e => (e?.name === "TimeoutError" ? "LI.FI didn't answer in time" : friendly(e)));
+      };
+      // when Uniswap can answer too, LI.FI is asked for a price with no wallet address: it learns the wallet only
+      // on a swap it wins (then it's asked again, for the tx to sign)
+      const compare = sameChain && !force;
+      let [uni, lifi] = await Promise.all([uniP, force === "uniswap" ? Promise.resolve<SwapRoute | string>("off") : askLifi(compare)]);
+      if (!live) return;
+      if (compare && (!uni || (typeof lifi !== "string" && BigInt(lifi.toAmount) > BigInt(uni.toAmount)))) lifi = await askLifi(false);
       if (!live) return;
       setQuoting(false);
       if (quiet && !uni && typeof lifi === "string") return; // a quiet re-quote that found nothing: the price on screen is still good

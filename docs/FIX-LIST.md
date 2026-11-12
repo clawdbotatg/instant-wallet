@@ -333,10 +333,13 @@ Ethereum). Maps: ethereumtransitauthority.com `#/iw`, `#/iws`, `#/iwt`. Desktop 
   In `20261111-185710-send-eth-instant` the first `/api/explain` is 0.2 s after `POST /api/safe/relay`. On the swap
   and the USDC send it ran before signing. Check whether a plain ETH send skips the check on the review card.
 
-- [ ] **39. LI.FI gets the wallet address on every swap quote, even when Uniswap wins.**
+- [x] **39. LI.FI gets the wallet address on every swap quote, even when Uniswap wins.**
   `app/api/swap/quote/route.ts:26-41` sends `fromAddress` and `toAddress` = the Safe. Read from code, not seen on the
   wire (it's server to server). Fix: quote with a fixed placeholder address, and ask again with the real one only
   if LI.FI wins.
+  Done 11-12: on one network the first ask has no address (`/api/swap/quote` with no `safe` asks for
+  `0x1111…1111` and returns a price that can't be signed). Only when LI.FI wins, or Uniswap has nothing, is it asked
+  again with the wallet. Across networks LI.FI is the only route, so it still gets the address.
 
 Not a bug, but the shape of the wallet: the browser talks to our server for almost everything, so we see IP +
 address + every read, and Alchemy, Zerion and LI.FI see the address behind us. `docs/CROPS.md` levels 4 and 5 are

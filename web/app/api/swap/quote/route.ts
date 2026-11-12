@@ -10,7 +10,10 @@ export const dynamic = "force-dynamic";
  *   GET /api/swap/quote?fromChain=8453&toChain=1&fromToken=0x…&toToken=0x…&amount=…&safe=0x…&slippageBps=50
  * The tx must go to LI.FI's diamond and pay the same Safe on the other side. LIFI_API_KEY (optional) lifts the
  * public rate limit.
+ * With no `safe`: a price only, asked for an address that is nobody's, so LI.FI doesn't learn the wallet on a swap
+ * Uniswap wins. Its route can't be signed (no tx, already out of date); ask again with `safe` when LI.FI wins.
  */
+const NOBODY = "0x1111111111111111111111111111111111111111";
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams;
   try {
@@ -18,7 +21,8 @@ export async function GET(req: NextRequest) {
     const toChain = Number(q.get("toChain"));
     const fromToken = q.get("fromToken") || "";
     const toToken = q.get("toToken") || "";
-    const safe = q.get("safe") || "";
+    const anon = !q.get("safe");
+    const safe = q.get("safe") || NOBODY;
     const amount = q.get("amount") || "";
     const slippageBps = Math.min(500, Math.max(10, Number(q.get("slippageBps")) || 50));
     if (!chainById(fromChain) || !chainById(toChain)) throw new Error("chain not enabled");
@@ -77,9 +81,9 @@ export async function GET(req: NextRequest) {
       fromUsd: Number(e.fromAmountUSD) || undefined,
       seconds: fromChain === toChain ? 0 : Number(e.executionDuration) || 60,
       gas: gas.toString(),
-      tx: { to: LIFI_DIAMOND, data: t.data, value: BigInt(t.value).toString() },
+      tx: { to: LIFI_DIAMOND, data: anon ? "0x" : t.data, value: BigInt(t.value).toString() },
       approval,
-      until: Date.now() + 60_000,
+      until: anon ? 0 : Date.now() + 60_000,
     };
     return NextResponse.json(route);
   } catch (e: any) {

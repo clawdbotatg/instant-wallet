@@ -11,7 +11,7 @@ import { loadHidden, loadPortfolio, loadShown, saveHidden, savePortfolio, saveSh
 import { dropOtherBudgetsCalls } from "@/lib/safe/core";
 import { type Prepared, Shared, finishOwners, ownerSigners, prepareOwners } from "@/lib/safe/send";
 import { friendly } from "@/lib/friendly";
-import { AppsIcon, Blockie, DepositIcon, GearIcon, ScanIcon, SendIcon, Sheet, sheetOpen, TokenIcon, TrashIcon, CopyLink, Who, named, useName, useToast } from "../bits";
+import { AppsIcon, Blockie, DepositIcon, GearIcon, SendIcon, SendScanIcon, Sheet, sheetOpen, TokenIcon, TrashIcon, CopyLink, Who, named, useName, useToast } from "../bits";
 import { Receive } from "../Receive";
 import { sendingNow } from "@/lib/safe/sending";
 import { Deposit } from "./Deposit";
@@ -47,7 +47,7 @@ const big = (_: string, v: unknown) => (typeof v === "bigint" ? `${v}n` : v);
 
 type View = { kind: "home" } | { kind: "send"; asset?: Asset; scanned?: string } | { kind: "swap"; fund?: number } | { kind: "apps" } | { kind: "receive" } | { kind: "deposit" } | { kind: "keys" } | { kind: "share"; chainId: number } | { kind: "sendAll" } | { kind: "tx"; chainId: number; safe: Address; code: string };
 
-/** Instant Wallet on a Safe: a big balance, Deposit / Apps, the connected sites above the coins, the address pill opens Receive, settings bottom left (signatures needed / signers; the wedgie lives in there), a send button on each asset, a scan button (addresses, claim cards, WalletConnect QRs). */
+/** Instant Wallet on a Safe: a big balance, Deposit / Apps, the connected sites above the coins, the address pill opens Receive, settings bottom left (signatures needed / signers; the wedgie lives in there), a send button on each asset, a green send button that opens on the scanner (addresses, claim cards, WalletConnect QRs). */
 export function SafeApp({ link }: { link?: string } = {}) {
   const [account, setAccountState] = useState<SafeAccount | null | undefined>(undefined);
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
@@ -511,7 +511,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
             {portfolio && (!fresh || pulling) && <span className="spinner" aria-label="Updating" />}
             {fresh && !pulling && assets.length > 0 && (
               <button className="send-all" aria-label="Send everything" onClick={() => setView({ kind: "sendAll" })}>
-                <SendIcon size={26} />
+                <SendIcon size={16} />
               </button>
             )}
           </div>
@@ -609,8 +609,8 @@ export function SafeApp({ link }: { link?: string } = {}) {
         {/* before the wallet loads: a faint M/N, never a guessed 1/1 */}
         <span className="lvl" style={topState ? undefined : { opacity: 0.2 }}>{topState ? `${keysNeed}/${keysHave}` : "M/N"}</span>
       </button>
-      <button className="fab" aria-label="Scan an address or WalletConnect" onClick={() => setView({ kind: "send" })}>
-        <ScanIcon />
+      <button className="fab" aria-label="Send or scan" onClick={() => setView({ kind: "send" })}>
+        <SendScanIcon />
       </button>
 
       {view.kind !== "home" && (

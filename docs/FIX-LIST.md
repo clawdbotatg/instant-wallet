@@ -333,9 +333,12 @@ Ethereum). Maps: ethereumtransitauthority.com `#/iw`, `#/iws`, `#/iwt`. Desktop 
   Apps opens (and Swap is behind Apps). IP only. Fix: ship the icons in the app.
   Done 11-12: the ten icons are in `public/apps/`.
 
-- [ ] **38. `/api/explain` ran after the relay POST on the ETH send.**
+- [x] **38. `/api/explain` ran after the relay POST on the ETH send.**
   In `20261111-185710-send-eth-instant` the first `/api/explain` is 0.2 s after `POST /api/safe/relay`. On the swap
   and the USDC send it ran before signing. Check whether a plain ETH send skips the check on the review card.
+  Checked 11-12, by design: that send was the wallet's first on Ethereum (it also deployed it), and a wallet not
+  yet on a network can't be run (`SafeSend.tsx` `ran`). The review still says the amount, the coin and who. The
+  `/api/explain` seen after the POST is Activity's row. A send from a wallet already on the network runs first.
 
 - [x] **39. LI.FI gets the wallet address on every swap quote, even when Uniswap wins.**
   `app/api/swap/quote/route.ts:26-41` sends `fromAddress` and `toAddress` = the Safe. Read from code, not seen on the

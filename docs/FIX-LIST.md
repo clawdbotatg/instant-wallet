@@ -220,9 +220,10 @@ Suggested first: 1, 3, 5, 12, 20.
   nothing cached). The caches in `nfts`, `positions` and `portfolio` are `Capped` (`lib/capped.ts`): the oldest
   goes when it's full.
 
-- [ ] **25. Three copies of the Upstash client.**
+- [x] **25. Three copies of the Upstash client.**
   `lib/kv.ts`, `lib/alerts.ts:22-56`, `lib/safe/relayGuard.ts:19-59`, each with its own memory fallback, and they
-  differ. Fix: the other two import `lib/kv.ts`.
+  differ. Done 11-12: the other two import `lib/kv.ts` (it gained SREM; a script throws in memory, so the lock's
+  plain fallback runs).
 
 ## Delete?
 

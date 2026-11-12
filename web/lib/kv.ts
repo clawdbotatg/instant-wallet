@@ -1,7 +1,7 @@
 import "server-only";
 
 /**
- * Upstash Redis (RELAY_KV_URL / RELAY_KV_TOKEN), the store alerts and the relay use. Without it (local dev, a fork
+ * Upstash Redis (RELAY_KV_URL / RELAY_KV_TOKEN): the one store. Alerts, the relay, drops, names and limits all use it. Without it (local dev, a fork
  * test) one in-memory store shared by every route; production refuses to run without it.
  */
 
@@ -35,6 +35,9 @@ function memory(cmd: string[]): any {
     case "SADD":
       put([...new Set([...(v ?? []), ...rest])]);
       return 1;
+    case "SREM":
+      put((v ?? []).filter((x: string) => !rest.includes(x)));
+      return 1;
     case "SMEMBERS":
       return v ?? [];
     case "RPUSH":
@@ -45,6 +48,8 @@ function memory(cmd: string[]): any {
       const end = Number(rest[1]);
       return l.slice(Number(rest[0]), end < 0 ? l.length + end + 1 : end + 1);
     }
+    case "EVAL":
+      throw new Error("kv: no scripts in memory"); // the caller's plain fallback runs
   }
   return null;
 }

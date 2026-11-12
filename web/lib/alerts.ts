@@ -6,6 +6,7 @@ import webpush from "web-push";
 import { type Address, type Hex, createPublicClient, getAddress, http, keccak256, toBytes } from "viem";
 import { CHAINS, chainById } from "./chains";
 import { upstreamRpc } from "./rpcServer";
+import { kv } from "./kv";
 import { RECOVERY_MODULES } from "./safe/config";
 import { abi, safeAddress, signerAddress } from "./safe/core";
 import { withLock } from "./safe/relayGuard";
@@ -17,45 +18,10 @@ import { bytesToBase64url, hexToBytes } from "./webauthn";
  * (/api/alerts/check, every 5 min) reads every listed wallet's recovery request on every chain and sends once per
  * recovery, and once more a day before it lands. Changing the contacts takes the wallet's passkey (Face ID), and
  * the old contacts are told, so a thief can't quietly switch them off first.
- * Storage: Upstash Redis (RELAY_KV_URL / RELAY_KV_TOKEN, keys "iws:alerts:").
+ * Storage: the one store (lib/kv.ts, keys "iws:alerts:").
  */
 
-const URL_ = process.env.RELAY_KV_URL;
-const TOKEN = process.env.RELAY_KV_TOKEN;
-// local dev only: one store for every route (dev loads each route's modules apart), with expiry
-const mem: Map<string, { v: any; until: number }> = ((globalThis as any).__iwsAlerts ??= new Map());
 const P = "iws:alerts:";
-
-async function kv(cmd: (string | number)[]): Promise<any> {
-  if (!URL_ || !TOKEN) {
-    if (process.env.VERCEL_ENV === "production") throw new Error("alert storage not configured");
-    const [op, k, ...rest] = cmd.map(String);
-    const cur = mem.get(k);
-    const v = cur && cur.until > Date.now() ? cur.v : undefined;
-    const put = (x: any, ex = Infinity) => mem.set(k, { v: x, until: Date.now() + ex * 1000 });
-    if (op === "GET") return v ?? null;
-    if (op === "SET") {
-      if (rest.includes("NX") && v !== undefined) return null;
-      put(rest[0], rest.includes("EX") ? Number(rest[rest.indexOf("EX") + 1]) : Infinity);
-      return "OK";
-    }
-    if (op === "DEL") return mem.delete(k) ? 1 : 0;
-    if (op === "SADD") return put([...new Set([...(v ?? []), rest[0]])]), 1;
-    if (op === "SREM") return put((v ?? []).filter((x: string) => x !== rest[0])), 1;
-    if (op === "SMEMBERS") return v ?? [];
-    return null;
-  }
-  const r = await fetch(URL_, {
-    method: "POST",
-    headers: { authorization: `Bearer ${TOKEN}`, "content-type": "application/json" },
-    body: JSON.stringify(cmd.map(String)),
-    cache: "no-store",
-    signal: AbortSignal.timeout(5000), // a hung call must not hold the request until the function is killed
-  });
-  const j = await r.json();
-  if (j.error) throw new Error(`kv: ${j.error}`);
-  return j.result;
-}
 
 export type Contacts = { email?: string; telegram?: number; push?: webpush.PushSubscription[]; at?: number };
 

@@ -3,6 +3,7 @@ import { type Address, type Hex, keccak256, size, slice } from "viem";
 import { MODULE_FACTORY, MULTICALL3, PASSKEY_FACTORY, RECOVERY_MODULES, ROLES_MASTERCOPY } from "./config";
 import { type Call, rolesAddress } from "./core";
 import { approvesRouter, checkSwap, isSwapTarget } from "./swap";
+import { kv as store } from "../kv";
 
 /**
  * The relay's defences (review 2026-10-06): it pays gas up front, so it must not be made to pay for nothing.
@@ -13,51 +14,14 @@ import { approvesRouter, checkSwap, isSwapTarget } from "./swap";
  *   - rate limits per IP and per wallet; a wallet whose relayed tx reverted is refused for a day, and its IP after
  *     three in a day
  *   - one send at a time per chain (relayer nonces)
- * State lives in Upstash Redis (RELAY_KV_URL / RELAY_KV_TOKEN, keys "iws:"), else in this instance's memory.
+ * State lives in the one store (lib/kv.ts, keys "iws:relay:").
  */
 
-const URL_ = process.env.RELAY_KV_URL;
-const TOKEN = process.env.RELAY_KV_TOKEN;
-const mem = new Map<string, { v: number | string; until: number }>();
-
-async function kv(cmd: (string | number)[]): Promise<any> {
-  if (!URL_ || !TOKEN) {
-    // memory is per serverless instance: fine for a local fork, not for production
-    if (process.env.VERCEL_ENV === "production") throw new RelayRefused("relay storage not configured", 503);
-    const [op, k, ...rest] = cmd.map(String);
-    const now = Date.now();
-    const cur = mem.get(k);
-    const live = cur && cur.until > now ? cur : undefined;
-    if (op === "SET") {
-      const ex = rest.includes("EX") ? Number(rest[rest.indexOf("EX") + 1]) : 3600;
-      if (rest.includes("NX") && live) return null;
-      mem.set(k, { v: rest[0] ?? 1, until: now + ex * 1000 });
-      return "OK";
-    }
-    if (op === "INCR") {
-      const v = Number(live?.v ?? 0) + 1;
-      mem.set(k, { v, until: live?.until ?? now + 3600_000 });
-      return v;
-    }
-    if (op === "EXPIRE") {
-      if (live) live.until = now + Number(rest[0]) * 1000;
-      return 1;
-    }
-    if (op === "GET") return live ? String(live.v) : null;
-    if (op === "DEL") return mem.delete(k) ? 1 : 0;
-    return null;
-  }
-  const r = await fetch(URL_, {
-    method: "POST",
-    headers: { authorization: `Bearer ${TOKEN}`, "content-type": "application/json" },
-    body: JSON.stringify(cmd.map(String)),
-    cache: "no-store",
-    signal: AbortSignal.timeout(5000), // a hung call must not hold the request until the function is killed
+// the one store (lib/kv.ts); with none set up in production the relay says so with a 503
+const kv = (cmd: (string | number)[]): Promise<any> =>
+  store(cmd).catch(e => {
+    throw e?.message === "storage not configured" ? new RelayRefused("relay storage not configured", 503) : e;
   });
-  const j = await r.json();
-  if (j.error) throw new Error(`kv: ${j.error}`);
-  return j.result;
-}
 
 const P = "iws:relay:";
 
@@ -133,11 +97,6 @@ export async function reverted(safe: Address, ip: string, swap = false) {
 
 /** Delete the lock only if it's still ours (one step on Redis, so nothing can slip between the look and the delete). */
 async function unlock(k: string, mine: string) {
-  if (!URL_ || !TOKEN) {
-    const cur = mem.get(k);
-    if (cur && cur.until > Date.now() && cur.v === mine) mem.delete(k);
-    return;
-  }
   try {
     await kv(["EVAL", "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end", 1, k, mine]);
   } catch {

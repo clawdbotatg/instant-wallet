@@ -48,7 +48,7 @@ function eip681(s: string): Parsed {
   if (fn === "transfer") {
     const to = q.get("address") || "";
     const amt = q.get("uint256");
-    if (!isAddress(target)) return { kind: "unknown", text: s };
+    if (!isAddress(target) || !to) return { kind: "unknown", text: s }; // a transfer to nobody isn't a payment
     return { kind: "pay", to, chainId, asset: getAddress(target), amountBase: amt ? bigFrom(amt) : undefined };
   }
   const value = q.get("value");

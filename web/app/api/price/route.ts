@@ -35,5 +35,6 @@ export async function GET(req: Request) {
     return NextResponse.json({ usd: out }, { headers: { "Cache-Control": "public, max-age=60" } });
   }
   const usd = await nativeUsd(id).catch(() => 0);
-  return NextResponse.json({ usd }, { headers: { "Cache-Control": "public, max-age=60" } });
+  // a price we couldn't get (0) is never kept: the next ask tries again
+  return NextResponse.json({ usd }, { headers: { "Cache-Control": usd > 0 ? "public, max-age=60" : "no-store" } });
 }

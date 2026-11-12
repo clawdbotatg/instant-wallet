@@ -14,7 +14,13 @@ const native = new Map<number, Promise<number>>();
 export function nativeUsd(chainId: number): Promise<number> {
   if (nativeSymbol(chainId) === "ETH") return ethUsd();
   if (!native.has(chainId))
-    native.set(chainId, fetch(`/api/price?chain=${chainId}`).then(r => r.json()).then(j => Number(j?.usd) || 0, () => 0));
+    native.set(
+      chainId,
+      fetch(`/api/price?chain=${chainId}`)
+        .then(r => r.json())
+        .then(j => Number(j?.usd) || 0, () => 0)
+        .then(v => (v || native.delete(chainId), v)), // a price we couldn't get isn't kept: the next ask tries again
+    );
   return native.get(chainId)!;
 }
 

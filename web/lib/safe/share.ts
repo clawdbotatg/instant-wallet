@@ -105,8 +105,11 @@ export async function shareTx(w: Waiting): Promise<{ safe: boolean; queue: boole
       if (!r.ok) throw new Error(`Safe's service: ${r.status}`);
       rest = more;
     }
-    for (const s of rest)
-      await fetch(svc(c, `multisig-transactions/${h}/confirmations/`), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ signature: s.signature }) });
+    for (const s of rest) {
+      const r = await fetch(svc(c, `multisig-transactions/${h}/confirmations/`), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ signature: s.signature }) });
+      // a signature Safe's service didn't take isn't shared: say so, don't show it as sent
+      if (!r.ok) throw new Error(`Safe's service: ${r.status}`);
+    }
   };
   const toQueue = async () => {
     const r = await fetch("/api/safe/queue", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ chainId: c, safe: a, tx: wire(t), sigs: m.sigs, origin: "Instant Wallet" }) });

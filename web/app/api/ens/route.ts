@@ -30,7 +30,8 @@ export async function GET(req: NextRequest) {
         const a = await nameOwner(ours);
         return NextResponse.json({ name, address: a }, a ? keep : { headers: { "Cache-Control": "no-store" } });
       }
-      return NextResponse.json({ name, address: await nameAddress(client as any, name) }, keep);
+      // where a name points is where money goes: 5 minutes, never the week-old copy a picture may have
+      return NextResponse.json({ name, address: await nameAddress(client as any, name) }, { headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=60" } });
     }
     if (address && isAddress(address)) {
       const n = await primaryName(client as any, address, chain);

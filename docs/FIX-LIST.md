@@ -99,23 +99,22 @@ Suggested first: 1, 3, 5, 12, 20.
   Fix: one helper that throws. Also `web/tools/aa-live.mjs:20`, `wc-e2e.mjs:63`, `relay-tip-demo.mjs:15` and
   `packages/foundry/foundry.toml` name public RPCs.
 
-- [ ] **11b. Smaller, same area.**
-  - `lib/safe/describe.ts:33` hard-codes the relayer's address; the fee goes to the address from
-    `RELAYER_PRIVATE_KEY`. Nothing checks they match. If they ever differ, the fee line reads as a plain send.
-  - `lib/safe/share.ts:108-109`: a confirmation posted to Safe's service is never checked (`r.ok`).
-  - `lib/parse.ts:48-54`: an EIP-681 request with no recipient comes back as a payment to "".
-  - `app/api/onramp/route.ts:43-49,107-115`: bad input gives a 500, not a 400.
-  - `app/api/uni/route.ts:22-23`: a case-sensitive sort against a lowercased address may pick the wrong chunk (a
-    false "nothing to claim"). Not checked against Uniswap's data.
-  - `app/api/ens/route.ts:19`: name → address can be served up to 7 days old.
-  - `app/api/price/route.ts:11-12` and `lib/price.ts:15-16`: a failed price (0) is cached.
+- [x] **11b. Smaller, same area.**
+  - Done 11-12: in production the relay refuses to start with a key that isn't `RELAY` (`relayCore.ts`
+    `relayer`). Live they match.
+  - Done 11-12: a confirmation Safe's service doesn't take throws (`lib/safe/share.ts`).
+  - Done 11-12: an EIP-681 transfer with no recipient is "unknown", not a payment to "" (`lib/parse.ts`).
+  - Checked 11-12, nothing to fix: `app/api/onramp` answers bad input with a 401 (seen live); Uniswap's
+    `mapping.json` keys are all lowercase and sorted, so the chunk pick is right.
+  - Done 11-12: name → address is kept 5 minutes (was a day, and up to a week stale).
+  - Done 11-12: a price of 0 isn't cached (`app/api/price`, `lib/price.ts` `nativeUsd`).
   - Done 11-10 for the relay: a revert refuses that wallet for a day and the IP only at its third revert in a day;
     the IP's send cap is the route's 240 an hour, not 60 (`tools/relay-ban-check.mts`). Still as it was for drops
     (`lib/drops.ts:212`): a crowd on one Wi-Fi shares an IP.
   - Done 11-10: `lib/alerts.ts` `authorize` checks origin, rpId and the UV flag, as `app/api/onramp` does
     (`tools/passkey-site-check.mts`).
-  - Three ETH prices: Coinbase from the browser (`lib/price.ts`), Coinbase on the server (`relayCore.ts:45`), and a
-    Uniswap pool's spot price that sets what an ETH drop pays (`lib/drops.ts:252`).
+  - Left (drops, low): a Uniswap pool's spot price sets what an ETH drop pays (`lib/drops.ts:252`); the wallet
+    itself now has one ETH price (the server's). Drops still share an IP ban (`lib/drops.ts:212`).
 
 ## What people see
 

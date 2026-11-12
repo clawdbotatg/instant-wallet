@@ -4,13 +4,18 @@ import { privateKeyToAccount } from "viem/accounts";
 import { chainById } from "@/lib/chains";
 import { upstreamRpc } from "@/lib/rpcServer";
 import { GAS_BUDGET, GAS_TYPICAL, type Quote, type SendKind } from "@/lib/safe/fee";
+import { RELAY } from "@/lib/safe/describe";
 
 /** The relay's key, chains, and fee quote: shared by /api/safe/relay and drops (lib/drops.ts). */
 
 export function relayer() {
   const pk = process.env.RELAYER_PRIVATE_KEY as Hex | undefined;
   if (!pk) throw new Error("relay not configured");
-  return privateKeyToAccount(pk);
+  const a = privateKeyToAccount(pk);
+  // the wallet (and the wedgie's fee rule) reads a payment to RELAY as the fee. A key for another address would
+  // make every fee read as a plain send: stop here, not after people sign. (A fork or a test runs its own key.)
+  if (process.env.VERCEL_ENV === "production" && a.address.toLowerCase() !== RELAY) throw new Error("relay key doesn't match the fee address");
+  return a;
 }
 
 export function clients(chainId: number) {

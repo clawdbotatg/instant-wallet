@@ -93,6 +93,10 @@ function saveHandle(credentialId: string, userId: Uint8Array) {
     const h = loadHandles();
     const v = bytesToBase64url(userId);
     if (h[credentialId] === v) return;
+    // a passkey's id never changes, and no two passkeys share one. If the passkey now says otherwise, our note
+    // can't be trusted: it's kept, marked, and renamePasskey won't write with it
+    const clash = (h[credentialId] && h[credentialId] !== v) || Object.entries(h).some(([c, u]) => c !== credentialId && u === v);
+    if (clash) logRename({ credentialId, userId: v, name: "", refused: "the passkey's id changed, or two passkeys share one" });
     localStorage.setItem(HANDLES, JSON.stringify({ ...h, [credentialId]: v }));
   } catch {}
 }
@@ -105,12 +109,14 @@ export async function renamePasskey(credentialId: string, name: string): Promise
   const signal = (window.PublicKeyCredential as any)?.signalCurrentUserDetails;
   const userId = loadHandles()[credentialId];
   if (!signal || !userId) return false;
+  // checked on every write: this id belongs to this passkey and to no other one this browser knows
+  if (Object.entries(loadHandles()).some(([c, u]) => c !== credentialId && u === userId)) {
+    logRename({ credentialId, userId, name, refused: "two passkeys share this id" });
+    return false;
+  }
   // every rename this browser sends is kept (the last 40): a passkey once showed another wallet's name (Austin
   // 11-12), and this says whether we sent that or the password manager did
-  try {
-    const log = JSON.parse(localStorage.getItem(RENAMES) || "[]");
-    localStorage.setItem(RENAMES, JSON.stringify([...log, { at: new Date().toISOString(), credentialId, userId, name }].slice(-40)));
-  } catch {}
+  logRename({ credentialId, userId, name });
   try {
     // not awaited: Safari 26 may never settle this promise, and the caller would then send the same name again
     Promise.resolve(signal.call(window.PublicKeyCredential, { rpId: rpId(), userId, name, displayName: name })).catch(() => {});
@@ -120,6 +126,12 @@ export async function renamePasskey(credentialId: string, name: string): Promise
   }
 }
 const RENAMES = "iws.renameLog";
+function logRename(e: { credentialId: string; userId: string; name: string; refused?: string }) {
+  try {
+    const log = JSON.parse(localStorage.getItem(RENAMES) || "[]");
+    localStorage.setItem(RENAMES, JSON.stringify([...log, { at: new Date().toISOString(), ...e }].slice(-40)));
+  } catch {}
+}
 
 /**
  * One passkey per tap, however many taps. A second call while one is open gets the same one. A passkey made in

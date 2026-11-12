@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { type Address, getAddress, isAddress, zeroAddress } from "viem";
 import { CHAINS, chainById } from "@/lib/chains";
 import { amount, short, usd, nameIn } from "@/lib/format";
-import { type ChainState, type SafeAccount, defaultWalletName, forgetKnown, loadAccount, loadWalletName, readAll, saveAccount, saveWalletName } from "@/lib/safe/state";
+import { type ChainState, type SafeAccount, forgetKnown, loadAccount, loadWalletName, readAll, saveAccount, saveWalletName } from "@/lib/safe/state";
 import { type Asset, type Portfolio, keepLate } from "@/lib/types";
 import { loadHidden, loadPortfolio, loadShown, saveHidden, savePortfolio, saveShown } from "@/lib/store";
 import { dropOtherBudgetsCalls } from "@/lib/safe/core";
@@ -242,8 +242,8 @@ export function SafeApp({ link }: { link?: string } = {}) {
 
   // the wallet's name is ONE name, the one on screen (Austin 11-12, docs/NAMES.md): its own ENS name, else its
   // alice.inst.eth name, else the private name it was given before public names (retired: shown, never set), else
-  // Spending / Savings account by the rough balance below (under ~$200 is spending money). The pencil edits the
-  // inst.eth name only, and is gone once the wallet has an ENS name of its own.
+  // no name at all: it shows as its address, and the pencil says "Add a name" (Austin 11-12: no made-up name).
+  // The pencil edits the inst.eth name only, and is gone once the wallet has an ENS name of its own.
   const [customName, setCustomName] = useState<string | null>(null);
   // synced across the passkey's devices (lib/walletName.ts): theirs wins; one saved before sync goes up
   useEffect(() => {
@@ -285,9 +285,9 @@ export function SafeApp({ link }: { link?: string } = {}) {
     setToast(`${j.name} is yours`);
     window.dispatchEvent(new CustomEvent("iws:landed", { detail: account.address })); // every <Who> of this wallet reads its name again
   };
-  // the passkey's name in the password manager tracks the wallet: "Savings account · atg.eth · ~$50". Every
+  // the passkey's name in the password manager tracks the wallet: "atg.eth · ~$50". Every
   // rename can pop a system notification, so the balance is rough (1-2-5 steps) and sticky: it only moves when the
-  // real one halves or doubles (so does the default name, which follows it). The last name sent is saved, so a
+  // real one halves or doubles. The last name sent is saved, so a
   // reload doesn't rename again.
   const namedKey = account ? `iws.passkeyName.${account.credentialId}` : "";
   const roughRef = useRef<number | null>(null);
@@ -302,14 +302,13 @@ export function SafeApp({ link }: { link?: string } = {}) {
   const total = portfolio ? (portfolio.totalUsd ?? 0) - receiptUsd + (posUsd ?? 0) : null;
   const rough = total === null ? null : stickyRough(total, roughRef.current);
   roughRef.current = rough ?? roughRef.current;
-  const walletName = customName ?? (rough === null ? null : defaultWalletName(rough));
   const [ens, setEns] = useState<string | null | undefined>(undefined);
   // the top-right pill shows the ENS name over the address; re-read when a tx lands (an ENS app tx sets it)
   const { name: ensName } = useName(account?.address);
   // an ENS name of its own comes first; a name just claimed shows before the lookup catches up
   const ownEns = ensName && !ourLabel(ensName) ? ensName : null;
   const publicName = ownEns ?? instName ?? ensName;
-  const title = publicName ?? walletName;
+  const title = publicName ?? customName;
   useEffect(() => {
     if (!account) return;
     setEns(undefined);
@@ -317,15 +316,15 @@ export function SafeApp({ link }: { link?: string } = {}) {
     named(account.address).then(v => setEns(v?.name ?? null));
   }, [account]);
   useEffect(() => {
-    if (!account || account.credentialId === WATCH || !fresh || posUsd === null || rough === null || !walletName || ens === undefined) return;
+    if (!account || account.credentialId === WATCH || !fresh || posUsd === null || rough === null || ens === undefined) return;
     let last: { name: string } | null = null;
     try {
       last = JSON.parse(localStorage.getItem(namedKey) || "null");
     } catch {}
-    // the passkey is named after the name on screen and nothing else: a public name stands alone, a private or
-    // default one gets the address so two "Spending account"s can be told apart
+    // the passkey is named after the name on screen and nothing else: a public name stands alone, an old
+    // private one gets the address, and a wallet with no name is its address
     const pub = ens && !ourLabel(ens) ? ens : (instName ?? ens);
-    const name = pub ? `${pub} · ~${compactUsd(rough)}` : `${walletName} · ${short(account.address)} · ~${compactUsd(rough)}`; // plain text: the passkey's name in the phone's own list
+    const name = pub ? `${pub} · ~${compactUsd(rough)}` : `${customName ? `${customName} · ` : ""}${short(account.address)} · ~${compactUsd(rough)}`; // plain text: the passkey's name in the phone's own list
     if (name === last?.name) return;
     renamePasskey(account.credentialId, name).then(ok => {
       if (!ok) return;
@@ -333,7 +332,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
         localStorage.setItem(namedKey, JSON.stringify({ name, rough }));
       } catch {}
     });
-  }, [account, namedKey, fresh, posUsd, rough, walletName, ens, instName]);
+  }, [account, namedKey, fresh, posUsd, rough, customName, ens, instName]);
 
   // the iOS app's pull-down: a newer deploy reloads the whole page; otherwise reload the balance now, with the
   // spinner beside it for at least a beat
@@ -620,7 +619,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
               toast={setToast}
               got={got}
               onSeen={() => setGot([])}
-              name={title}
+              name={title ?? (ens === undefined ? "…" : null)}
               start={instName ? (ourLabel(instName) ?? "") : labelIn(customName ?? "").replace(/^-+|-+$/g, "").slice(0, 32)}
               onClaim={account.credentialId === WATCH || ownEns ? undefined : claim}
               onSwitch={anotherPasskey}

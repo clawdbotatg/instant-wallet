@@ -197,16 +197,16 @@ function NameTitle({ name, start, address, onClaim }: { name: string | null; sta
   }, [editing, v, local, address]);
   const now = seen?.label === v ? seen : null;
   const problem = local ?? now?.problem ?? null;
-  if (!onClaim) return <h2>{name ?? "…"}</h2>; // its own ENS name, or view only: nothing to edit here
+  if (!onClaim) return name ? <h2>{name}</h2> : null; // its own ENS name, or view only: nothing to edit here
   if (!editing)
     return (
       <h2>
         <button
-          aria-label={`Rename ${name ?? "this wallet"}`}
+          aria-label={name ? `Rename ${name}` : "Add a name"}
           onClick={() => (setV(start), setErr(null), setEditing(true))}
           style={{ border: 0, padding: 0, background: "none", color: "inherit", font: "inherit", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}
         >
-          {name ?? "…"}
+          {name ?? <span style={{ color: "var(--muted)" }}>Add a name</span>}
           <span style={{ color: "var(--muted)", display: "flex" }}>
             <PencilIcon />
           </span>

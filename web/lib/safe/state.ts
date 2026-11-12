@@ -82,7 +82,7 @@ export function forgetKnown(a: SafeAccount) {
   saveKnown(knownAccounts().filter(k => !sameAccount(k, a)));
 }
 
-/** The name the user gave this wallet (synced encrypted to its passkey's devices: lib/walletName.ts), or null: we name it (defaultWalletName). */
+/** The name the user gave this wallet (synced encrypted to its passkey's devices: lib/walletName.ts), or null: it has no name, it shows as its address. */
 export function loadWalletName(address: Address): string | null {
   try {
     return localStorage.getItem(`iws.name.${address.toLowerCase()}`);
@@ -115,8 +115,6 @@ export function saveSigner(safe: Address, signer: Address, info: SignerInfo) {
     localStorage.setItem(`iws.signers.${safe.toLowerCase()}`, JSON.stringify(m));
   } catch {}
 }
-
-export const defaultWalletName = (usd: number) => (usd < 200 ? "Spending account" : "Savings account");
 
 export type Recovery = { newOwners: Address[]; newThreshold: number; executeAfter: number; approvals: number } | null;
 /** One enabled recovery module: who can recover, after how long, and its running request. */

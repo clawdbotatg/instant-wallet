@@ -66,6 +66,7 @@ for (const p of files) {
 for (const p of files) {
   const rel = relative(root, p);
   const src = readFileSync(p, "utf8");
+  if (/(Spending|Savings) account/.test(src)) (bad++, console.log(`${rel}  a made-up wallet name: a wallet with no name shows its address (Austin 11-12)`));
   if (/\/api\/names\?address/.test(src) && rel !== "components/safe/SafeApp.tsx") (bad++, console.log(`${rel}  a wallet's name read its own way: <Who> / useName decide it (its own ENS name first)`));
   if (/\/api\/ens\?name=/.test(src) && rel !== "components/safe/SafeApp.tsx" && !/NameMoved/.test(src)) (bad++, console.log(`${rel}  a name looked up with no <NameMoved>: say so when it points somewhere new`)); // SafeApp: ?watch, never paid
 }

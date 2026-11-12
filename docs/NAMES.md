@@ -10,7 +10,7 @@ Every wallet can take a public name under `inst.eth`. Free, first come.
 
 | The wallet has | Title | Pencil | Passkey's name |
 |---|---|---|---|
-| nothing | Spending / Savings account | take an inst.eth name | `Spending account · 0x12…ef · ~$50` |
+| nothing | "Add a name" (the header shows the address) | take an inst.eth name | `0x12…ef · ~$50` |
 | an old private name | that name | take an inst.eth name (the box starts from the old one) | `Vacation · 0x12…ef · ~$50` |
 | an inst.eth name | `alice.inst.eth` | rename it | `alice.inst.eth · ~$50` |
 | its own ENS name | `alice.eth` | none: it's changed in ENS | `alice.eth · ~$50` |

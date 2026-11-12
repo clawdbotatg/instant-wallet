@@ -181,11 +181,9 @@ export function SendAll({
         const url = r.hash && explorerTx(chainId, r.hash);
         // the same as the card you sign on Home: the batch you're about to sign, run by the simulator
         const ran = r.prepared && r.prepared.opts.state.deployed ? r.prepared.t : null;
-        return (
-          <div key={chainId} className="card stack">
-            <b>{chainById(chainId)?.name}</b>
-            {ran && <WhatItDoes quiet chainId={chainId} safe={account.address} calls={callsOf(ran)} tx={ran} />}
-            <div className="send-all-list" style={ran ? { display: "none" } : undefined}>
+        // what you hold: shown until the run answers, and again if it can't (never hide the coins)
+        const list = (
+            <div className="send-all-list">
               {held.map((a) => {
                 const n = r.net?.[a.asset] ?? BigInt(a.balance);
                 return (
@@ -207,6 +205,11 @@ export function SendAll({
                 );
               })}
             </div>
+        );
+        return (
+          <div key={chainId} className="card stack">
+            <b>{chainById(chainId)?.name}</b>
+            {ran ? <WhatItDoes quiet chainId={chainId} safe={account.address} calls={callsOf(ran)} tx={ran} else={list} /> : list}
             {held.length > 5 && !ran && (
               <span className="fine">
                 {held.length} tokens · scroll to see all

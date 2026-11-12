@@ -50,6 +50,19 @@ let wedgieSigns = 0;
 
 const browser = await chromium.launch({ executablePath: process.env.CHROME });
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
+// every screenshot also reads the page: never a doubled warning sign, never a raw amount ("Amount: 300000000")
+const ugly = new Set();
+const watch = c =>
+  c.on("page", p => {
+    const shot = p.screenshot.bind(p);
+    p.screenshot = async o => {
+      const t = await p.evaluate(() => document.body.innerText).catch(() => "");
+      for (const l of t.split("\n")) if (/⚠️\s*⚠️|^Amount: \d{7,}$/.test(l.trim())) ugly.add(`${o?.path?.split("/").pop()}: ${l.trim()}`);
+      if (process.env.SAY) for (const l of t.split("\n")) if (/⚠️|^Amount:/.test(l)) console.log("  said", o?.path?.split("/").pop(), l.trim());
+      return shot(o);
+    };
+  });
+watch(ctx);
 let page = await ctx.newPage();
 page.on("pageerror", e => console.log("pageerror", e.message));
 page.on("console", m => m.type() === "error" && console.log("console", m.text().slice(0, 300)));
@@ -383,6 +396,7 @@ await page.screenshot({ path: `${OUT}/s11-relogin.png` });
 
 // ---------------------------------------------------------------- the phone is lost: a new device recovers the wallet
 const ctx2 = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
+watch(ctx2);
 await ctx2.addInitScript(fakeKeys, hot.address);
 const page2 = await ctx2.newPage();
 await page2.exposeFunction("__hotSign", async json => {
@@ -499,6 +513,7 @@ const by5 = await sendBig(page, HAL, "300", "s17");
 ok(usdcOf(HAL) === 300_000_000n && /then the wedgie/.test(by5) && wedgieSigns === w0 + 1, "over the budget: Face ID, then the wedgie");
 await page.screenshot({ path: `${OUT}/s18-any-order-done.png` });
 
+ok(!ugly.size, `no doubled ⚠️, no raw amount${ugly.size ? ": " + [...ugly].join(" | ") : ""}`);
 await browser.close();
 console.log(fails ? `${fails} FAILED` : "ALL PASS");
 process.exit(fails ? 1 : 0);

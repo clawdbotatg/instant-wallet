@@ -313,7 +313,11 @@ export function SafeApp({ link }: { link?: string } = {}) {
     if (!account) return;
     setEns(undefined);
     // the same read as the pill's useName above: one request, not two
-    named(account.address).then(v => setEns(v?.name ?? null));
+    let live = true; // a late answer for the last wallet never lands on this one
+    named(account.address).then(v => live && setEns(v?.name ?? null));
+    return () => {
+      live = false;
+    };
   }, [account]);
   useEffect(() => {
     if (!account || account.credentialId === WATCH || !fresh || posUsd === null || rough === null || ens === undefined) return;
@@ -326,12 +330,19 @@ export function SafeApp({ link }: { link?: string } = {}) {
     const pub = ens && !ourLabel(ens) ? ens : (instName ?? ens);
     const name = pub ? `${pub} · ~${compactUsd(rough)}` : `${customName ? `${customName} · ` : ""}${short(account.address)} · ~${compactUsd(rough)}`; // plain text: the passkey's name in the phone's own list
     if (name === last?.name) return;
-    renamePasskey(account.credentialId, name).then(ok => {
-      if (!ok) return;
-      try {
-        localStorage.setItem(namedKey, JSON.stringify({ name, rough }));
-      } catch {}
-    });
+    // the name waits 2 s and is dropped if anything changes first (Austin 11-12). When it goes, the wallet open in
+    // this browser must still be this one: a switch here or in another tab, and nothing is sent
+    const t = setTimeout(() => {
+      const open = loadAccount();
+      if (open?.credentialId !== account.credentialId || open.address !== account.address) return;
+      renamePasskey(account.credentialId, name).then(ok => {
+        if (!ok) return;
+        try {
+          localStorage.setItem(namedKey, JSON.stringify({ name, rough }));
+        } catch {}
+      });
+    }, 2000);
+    return () => clearTimeout(t);
   }, [account, namedKey, fresh, posUsd, rough, customName, ens, instName]);
 
   // the iOS app's pull-down: a newer deploy reloads the whole page; otherwise reload the balance now, with the

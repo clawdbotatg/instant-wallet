@@ -11,7 +11,7 @@ import { loadHidden, loadPortfolio, loadShown, saveHidden, savePortfolio, saveSh
 import { dropOtherBudgetsCalls } from "@/lib/safe/core";
 import { type Prepared, Shared, finishOwners, ownerSigners, prepareOwners } from "@/lib/safe/send";
 import { friendly } from "@/lib/friendly";
-import { AppsIcon, Blockie, DepositIcon, GearIcon, ScanIcon, SendIcon, Sheet, sheetOpen, TokenIcon, TrashIcon, CopyLink, Who, useName, useToast } from "../bits";
+import { AppsIcon, Blockie, DepositIcon, GearIcon, ScanIcon, SendIcon, Sheet, sheetOpen, TokenIcon, TrashIcon, CopyLink, Who, named, useName, useToast } from "../bits";
 import { Receive } from "../Receive";
 import { sendingNow } from "@/lib/safe/sending";
 import { Deposit } from "./Deposit";
@@ -311,10 +311,8 @@ export function SafeApp({ link }: { link?: string } = {}) {
   useEffect(() => {
     if (!account) return;
     setEns(undefined);
-    fetch(`/api/ens?address=${account.address}`)
-      .then(r => r.json())
-      .then(j => setEns(j?.name ?? null))
-      .catch(() => setEns(null));
+    // the same read as the pill's useName above: one request, not two
+    named(account.address).then(v => setEns(v?.name ?? null));
   }, [account]);
   useEffect(() => {
     if (!account || account.credentialId === WATCH || !fresh || posUsd === null || rough === null || !walletName || ens === undefined) return;

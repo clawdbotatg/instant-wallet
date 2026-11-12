@@ -206,10 +206,11 @@ Suggested first: 1, 3, 5, 12, 20.
     Making a cards drop: up to 500 KV writes one by one (`lib/drops.ts:157-160`).
   - `Claim.tsx:227-245`: all 14 chains + portfolio every 5 s, also during the sweep and after Done.
   - `ClaimMaker.tsx:55-73`: every card on every chain every 6 s, claimed ones too.
-  - `Activity.tsx:155-160`: token names fetched again on every refresh.
+  - Done 11-12: Activity asks for a token's name once per page, not on every refresh.
   - Done 11-12: Swap's 20 s re-quote is quiet. The card and the button stay until the new price is in.
-  - `SafeApp.tsx:225-233`: two ENS reads for the same address.
-  - `app/api/uni/route.ts:25`: a static file downloaded again on every call.
+  - Done 11-12: Home reads the wallet's ENS name once (it shares `named` with the pill).
+  - Done 11-12: `app/api/uni` keeps the claim files it has downloaded (8 at most).
+  - Left: the three drop ones above (low).
   - Done 11-10: `lib/safe/relayCore.ts` uses its last price (up to 10 min old) when the feed fails.
 
 - [x] **24. No timeouts, no size caps.**

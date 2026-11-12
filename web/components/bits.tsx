@@ -30,7 +30,8 @@ export function Blockie({ address, size = 32 }: { address: string; size?: number
 type Named = { name: string | null; avatar: string | null; at: number };
 const NAMES = "iws.ens";
 const asked = new Map<string, Promise<Named | null>>();
-function named(a: string, chain?: number, fresh = false): Promise<Named | null> {
+/** One read per address for the whole page: every caller shares it. */
+export function named(a: string, chain?: number, fresh = false): Promise<Named | null> {
   const k = `${chain ?? 1}:${a.toLowerCase()}`;
   let kept: Record<string, Named> = {};
   try {

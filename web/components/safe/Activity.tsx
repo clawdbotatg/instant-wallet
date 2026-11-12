@@ -281,15 +281,27 @@ async function insOn(chainId: number, safe: Address): Promise<Row[]> {
   return Promise.all([...rows.values()].slice(0, SHOW).map(row => once(`${chainId}:${safe}:${row.hash}:in`, async () => ({ ...row, from: await real(rpc, safe, row.hash!, row.from ?? undefined) }))));
 }
 
+// a token's symbol and decimals never change: asked once per page, not on every refresh (a failed read is asked again)
+const tokens = new Map<string, Promise<{ symbol: string; decimals: number } | null>>();
+
 async function rowsOn(chainId: number, safe: Address): Promise<Row[]> {
   const info = chainById(chainId);
   const rpc = (method: string, params: unknown[]) => publicClient(chainId).request({ method: method as any, params: params as any });
   const usdc = info?.usdc?.toLowerCase();
-  const tokens = new Map<string, Promise<{ symbol: string; decimals: number } | null>>();
   const token = (a: string) => {
     if (a === usdc) return Promise.resolve({ symbol: "USDC", decimals: 6 });
-    if (!tokens.has(a)) tokens.set(a, rpc("alchemy_getTokenMetadata", [a]).then((m: any) => (m && typeof m.decimals === "number" ? { symbol: m.symbol || "?", decimals: m.decimals } : null)));
-    return tokens.get(a)!;
+    const k = `${chainId}:${a}`;
+    if (!tokens.has(k))
+      tokens.set(
+        k,
+        rpc("alchemy_getTokenMetadata", [a])
+          .then((m: any) => (m && typeof m.decimals === "number" ? { symbol: m.symbol || "?", decimals: m.decimals } : null))
+          .catch(e => {
+            tokens.delete(k);
+            throw e;
+          }),
+      );
+    return tokens.get(k)!;
   };
   const native = info?.native.symbol ?? "ETH";
   const link = (h: string) => (info?.explorer ? `${info.explorer}/tx/${h}` : undefined);

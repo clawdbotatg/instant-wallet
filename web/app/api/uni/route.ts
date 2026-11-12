@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createPublicClient, getAddress, http, isAddress, parseAbi } from "viem";
 import { mainnet } from "viem/chains";
 import { mustRpc } from "@/lib/rpcServer";
+import { Capped } from "@/lib/capped";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,8 @@ export const dynamic = "force-dynamic";
 const UNI_DISTRIBUTOR = "0x090D4613473dEE047c3f2706764f49E0821D256e";
 const CHUNKS = "https://raw.githubusercontent.com/Uniswap/mrkl-drop-data-chunks/final/chunks/";
 let starts: string[] | null = null;
+type Chunk = Record<string, { index: number; amount: string; proof: string[] }>;
+const chunks = new Capped<string, Chunk>(8); // the files never change: kept, not downloaded on every call
 
 export async function GET(req: NextRequest) {
   const a = req.nextUrl.searchParams.get("address");
@@ -22,7 +25,8 @@ export async function GET(req: NextRequest) {
     if (!starts) starts = Object.keys(await fetch(`${CHUNKS}mapping.json`, { signal: AbortSignal.timeout(10_000) }).then(r => r.json())).sort();
     const start = starts.filter(s => s <= addr).pop();
     if (!start) return NextResponse.json({});
-    const chunk: Record<string, { index: number; amount: string; proof: string[] }> = await fetch(`${CHUNKS}${start}.json`, { signal: AbortSignal.timeout(10_000) }).then(r => r.json());
+    const chunk: Chunk = chunks.get(start) ?? (await fetch(`${CHUNKS}${start}.json`, { signal: AbortSignal.timeout(10_000) }).then(r => r.json()));
+    chunks.set(start, chunk);
     const hit = chunk[getAddress(addr)] ?? chunk[addr];
     if (!hit) return NextResponse.json({});
     const client = createPublicClient({ chain: mainnet, transport: http(mustRpc(1)) });

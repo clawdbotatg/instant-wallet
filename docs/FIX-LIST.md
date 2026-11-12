@@ -273,3 +273,59 @@ Suggested first: 1, 3, 5, 12, 20.
   - Ten `.mts` tools say `npx tsx`, and `tsx` isn't a dependency.
   - `tools/wedgie/serve.py` was fixed by reading in `e21311d` and never run (needs `micropython`).
   - Recovery watcher (`lib/alerts.ts` `running`) passes no `multicallAddress`, so it can't run on a local anvil.
+
+## Who sees what (from the lab, 2026-11-12)
+
+Unlike the rest of this list, these were seen on the live site: CROPS Lab (`~/ef/crops-lab`) ran instantwallet.io in
+a clean macOS VM with a virtual passkey and recorded every request. Runs: `20261111-123340-home-instant` (idle),
+`20261111-185710-send-eth-instant`, `20261111-191032-swap-instant`, `20261112-093301-send-token-instant` (all real,
+Ethereum). Maps: ethereumtransitauthority.com `#/iw`, `#/iws`, `#/iwt`. Desktop Chromium at phone size; the phone
+(Safari, Face ID, passkey sync) and the wedgie were not captured. This answers `docs/CROPS.md` section 3's "check"s.
+
+- [ ] **32. WalletConnect telemetry on every page load, with an id that lasts.**
+  `POST pulse.walletconnect.org/batch`, event `INIT`, with the site, the SDK version and a `client_id`
+  (`did:key:…`). The same id was sent in every run, across browser restarts. No dapp was connected.
+  `lib/walletconnect.ts:62` (`WalletKit.init`, `new Core({ projectId })`).
+  Fix: don't start WalletConnect until someone opens Connect; turn its telemetry off (`telemetryEnabled: false` on
+  `Core`: not tried). Then add the host to `same-check.mjs` so it can't come back.
+  `docs/CROPS.md` "Data collection: likely passes today" is wrong until this is fixed.
+
+- [ ] **33. A picture host learns who you pay.**
+  The browser loads `euc.li/<name>` for the recipient's ENS avatar on the send form, before anything is signed, and
+  for names in the wallet's history on Home. euc.li gets your IP and the name. The URL comes from `/api/ens`
+  (`avatarUrl` in clear-signing-safe-kit).
+  Fix: serve avatars through our server (or cache them there), or show a blockie until the send is done.
+
+- [ ] **34. Coinbase sees every review screen.**
+  `lib/price.ts:7` fetches `api.coinbase.com/v2/prices/ETH-USD/spot` from the browser on the swap and token-send
+  review. IP only, no address. The server already fetches the same price (`lib/safe/relayCore.ts:48`).
+  Fix: take it from `/api/price` or the relay quote.
+
+- [ ] **35. Idle polling.**
+  60 s on Home with nothing happening: 125 requests. `/api/portfolio` 23 times; `eth_getCode` of the wallet on all
+  14 networks every 12 s (`SafeApp.tsx:198-199`); `alchemy_getAssetTransfers` on 11 networks. Every one carries the
+  address and the IP to our server, and the address on to Alchemy.
+  Fix: `getCode` once per network then only after a send; slow the balance timer when nothing is pending; one
+  multicall for the networks that have it.
+
+- [ ] **36. The fee on a small USDC send on Ethereum is bigger than the send.**
+  $0.40 of USDC cost about 0.51 USDC in fee (tx `0xf919d405…2ef8`). $0.50 with 1.03 USDC in the wallet showed
+  "Would fail now". The ETH send's fee was $0.43 (it also deployed the wallet); the swap's was $0.20.
+  Fix: decide. Warn when the fee is more than the amount, or point small sends at Base.
+
+- [ ] **37. Opening Apps calls two more hosts.**
+  5 icons from `instant-wallet-apps.vercel.app` and 5 from `safe-transaction-assets.safe.global` load as soon as
+  Apps opens (and Swap is behind Apps). IP only. Fix: ship the icons in the app.
+
+- [ ] **38. `/api/explain` ran after the relay POST on the ETH send.**
+  In `20261111-185710-send-eth-instant` the first `/api/explain` is 0.2 s after `POST /api/safe/relay`. On the swap
+  and the USDC send it ran before signing. Check whether a plain ETH send skips the check on the review card.
+
+- [ ] **39. LI.FI gets the wallet address on every swap quote, even when Uniswap wins.**
+  `app/api/swap/quote/route.ts:26-41` sends `fromAddress` and `toAddress` = the Safe. Read from code, not seen on the
+  wire (it's server to server). Fix: quote with a fixed placeholder address, and ask again with the real one only
+  if LI.FI wins.
+
+Not a bug, but the shape of the wallet: the browser talks to our server for almost everything, so we see IP +
+address + every read, and Alchemy, Zerion and LI.FI see the address behind us. `docs/CROPS.md` levels 4 and 5 are
+the fix.

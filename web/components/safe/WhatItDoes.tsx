@@ -144,7 +144,7 @@ function ask(chainId: number, safe: Address, calls: Call[], tx?: SafeTxLike) {
 /** What a Safe tx does: first what it does to your coins (clear-sim runs it on the latest block: you pay, you get),
  * the fee (read from its own call to the relay), then each step in words: ours (describe.ts `ours`: fee, approvals, swaps), else clear signing (ERC-7730,
  * the words the wedgie shows) where the registry has it, else describe.ts. */
-export function WhatItDoes({ chainId, safe, calls, tx, same, quiet }: { chainId: number; safe: Address; calls: Call[]; tx?: SafeTxLike; same?: string; quiet?: boolean }) {
+export function WhatItDoes({ chainId, safe, calls, tx, same, quiet, else: orElse }: { chainId: number; safe: Address; calls: Call[]; tx?: SafeTxLike; same?: string; quiet?: boolean; else?: React.ReactNode }) {
   const [res, setRes] = useState<Got | null>(null);
   // `same`: a swap gets a new route every 20 s. While this stays the same, the old answer stays up until the new one lands.
   const was = useRef<string | undefined>(undefined);
@@ -195,8 +195,13 @@ export function WhatItDoes({ chainId, safe, calls, tx, same, quiet }: { chainId:
   ));
   // coins in and out say it all; the steps show when no coins move (a signer, a limit), the run failed, or a step warns
   const steps = danger || !sim || !!sim.fails || (!sim.pay.length && !sim.get.length) || calls.some(c => describe(chainId, safe, c).startsWith(WARN));
-  // quiet (the Send sheet, whose title already says it once): only trouble shows
-  if (quiet)
+  // quiet (the Send, Swap and Send-everything sheets, which already say what and the fee): the coins and any trouble.
+  // A danger or a step that warns is never quiet: then it's the full card.
+  if (quiet && !danger && !calls.some(c => describe(chainId, safe, c).startsWith(WARN))) {
+    // no answer from the simulator and nothing else to say: no empty gap
+    // `else`: the sheet's own numbers (a swap's quote), for when the run has none
+    const plan = swapLines.length ? swapLines : orElse;
+    if (res && !sim && res.light !== "failed" && !plan) return null;
     return (
       <div data-what className="stack" style={{ gap: 4, paddingBottom: 8 }}>
         {warns.map((w, i) => (
@@ -204,13 +209,15 @@ export function WhatItDoes({ chainId, safe, calls, tx, same, quiet }: { chainId:
         ))}
         {res?.light === "failed" && <Said text={`${WARN}Couldn't check the coins in this browser`} />}
         {res?.light === "failed" && res.why && <span className="fine">{res.why.split(": ").pop()}</span>}
+        {(sim?.fails || (res && !sim)) && plan}
         {sim?.fails && <Said text={`${WARN}Would fail now`} />}
-        {/* the run's own answer, one line: what leaves the wallet */}
+        {/* the run's own answer: what leaves the wallet, what comes in */}
         {!res && <span className="fine">Checking…</span>}
         {sim && !sim.fails && sim.pay.map((m, i) => <Money key={`p${i}`} amount={m.amount} symbol={m.symbol} usd={m.usd} />)}
         {sim && !sim.fails && sim.get.map((m, i) => <Money key={`g${i}`} amount={m.amount} symbol={m.symbol} usd={m.usd} get />)}
       </div>
     );
+  }
   return (
     <div data-what style={{ display: "contents" }}>
       {warns.map((w, i) => (

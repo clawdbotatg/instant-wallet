@@ -2,7 +2,7 @@ export const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 
 export function usd(v: number | null | undefined): string {
   if (v === null || v === undefined || !Number.isFinite(v)) return "—";
-  return v.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: v < 1 && v > 0 ? 4 : 2 });
+  return v.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: v < 0.01 && v > 0 ? 4 : 2 });
 }
 
 export function amount(formatted: string, max = 6): string {
@@ -17,6 +17,6 @@ export function amount(formatted: string, max = 6): string {
  * same fee in dollars (the relay prices it), so no other price is needed. */
 export function feeText(fee: { feeUsdc: string | bigint; feeEth: string | bigint }, token: "usdc" | "eth", coin: string): string {
   const dollars = Number(BigInt(fee.feeUsdc)) / 1e6;
-  if (token === "usdc") return `${amount(String(dollars))} USDC`;
+  if (token === "usdc") return `${dollars >= 0.01 ? dollars.toFixed(2) : amount(String(dollars))} USDC`;
   return `${amount(String(Number(BigInt(fee.feeEth)) / 1e18))} ${coin} (${usd(dollars)})`;
 }

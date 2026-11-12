@@ -59,8 +59,10 @@ Words:
 - A finished screen says **Done**, white (the only button, nothing to compete with). Never OK.
 - Fewest words (11-10). Make it obvious with less on screen. Never a sentence that explains what the screen
   already shows.
-- Say it once (11-10). The Send sheet is one line: "Send $1.00 of ETH to atg.eth?". The check still runs and
-  speaks only when something is wrong (`<WhatItDoes quiet>`). Never "Checked in this browser".
+- Say it once (11-10). The Send sheet is one line: "Send $1.00 of ETH to atg.eth?". Send, Swap and Send
+  everything show the run's coins (red −, green +) and a Fee row, no sentence (`<WhatItDoes quiet>`); a danger
+  or a warning brings the full card back. Never hide the coins. Never "Checked in this browser".
+- Dollars are cents ($0.25), four places only under a cent.
 
 Button colors (10-30):
 - Green = the one obvious action.

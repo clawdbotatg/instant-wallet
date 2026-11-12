@@ -12,7 +12,7 @@ import { POPULAR, type SwapRoute, type Token, swapCalls } from "@/lib/safe/swap"
 import { uniswapRoute } from "@/lib/safe/uniswap";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { DoneBar, Eject, Money, WhatFor, TokenIcon, GreenButton, Who } from "../bits";
+import { DoneBar, Eject, Money, TokenIcon, GreenButton, Who } from "../bits";
 import { ChainSelect, type Opt, Select, SignerChoice, assetOpt } from "./Pick";
 import { Progress, TimeBar } from "./Progress";
 import { friendly } from "@/lib/friendly";
@@ -344,6 +344,14 @@ export function SafeSwap({
   const toPrice = route?.to.priceUsd ?? other?.to.priceUsd ?? to?.priceUsd;
   const toUsd = route ? (route.toUsd ?? (toPrice ? Number(formatUnits(BigInt(route.toAmount), route.to.decimals)) * toPrice : undefined)) : undefined;
 
+  // the quote's own coins: shown until the run answers, and when it has no answer
+  const quoted = route ? (
+    <>
+      <Money amount={amountIn} symbol={route.from.symbol} usd={fromUsd} />
+      <Money amount={formatUnits(BigInt(route.toAmount), route.to.decimals)} symbol={route.to.symbol} usd={toUsd} get />
+    </>
+  ) : null;
+
   if (stage === "done" && route) {
     const url = hash && explorerTx(chainId, hash);
     const landed = !crossChain || arrival?.status === "DONE";
@@ -453,13 +461,9 @@ export function SafeSwap({
         <div className={`card confirm${route ? "" : " pending"}`}>
           <div className="stack" style={{ gap: 4, paddingBottom: 8 }}>
             {ran && route && fee && from && to ? (
-              <WhatItDoes chainId={chainId} safe={account.address} calls={[...swapCalls(route), feeCall(fee, feeToken)]} same={`${from.asset}|${to.address}|${amountIn}`} />
+              <WhatItDoes quiet chainId={chainId} safe={account.address} calls={[...swapCalls(route), feeCall(fee, feeToken)]} same={`${from.asset}|${to.address}|${amountIn}`} else={quoted} />
             ) : route ? (
-              <>
-                <WhatFor>Swap {route.from.symbol} for {route.to.symbol} on {route.via === "uniswap" ? "Uniswap" : "LI.FI"}</WhatFor>
-                <Money amount={amountIn} symbol={route.from.symbol} usd={fromUsd} />
-                <Money amount={formatUnits(BigInt(route.toAmount), route.to.decimals)} symbol={route.to.symbol} usd={toUsd} get />
-              </>
+              quoted
             ) : (
               <span className="fine">—</span>
             )}
@@ -497,15 +501,13 @@ export function SafeSwap({
               <span>—</span>
             )}
           </div>
-          {!ran && (
-            <div className="line">
-              <span>Network fee</span>
-              <span>{route ? feeLabel : "—"}</span>
-            </div>
-          )}
+          <div className="line">
+            <span>Fee</span>
+            <span>{route ? feeLabel : "—"}</span>
+          </div>
           <div className="line">
             <span>Signed by</span>
-            <SignerChoice options={options} value={signers} onChange={setChosen} disabled={busy} note={st && signThenQueue(st, account) ? "then the wedgie or the others, on the next screen" : undefined} />
+            <SignerChoice options={options} value={signers} onChange={setChosen} disabled={busy} note={st && signThenQueue(st, account) ? "then the wedgie or the others" : undefined} />
           </div>
           {!st?.deployed && (
             <div className="line">

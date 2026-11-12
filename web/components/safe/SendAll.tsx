@@ -184,7 +184,7 @@ export function SendAll({
         return (
           <div key={chainId} className="card stack">
             <b>{chainById(chainId)?.name}</b>
-            {ran && <WhatItDoes chainId={chainId} safe={account.address} calls={callsOf(ran)} tx={ran} />}
+            {ran && <WhatItDoes quiet chainId={chainId} safe={account.address} calls={callsOf(ran)} tx={ran} />}
             <div className="send-all-list" style={ran ? { display: "none" } : undefined}>
               {held.map((a) => {
                 const n = r.net?.[a.asset] ?? BigInt(a.balance);
@@ -212,7 +212,7 @@ export function SendAll({
                 {held.length} tokens · scroll to see all
               </span>
             )}
-            {fee && !ran && <span className="fine">Fee {fee}</span>}
+            {fee && <span className="fine">Fee {fee}</span>}
             {r.prepared?.opts.self && <span className="fine">No fee. Your browser wallet executes it and pays the gas.</span>}
             {r.error && <ErrorLine text={r.error} />}
             {r.stage === "done" ? (

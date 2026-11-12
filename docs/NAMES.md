@@ -57,3 +57,7 @@ the resolver again, point `inst.eth` at it.
 - `tools/names-check.mts`: who may take a name, first come, renames.
 - `tools/names-e2e.mjs`: the same through the real screens.
 - `tools/names-gateway-check.mts`: a stranger's lookup on a fork of Ethereum, through ENS's Universal Resolver.
+
+## Later
+
+- Avatars for inst.eth names (Austin, 11-12: later, not now). The wallet already shows ENS avatars, so ours would show in the same places. Needs: a way to pick one, and the gateway answering the `avatar` text record so other wallets see it. Uploads mean we host people's pictures (fake logos, nasty images). Safer: no uploads, pick an NFT you own or an emoji.

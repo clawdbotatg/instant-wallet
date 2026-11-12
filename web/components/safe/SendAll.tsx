@@ -218,8 +218,8 @@ export function SendAll({
             {r.prepared?.opts.self && <span className="fine">No fee. Your browser wallet executes it and pays the gas.</span>}
             {r.error && <ErrorLine text={r.error} />}
             {r.stage === "done" ? (
-              <p className="fine row" style={{ gap: 8 }}>
-                ✓ Executed {url && <Eject href={url} title="See it on the explorer">Explorer</Eject>}
+              <p className="fine row" style={{ gap: 8, justifyContent: "space-between" }}>
+                ✓ Executed {url && <Eject href={url} title="See it on the explorer" />}
               </p>
             ) : (
               <button

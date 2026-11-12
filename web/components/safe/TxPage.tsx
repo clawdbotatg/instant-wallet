@@ -381,8 +381,8 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
       </div>
 
       {sent ? (
-        <p className="row" style={{ gap: 8 }}>
-          ✓ Executed {explorerTx(chainId, sent) && <Eject href={explorerTx(chainId, sent)!} title="See it on the explorer">Explorer</Eject>}
+        <p className="row" style={{ gap: 8, justifyContent: "space-between" }}>
+          ✓ Executed {explorerTx(chainId, sent) && <Eject href={explorerTx(chainId, sent)!} title="See it on the explorer" />}
         </p>
       ) : done ? (
         <p className="fine">This wallet already used number #{w.tx.nonce.toString()}: this one was executed or replaced.</p>

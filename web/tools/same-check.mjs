@@ -92,15 +92,14 @@ for (const p of files.filter(f => /Setting\.tsx$/.test(f))) {
   for (const m of src.matchAll(/placeholder=("[^"]*"|\{[^}]*\})/g))
     if (m[1].startsWith('"') && !/^"Default /.test(m[1])) (bad++, console.log(`${rel}  placeholder ${m[1]}: an empty box says its default ("Default …" or the default itself)`));
 }
-// Explorer above Done was a thin pill stretched across the page (Austin 11-10): <DoneBar> puts them in one row, same height
+// Explorer above Done was a thin pill stretched across the page (Austin 11-10): <DoneBar> is Done, with the ⏏ in the sheet's top right
 for (const p of files) {
   if (relative(root, p) === SHARED) continue;
   if (/<Eject\b[^\n]*\n\s*<button className="btn wide"[^>]*>\s*Done/.test(readFileSync(p, "utf8"))) (bad++, console.log(`${relative(root, p)}  Explorer above Done: use <DoneBar>`));
 }
-// Explorer on a line of its own is a normal button's height, on the right (Austin 11-11): <Eject big>
+// a block explorer link is the bare ⏏ icon, never a button that says Explorer (Austin 11-12): <Eject href title />
 for (const p of files) {
-  if (relative(root, p) === SHARED) continue;
-  if (/<Eject (?!big\b)[^>]*>\s*\n\s*Explorer/.test(readFileSync(p, "utf8"))) (bad++, console.log(`${relative(root, p)}  Explorer on its own line: <Eject big>`));
+  if (/<Eject\b[^>]*>\s*Explorer/.test(readFileSync(p, "utf8"))) (bad++, console.log(`${relative(root, p)}  a button that says Explorer: the bare <Eject /> icon`));
 }
 // a row that leaves the wallet says ↗ after its name (Austin 11-11)
 for (const p of files) {

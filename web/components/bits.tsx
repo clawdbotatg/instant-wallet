@@ -461,10 +461,10 @@ export function Money({ amount: a, symbol, usd: u, get, least, unknown, size = 2
  * Use it everywhere something "ejects" — a tx's own page, Safe{Wallet}, an explorer — so it looks and acts the same.
  * No children: the eject icon. With children: that text and ↗.
  */
-export function Eject({ href, title, big, children }: { href: string; title: string; big?: boolean; children?: React.ReactNode }) {
-  // never stretched: as wide as its words, on the right when it has a line of its own. `big`: a full-height button (next to Done, under a progress bar)
+export function Eject({ href, title, children }: { href: string; title: string; children?: React.ReactNode }) {
+  // never stretched: as wide as its words, on the right. A block explorer is the bare icon, never the word (11-12)
   return (
-    <a className={big ? "btn" : "pill"} href={href} target="_blank" rel="noopener noreferrer" title={title} aria-label={title} style={big ? { flex: "none", padding: "0 20px", justifySelf: "end" } : { flex: "none", justifySelf: "end", ...(children ? {} : { width: 38, padding: 0, justifyContent: "center" }) }}>
+    <a className="pill" href={href} target="_blank" rel="noopener noreferrer" title={title} aria-label={title} style={{ flex: "none", justifySelf: "end", ...(children ? {} : { width: 38, padding: 0, justifyContent: "center" }) }}>
       {children ? (
         <>{children} ↗</>
       ) : (
@@ -476,19 +476,19 @@ export function Eject({ href, title, big, children }: { href: string; title: str
   );
 }
 
-/** The end of a finished screen: Done (white, fills the row) and, when there's a tx to see, Explorer ↗ at full height on its right. */
+/** The end of a finished screen: Done (white, the only button) and, when there's a tx to see, the small ⏏ in the sheet's top right. */
 export function DoneBar({ onDone, href }: { onDone: () => void; href?: string | false | null }) {
   return (
-    <div className="row">
-      <button className="btn grow" onClick={onDone}>
+    <>
+      {href && (
+        <div style={{ position: "absolute", top: 20, right: 20 }}>
+          <Eject href={href} title="See it on the explorer" />
+        </div>
+      )}
+      <button className="btn wide" onClick={onDone}>
         Done
       </button>
-      {href && (
-        <Eject big href={href} title="See it on the explorer">
-          Explorer
-        </Eject>
-      )}
-    </div>
+    </>
   );
 }
 

@@ -65,7 +65,8 @@ export function SendAll({
   useEffect(() => setCanMine(hotAvailable()), []);
   const set = (chainId: number, r: Row) =>
     setRows((x) => ({ ...x, [chainId]: r }));
-  const chains = [...new Set(assets.map((a) => a.chainId))];
+  // a network stays listed once it's signed: emptied, it would drop out of `assets` and take "✓ Executed" with it
+  const chains = [...new Set([...assets.map((a) => a.chainId), ...Object.keys(rows).map(Number).filter((id) => rows[id]?.stage === "busy" || rows[id]?.stage === "done")])];
   const self = !!to && to.toLowerCase() === account.address.toLowerCase();
 
   async function prepare(chainId: number) {

@@ -163,10 +163,6 @@ export function SendAll({
         />
         {self && <span className="err">That&apos;s this wallet.</span>}
       </div>
-      <p className="fine">
-        Our relay executes it and pays the gas (you pay it back in the fee). It can&apos;t change what you signed. Anyone
-        can execute a signed transaction, so you can execute it yourself instead.
-      </p>
       {canMine && (
         <label className="row" style={{ gap: 8 }}>
           <input type="checkbox" checked={mine} onChange={(e) => (setMine(e.target.checked), setRows({}))} />

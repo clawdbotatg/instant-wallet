@@ -174,7 +174,7 @@ export function Activity({ safe, chains, undeployed = [], assets, late, live, ti
 
 const day = (at: string | number) => new Date(at).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 
-/** One this page sent that isn't on chain yet: a dashed card, a spinner and "Executing…" where the date goes, its words
+/** One this page sent that isn't on chain yet: slightly see-through until it lands (Austin, 11-12; it was a dashed outline), a spinner and "Executing…" where the date goes, its words
  * (clear signing's, as the rows under it) and what it sends out, read from its own calls. Landed: the same card turns
  * solid where it is (the date, no dashes, no spinner) until the chain's own row takes its place. */
 function SendingRow({ s, assets, usd }: { s: Sending; assets: Asset[]; usd: (chainId: number, m: Move) => number | undefined }) {
@@ -191,7 +191,7 @@ function SendingRow({ s, assets, usd }: { s: Sending; assets: Asset[]; usd: (cha
   const pay = paysOut(s, assets);
   const link = s.hash && chainById(s.chainId)?.explorer ? `${chainById(s.chainId)!.explorer}/tx/${s.hash}` : undefined;
   return (
-    <div className="recess stack" style={s.landed ? { gap: 4 } : { gap: 4, outline: "2px dashed rgba(31,166,65,.55)", outlineOffset: -2 }} aria-label={s.landed ? undefined : "Executing, not on chain yet"}>
+    <div className="recess stack" style={{ gap: 4, opacity: s.landed ? 1 : 0.6, transition: "opacity .3s" }} aria-label={s.landed ? undefined : "Executing, not on chain yet"}>
       <div className="row" style={{ justifyContent: "space-between", gap: 8 }}>
         <span className="fine row" style={{ gap: 5 }}>
           {s.landed ? day(Date.now()) : <><span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /><b>Executing…</b></>} · <ChainIcon chainId={s.chainId} size={14} /> {chainById(s.chainId)?.name}

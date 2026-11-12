@@ -7,7 +7,7 @@ import QRCode from "qrcode";
 import { type Address, getAddress, isAddress } from "viem";
 import { chainById } from "@/lib/chains";
 import { amount as fmtAmount, short, usd as fmtUsd, addressIn, nameIn } from "@/lib/format";
-import { movedFrom } from "@/lib/names";
+import { movedFrom, nameTyped } from "@/lib/names";
 import { parse } from "@/lib/parse";
 import { bio } from "@/lib/passkey";
 import { Scanner } from "./Scanner";
@@ -753,7 +753,8 @@ export function useAddressScan(onAddress: (to: string) => void) {
  * An address field: the blockie + its ENS name (or 0x12ab…cdef) while idle, the full text while editing.
  * Takes 0x… or name.eth; `onChange` gets the address it resolves to (and the name, when one was typed), or null.
  */
-export function AddressInput({ initial, onChange, placeholder = "0x… or name.eth" }: { initial?: Address; onChange: (a: Address | null, name?: string) => void; placeholder?: string }) {
+/** `bare`: a word alone is tried as our name (lil → lil.inst.eth). For paying, never for adding a signer or guardian. */
+export function AddressInput({ initial, onChange, placeholder = "0x… or name.eth", bare }: { initial?: Address; onChange: (a: Address | null, name?: string) => void; placeholder?: string; bare?: boolean }) {
   const [text, setText] = useState<string>(initial ?? "");
   const [addr, setAddr] = useState<Address | null>(initial ?? null);
   const [name, setName] = useState<string | null>(null);
@@ -782,17 +783,18 @@ export function AddressInput({ initial, onChange, placeholder = "0x… or name.e
     }
     setAddr(null);
     onChange(null);
-    if (!/\.[a-z]{2,}$/i.test(v)) return;
-    setLooking(true);
+    const lookup = nameTyped(v, bare);
+    if (!lookup) return;
+    if (v.includes(".")) setLooking(true); // a word alone is tried quietly
     const t = setTimeout(async () => {
-      const j = await fetch(`/api/ens?name=${encodeURIComponent(v.toLowerCase())}`).then(r => r.json()).catch(() => null);
+      const j = await fetch(`/api/ens?name=${encodeURIComponent(lookup)}`).then(r => r.json()).catch(() => null);
       if (!live) return;
       setLooking(false);
       if (j?.address) {
         const a = getAddress(j.address);
         setAddr(a);
-        setName(v.toLowerCase());
-        onChange(a, v.toLowerCase());
+        setName(lookup);
+        onChange(a, lookup);
       }
     }, 350);
     return () => {
@@ -832,6 +834,7 @@ export function AddressInput({ initial, onChange, placeholder = "0x… or name.e
         />
         {scan.pill}
       </div>
+      {addr && name && focus && !nameIn(text).includes(".") && !isAddress(nameIn(text)) && <Who address={addr} label={name} />}
       {addr && name && !isAddress(nameIn(text)) && <NameMoved name={name} address={addr} />}
       {scan.camera}
     </>

@@ -70,6 +70,16 @@ export function labelShape(label: string): string | null {
   return null;
 }
 
+/**
+ * The name to look up for what's typed in a To box, or null: a full name as typed (nick.eth), or, where `bare` is on,
+ * a word alone as our name (lil → lil.inst.eth). The box itself is never changed: nick goes on to become nick.eth.
+ */
+export function nameTyped(text: string, bare = false): string | null {
+  const v = text.toLowerCase();
+  if (/\.[a-z]{2,}$/.test(v)) return v;
+  return bare && v.length >= 3 && !/^0x/.test(v) && !labelShape(v) ? fullName(v) : null;
+}
+
 /** Why a label can't be taken as a new name, in a few words, or null: it can. */
 export function labelProblem(label: string): string | null {
   const shape = labelShape(label);

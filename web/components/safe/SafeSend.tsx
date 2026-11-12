@@ -7,7 +7,7 @@ import { amount as fmtAmount, usd, feeText, addressIn, nameIn } from "@/lib/form
 import { isClaimLink } from "@/lib/claim";
 import { isXdai } from "@/lib/brand";
 import { dropCode } from "@/lib/dropClient";
-import { rememberPaid } from "@/lib/names";
+import { nameTyped, rememberPaid } from "@/lib/names";
 import { parse } from "@/lib/parse";
 import { openWalletConnect } from "@/lib/walletconnect";
 import { transfer } from "@/lib/safe/core";
@@ -56,6 +56,7 @@ export function SafeSend({
   useSheetBack(scanning && scanFromForm ? leaveScan : null);
   const [resolved, setResolved] = useState<Address | null>(null);
   const [resolving, setResolving] = useState(false);
+  const [toName, setToName] = useState<string | null>(null); // the name that was looked up: as typed, or lil.inst.eth for a bare "lil"
   const key = (a: { chainId: number; asset: string }) => `${a.chainId}:${a.asset.toLowerCase()}`;
   const [pick, setPick] = useState<string | null>(start ? key(start) : null);
   const [amountIn, setAmountIn] = useState(""); // always the token amount (<AmountBox> takes dollars and works it out)
@@ -79,15 +80,21 @@ export function SafeSend({
   useEffect(() => {
     const v = nameIn(toInput);
     setResolved(null);
+    setToName(null);
     if (isAddress(v)) return setResolved(getAddress(v));
-    if (!/\.[a-z]{2,}$/i.test(v)) return;
-    setResolving(true);
+    const name = nameTyped(v, true);
+    if (!name) return;
+    const bare = !v.includes("."); // a word alone is tried as our name, quietly: no "Looking up…" on the way to nick.eth
+    if (!bare) setResolving(true);
     let live = true; // a late answer for an older name must never land on a newer input
     const t = setTimeout(async () => {
-      const j = await fetch(`/api/ens?name=${encodeURIComponent(v.toLowerCase())}`).then(r => r.json()).catch(() => null);
+      const j = await fetch(`/api/ens?name=${encodeURIComponent(name)}`).then(r => r.json()).catch(() => null);
       if (!live) return;
       setResolving(false);
-      if (j?.address) setResolved(getAddress(j.address));
+      if (j?.address) {
+        setResolved(getAddress(j.address));
+        setToName(name);
+      }
     }, 350);
     return () => {
       live = false;
@@ -243,10 +250,10 @@ export function SafeSend({
       const h =
         p.path === "budget"
           ? await budgetSend({ account, state: st, calls, feeToken, quote: quote ?? undefined, onStage })
-          : await ownersSend({ account, state: st, calls, signers, feeToken, wedgie, quote: quote ?? undefined, onStage, label: `Send ${what} to ${toInput.includes(".") ? toInput : resolved}` });
+          : await ownersSend({ account, state: st, calls, signers, feeToken, wedgie, quote: quote ?? undefined, onStage, label: `Send ${what} to ${toName ?? resolved}` });
       setHash(h);
       setStage("done");
-      if (toInput.includes(".")) rememberPaid(nameIn(toInput), resolved);
+      if (toName) rememberPaid(toName, resolved);
     } catch (e: any) {
       if (e instanceof Shared) return; // its page has the sheet now
       setError(friendly(e));
@@ -268,7 +275,7 @@ export function SafeSend({
         <h2>Executed</h2>
         {asset && <Money amount={amountIn} symbol={asset.symbol} usd={asset.price ? Number(amountIn) * asset.price : null} />}
         <div>
-          <Who inline address={resolved} chain={chainId} label={toInput.includes(".") ? toInput : undefined} />
+          <Who inline address={resolved} chain={chainId} label={toName ?? undefined} />
         </div>
         <DoneBar onDone={onDone} href={url} />
       </div>
@@ -282,16 +289,16 @@ export function SafeSend({
       <div className="stack confirm">
         {/* said once (Austin 11-10): dollars, the coin, who. The run still happens: it speaks only when something is wrong */}
         <h2>
-          Send {asset.price ? `${usd2(Number(amountIn) * asset.price)} of ${asset.symbol}` : what} to <Who flat address={resolved} chain={chainId} label={toInput.includes(".") ? toInput : undefined} />?
+          Send {asset.price ? `${usd2(Number(amountIn) * asset.price)} of ${asset.symbol}` : what} to <Who flat address={resolved} chain={chainId} label={toName ?? undefined} />?
         </h2>
         <div className="card">
           {/* only while you decide: once it's signed the run has nothing left to say */}
           {ran && quote && !busy && <WhatItDoes quiet chainId={chainId} safe={account.address} calls={[transfer(asset.asset as Address, resolved, base), feeCall(quote, feeToken)]} />}
           <div className="line">
             <span>To</span>
-            <Who address={resolved} chain={chainId} label={toInput.includes(".") ? toInput : undefined} />
+            <Who address={resolved} chain={chainId} label={toName ?? undefined} />
           </div>
-          {toInput.includes(".") && <NameMoved name={nameIn(toInput)} address={resolved} />}
+          {toName && <NameMoved name={toName} address={resolved} />}
           <div className="line">
             <span>Network</span>
             <ChainChip chainId={chainId} />
@@ -344,7 +351,7 @@ export function SafeSend({
           <div className="field">
             <label>To</label>
             <div className="input">
-              {resolved && !toInput.includes(".") && <Blockie address={resolved} size={30} />}
+              {resolved && !toName && <Blockie address={resolved} size={30} />}
               <input value={toInput} onChange={e => setToInput(addressIn(e.target.value))} placeholder="0x… or name.eth" autoCapitalize="none" autoCorrect="off" spellCheck={false} />
               <button
                 className="pill"
@@ -358,8 +365,8 @@ export function SafeSend({
               </button>
             </div>
             {resolving && <span className="fine">Looking up {toInput}…</span>}
-            {resolved && toInput.includes(".") && <Who address={resolved} chain={chainId} />}
-            {resolved && toInput.includes(".") && <NameMoved name={nameIn(toInput)} address={resolved} />}
+            {resolved && toName && <Who address={resolved} chain={chainId} label={toInput.includes(".") ? undefined : toName} />}
+            {resolved && toName && <NameMoved name={toName} address={resolved} />}
           </div>
 
           <div className="field">

@@ -237,14 +237,14 @@ Suggested first: 1, 3, 5, 12, 20.
   broken today (v3 moved to `/v3`). `docs/V3.md`, `docs/GAS.md`.
   **26b. The park-for-the-wedgie path**: removed (item 2).
 
-- [ ] **27. The first version.** `packages/nextjs`, `packages/mobile`, `firmware/`, `emu/`, `tools/`, `.cursor/`
-  (its rule says never push without `/push`), root `package.json` / `yarn.lock` / `.yarn/` / `.yarnrc.yml`,
-  `design/mockups`, `hardware/` (16 MB of STLs; move to wedgie-dev?). Keep `packages/foundry` contracts and
-  `test/safe` (drop its SE-2 wrapper: `scripts-js`, `Makefile`, `DeployYourContract.s.sol`); keep `.gitmodules`.
-  `design/brand/make.py:7` still writes to `packages/nextjs/public/`.
+- [x] **27. The first version.** Removed 11-12 (Austin: yes; git has it): `packages/nextjs`, `packages/mobile`,
+  `firmware/`, `emu/`, root `tools/`, `.cursor/`, `design/mockups`.
+  Kept: `hardware/` (the case's 3D files and the build guide are nowhere else: move them to wedgie-dev first),
+  `packages/foundry` whole (contracts, `test/safe`, and its SE-2 wrapper), root `package.json` / `yarn.lock` /
+  `.yarn/` / `.yarnrc.yml` (the wrapper runs through them), `.gitmodules`.
+  Now pointing at a folder that's gone: `design/brand/make.py:7` and `design/gen.py:7` (`packages/nextjs/public/`).
 
-- [ ] **28. `firmware/p256.py`.** `1e0d03f` (11-06) put constant-time signing into this old copy. wedgie-dev removed
-  `sign()` the same day. Decide which is right; stop patching this one.
+- [x] **28. `firmware/p256.py`.** Gone with `firmware/` (27). wedgie-dev's copy is the one.
 
 - [x] **29. Exports nobody uses.**
   Removed 11-12: `core.prevOwner`, `core.setGuardianCalls`, `state.hotOf`, `state.oldLayout`, `fee.ZERO`,
@@ -263,9 +263,9 @@ Suggested first: 1, 3, 5, 12, 20.
     `docs/SWAP.md:3,12` · `docs/MULTI-SIGNER.md:72` · `docs/PLATFORMS.md:24-45` · `emu/README.md:36`,
     `emu/SKILL.md:52,63`, `hardware/case/README.md` (scripts that are gone).
   - Done 11-12: `EXPECTATIONS.md` says where the shared parts that aren't in `bits.tsx` live.
-  - Shipped or dropped, could go: `PLAN-drops.md`, `PLAN-recovery-delay.md`, `PLAN-xdai.md` (keep its table of
-    what the old Burner left behind, in `docs/XDAI.md`), `docs/PLAN-REVIEW-2026-10-05*.md`,
-    `docs/HANDOFF-2026-10-08-wedgie.md`, `docs/WEDGIE-PHONE-DEBUG.md`.
+  - Removed 11-12: `PLAN-drops.md`, `PLAN-recovery-delay.md`, `docs/PLAN-REVIEW-2026-10-05*.md`,
+    `docs/HANDOFF-2026-10-08-wedgie.md`, `docs/WEDGIE-PHONE-DEBUG.md`. Kept: `PLAN-xdai.md` (seven live code
+    files point at it, and it holds the table of what the old Burner left behind).
   - Mark as history: `docs/PLAN.md`, `CONCEPT.md`, `docs/PROTOCOL.md`, `docs/PLATFORMS.md`, `docs/V3.md`,
     `docs/GAS.md`, `docs/COLD-STORAGE.md`, `docs/ROLES.md`, `docs/SAFE.md`, `docs/LEVELS.md`.
   - No `.env.example`. `web/README.md` now lists the names.

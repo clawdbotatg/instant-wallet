@@ -83,7 +83,10 @@ export function useName(a?: string | null, chain?: number) {
       timers.forEach(clearTimeout);
     };
   }, [a, chain]);
-  return { name: n?.name ?? null, avatar: n?.avatar ?? null };
+  // the picture always comes through us, never from its own host (which would see who you look at): an answer
+  // kept from before /api/avatar still names the host
+  const pic = n?.avatar && n.name && !n.avatar.startsWith("/") ? `/api/avatar?name=${encodeURIComponent(n.name)}` : n?.avatar;
+  return { name: n?.name ?? null, avatar: pic ?? null };
 }
 
 /**

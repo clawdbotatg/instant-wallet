@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
       const n = await primaryName(client as any, address, chain);
       // no name yet: kept 5 min, not a day, so a name just set shows up soon everywhere
       const brief = { headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=300" } };
-      if (n) return NextResponse.json({ address, name: n, avatar: await avatarUrl(client as any, n) }, keep);
+      if (n) return NextResponse.json({ address, name: n, avatar: (await avatarUrl(client as any, n)) ? `/api/avatar?name=${encodeURIComponent(n)}` : null }, keep); // the picture comes through us (/api/avatar)
       // no ENS name of its own: its inst.eth name (it can be renamed, so brief)
       const mine = await namesOf(address).catch(() => null);
       return NextResponse.json({ address, name: mine ? fullName(mine.n) : null, avatar: null }, brief);

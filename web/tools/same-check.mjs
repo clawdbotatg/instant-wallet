@@ -117,6 +117,10 @@ for (const p of files) {
   if (relative(root, p) === SHARED) continue;
   if (/(sending|confirming|"signing-wedgie"|signing): ["<`]/.test(readFileSync(p, "utf8"))) (bad++, console.log(`${relative(root, p)}  a tx's stage words written by hand: stageLabel(stage)`));
 }
+// an avatar comes through /api/avatar: the browser never loads one from its own host (which would learn who you pay)
+for (const p of files) {
+  if (/euc\.li|ipfs\.io|src=\{[^}]*avatarUrl/.test(readFileSync(p, "utf8"))) (bad++, console.log(`${relative(root, p)}  an avatar from its own host: /api/avatar?name=`));
+}
 // two button heights (Austin 11-11): every small one (pill, btn-sm) is as tall as a pill
 {
   const css = readFileSync(root + "app/globals.css", "utf8");

@@ -296,11 +296,14 @@ Ethereum). Maps: ethereumtransitauthority.com `#/iw`, `#/iws`, `#/iwt`. Desktop 
   Done 11-12: WalletConnect starts only when a site is connected, Connect is open or a wc: link comes in
   (`wcWanted` / `wcKeep`), and `telemetryEnabled: false`. Not added to `same-check.mjs`.
 
-- [ ] **33. A picture host learns who you pay.**
+- [x] **33. A picture host learns who you pay.**
   The browser loads `euc.li/<name>` for the recipient's ENS avatar on the send form, before anything is signed, and
   for names in the wallet's history on Home. euc.li gets your IP and the name. The URL comes from `/api/ens`
   (`avatarUrl` in clear-signing-safe-kit).
   Fix: serve avatars through our server (or cache them there), or show a blockie until the send is done.
+  Done 11-12: `/api/avatar?name=` fetches the picture and serves it (a name in, never a URL; https hosts only;
+  3 MB; images only; an SVG can't run anything). `/api/ens` hands out that path, and `useName` rewrites an answer
+  kept from before. The avatar's host now sees our server, not you.
 
 - [x] **34. Coinbase sees every review screen.**
   `lib/price.ts:7` fetches `api.coinbase.com/v2/prices/ETH-USD/spot` from the browser on the swap and token-send

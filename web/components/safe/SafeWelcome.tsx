@@ -8,7 +8,7 @@ import { CHAINS, publicClient } from "@/lib/chains";
 import { type Candidate, confirmKey, createPasskey, recoverKeys, walletAppBrowser, webauthnAvailable } from "@/lib/passkey";
 import { RECOVERY_MODULES } from "@/lib/safe/config";
 import { abi, rolesAddress } from "@/lib/safe/core";
-import { type SafeAccount, accountFor } from "@/lib/safe/state";
+import { type SafeAccount, accountFor, knownAccounts } from "@/lib/safe/state";
 import { Band, CopyLink, Who, useAddressScan } from "../bits";
 import { friendly } from "@/lib/friendly";
 
@@ -77,7 +77,11 @@ export type Confirm = { account: SafeAccount; guardians: Address[] };
 export async function signIn(): Promise<{ account: SafeAccount } | { confirm: Confirm }> {
   const { credentialId, candidates } = await recoverKeys();
   const accts = candidates.map((c: Candidate) => accountFor(credentialId, c.qx, c.qy));
-  let pick = accts.length === 1 ? accts[0] : undefined;
+  // a passkey this browser has opened before: its key is saved, so an empty wallet doesn't need a second Face ID to
+  // tell its key from the other candidate (Austin 11-12: a new wallet asked twice on every switch)
+  const known = knownAccounts().find(k => k.credentialId === credentialId);
+  const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+  let pick = accts.length === 1 ? accts[0] : accts.find(c => known && same(c.qx, known.qx) && same(c.qy, known.qy));
   // one read per account for this sign-in: it's a getCode + getBalance on every network
   const seen = new Map<string, Promise<boolean>>();
   const usedOnce = (c: (typeof accts)[number]) => seen.get(c.address) ?? (seen.set(c.address, used(c)), seen.get(c.address)!);

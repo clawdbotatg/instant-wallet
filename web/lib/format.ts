@@ -23,12 +23,13 @@ export function feeText(fee: { feeUsdc: string | bigint; feeEth: string | bigint
 
 /**
  * What an address box keeps: the one address in the text, whatever is around it ("0x12…ef." · "to: 0x12…ef)" ·
- * spaces). No address, two different ones, or a longer hex (a tx hash): the text as typed.
+ * spaces). No address, two different ones, or a longer hex (a tx hash): the text as typed. A name is never cut:
+ * a label that is an address (0x12…ef.eth, 0x12…ef.atg.eth) stays whole.
  */
 export function addressIn(text: string): string {
   const found = new Set<string>();
   let one = "";
-  for (const m of text.matchAll(/(?:^|[^0-9a-z])(0x[0-9a-f]{40})(?![0-9a-z])/gi)) {
+  for (const m of text.matchAll(/(?:^|[^0-9a-z])(0x[0-9a-f]{40})(?![0-9a-z]|[-_0-9a-z]*\.[0-9a-z])/gi)) {
     one = "0x" + m[1].slice(2);
     found.add(one.toLowerCase());
   }

@@ -11,6 +11,11 @@ ok(addressIn(hash) === hash, "a tx hash is left alone");
 ok(addressIn(`${A} 0x${"11".repeat(20)}`).includes(" "), "two different addresses: left alone");
 ok(addressIn("atg.et") === "atg.et" && addressIn(A.slice(0, 20)) === A.slice(0, 20), "half-typed text is left alone");
 ok(nameIn(" atg.eth. ") === "atg.eth" && nameIn("(atg.eth)") === "atg.eth", "a name loses the dot and the brackets");
+for (const t of ["sub.atg.eth", "sub.atg.", "a.b.c.atg.eth", "sub.", `${A}.eth`, `${A}.atg.eth`, `pay.${A}.eth`, `${A}-x.eth`])
+  ok(addressIn(t) === t, `typing ${t}: the box is left alone`);
+ok(nameIn("a.b.atg.eth.") === "a.b.atg.eth" && nameIn("sub.atg.eth") === "sub.atg.eth", "a subname keeps every dot inside it");
+const sub = parse("pay.sub.atg.eth");
+ok(sub.kind === "pay" && sub.to === "pay.sub.atg.eth", "a pasted subname is a send");
 const p = parse(`${A}.`);
 ok(p.kind === "pay" && p.to === A, "a pasted address with a dot is a send");
 const n = parse("atg.eth.");

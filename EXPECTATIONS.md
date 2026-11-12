@@ -52,6 +52,7 @@ Where it lives: `WhatItDoes`, `<Money>`, clear-signing-safe-kit (`dangers`, `sim
 | The passkey | `bio()` / `<BioSigner>`: Face ID, Touch ID… for this device | "Face ID" hard-coded |
 | The wedgie's buttons | `<GreenButton />`, "the green button" | A / B / X / Y |
 | Typing an amount of a coin | `<AmountBox>`: dollars first, a pill switches to the coin and back (Send, Swap, Share, Request, Limits) | a box that takes tokens only, a hand-made box |
+| Typing or pasting an address | the box keeps only the address: `addressIn()` / `<AddressInput>`. A dot, a space, words around it are dropped; `atg.eth.` is atg.eth (`nameIn()`) | an error on `0x….` |
 | A wait of ~5 s or more | a progress bar sized to it | a dead screen, an "Ask again" button |
 
 Words:

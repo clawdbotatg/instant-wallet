@@ -1,5 +1,6 @@
 "use client";
 
+import { addressIn } from "@/lib/format";
 import { useEffect, useState } from "react";
 import { type Address, type Hex, encodeFunctionData, getAddress, isAddress } from "viem";
 import { CHAINS, chainById, explorerTx, publicClient } from "@/lib/chains";
@@ -104,7 +105,7 @@ export function RecoverTool() {
       <div className="field">
         <label>The wallet</label>
         <div className="input">
-          <input value={wallet} onChange={e => setWallet(e.target.value)} placeholder="0x…" autoCapitalize="none" spellCheck={false} />
+          <input value={wallet} onChange={e => setWallet(addressIn(e.target.value))} placeholder="0x…" autoCapitalize="none" spellCheck={false} />
           {scan.pill}
         </div>
         {scan.camera}
@@ -127,7 +128,7 @@ export function RecoverTool() {
           <b>0. Deploy it here first</b>
           <p className="fine">It was never used on {chainById(chainId)?.name}. Paste the &quot;Instant wallet key&quot; from the owner&apos;s wallet card.</p>
           <div className="input">
-            <input value={original} onChange={e => setOriginal(e.target.value)} placeholder="0x… Instant wallet key" autoCapitalize="none" spellCheck={false} />
+            <input value={original} onChange={e => setOriginal(addressIn(e.target.value))} placeholder="0x… Instant wallet key" autoCapitalize="none" spellCheck={false} />
           </div>
           {isAddress(original.trim()) && w && safeAddress(getAddress(original.trim())) !== w && <p className="err">That signer doesn&apos;t make this wallet.</p>}
           <button
@@ -143,7 +144,7 @@ export function RecoverTool() {
       <div className="card stack">
         <b>1. Start the recovery</b>
         <div className="input">
-          <input value={newKey} onChange={e => setNewKey(e.target.value)} placeholder="0x… the owner's new key (from their new phone)" autoCapitalize="none" spellCheck={false} />
+          <input value={newKey} onChange={e => setNewKey(addressIn(e.target.value))} placeholder="0x… the owner's new key (from their new phone)" autoCapitalize="none" spellCheck={false} />
         </div>
         {info?.mods.map((m, i) => (
           <button key={m.module} className={`btn ${i === 0 ? "btn-green" : ""} wide`} disabled={!startData || !info.deployed} onClick={() => startData && run(m.module, startData, "Start")}>

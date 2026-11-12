@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { type Address, type Hash, formatUnits, getAddress, isAddress, parseUnits, zeroAddress } from "viem";
 import { chainById, explorerTx, nativeSymbol } from "@/lib/chains";
-import { amount as fmtAmount, usd, feeText } from "@/lib/format";
+import { amount as fmtAmount, usd, feeText, addressIn, nameIn } from "@/lib/format";
 import { isClaimLink } from "@/lib/claim";
 import { isXdai } from "@/lib/brand";
 import { dropCode } from "@/lib/dropClient";
@@ -76,7 +76,7 @@ export function SafeSend({
 
   // resolve the recipient
   useEffect(() => {
-    const v = toInput.trim();
+    const v = nameIn(toInput);
     setResolved(null);
     if (isAddress(v)) return setResolved(getAddress(v));
     if (!/\.[a-z]{2,}$/i.test(v)) return;
@@ -350,7 +350,7 @@ export function SafeSend({
             <label>To</label>
             <div className="input">
               {resolved && !toInput.includes(".") && <Blockie address={resolved} size={30} />}
-              <input value={toInput} onChange={e => setToInput(e.target.value)} placeholder="0x… or name.eth" autoCapitalize="none" autoCorrect="off" spellCheck={false} />
+              <input value={toInput} onChange={e => setToInput(addressIn(e.target.value))} placeholder="0x… or name.eth" autoCapitalize="none" autoCorrect="off" spellCheck={false} />
               <button
                 className="pill"
                 onClick={() => {

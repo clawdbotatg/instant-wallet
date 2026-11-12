@@ -1,6 +1,7 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
+import { addressIn } from "@/lib/format";
 import { useState } from "react";
 import { type Address, getAddress, isAddress } from "viem";
 import { CHAINS, publicClient } from "@/lib/chains";
@@ -189,7 +190,7 @@ export function SafeWelcome({ onReady, initialConfirm }: { onReady: (a: SafeAcco
             <p>Lost your phone? This makes a new key on this device. Your recovery address (the DAO, or your own recovery wallet) then swaps it in; it takes 7 days (with a wedgie: 14 from your own recovery address, 60 from the DAO), and you can cancel it from any key you still have.</p>
           </div>
           <div className="input">
-            <input value={wallet} onChange={e => setWallet(e.target.value)} placeholder="0x… your wallet's address" autoCapitalize="none" spellCheck={false} />
+            <input value={wallet} onChange={e => setWallet(addressIn(e.target.value))} placeholder="0x… your wallet's address" autoCapitalize="none" spellCheck={false} />
             {scan.pill}
           </div>
           {scan.camera}

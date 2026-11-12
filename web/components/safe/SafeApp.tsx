@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type Address, getAddress, isAddress, zeroAddress } from "viem";
 import { CHAINS, chainById } from "@/lib/chains";
-import { amount, short, usd } from "@/lib/format";
+import { amount, short, usd, nameIn } from "@/lib/format";
 import { type ChainState, type SafeAccount, defaultWalletName, forgetKnown, loadAccount, loadWalletName, readAll, saveAccount, saveWalletName } from "@/lib/safe/state";
 import { type Asset, type Portfolio, keepLate } from "@/lib/types";
 import { loadHidden, loadPortfolio, loadShown, saveHidden, savePortfolio, saveShown } from "@/lib/store";
@@ -77,7 +77,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
   useEffect(() => {
     // ?watch=0x…: view any wallet, read only (not advertised; for debugging). Never saved, never signs.
     // ?watch=atg.eth works too (resolved on Ethereum).
-    const w = new URLSearchParams(window.location.search).get("watch");
+    const w = nameIn(new URLSearchParams(window.location.search).get("watch") ?? "");
     const watch = (a: string) => setAccountState({ credentialId: WATCH, qx: "0x", qy: "0x", burnerSigner: zeroAddress, address: getAddress(a) });
     if (w && isAddress(w)) watch(w);
     else if (w?.includes("."))

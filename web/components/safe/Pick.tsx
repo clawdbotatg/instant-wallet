@@ -3,7 +3,7 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { isAddress } from "viem";
 import { CHAINS, chainById } from "@/lib/chains";
-import { amount as fmtAmount, usd } from "@/lib/format";
+import { amount as fmtAmount, usd, addressIn } from "@/lib/format";
 import type { Signer, SignerOption } from "@/lib/safe/send";
 import type { Asset } from "@/lib/types";
 import { ChainIcon, TokenIcon } from "../bits";
@@ -135,7 +135,7 @@ export function Select({
             spellCheck={false}
             style={{ fontSize: 15, padding: "10px 0" }}
             onChange={async e => {
-              const v = e.target.value.trim();
+              const v = addressIn(e.target.value).trim();
               setPasted(v);
               setErr(null);
               if (!isAddress(v) || !custom) return;
@@ -150,7 +150,7 @@ export function Select({
         </div>
       ) : filter ? (
         <div className="input" style={{ minHeight: 50 }}>
-          <input key="filter" autoFocus value={q} onChange={e => (setQ(e.target.value), search?.onQuery(e.target.value.trim()))} onKeyDown={keys} placeholder={search?.placeholder ?? "Type to filter"} autoCapitalize="none" autoCorrect="off" spellCheck={false} style={{ fontSize: 16, padding: "10px 0" }} />
+          <input key="filter" autoFocus value={q} onChange={e => (setQ(addressIn(e.target.value)), search?.onQuery(addressIn(e.target.value).trim()))} onKeyDown={keys} placeholder={search?.placeholder ?? "Type to filter"} autoCapitalize="none" autoCorrect="off" spellCheck={false} style={{ fontSize: 16, padding: "10px 0" }} />
           <button className="pill" aria-label="Close" onClick={close}>
             ▴
           </button>

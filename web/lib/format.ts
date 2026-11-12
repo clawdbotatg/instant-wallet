@@ -20,3 +20,20 @@ export function feeText(fee: { feeUsdc: string | bigint; feeEth: string | bigint
   if (token === "usdc") return `${dollars >= 0.01 ? dollars.toFixed(2) : amount(String(dollars))} USDC`;
   return `${amount(String(Number(BigInt(fee.feeEth)) / 1e18))} ${coin} (${usd(dollars)})`;
 }
+
+/**
+ * What an address box keeps: the one address in the text, whatever is around it ("0x12…ef." · "to: 0x12…ef)" ·
+ * spaces). No address, two different ones, or a longer hex (a tx hash): the text as typed.
+ */
+export function addressIn(text: string): string {
+  const found = new Set<string>();
+  let one = "";
+  for (const m of text.matchAll(/(?:^|[^0-9a-z])(0x[0-9a-f]{40})(?![0-9a-z])/gi)) {
+    one = "0x" + m[1].slice(2);
+    found.add(one.toLowerCase());
+  }
+  return found.size === 1 ? one : text;
+}
+
+/** The same for a box that takes a name too: "atg.eth." and "(atg.eth)" are atg.eth. Use it on read, not on each key. */
+export const nameIn = (text: string) => addressIn(text).replace(/^[\s.,;:!?"'`()<>[\]{}]+|[\s.,;:!?"'`()<>[\]{}]+$/g, "");

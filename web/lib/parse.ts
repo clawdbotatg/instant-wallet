@@ -1,3 +1,4 @@
+import { nameIn } from "./format";
 import { type Address, getAddress, isAddress } from "viem";
 import { ETH, chainByShort } from "./chains";
 
@@ -84,8 +85,9 @@ export function parse(input: string): Parsed {
     }
   }
   if (/^[a-z0-9-]+:0x/i.test(s) || /;/.test(s)) return pathForm(s);
-  if (isAddress(s)) return { kind: "pay", to: getAddress(s) };
-  if (ENS.test(s)) return { kind: "pay", to: s.toLowerCase() };
+  const a = nameIn(s); // "0x12…ef." or "send to 0x12…ef": the address in it
+  if (isAddress(a)) return { kind: "pay", to: getAddress(a) };
+  if (ENS.test(a)) return { kind: "pay", to: a.toLowerCase() };
   return { kind: "unknown", text: s };
 }
 

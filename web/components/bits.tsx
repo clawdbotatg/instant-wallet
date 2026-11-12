@@ -6,7 +6,7 @@ import { blo } from "blo";
 import QRCode from "qrcode";
 import { type Address, getAddress, isAddress } from "viem";
 import { chainById } from "@/lib/chains";
-import { amount as fmtAmount, short, usd as fmtUsd } from "@/lib/format";
+import { amount as fmtAmount, short, usd as fmtUsd, addressIn, nameIn } from "@/lib/format";
 import { parse } from "@/lib/parse";
 import { bio } from "@/lib/passkey";
 import { Scanner } from "./Scanner";
@@ -738,7 +738,7 @@ export function AddressInput({ initial, onChange, placeholder = "0x… or name.e
     if (initial && !touched.current) setText(initial);
   }, [initial]);
   useEffect(() => {
-    const v = text.trim();
+    const v = nameIn(text);
     let live = true; // a late answer for older text must never land on newer text
     setName(null);
     if (isAddress(v)) {
@@ -789,7 +789,7 @@ export function AddressInput({ initial, onChange, placeholder = "0x… or name.e
           value={idle ? (name ?? short(addr)) : text}
           onChange={e => {
             touched.current = true;
-            setText(e.target.value);
+            setText(addressIn(e.target.value));
           }}
           onFocus={e => {
             setFocus(true);

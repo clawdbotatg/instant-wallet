@@ -428,7 +428,8 @@ export function SafeApp({ link }: { link?: string } = {}) {
       setToast("The old phone's budget is off");
       refresh();
     } catch (e: any) {
-      if (e instanceof Shared) return setDropReady(null); // its page has the sheet now
+      setDropReady(null); // its page has the sheet now (Shared), or it failed: the next tap gets a fresh fee and number
+      if (e instanceof Shared) return;
       setToast(friendly(e));
     } finally {
       dropBar.end();

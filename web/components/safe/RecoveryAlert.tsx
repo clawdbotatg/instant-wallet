@@ -64,7 +64,8 @@ export function RecoveryAlert({
       setReady(null);
       onDone();
     } catch (e: any) {
-      if (e instanceof Shared) return setReady(null); // its page has the sheet now
+      setReady(null); // its page has the sheet now (Shared), or it failed: the next tap gets a fresh fee and number
+      if (e instanceof Shared) return;
       setError(friendly(e));
     } finally {
       bar.end();

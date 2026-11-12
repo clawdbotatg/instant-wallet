@@ -153,6 +153,8 @@ export async function finishOwners(p: Prepared): Promise<Hash> {
   const { t, h } = p;
   const chainId = st.chainId;
   const stage = p.opts.onStage ?? (() => {});
+  // a fee quoted too long ago (a sheet left open): the relay would refuse it after you signed. Say so first.
+  if (!p.opts.self && p.fee.until < Date.now()) throw new Error("The fee is out of date. Try again.");
   const face = signers.some(s => howSigns(a, st, s) === "faceid");
   const wallets = signers.filter(s => howSigns(a, st, s) === "wallet");
   const slots = signers.filter(s => howSigns(a, st, s) === "wedgie");

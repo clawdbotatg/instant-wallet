@@ -164,7 +164,8 @@ Suggested first: 1, 3, 5, 12, 20.
 - [ ] **18b. Left from 18 (small).**
   - `ClaimMaker.tsx:110-114`, `DropAdmin.tsx:340-344`: a PDF that fails does so silently.
   - `RecoverTool.tsx:143-149`: the copy button says nothing. `:75-88`: Start / Finish / Deploy stay live mid-run.
-  - Only `SafeConnect.tsx` checks the fee quote went stale before signing. Check it once in `finishOwners`.
+  - Done 11-12: `finishOwners` refuses a fee quote past its time, before anything is signed. The recovery alert and
+    the budget turn-off drop what they prepared when a sign fails, so the next tap starts fresh.
   - `lib/claimBatch.ts:53`: a card's `eth` total adds different coins together (POL + xDAI + ETH).
 
 - [x] **19. The "Slow internet…" pill fires on calls that are slow by design.**

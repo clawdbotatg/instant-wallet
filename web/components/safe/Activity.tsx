@@ -84,8 +84,9 @@ export function Activity({ safe, chains, undeployed = [], assets, late, live, ti
     };
   }, [key, tick, landed]); // eslint-disable-line react-hooks/exhaustive-deps
   // Until a network answers, the rows this browser last showed for it stand in, so the list is there the moment Home
-  // opens. Nothing saved (a new browser): grey rows hold the list's place, so it doesn't pop in 2 s later and push
-  // the page down (Austin, 11-12). `waiting`: the wallet's networks aren't known yet, or one hasn't answered.
+  // opens. Nothing saved (a new browser, an empty wallet): nothing shows until there is a row. Grey placeholder rows
+  // were tried and taken out: on an empty wallet they flashed and went (Austin, 11-12). `waiting`: the wallet's
+  // networks aren't known yet, or one hasn't answered.
   const saved = useMemo(() => kept(safe), [safe]);
   const got = by.key === safe ? by.rows : {};
   const waiting = (!chains.length && !undeployed.length) || [...chains, ...bare].some(c => !(c in got));
@@ -141,18 +142,7 @@ export function Activity({ safe, chains, undeployed = [], assets, late, live, ti
   // still on its way: this wallet's, and not already in the chain's list
   const ours = out.filter(s => s.safe.toLowerCase() === safe.toLowerCase() && !rows.some(r => s.hash && r.hash === s.hash.toLowerCase()));
   if (!rows.length && !ours.length && !fresh.length)
-    return waiting ? (
-      <div className="card stack" style={{ gap: 10 }} aria-busy="true">
-        <b>Activity</b>
-        {[0, 1, 2].map(i => (
-          <div key={i} className="recess stack" style={{ gap: 8, padding: "14px" }}>
-            <span className="loading-bar" style={{ width: 110, height: 12 }} />
-            <span className="loading-bar" style={{ width: i === 1 ? "70%" : "55%", height: 16 }} />
-            <span className="loading-bar" style={{ width: 130, height: 12 }} />
-          </div>
-        ))}
-      </div>
-    ) : null;
+    return null;
   // dollars at today's price (what the home list uses)
   const usd = (chainId: number, m: Move) => {
     const a = assets.find(x => x.chainId === chainId && x.asset.toLowerCase() === (m.token === "eth" ? zeroAddress : m.token));

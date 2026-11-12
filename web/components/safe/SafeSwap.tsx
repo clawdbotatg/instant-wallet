@@ -12,7 +12,7 @@ import { POPULAR, type SwapRoute, type Token, swapCalls } from "@/lib/safe/swap"
 import { uniswapRoute } from "@/lib/safe/uniswap";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { DoneBar, Eject, Money, TokenIcon, GreenButton, Who } from "../bits";
+import { AmountBox, DoneBar, Eject, Money, TokenIcon, GreenButton, Who } from "../bits";
 import { ChainSelect, type Opt, Select, SignerChoice, assetOpt } from "./Pick";
 import { Progress, TimeBar } from "./Progress";
 import { friendly } from "@/lib/friendly";
@@ -409,23 +409,17 @@ export function SafeSwap({
         )}
         {from && (
           <>
-            <div className="input">
-              <input
-                className="amount"
-                inputMode="decimal"
-                value={amountIn}
-                disabled={busy}
-                onChange={e => setAmountIn(e.target.value.replace(",", ".").replace(/[^0-9.]/g, ""))}
-                placeholder="0"
-              />
-              <button className="pill" onClick={max} disabled={busy}>
-                Max
-              </button>
-            </div>
-            <div className="row" style={{ justifyContent: "space-between" }}>
-              <span className="fine">{fromUsd ? `≈ ${usd(fromUsd)}` : ""}</span>
-              <span className="fine">You have {fmtAmount(from.formatted)}{from.usd ? ` (${usd(from.usd)})` : ""}</span>
-            </div>
+            <AmountBox
+              key={assetOpt(from).key}
+              value={amountIn}
+              onChange={setAmountIn}
+              symbol={from.symbol}
+              decimals={from.decimals}
+              price={from.price}
+              onMax={max}
+              disabled={busy}
+              right={`You have ${from.usd ? usd(from.usd) : `${fmtAmount(from.formatted)} ${from.symbol}`}`}
+            />
             {tooMuch && <span className="err">More than you have</span>}
           </>
         )}

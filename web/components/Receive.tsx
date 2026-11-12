@@ -4,9 +4,10 @@ import { useEffect, useState } from "react";
 import { type Address, parseUnits } from "viem";
 import { CHAINS } from "@/lib/chains";
 import { requestLink, requestUri } from "@/lib/parse";
+import { nativeUsd } from "@/lib/price";
 import { loadRequestLink, saveRequestLink } from "@/lib/store";
 import type { Account } from "@/lib/types";
-import { ChainIcon, CopyIcon, Money, PencilIcon, Qr, SwitchIcon, WhatFor, Who, copy } from "./bits";
+import { AmountBox, ChainIcon, CopyIcon, Money, PencilIcon, Qr, SwitchIcon, WhatFor, Who, copy } from "./bits";
 import { ChainSelect } from "./safe/Pick";
 
 /**
@@ -45,6 +46,11 @@ export function Receive({
   // the coin pill is this network's own coin (POL, xDAI…), and USDC only where the network has it
   const tokens = chain.usdc ? (chain.nativeIsUsdc ? (["USDC"] as const) : (["USDC", "ETH"] as const)) : (["ETH"] as const);
   const tok = (tokens as readonly string[]).includes(token) ? token : tokens[0];
+  // the network's coin in dollars, so a request is typed in dollars like every other amount
+  const [coinUsd, setCoinUsd] = useState<Record<number, number>>({});
+  useEffect(() => {
+    if (asking) nativeUsd(chainId).then(p => p && setCoinUsd(m => ({ ...m, [chainId]: p })));
+  }, [asking, chainId]);
   let uri: string | null = null;
   if (asking && Number(amount) > 0) {
     try {
@@ -115,17 +121,27 @@ export function Receive({
         </button>
       ) : (
         <>
-          <div className="input">
-            <input inputMode="decimal" placeholder="0.0" autoFocus value={amount} onChange={e => setAmount(e.target.value.replace(",", ".").replace(/[^0-9.]/g, ""))} />
-            <div className="row">
-              {tokens.map(t => (
-                <button key={t} className={`pill ${t === tok ? "on" : ""}`} onClick={() => setToken(t)}>
-                  {t === "ETH" ? chain.native.symbol : t}
-                </button>
-              ))}
-            </div>
-          </div>
-          <ChainSelect value={chainId} onChange={setChainId} />
+          <AmountBox
+            key={`${chainId}:${tok}`}
+            autoFocus
+            value={amount}
+            onChange={setAmount}
+            symbol={tok === "ETH" ? chain.native.symbol : tok}
+            decimals={tok === "ETH" ? 18 : 6}
+            price={tok === "ETH" ? coinUsd[chainId] : 1}
+            right={
+              tokens.length > 1 && (
+                <span className="row" style={{ gap: 6 }}>
+                  {tokens.map(t => (
+                    <button key={t} className={`pill ${t === tok ? "on" : ""}`} onClick={() => (setToken(t), setAmount(""))}>
+                      {t === "ETH" ? chain.native.symbol : t}
+                    </button>
+                  ))}
+                </span>
+              )
+            }
+          />
+          <ChainSelect value={chainId} onChange={id => (setChainId(id), setAmount(""))} />
           <label className="row" style={{ gap: 8 }}>
             <input type="checkbox" checked={withLink} onChange={e => toggleLink(e.target.checked)} />
             Include {window.location.host} link (any phone camera opens it)

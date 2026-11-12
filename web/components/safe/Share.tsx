@@ -12,7 +12,7 @@ import { type FeeToken, type Stage, Shared, budgetSend, getQuote, ownersSend, pl
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { GreenButton, Qr } from "../bits";
+import { AmountBox, GreenButton, Qr } from "../bits";
 import { ChainSelect, Select, assetOpt } from "./Pick";
 import { ErrorLine } from "./WedgieButton";
 import { Progress } from "./Progress";
@@ -53,7 +53,7 @@ type Step = "form" | "check" | "how" | "write" | "unwritten" | "ready" | Stage |
  */
 export function Share({ account, states, assets, chainId: startChain, onDone }: { account: SafeAccount; states: ChainState[]; assets: Asset[]; chainId: number; onDone: () => void }) {
   const [chainId, setChainId] = useState(startChain);
-  const [amountIn, setAmountIn] = useState("5"); // dollars when the token has a price, else the token
+  const [amountIn, setAmountIn] = useState(""); // always the token amount (<AmountBox> takes dollars and works it out)
   const [step, setStep] = useState<Step>("form");
   const [how, setHow] = useState<"qr" | "nfc">("qr");
   const [card, setCard] = useState<Card | null>(null);
@@ -74,14 +74,16 @@ export function Share({ account, states, assets, chainId: startChain, onDone }: 
   const asset = options.find(a => keyOf(a) === pick) ?? null;
 
   const price = asset ? (isUsdc(asset) ? 1 : asset.price) : null;
+  const coinOf = (dollars: string) => (price && asset ? (Number(dollars) / price).toFixed(Math.min(asset.decimals, 8)).replace(/\.?0+$/, "") : "");
+  // a new token starts at $5 (the first chip), or empty when it has no price
+  useEffect(() => setAmountIn(coinOf("5")), [pick, !!price]);
   let base: bigint | null = null;
   try {
-    const tokens = price ? (Number(amountIn) / price).toFixed(Math.min(asset!.decimals, 8)) : amountIn;
-    base = asset && amountIn ? parseUnits(tokens, asset.decimals) : null;
+    base = asset && amountIn ? parseUnits(amountIn, asset.decimals) : null;
   } catch {}
   const label = (a: Asset, amt: bigint) => {
     const t = `${fmtAmount(formatUnits(amt, a.decimals))} ${a.symbol}`;
-    return isUsdc(a) ? `$${fmtAmount(formatUnits(amt, 6), 2)}` : price ? `${t} (${usd(Number(amountIn))})` : t;
+    return isUsdc(a) ? `$${fmtAmount(formatUnits(amt, 6), 2)}` : price ? `${t} (${usd(Number(formatUnits(amt, a.decimals)) * price)})` : t;
   };
 
   /** The send: its calls, path, fee — or why it can't go. */
@@ -286,7 +288,7 @@ export function Share({ account, states, assets, chainId: startChain, onDone }: 
       {price ? (
         <div className="row" style={{ gap: 8 }}>
           {CHIPS.map(c => (
-            <button key={c} className={`pill ${amountIn === c ? "on" : ""}`} onClick={() => setAmountIn(c)} disabled={busy}>
+            <button key={c} className={`pill ${amountIn === coinOf(c) ? "on" : ""}`} onClick={() => setAmountIn(coinOf(c))} disabled={busy}>
               ${c}
             </button>
           ))}
@@ -294,17 +296,17 @@ export function Share({ account, states, assets, chainId: startChain, onDone }: 
       ) : null}
       <div className="field">
         <label>Amount</label>
-        <div className="input">
-          {price ? <span className="amount-cur">$</span> : null}
-          <input className="amount" inputMode="decimal" value={amountIn} disabled={busy} onChange={e => setAmountIn(e.target.value.replace(",", ".").replace(/[^0-9.]/g, ""))} placeholder="0" />
-          {!price && asset && <span className="unit">{asset.symbol}</span>}
-        </div>
         {asset && (
-          <span className="fine">
-            {price && base && !isUsdc(asset) ? `= ${fmtAmount(formatUnits(base, asset.decimals))} ${asset.symbol} · ` : ""}
-            You have {fmtAmount(asset.formatted)} {asset.symbol}
-            {asset.usd && !isUsdc(asset) ? ` (${usd(asset.usd)})` : ""}
-          </span>
+          <AmountBox
+            key={keyOf(asset)}
+            value={amountIn}
+            onChange={setAmountIn}
+            symbol={asset.symbol}
+            decimals={asset.decimals}
+            price={price}
+            disabled={busy}
+            right={`You have ${asset.usd ? usd(asset.usd) : `${fmtAmount(asset.formatted)} ${asset.symbol}`}`}
+          />
         )}
       </div>
       {error && <ErrorLine text={error} />}

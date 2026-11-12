@@ -15,7 +15,7 @@ import { type FeeToken, type Signer, type Stage, Shared, budgetSend, feeCall, ge
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { Blockie, ChainChip, DoneBar, GreenButton, Money, ScanIcon, TokenIcon, Who, useSheetBack } from "../bits";
+import { AmountBox, Blockie, ChainChip, DoneBar, GreenButton, Money, ScanIcon, TokenIcon, Who, useSheetBack } from "../bits";
 import { Scanner } from "../Scanner";
 import { Select, assetOpt } from "./Pick";
 import { friendly } from "@/lib/friendly";
@@ -57,9 +57,8 @@ export function SafeSend({
   const [resolving, setResolving] = useState(false);
   const key = (a: { chainId: number; asset: string }) => `${a.chainId}:${a.asset.toLowerCase()}`;
   const [pick, setPick] = useState<string | null>(start ? key(start) : null);
-  const [amountIn, setAmountIn] = useState(""); // always the token amount; in dollar mode it's worked out from usdIn
-  const [inUsd, setInUsd] = useState(true); // type dollars (the default) or the token
-  const [usdIn, setUsdIn] = useState("");
+  const [amountIn, setAmountIn] = useState(""); // always the token amount (<AmountBox> takes dollars and works it out)
+  const [asCoin, setAsCoin] = useState(false); // the box opens on the coin: a payment request names a coin amount
   const [stage, setStage] = useState<"form" | "review" | Stage | "done">("form");
   const [quote, setQuote] = useState<Quote | null>(null);
   const [hash, setHash] = useState<Hash>();
@@ -103,17 +102,6 @@ export function SafeSend({
     base = null;
   }
   const price = asset?.price || null;
-  const dollars = inUsd && !!price; // no price: only the token amount makes sense
-  const tokenFromUsd = (u: string) =>
-    u && price && asset ? (Number(u) / price).toFixed(Math.min(asset.decimals, 8)).replace(/\.?0+$/, "") : "";
-  const switchUnit = () => {
-    if (!price) return;
-    if (dollars) setInUsd(false);
-    else {
-      setUsdIn(amountIn ? (Number(amountIn) * price).toFixed(2) : "");
-      setInUsd(true);
-    }
-  };
   const tooMuch = !!asset && base !== null && base > BigInt(asset.balance);
 
   // the fee: in the token being sent when it's USDC or ETH, else USDC if there's enough, else ETH
@@ -190,7 +178,6 @@ export function SafeSend({
     if (amt < 0n) amt = 0n;
     const t = formatUnits(amt, asset.decimals);
     setAmountIn(t);
-    setUsdIn(price ? (Math.floor(Number(t) * price * 100) / 100).toFixed(2) : "");
   }
 
   function onScan(text: string) {
@@ -210,7 +197,6 @@ export function SafeSend({
       if (!m) {
         setPick(null);
         setAmountIn("");
-        setUsdIn("");
         return setError("That request is for a token or network you don't hold here.");
       }
       setPick(key(m));
@@ -218,7 +204,7 @@ export function SafeSend({
     const amt = r.amount ?? (r.amountBase !== undefined && m ? formatUnits(r.amountBase, m.decimals) : undefined);
     if (amt) {
       setAmountIn(amt);
-      setInUsd(false); // a payment request names the token amount
+      setAsCoin(true); // a payment request names the token amount
     }
   }
 
@@ -389,7 +375,7 @@ export function SafeSend({
                 onPick={k => {
                   setPick(k);
                   setAmountIn("");
-                  setUsdIn("");
+                  setAsCoin(false);
                 }}
               />
             ) : (
@@ -400,43 +386,23 @@ export function SafeSend({
           {asset && (
             <div className="field">
               <label>Amount</label>
-              <div className="input">
-                {dollars && <span className="amount-cur">$</span>}
-                <input
-                  className="amount"
-                  inputMode="decimal"
-                  value={dollars ? usdIn : amountIn}
-                  onChange={e => {
-                    const v = e.target.value.replace(",", ".").replace(/[^0-9.]/g, "");
-                    if (dollars) {
-                      setUsdIn(v);
-                      setAmountIn(tokenFromUsd(v));
-                    } else setAmountIn(v);
-                  }}
-                  placeholder="0"
-                />
-                <button className="pill" onClick={max} disabled={maxing}>
-                  {maxing ? "…" : "Max"}
-                </button>
-                {price ? (
-                  <button className="pill" onClick={switchUnit} aria-label={dollars ? `Type ${asset.symbol} instead` : "Type dollars instead"}>
-                    {dollars ? "USD" : asset.symbol} ⇅
-                  </button>
-                ) : (
-                  <span className="unit">{asset.symbol}</span>
-                )}
-              </div>
-              {/* Max sits in the box, like Swap; under it one line: the other unit, and the limit in a few words (Austin 11-10) */}
-              <div className="row" style={{ justifyContent: "space-between" }}>
-                <span className="fine">
-                  {!amountIn || !price ? "" : dollars ? `= ${fmtAmount(amountIn)} ${asset.symbol}` : `≈ ${usd(Number(amountIn) * price)}`}
-                </span>
-                <span className="fine" style={{ whiteSpace: "nowrap" }}>
-                  {st?.budget && (sendingUsdc || sendingEth)
+              {/* the shared box: dollars first, the pill switches to the coin (the same in Swap, Share, Request, Limits) */}
+              <AmountBox
+                key={`${key(asset)}:${asCoin}`}
+                value={amountIn}
+                onChange={setAmountIn}
+                symbol={asset.symbol}
+                decimals={asset.decimals}
+                price={price}
+                onMax={max}
+                maxing={maxing}
+                startCoin={asCoin}
+                right={
+                  st?.budget && (sendingUsdc || sendingEth)
                     ? `${sendingUsdc ? `${fmtAmount(formatUnits(st.budget.usdc, 6))} USDC` : price ? usd(Number(formatUnits(st.budget.eth, 18)) * price) : `${fmtAmount(formatUnits(st.budget.eth, 18))} ${nativeSymbol(chainId)}`} left today`
-                    : `You have ${asset.usd ? usd(asset.usd) : `${fmtAmount(asset.formatted)} ${asset.symbol}`}`}
-                </span>
-              </div>
+                    : `You have ${asset.usd ? usd(asset.usd) : `${fmtAmount(asset.formatted)} ${asset.symbol}`}`
+                }
+              />
               {tooMuch && <span className="err">More than you have</span>}
             </div>
           )}

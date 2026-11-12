@@ -10,7 +10,7 @@ import { type Prepared, Shared, finishOwners, getQuote, ownerSigners, prepareOwn
 import { type ChainState, type SafeAccount, readChain } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { TimedBar } from "../bits";
+import { AmountBox, TimedBar } from "../bits";
 import { friendly } from "@/lib/friendly";
 import { ErrorLine } from "./WedgieButton";
 
@@ -135,15 +135,8 @@ export function ChainLimit({ account, st, assets, onRefresh, onPoll, toast, onCl
         </div>
       ) : (
         <>
-          <div className="input">
-            <input inputMode="decimal" value={usdcIn} onChange={e => setUsdcIn(e.target.value.replace(",", ".").replace(/[^0-9.]/g, ""))} />
-            <span className="unit">USDC</span>
-          </div>
-          <div className="input">
-            <input inputMode="decimal" value={ethIn} onChange={e => setEthIn(e.target.value.replace(",", ".").replace(/[^0-9.]/g, ""))} />
-            <span className="unit">{coin}</span>
-          </div>
-          {coinUsd && Number(ethIn) > 0 && <span className="fine">≈ {usd(Number(ethIn) * coinUsd)} a day in {coin}</span>}
+          <AmountBox value={usdcIn} onChange={setUsdcIn} symbol="USDC" decimals={6} price={1} right="USDC a day" />
+          <AmountBox value={ethIn} onChange={setEthIn} symbol={coin} decimals={18} price={coinUsd} right={`${coin} a day`} />
           <button className="btn btn-green wide" onClick={save} disabled={busy || !usdcIn || !ethIn}>
             {busy ? "Getting ready…" : "Save"}
           </button>

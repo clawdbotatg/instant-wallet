@@ -329,6 +329,92 @@ export function WhatFor({ children }: { children: React.ReactNode }) {
 }
 
 /**
+ * The amount box, the same everywhere a coin amount is typed (Send, Swap, Share, Request, Limits): you type dollars,
+ * and the pill on its right switches to the coin and back. `value` is always the coin amount. A coin with no price
+ * takes the coin only. Under it: the other unit on the left, `right` (what you have, what's left) on the right.
+ * Give it a `key` per coin, so a new coin starts empty and in dollars. `startCoin`: open on the coin (a payment
+ * request names a coin amount).
+ */
+export function AmountBox({
+  value,
+  onChange,
+  symbol,
+  decimals,
+  price,
+  onMax,
+  maxing,
+  disabled,
+  right,
+  startCoin,
+  autoFocus,
+}: {
+  value: string;
+  onChange: (coinAmount: string) => void;
+  symbol: string;
+  decimals: number;
+  price?: number | null;
+  onMax?: () => void;
+  maxing?: boolean;
+  disabled?: boolean;
+  right?: React.ReactNode;
+  startCoin?: boolean;
+  autoFocus?: boolean;
+}) {
+  const [inUsd, setInUsd] = useState(!startCoin);
+  const [usdIn, setUsdIn] = useState("");
+  const dollars = inUsd && !!price; // no price: only the coin amount makes sense
+  const toUsd = (t: string) => (t && price && isFinite(Number(t)) ? (Math.floor(Number(t) * price * 100 + 1e-6) / 100).toFixed(2) : "");
+  const toCoin = (u: string) => (u && price && isFinite(Number(u)) ? (Number(u) / price).toFixed(Math.min(decimals, 8)).replace(/\.?0+$/, "") : "");
+  // an amount this box didn't type (Max, a filled-in request, a limit as it stands): its dollars follow it
+  const own = useRef<string | null>(null);
+  useEffect(() => {
+    if (value === own.current) return;
+    own.current = value;
+    setUsdIn(toUsd(value));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value, !!price]);
+  const set = (coin: string) => ((own.current = coin), onChange(coin));
+  return (
+    <>
+      <div className="input">
+        {dollars && <span className="amount-cur">$</span>}
+        <input
+          className="amount"
+          inputMode="decimal"
+          autoFocus={autoFocus}
+          value={dollars ? usdIn : value}
+          disabled={disabled}
+          onChange={e => {
+            const v = e.target.value.replace(",", ".").replace(/[^0-9.]/g, "");
+            if (dollars) (setUsdIn(v), set(toCoin(v)));
+            else set(v);
+          }}
+          placeholder="0"
+        />
+        {onMax && (
+          <button className="pill" onClick={onMax} disabled={disabled || maxing}>
+            {maxing ? "…" : "Max"}
+          </button>
+        )}
+        {price ? (
+          <button className="pill" disabled={disabled} onClick={() => (dollars || setUsdIn(toUsd(value)), setInUsd(!dollars))} aria-label={dollars ? `Type ${symbol} instead` : "Type dollars instead"}>
+            {dollars ? "USD" : symbol} ⇅
+          </button>
+        ) : (
+          <span className="unit">{symbol}</span>
+        )}
+      </div>
+      <div className="row" style={{ justifyContent: "space-between" }}>
+        <span className="fine">{!value || !price || !(Number(value) > 0) ? "" : dollars ? `= ${fmtAmount(value)} ${symbol}` : `≈ ${fmtUsd(Number(value) * price)}`}</span>
+        <span className="fine" style={{ whiteSpace: "nowrap" }}>
+          {right}
+        </span>
+      </div>
+    </>
+  );
+}
+
+/**
  * Money moving, the same everywhere: out is red with −, in is green with +, dollars after it in grey. `least`: a
  * minimum (a swap's "at least"), shown as "or more". Every screen that shows what a transaction pays or gets uses this.
  */

@@ -387,7 +387,9 @@ export function SafeApp({ link }: { link?: string } = {}) {
     };
   }, []);
   if (account === undefined) return null;
-  if (!account) return <SafeWelcome onReady={setAccount} initialConfirm={switchConfirm} />;
+  // a wallet opened from the sign-in screen reloads too (Austin 11-12): this page may still hold the last wallet's
+  // name and balance, and one render of those would go into the new passkey's name
+  if (!account) return <SafeWelcome onReady={openAccount} initialConfirm={switchConfirm} />;
 
   const keyOf = (a: Asset) => `${a.chainId}:${a.asset}`.toLowerCase();
   const held = (portfolio?.assets ?? []).filter(a => BigInt(a.balance) > 0n && !isReceipt(a));

@@ -154,10 +154,15 @@ export function SafeApp({ link }: { link?: string } = {}) {
   }, [account]);
   const stAsked = useRef(0);
   const stShown = useRef(0);
-  const loadStates = useCallback(async () => {
+  // chains the wallet isn't on: the 12 s poll asks them once a minute (`quiet`); every other read asks them all
+  const notOn = useRef(new Set<number>());
+  useEffect(() => {
+    notOn.current = new Set(states.filter(s => !s.deployed).map(s => s.chainId));
+  }, [states]);
+  const loadStates = useCallback(async (quiet?: boolean) => {
     if (!account) return;
     const n = ++stAsked.current;
-    const s = await readAll(account).catch(() => null);
+    const s = await readAll(account, quiet === true ? notOn.current : undefined).catch(() => null);
     // an older read that lands after a newer one is dropped
     if (!s || n < stShown.current) return;
     stShown.current = n;
@@ -170,6 +175,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
         return next.length === prev.length && next.every((x, i) => x === prev[i]) ? prev : next;
       });
   }, [account]);
+  const pollStates = useCallback(() => void loadStates(), [loadStates]);
   const fastUntil = useRef(0);
   // money that came in while the receive code is up: shown on it, gone when it closes
   const [got, setGot] = useState<Just[]>([]);
@@ -193,10 +199,11 @@ export function SafeApp({ link }: { link?: string } = {}) {
     setFresh(false);
     refresh();
     // balance every 3 s (every second while the receive code is up, its first 3 minutes: someone is paying you now),
-    // keys every 12 s; nothing while the tab is hidden
+    // keys every 12 s (a chain the wallet isn't on: every fifth time); nothing while the tab is hidden
     let n = 0;
+    let q = 0;
     const b = setInterval(() => document.hidden || ((Date.now() < fastUntil.current || ++n % 3 === 0) && loadBalance()), 1_000);
-    const k = setInterval(() => document.hidden || loadStates(), 12_000);
+    const k = setInterval(() => document.hidden || loadStates(++q % 5 !== 0), 12_000);
     // back from another app: read now, don't wait for the next tick; and a newer deploy loads itself (a phone left
     // open ran old code for hours: nothing else ever reloads it), only on Home with nothing open or being sent
     const back = () => {
@@ -594,7 +601,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
               toast={setToast}
               onAccount={a => setAccount(a)}
               onRefresh={refresh}
-              onPoll={loadStates}
+              onPoll={pollStates}
               onFund={chainId => setView({ kind: "swap", fund: chainId })}
               onShare={chainId => setView({ kind: "share", chainId })}
             />

@@ -330,8 +330,9 @@ function avail(x: readonly [bigint, bigint, bigint, bigint, bigint]): bigint {
   return b > maxRefill ? (balance > maxRefill ? balance : maxRefill) : b;
 }
 
-export async function readAll(a: SafeAccount): Promise<ChainState[]> {
-  return Promise.all(CHAINS.map(c => readChain(c.id, a).catch(() => null))).then(r => r.filter((x): x is ChainState => !!x));
+/** Every chain's state; `skip` leaves chains out (the caller keeps what it knew of them). */
+export async function readAll(a: SafeAccount, skip?: Set<number>): Promise<ChainState[]> {
+  return Promise.all(CHAINS.filter(c => !skip?.has(c.id)).map(c => readChain(c.id, a).catch(() => null))).then(r => r.filter((x): x is ChainState => !!x));
 }
 
 /** The browser-wallet owner this device knows (else the first one on chain). */

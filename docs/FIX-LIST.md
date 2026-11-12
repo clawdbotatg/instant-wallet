@@ -188,7 +188,8 @@ Suggested first: 1, 3, 5, 12, 20.
   code on the live wallet (Base, Ethereum, Arbitrum, Gnosis, Optimism, each owner as "this phone"): the same
   answer every time, 14-18 calls down to 2-3 per chain. Not checked in a browser.
 
-- [ ] **20d. Chains the wallet isn't on** are still read every 12 s (1 call each). Once a minute would do.
+- [x] **20d. Chains the wallet isn't on** were read every 12 s (1 call each). Done 11-12: the 12 s poll asks them
+  every fifth time (once a minute). A refresh, coming back to the tab, and Keys/Limits waiting still ask every chain.
 
 - [x] **21. Keys and Limits re-read the whole Activity history every 2 s while they wait.**
   `Keys.tsx:135-138`, `Limits.tsx:46` call `onRefresh`, which bumps Activity past its cache on every chain.

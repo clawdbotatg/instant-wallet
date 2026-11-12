@@ -118,8 +118,7 @@ export async function renamePasskey(credentialId: string, name: string): Promise
   // 11-12), and this says whether we sent that or the password manager did
   logRename({ credentialId, userId, name });
   try {
-    // not awaited: Safari 26 may never settle this promise, and the caller would then send the same name again
-    Promise.resolve(signal.call(window.PublicKeyCredential, { rpId: rpId(), userId, name, displayName: name })).catch(() => {});
+    await signal.call(window.PublicKeyCredential, { rpId: rpId(), userId, name, displayName: name });
     return true;
   } catch {
     return false;

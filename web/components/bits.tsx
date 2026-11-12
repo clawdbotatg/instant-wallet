@@ -554,12 +554,12 @@ export function ScanIcon({ size = 34 }: { size?: number }) {
   );
 }
 
-/** The home screen's green button: send, and it opens on the scanner. A filled paper plane with the scan mark inside. */
+/** The home screen's green button: send, and it opens on the scanner. A filled paper plane with the scan mark inside, dead center of the button. */
 export function SendScanIcon({ size = 48 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 48 48" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M44 4 3 19l13 8 6 17z" fill="currentColor" stroke="currentColor" strokeWidth="4" />
-      <g fill="none" stroke="var(--mint-d)" strokeWidth="2.7" transform="translate(19.25 14.25) scale(.75)">
+    <svg width={size} height={size} viewBox="0 0 48 48" strokeLinecap="round" strokeLinejoin="round" style={{ overflow: "visible" }}>
+      <path d="M44 6.5 3 21.5l13 8 6 17z" fill="currentColor" stroke="currentColor" strokeWidth="4" />
+      <g fill="none" stroke="var(--mint-d)" strokeWidth="2.7" transform="translate(18.75 18.75) scale(.75)">
         <path d="M0 4V1.5A1.5 1.5 0 0 1 1.5 0H4M10 0h2.5A1.5 1.5 0 0 1 14 1.5V4M14 10v2.5a1.5 1.5 0 0 1-1.5 1.5H10M4 14H1.5A1.5 1.5 0 0 1 0 12.5V10" />
         <path d="M3.5 7h7" />
       </g>

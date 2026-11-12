@@ -42,7 +42,7 @@ const TAKEN = new Set(
     "relay relayer guardian guardians signer wedgie wedgiedev safe safewallet gnosis gnosissafe ens eth ethereum base solana sol " +
     "bitcoin btc usdc usdt dai tether circle coinbase binance kraken okx bybit gemini robinhood metamask phantom rainbow ledger " +
     "trezor uniswap lifi aave morpho lido opensea stripe paypal venmo cashapp apple google microsoft amazon " +
-    "buidlguidl atg austin austingriffith austintgriffith vitalik null undefined test"
+    "buidlguidl austinaustingriffith austintgriffith vitalik null undefined test"
   ).split(" "),
 );
 // held back anywhere in a name: words a fake helper leans on, and wallets and companies people get phished as

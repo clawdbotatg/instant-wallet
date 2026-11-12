@@ -62,10 +62,12 @@ export const take = async (key: string): Promise<string | null> => {
 };
 
 /** What the page shows: enough to recognise your own contacts, not enough to learn someone else's. */
-export function masked(c: Contacts) {
+/** What the app shows. `open`: asked with no signature (anyone who knows the address can), so the email is only
+ * "On": its first letters and domain would tell a stranger whose wallet it is. */
+export function masked(c: Contacts, open = false) {
   const e = c.email?.split("@");
   return {
-    email: e ? `${e[0].slice(0, 2)}…@${e[1]}` : null,
+    email: e ? (open ? "On" : `${e[0].slice(0, 2)}…@${e[1]}`) : null,
     telegram: !!c.telegram,
     push: c.push?.map(p => p.endpoint.slice(-12)) ?? [],
   };

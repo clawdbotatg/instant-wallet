@@ -91,7 +91,9 @@ Suggested first: 1, 3, 5, 12, 20.
 
 - [ ] **10b. Left from 10.**
   - `app/api/drop/admin/route.ts:61-93`: any admin can change or take back any drop (`d.admin` is never checked).
-  - `app/api/alerts/route.ts:15-19`: an open GET shows the first 2 letters and the domain of a wallet's alert email.
+  - Done 11-12: the open GET says the email is "On", not its first letters and domain. A signed change still
+    answers with the masked address.
+  - Left: the drop admin one above (drops, low).
 
 - [x] **11. Public RPC when the Alchemy key is missing.**
   These pass `http(upstreamRpc(id))` unchecked, so viem falls back to the chain's public RPC: `app/api/ens`,

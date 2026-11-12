@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * A wallet's recovery alerts (lib/alerts.ts).
- *   GET  ?wallet                      → { channels: which are set up here, contacts: masked }
+ *   GET  ?wallet                      → { channels: which are set up here, contacts: what is on (no email address: anyone can ask) }
  *   POST { wallet, change, sig }      → change is a JSON string the passkey signed:
  *        {op:"email", email} · {op:"email-off"} · {op:"telegram"} (→ { link }) · {op:"telegram-off"} ·
  *        {op:"push", sub} · {op:"push-off", endpoint} · {op:"test"}
@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const w = req.nextUrl.searchParams.get("wallet") ?? "";
   if (!isAddress(w)) return NextResponse.json({ error: "wallet?" }, { status: 400 });
-  return NextResponse.json({ channels: channels(), contacts: masked(await getContacts(getAddress(w))) });
+  return NextResponse.json({ channels: channels(), contacts: masked(await getContacts(getAddress(w)), true) });
 }
 
 const EMAIL = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/;

@@ -141,7 +141,8 @@ Suggested first: 1, 3, 5, 12, 20.
 - [ ] **15. Words and colors against EXPECTATIONS #2. Decide: change, or write the exception down.**
   - Done 11-11 (Austin: Executing / Executed): Activity's row on its way says "Executing…"; so does the drop
     take-back. `same-check.mjs` fails on "Sending…" for a tx.
-  - `Apps.tsx:87-89`: a red "✕ Close". A comment says Austin asked for it on 10-31.
+  - Done 11-12 (Austin: yes): the app frame's Close is white (was a red "✕ Close"); Swap's wait says "Executing…"
+    (was "Swapping…"). `same-check.mjs` fails on both.
   - `TxPage.tsx:360`: the passkey row's button says "Face ID"; the other rows say "Sign".
   - A button that changes color: `DropAdmin.tsx:162`, `Waiting.tsx:149`, `WedgieButton.tsx:353,369`.
   - Hand-written money: `WhatItDoes.tsx:164-166` ("− SYMBOL (amount not known)"), `Drop.tsx:118`, `Claim.tsx:385`.
@@ -206,7 +207,7 @@ Suggested first: 1, 3, 5, 12, 20.
   - `Claim.tsx:227-245`: all 14 chains + portfolio every 5 s, also during the sweep and after Done.
   - `ClaimMaker.tsx:55-73`: every card on every chain every 6 s, claimed ones too.
   - `Activity.tsx:155-160`: token names fetched again on every refresh.
-  - `SafeSwap.tsx:191-200`: the 20 s re-quote blanks the card and disables Swap each time.
+  - Done 11-12: Swap's 20 s re-quote is quiet. The card and the button stay until the new price is in.
   - `SafeApp.tsx:225-233`: two ENS reads for the same address.
   - `app/api/uni/route.ts:25`: a static file downloaded again on every call.
   - Done 11-10: `lib/safe/relayCore.ts` uses its last price (up to 10 min old) when the feed fails.

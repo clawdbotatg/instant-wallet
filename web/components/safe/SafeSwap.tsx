@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { type Hash, formatUnits, getAddress, parseUnits, zeroAddress } from "viem";
 import { CHAINS, chainById, explorerAddress, explorerTx, publicClient, nativeSymbol } from "@/lib/chains";
 import { amount as fmtAmount, usd, feeText } from "@/lib/format";
@@ -87,6 +87,8 @@ export function SafeSwap({
   const [routes, setRoutes] = useState<{ uni: SwapRoute | null; lifi: SwapRoute | null; lifiErr?: string } | null>(null);
   const [quoting, setQuoting] = useState(false);
   const [tick, setTick] = useState(0);
+  const routeRef = useRef<SwapRoute | null>(null); // the price on screen, for the quiet re-quote
+  const askedRef = useRef("");
   const [fee, setFee] = useState<Quote | null>(null);
   const [stage, setStage] = useState<"form" | Stage | "done">("form");
   const [hash, setHash] = useState<Hash>();
@@ -196,11 +198,19 @@ export function SafeSwap({
   }, [stage]);
   useEffect(() => {
     if (stage !== "form") return; // signing or done: keep the route the user is signing
-    setRoutes(null);
-    setFee(null);
+    // the 20 s re-quote of the same swap is quiet: the card and the Swap button stay as they are until the new
+    // price is in (they went blank and off every 20 s). A new coin or amount, or a price past its time, starts over.
+    const asked = `${fromKey}|${base?.toString()}|${to?.chainId}|${to?.address}`;
+    const held = routeRef.current;
+    const quiet = asked === askedRef.current && !!held && held.until > Date.now() && !tooMuch;
+    askedRef.current = asked;
+    if (!quiet) {
+      setRoutes(null);
+      setFee(null);
+    }
     if (!from || !to || base === null || base <= 0n || tooMuch) return;
     let live = true;
-    setQuoting(true);
+    if (!quiet) setQuoting(true);
     const timer = setTimeout(async () => {
       const f = tokenOf(from);
       const sameChain = f.chainId === to.chainId;
@@ -231,6 +241,7 @@ export function SafeSwap({
       const [uni, lifi] = await Promise.all([uniP, lifiP]);
       if (!live) return;
       setQuoting(false);
+      if (quiet && !uni && typeof lifi === "string") return; // a quiet re-quote that found nothing: the price on screen is still good
       setRoutes({ uni, lifi: typeof lifi === "string" ? null : lifi, lifiErr: typeof lifi === "string" ? lifi : undefined });
     }, 450);
     return () => {
@@ -248,6 +259,7 @@ export function SafeSwap({
     return uni ?? lifi;
   }, [routes]);
   const other = route && routes ? (route === routes.uni ? routes.lifi : routes.uni) : null;
+  routeRef.current = route;
 
   // the fee: in the token being swapped when it's USDC or ETH, else USDC if there's enough, else ETH
   const usdcAddr = chainById(chainId)?.usdc;
@@ -378,7 +390,7 @@ export function SafeSwap({
     signing: "Signing…",
     "signing-hot": "Sign in your hot wallet…",
     "signing-wedgie": <>Press <GreenButton /> on the wedgie…</>,
-    sending: "Swapping…",
+    sending: "Executing…",
     confirming: "Confirming…",
   };
   const lost = fromUsd && toUsd ? 1 - toUsd / fromUsd : null;

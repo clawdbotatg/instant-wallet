@@ -16,6 +16,7 @@ const RULES = [
   { re: /[>"`]\s*[+−]\{|\{get \? "\+" : "−"\}/, say: "money with a hand-written + or −: use <Money>" },
   { re: /\b(send|sends|sent) it (yourself|myself)\b|relay (is )?send/i, say: "a signed tx is executed, not sent" },
   // a tx on its way says Executing… (Austin 11-11: Activity's row said Sending…). A message that isn't a tx may say Sending…
+  { re: /"Swapping…"/, say: "a tx on its way is 'Executing…', whatever it does (Austin 11-12: Swap said Swapping…)" },
   { re: /"Sending( to the network)?…"/, say: "a tx on its way is 'Executing…', not 'Sending…'", skip: ["components/safe/Alerts.tsx", "components/safe/Join.tsx"] }, // a Telegram test; a key sent to the wallet's owner
   // every address is <Who> (Austin 11-11, twice). "// plain text:" on the line: a string no part can go in (the passkey's name in the phone)
   { re: /\bshort\((?!.*\/\/ plain text:)(?!.*from "@\/lib\/format")/, say: "a bare short address: use <Who> (flat: one line; or <Words> for one inside a sentence; a full address in an error's words)" },
@@ -71,7 +72,7 @@ for (const p of files) {
 for (const p of files) {
   const src = readFileSync(p, "utf8");
   for (const b of src.match(/<button\b(?:(?!<\/button>)[\s\S])*<\/button>/g) || [])
-    if (/btn-red/.test(b) && />\s*(Done|Close|Cancel|Back)\s*<\/button>$/.test(b))
+    if (/btn-red|pill stop/.test(b) && />\s*(?:✕\s*)?(Done|Close|Cancel|Back)\s*<\/button>$/.test(b))
       (bad++, console.log(`${relative(root, p)}  a red ${b.match(/(Done|Close|Cancel|Back)\s*<\/button>$/)[1]}: closing a window is white, red only destroys`));
 }
 // fewest words (Austin 11-10): a settings box is its title, the box and a checkbox. No sentence that says what the

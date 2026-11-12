@@ -7,6 +7,10 @@ import { type Address, type Hex, keccak256, toBytes } from "viem";
  */
 export const NAME_PARENT = "inst.eth";
 export const fullName = (label: string) => `${label}.${NAME_PARENT}`;
+/** Where .eth names live since ENSv2 (2026-10-27): its ETHRegistry. inst.eth's owner sets the resolver here. */
+export const ENS_REGISTRY: Address = "0xf60aba43e1f7f3dab1186ff03b561401c9df85e2";
+/** inst.eth's own address (what it pointed at before our resolver took over): the gateway keeps answering it. */
+export const ROOT_ADDRESS: Address = "0x34aA3F359A9D614239015126635CE7732c18fDF3";
 
 /** How many names one wallet can hold. A rename keeps the old one (it still pays you), so this is the cap on renames. */
 export const MAX_NAMES = 5;

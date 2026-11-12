@@ -29,6 +29,7 @@ Push to main deploys (Vercel, root `web/`). Before pushing a UI change: `node we
 - `docs/CUSTODY.md`, `docs/MULTI-SIGNER.md`: signers, daily limit, shared transactions.
 - `docs/CLAIM.md`, `docs/DROPS.md`, `docs/NFC-SHARE.md`: giving money away by QR, card or code.
 - `docs/SWAP.md`, `docs/APP-STORE.md`: Swap and Apps.
+- `docs/NAMES.md`: alice.inst.eth, a public name for every wallet.
 - `docs/WEDGIE-SAFE.md`, `docs/WEDGIE-PHONE.md`: the wedgie on a computer and on an iPhone.
 - `docs/XDAI.md`: xdai.io and sweeping old Burner keys.
 - `../clear-descriptors/MAP.md`: clear signing, across all the repos.

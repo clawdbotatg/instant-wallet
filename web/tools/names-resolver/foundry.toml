@@ -1,0 +1,13 @@
+# ENS's OffchainResolver (ensdomains/offchain-resolver, unchanged), built for tools/deploy-names-resolver.mts.
+[profile.default]
+src = '.'
+out = 'out'
+cache_path = 'cache'
+solc = '0.8.28'
+optimizer = true
+optimizer_runs = 200
+allow_paths = ['../../../packages/foundry/lib']
+remappings = [
+  '@openzeppelin/contracts/=../../../packages/foundry/lib/openzeppelin-contracts/contracts/',
+  '@ensdomains/ens-contracts/contracts/resolvers/=./',
+]

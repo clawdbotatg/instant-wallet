@@ -31,6 +31,7 @@ Names only. Values live in Vercel and in `web/.env.local` (gitignored).
 | `NEXT_PUBLIC_WC_PROJECT_ID` | WalletConnect |
 | `NEXT_PUBLIC_APPS_URL` | optional: where the Apps list comes from |
 | `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET` | Deposit with Coinbase |
+| `NAME_SIGNER_KEY`, `NAME_RESOLVER` | names (alice.inst.eth): the key that signs lookups for other wallets, and the resolver it signs for. `docs/NAMES.md` |
 | `ALERT_MAIL_USER`, `ALERT_MAIL_PASS`, `ALERT_SITE` | recovery alerts by email |
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_NAME`, `TELEGRAM_WEBHOOK_SECRET` | recovery alerts by Telegram |
 | `NEXT_PUBLIC_VAPID_KEY`, `VAPID_PRIVATE_KEY` | recovery alerts by push |

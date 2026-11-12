@@ -72,7 +72,7 @@ Words:
 
 Button colors (10-30):
 - Green = the one obvious action.
-- Dark gray = the second choice (11-12): the next thing someone might do after the green one (I already have one, NFC card). One per green. Also copy the link (`<CopyLink>`) and Switch account.
+- Dark gray = the second choice (11-12): the next thing someone might do after the green one (I already have one, NFC card). One per screen. Where a copy link (`<CopyLink>`) is on the screen, that is the second choice, and any other is a third: white. Also Switch account.
 - Red = it destroys something: remove (✕), delete, disconnect, sign out, cancel something onchain, or something went wrong (a bug report). Closing a window is not red: Back, Close, Done, Cancel (a form) are white.
 - White = everything else: most buttons. Reject, `<Eject>`, Add a wedgie.
 Button sizes (11-11):

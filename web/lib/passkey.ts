@@ -105,13 +105,21 @@ export async function renamePasskey(credentialId: string, name: string): Promise
   const signal = (window.PublicKeyCredential as any)?.signalCurrentUserDetails;
   const userId = loadHandles()[credentialId];
   if (!signal || !userId) return false;
+  // every rename this browser sends is kept (the last 40): a passkey once showed another wallet's name (Austin
+  // 11-12), and this says whether we sent that or the password manager did
   try {
-    await signal.call(window.PublicKeyCredential, { rpId: rpId(), userId, name, displayName: name });
+    const log = JSON.parse(localStorage.getItem(RENAMES) || "[]");
+    localStorage.setItem(RENAMES, JSON.stringify([...log, { at: new Date().toISOString(), credentialId, userId, name }].slice(-40)));
+  } catch {}
+  try {
+    // not awaited: Safari 26 may never settle this promise, and the caller would then send the same name again
+    Promise.resolve(signal.call(window.PublicKeyCredential, { rpId: rpId(), userId, name, displayName: name })).catch(() => {});
     return true;
   } catch {
     return false;
   }
 }
+const RENAMES = "iws.renameLog";
 
 /**
  * One passkey per tap, however many taps. A second call while one is open gets the same one. A passkey made in

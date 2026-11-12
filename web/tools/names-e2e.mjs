@@ -30,13 +30,22 @@ console.log("wallet", acct.address);
 
 const tag = Math.random().toString(36).slice(2, 7);
 const label = `my-wallet-${tag}`;
+const box = page.getByPlaceholder("name", { exact: true });
+const save = page.getByRole("button", { name: "Save" });
+
+// a private name from before public names: still the title, and where the box starts
+await page.evaluate(a => localStorage.setItem(`iws.name.${a.toLowerCase()}`, "Vacation Fund"), acct.address);
+await page.reload();
+await page.getByText("Deposit", { exact: true }).waitFor({ timeout: 30000 });
 await page.locator(".pill.me").tap();
+await page.getByRole("button", { name: "Rename Vacation Fund" }).tap();
+ok((await box.inputValue()) === "vacation-fund", "an old private name is the title, and the box starts from it");
+await page.getByRole("button", { name: "Cancel" }).tap();
+
 const title = page.getByRole("button", { name: /^Rename / });
 await title.waitFor({ timeout: 15000 });
 await page.screenshot({ path: `${OUT}/n1-receive.png` });
 await title.tap();
-const box = page.getByPlaceholder("name", { exact: true });
-const save = page.getByRole("button", { name: "Save" });
 
 await box.fill("support");
 await page.getByText("Taken", { exact: true }).waitFor({ timeout: 5000 });
@@ -67,6 +76,17 @@ await page.locator(".pill.me", { hasText: `${label}.inst.eth` }).waitFor({ timeo
 ok(true, "after a reload the top pill shows the name");
 await page.waitForTimeout(1500);
 await page.screenshot({ path: `${OUT}/n4-home.png` });
+
+// an ENS name of its own: that is the title, and there is no pencil (it's changed in ENS, and no inst.eth box)
+await page.route("**/api/ens?address=*", r => r.fulfill({ json: { address: acct.address, name: "alice.eth", avatar: null } }));
+await page.evaluate(() => localStorage.removeItem("iws.ens"));
+await page.reload();
+await page.getByText("Deposit", { exact: true }).waitFor({ timeout: 30000 });
+await page.locator(".pill.me", { hasText: "alice.eth" }).waitFor({ timeout: 20000 });
+await page.locator(".pill.me").tap();
+await page.getByRole("heading", { name: "alice.eth" }).waitFor({ timeout: 10000 });
+ok((await page.getByRole("button", { name: /^Rename / }).count()) === 0, "with its own ENS name: that's the title, no pencil");
+await page.screenshot({ path: `${OUT}/n5-ens.png` });
 
 await browser.close();
 console.log(fails ? `\n${fails} FAILED` : "\nall passed");

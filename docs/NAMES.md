@@ -6,7 +6,17 @@ Every wallet can take a public name under `inst.eth`. Free, first come.
 
 - Tap the wallet's title (Receive), type a name, Save, Face ID.
 - The name shows wherever the address shows, and Send takes it.
-- A wallet's own ENS name comes first. The inst.eth name is what shows when it has none.
+- One name on screen, and the pencil edits that name (11-12):
+
+| The wallet has | Title | Pencil | Passkey's name |
+|---|---|---|---|
+| nothing | Spending / Savings account | take an inst.eth name | `Spending account · 0x12…ef · ~$50` |
+| an old private name | that name | take an inst.eth name (the box starts from the old one) | `Vacation · 0x12…ef · ~$50` |
+| an inst.eth name | `alice.inst.eth` | rename it | `alice.inst.eth · ~$50` |
+| its own ENS name | `alice.eth` | none: it's changed in ENS | `alice.eth · ~$50` |
+
+- Private names are retired: one set before still shows until the wallet takes a public name. It can't be edited.
+- An inst.eth name keeps paying you under an ENS name of your own. It shows again if the ENS name goes away.
 - A rename keeps the old name: it still pays you and nobody else can take it. 5 names a wallet.
 - The QR still holds the address: other wallets can't read a name.
 - Paying a name that points somewhere new since you last paid it says so in red.

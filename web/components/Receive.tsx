@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { type Address, parseUnits } from "viem";
 import { CHAINS } from "@/lib/chains";
-import { NAME_PARENT, labelIn, labelProblem, ourLabel } from "@/lib/names";
+import { NAME_PARENT, labelIn, labelProblem } from "@/lib/names";
 import { bio } from "@/lib/passkey";
 import { requestLink, requestUri } from "@/lib/parse";
 import { nativeUsd } from "@/lib/price";
@@ -25,7 +25,7 @@ export function Receive({
   got = [],
   onSeen,
   name,
-  mine,
+  start,
   onClaim,
   onSignOut,
   onSwitch,
@@ -34,9 +34,9 @@ export function Receive({
   toast?: (m: string) => void;
   got?: { id: number; chainId: number; get: { amount: string; symbol: string }; usd?: number }[];
   onSeen?: () => void;
-  name?: string | null; // the wallet's name, as the title (tap to take a public one) when onClaim is given
-  mine?: string | null; // its inst.eth name now ("alice.inst.eth"), where the box starts
-  onClaim?: (label: string) => Promise<void>; // Face ID, then the name is this wallet's; throws with why not
+  name?: string | null; // the wallet's name, as the title. One name, the one every screen shows (docs/NAMES.md)
+  start?: string; // what the name box opens with: its inst.eth label, or its old private name tidied into one
+  onClaim?: (label: string) => Promise<void>; // the title gets a pencil: take or rename its inst.eth name (Face ID; throws with why not). None when the name is its own ENS name: that's changed in ENS
   onSignOut?: () => void; // a "Sign out of this device" button at the bottom
   onSwitch?: () => void; // a "Switch account" button at the top (opens the passkey prompt); also shows "Share Instant Wallet" (the app's link as a QR)
 }) {
@@ -81,16 +81,16 @@ export function Receive({
   };
   return (
     <div className="stack">
-      {!onClaim && <h2>{asking ? "Request" : "Receive"}</h2>}
+      {name === undefined && <h2>{asking ? "Request" : "Receive"}</h2>}
       <div onClick={onTap} style={{ cursor: "pointer", position: "relative" }}>
         <Qr
           value={uri ?? account.address}
           center={account.address}
           top={
-            onClaim && (
+            name !== undefined && (
               // a tap on the name edits it; anywhere else on the card copies
               <div onClick={e => e.stopPropagation()} style={{ cursor: "default", marginBottom: 10 }}>
-                <NameTitle name={name ?? null} mine={mine ?? null} address={account.address} onClaim={onClaim} />
+                <NameTitle name={name} start={start ?? ""} address={account.address} onClaim={onClaim} />
               </div>
             )
           }
@@ -173,10 +173,11 @@ export function Receive({
 }
 
 /**
- * The wallet's name as the title; a tap opens the box for a public name: [alice].inst.eth, free or taken as you
- * type, Save → Face ID → it's this wallet's. A name it already holds can be picked again.
+ * The wallet's name as the title. With onClaim it has a pencil: a tap opens the box for its inst.eth name,
+ * [alice].inst.eth, free or taken as you type, Save → Face ID → it's this wallet's (a name it already holds can be
+ * picked again). Without, it's the name alone.
  */
-function NameTitle({ name, mine, address, onClaim }: { name: string | null; mine: string | null; address: Address; onClaim: (label: string) => Promise<void> }) {
+function NameTitle({ name, start, address, onClaim }: { name: string | null; start: string; address: Address; onClaim?: (label: string) => Promise<void> }) {
   const [editing, setEditing] = useState(false);
   const [v, setV] = useState("");
   const [seen, setSeen] = useState<{ label: string; ok: boolean; problem: string | null } | null>(null); // the server's word on a label
@@ -197,12 +198,13 @@ function NameTitle({ name, mine, address, onClaim }: { name: string | null; mine
   }, [editing, v, local, address]);
   const now = seen?.label === v ? seen : null;
   const problem = local ?? now?.problem ?? null;
+  if (!onClaim) return <h2>{name ?? "…"}</h2>; // its own ENS name, or view only: nothing to edit here
   if (!editing)
     return (
       <h2>
         <button
           aria-label={`Rename ${name ?? "this wallet"}`}
-          onClick={() => (setV(mine ? (ourLabel(mine) ?? "") : ""), setErr(null), setEditing(true))}
+          onClick={() => (setV(start), setErr(null), setEditing(true))}
           style={{ border: 0, padding: 0, background: "none", color: "inherit", font: "inherit", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}
         >
           {name ?? "…"}

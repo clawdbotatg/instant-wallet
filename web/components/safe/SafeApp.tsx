@@ -36,7 +36,7 @@ import { stashedCode } from "@/lib/dropClient";
 import { renamePasskey } from "@/lib/passkey";
 import { pullWalletName, pushWalletName } from "@/lib/walletName";
 import { claimName } from "@/lib/nameClaim";
-import { ourLabel } from "@/lib/names";
+import { labelIn, ourLabel } from "@/lib/names";
 import { disconnect } from "@/lib/walletconnect";
 import type { Session } from "../WalletConnect";
 
@@ -240,9 +240,10 @@ export function SafeApp({ link }: { link?: string } = {}) {
     };
   }, [account, refresh, loadBalance, loadStates]);
 
-  // the wallet's name: its public one (its own ENS name first, else alice.inst.eth: lib/names.ts), else the private
-  // name it was given before public names (no longer set here), else Spending / Savings account by the rough
-  // balance below (under ~$200 is spending money)
+  // the wallet's name is ONE name, the one on screen (Austin 11-12, docs/NAMES.md): its own ENS name, else its
+  // alice.inst.eth name, else the private name it was given before public names (retired: shown, never set), else
+  // Spending / Savings account by the rough balance below (under ~$200 is spending money). The pencil edits the
+  // inst.eth name only, and is gone once the wallet has an ENS name of its own.
   const [customName, setCustomName] = useState<string | null>(null);
   // synced across the passkey's devices (lib/walletName.ts): theirs wins; one saved before sync goes up
   useEffect(() => {
@@ -306,7 +307,8 @@ export function SafeApp({ link }: { link?: string } = {}) {
   // the top-right pill shows the ENS name over the address; re-read when a tx lands (an ENS app tx sets it)
   const { name: ensName } = useName(account?.address);
   // an ENS name of its own comes first; a name just claimed shows before the lookup catches up
-  const publicName = ensName && !ourLabel(ensName) ? ensName : (instName ?? ensName);
+  const ownEns = ensName && !ourLabel(ensName) ? ensName : null;
+  const publicName = ownEns ?? instName ?? ensName;
   const title = publicName ?? walletName;
   useEffect(() => {
     if (!account) return;
@@ -320,7 +322,10 @@ export function SafeApp({ link }: { link?: string } = {}) {
     try {
       last = JSON.parse(localStorage.getItem(namedKey) || "null");
     } catch {}
-    const name = `${walletName} · ${ens ?? instName ?? short(account.address)} · ~${compactUsd(rough)}`; // plain text: the passkey's name in the phone's own list
+    // the passkey is named after the name on screen and nothing else: a public name stands alone, a private or
+    // default one gets the address so two "Spending account"s can be told apart
+    const pub = ens && !ourLabel(ens) ? ens : (instName ?? ens);
+    const name = pub ? `${pub} · ~${compactUsd(rough)}` : `${walletName} · ${short(account.address)} · ~${compactUsd(rough)}`; // plain text: the passkey's name in the phone's own list
     if (name === last?.name) return;
     renamePasskey(account.credentialId, name).then(ok => {
       if (!ok) return;
@@ -616,8 +621,8 @@ export function SafeApp({ link }: { link?: string } = {}) {
               got={got}
               onSeen={() => setGot([])}
               name={title}
-              mine={instName}
-              onClaim={account.credentialId === WATCH ? undefined : claim}
+              start={instName ? (ourLabel(instName) ?? "") : labelIn(customName ?? "").replace(/^-+|-+$/g, "").slice(0, 32)}
+              onClaim={account.credentialId === WATCH || ownEns ? undefined : claim}
               onSwitch={anotherPasskey}
               onSignOut={() => {
                 setAccount(null);

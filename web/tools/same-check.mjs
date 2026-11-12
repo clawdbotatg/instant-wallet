@@ -29,9 +29,6 @@ const RULES = [
   { re: /^(?!.*addressIn\().*<input.*placeholder="[^"]*0x/, say: "an address box by hand: use <AddressInput>, or addressIn() in its onChange (lib/format)" },
   { re: /inputMode="decimal"/, say: "an amount box by hand: use <AmountBox> (dollars first, switch to the coin)", skip: ["components/DropAdmin.tsx", "components/ClaimMaker.tsx"] }, // a drop's "dollars per claim" / "USDC on each": dollars only, no coin to switch to
 ];
-// dark gray is the copy button only (Austin 10-30: most buttons white); Switch account he asked for by name
-const DARK_OK = [SHARED, "components/Receive.tsx", "components/safe/Keys.tsx"]; // <CopyLink>; Switch account; the invite link's copy
-RULES.push({ re: /btn-dark|pill dark/, say: "dark gray is only the copy button (<CopyLink>): make it white", skip: DARK_OK });
 
 const files = [];
 function walk(d) {
@@ -69,6 +66,15 @@ for (const p of files) {
   if (/(Spending|Savings) account/.test(src)) (bad++, console.log(`${rel}  a made-up wallet name: a wallet with no name shows its address (Austin 11-12)`));
   if (/\/api\/names\?address/.test(src) && rel !== "components/safe/SafeApp.tsx") (bad++, console.log(`${rel}  a wallet's name read its own way: <Who> / useName decide it (its own ENS name first)`));
   if (/\/api\/ens\?name=/.test(src) && rel !== "components/safe/SafeApp.tsx" && !/NameMoved/.test(src)) (bad++, console.log(`${rel}  a name looked up with no <NameMoved>: say so when it points somewhere new`)); // SafeApp: ?watch, never paid
+}
+// dark gray is the second choice (Austin 11-12): it sits beside a green, and Reject is never it.
+// <CopyLink>, Switch account and the invite link's copy are dark gray on their own.
+const DARK_OK = [SHARED, "components/Receive.tsx", "components/safe/Keys.tsx"];
+for (const p of files) {
+  const rel = relative(root, p);
+  const src = readFileSync(p, "utf8");
+  if (/btn-dark|pill dark/.test(src) && !/btn-green/.test(src) && !DARK_OK.includes(rel)) (bad++, console.log(`${rel}  a dark gray button with no green one: dark gray is the second choice, else white`));
+  if (/(btn-dark|pill dark)[^>]*>\s*Reject\b/.test(src)) (bad++, console.log(`${rel}  Reject is white, not dark gray`));
 }
 // a waiting tx's Reject always comes with its ✕ (Austin 10-31: the tx page had Reject and no ✕, Home had both)
 for (const p of files) {

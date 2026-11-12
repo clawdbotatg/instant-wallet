@@ -222,7 +222,7 @@ export function SafeWelcome({ onReady, initialConfirm }: { onReady: (a: SafeAcco
             <button className="btn btn-green wide" onClick={create} disabled={!!busy}>
               {busy === "create" ? "Making your wallet…" : "Create wallet"}
             </button>
-            <button className="btn wide" onClick={login} disabled={!!busy}>
+            <button className="btn btn-dark wide" onClick={login} disabled={!!busy}>
               {busy === "login" ? "Opening…" : "I already have one"}
             </button>
             <button className="pill" style={{ justifySelf: "center" }} onClick={() => setRecovering(true)}>

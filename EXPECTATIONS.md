@@ -72,9 +72,9 @@ Words:
 
 Button colors (10-30):
 - Green = the one obvious action.
-- Dark gray = copy the link (`<CopyLink>`), and Switch account. Nothing else.
+- Dark gray = the second choice (11-12): the next thing someone might do after the green one (I already have one, NFC card). One per green. Also copy the link (`<CopyLink>`) and Switch account.
 - Red = it destroys something: remove (✕), delete, disconnect, sign out, cancel something onchain, or something went wrong (a bug report). Closing a window is not red: Back, Close, Done, Cancel (a form) are white.
-- White = everything else: most buttons. Reject, `<Eject>`, a second choice (NFC card), Add a wedgie.
+- White = everything else: most buttons. Reject, `<Eject>`, Add a wedgie.
 Button sizes (11-11):
 - Two heights. The main button is 56. Every small one (a pill, `btn-sm`, `<Eject>`) is 38.
 
@@ -85,8 +85,8 @@ Button sizes (11-11):
 
 ## 4. One obvious green
 
-- Green is the one thing people do next. Two greens are fine when they're in separate parts of a page. Make the
-  runner-up dark gray when you can.
+- Green is the one thing people do next. Two greens are fine when they're in separate parts of a page. The
+  other colors: #2, Button colors.
 - Green follows what's next: when the next thing changes, green moves to it. A button doesn't change color while
   it works (busy, done, failed).
 

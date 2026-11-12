@@ -4,6 +4,8 @@
 //   anvil --fork-url <ethereum rpc> --port 8546 &
 //   NAME_SIGNER_KEY=<a test key> RELAY_KV_URL= RELAY_KV_TOKEN= npx next dev -p 3112 &
 //   SIGNER=<that key's address> npx tsx tools/names-gateway-check.mts
+// Against the live site, before inst.eth's owner signs for real (no name is taken, the fork never leaves this machine):
+//   APP=https://instantwallet.io RESOLVER=<the deployed resolver> npx tsx tools/names-gateway-check.mts
 import { p256 } from "@noble/curves/nist.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { execSync } from "node:child_process";
@@ -17,7 +19,8 @@ import { safeAddress, signerAddress } from "../lib/safe/core";
 const APP = process.env.APP || "http://localhost:3112";
 const RPC = process.env.RPC || "http://127.0.0.1:8546";
 const SIGNER = process.env.SIGNER as Address;
-if (!SIGNER) throw new Error("SIGNER=<the address of the app's NAME_SIGNER_KEY>");
+const LIVE = process.env.RESOLVER as Address | undefined; // the resolver already on Ethereum: nothing is deployed, no name is taken
+if (!SIGNER && !LIVE) throw new Error("SIGNER=<the address of the app's NAME_SIGNER_KEY>, or RESOLVER=<the deployed resolver>");
 const UNIVERSAL = "0xeEeEEEeE14D718C2B47D9923Deab1335E144EeEe"; // ENS's Universal Resolver (ENSv2 behind it since 2026-10-27)
 let fails = 0;
 const ok = (c: boolean, m: string) => {
@@ -37,7 +40,7 @@ const pk = p256.getPublicKey(sk, false);
 const qx = toHex(pk.slice(1, 33)), qy = toHex(pk.slice(33, 65));
 const wallet = safeAddress(signerAddress(qx, qy));
 const label = `gw-${Math.random().toString(36).slice(2, 8)}`;
-{
+if (!LIVE) {
   const ts = Math.floor(Date.now() / 1000);
   const clientDataJSON = JSON.stringify({ type: "webauthn.get", challenge: Buffer.from(nameChallenge(wallet, label, ts).slice(2), "hex").toString("base64url"), origin: APP });
   const authData = new Uint8Array([...sha256(new TextEncoder().encode(new URL(APP).hostname)), 0x05, 0, 0, 0, 1]);
@@ -56,9 +59,12 @@ const art = `${dir}out/OffchainResolver.sol/OffchainResolver.json`;
 if (!fs.existsSync(art)) execSync("forge build", { cwd: dir, stdio: "ignore" });
 const { abi, bytecode } = JSON.parse(fs.readFileSync(art, "utf8"));
 const url = `${APP}/api/ens/gw/{sender}/{data}.json`;
-const made = await pub.waitForTransactionReceipt({ hash: await send(funded).deployContract({ abi, bytecode: bytecode.object, args: [url, [SIGNER]] }) });
-const resolver = made.contractAddress!;
-console.log("resolver", resolver, "gas", made.gasUsed);
+const resolver = LIVE ?? (await pub.waitForTransactionReceipt({ hash: await send(funded).deployContract({ abi, bytecode: bytecode.object, args: [url, [SIGNER]] }) })).contractAddress!;
+console.log("resolver", resolver);
+if (LIVE) {
+  const live = parseAbi(["function url() view returns (string)"]);
+  ok((await pub.readContract({ address: resolver, abi: live, functionName: "url" })) === url, `the deployed resolver sends wallets to ${url}`);
+}
 const res = parseAbi(["function supportsInterface(bytes4) view returns (bool)", "function resolveWithProof(bytes response, bytes extraData) view returns (bytes)", "function resolve(bytes name, bytes data) view returns (bytes)"]);
 ok(await pub.readContract({ address: resolver, abi: res, functionName: "supportsInterface", args: ["0x9061b923"] }), "it says it answers for names under it (ENSIP-10)");
 
@@ -76,10 +82,13 @@ ok(set.status === "success" && (await pub.readContract({ address: ENS_REGISTRY, 
 // ---- and now anyone's wallet can look the name up
 const look = (name: string, coinType?: bigint) => pub.getEnsAddress({ name, coinType, universalResolverAddress: UNIVERSAL }).catch(e => `error: ${e.shortMessage || e.message}`);
 const same = (a: unknown, b: string) => typeof a === "string" && a.toLowerCase() === b.toLowerCase();
-let a = await look(`${label}.inst.eth`);
-ok(same(a, wallet), `${label}.inst.eth → ${a}`);
-a = await look(`${label}.inst.eth`, toCoinType(8453));
-ok(same(a, wallet), `on Base → ${a}`);
+let a: unknown;
+if (!LIVE) {
+  a = await look(`${label}.inst.eth`);
+  ok(same(a, wallet), `${label}.inst.eth → ${a}`);
+  a = await look(`${label}.inst.eth`, toCoinType(8453));
+  ok(same(a, wallet), `on Base → ${a}`);
+}
 a = await look(`${label}.inst.eth`, toCoinType(324));
 ok(a === null, `on a network the wallet isn't on (zkSync) → ${a}`);
 a = await look(`${label}.inst.eth`, 501n);

@@ -28,6 +28,12 @@ Whoever holds `NAME_SIGNER_KEY`, or our store, decides where a name points. So S
 its blockie, and warns when a name has moved. The key lives only in Vercel. Lost or leaked: make a new one, deploy
 the resolver again, point `inst.eth` at it.
 
+## Live
+
+- Resolver on Ethereum: `0x7aC691DBf3c38c067b138b7a28DfDfa0f686Cc7c` (deployed 2026-11-12).
+- Its signer: `0x59836772762Ec84974B7cf13D3d5D267C0d32a34`. The key is `NAME_SIGNER_KEY` in Vercel, nowhere else.
+- Its gateway: `https://instantwallet.io/api/ens/gw/{sender}/{data}.json`.
+
 ## Setting it up (once)
 
 1. A new key in Vercel as `NAME_SIGNER_KEY` (production). Keep its address.

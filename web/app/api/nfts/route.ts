@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Capped } from "@/lib/capped";
 import { type Address, getAddress, isAddress } from "viem";
 import { CHAINS } from "@/lib/chains";
 import { alchemyNetwork } from "@/lib/rpcServer";
@@ -7,7 +8,7 @@ import type { Nft } from "@/lib/types";
 export const dynamic = "force-dynamic";
 
 const CACHE_MS = 60_000;
-const cache = new Map<string, { at: number; v: Nft[] }>();
+const cache = new Capped<string, { at: number; v: Nft[] }>(2_000);
 
 /**
  * `GET /api/nfts?address=0x…` — the NFTs a wallet holds on every enabled chain (Alchemy NFT API, first page per

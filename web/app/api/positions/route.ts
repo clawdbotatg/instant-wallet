@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Capped } from "@/lib/capped";
 import { getAddress, isAddress } from "viem";
 import { CHAINS } from "@/lib/chains";
 import { tooMany } from "@/lib/limit";
@@ -25,7 +26,7 @@ const ZERION: Record<number, string> = {
 };
 
 const CACHE_MS = 60_000;
-const cache = new Map<string, { at: number; v: Position[] }>();
+const cache = new Capped<string, { at: number; v: Position[] }>(2_000);
 
 /**
  * `GET /api/positions?address=0x…` — DeFi positions (pools, vaults, stakes, loans) on our chains, from Zerion,

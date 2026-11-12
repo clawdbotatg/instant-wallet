@@ -210,11 +210,12 @@ Suggested first: 1, 3, 5, 12, 20.
   - `app/api/uni/route.ts:25`: a static file downloaded again on every call.
   - Done 11-10: `lib/safe/relayCore.ts` uses its last price (up to 10 min old) when the feed fails.
 
-- [ ] **24. No timeouts, no size caps.**
+- [x] **24. No timeouts, no size caps.**
   Done 11-10, timeouts on: all three KV clients (5 s), `lib/rpcServer.ts` (10 s), `app/api/rpc` (15 s, then a 504),
   the relay's prices (4 s), Telegram (8 s), `nfts`, `uni`.
-  Still none on: `app/api/portfolio` (Alchemy prices, DexScreener).
-  Caches that only grow: `nfts:10`, `positions:27`, `portfolio:45,115,156,232`. (`safe/svc:44` caps its own.)
+  Done 11-11: `app/api/portfolio` (Alchemy prices, DexScreener: 4 s each; a late one means no price this round,
+  nothing cached). The caches in `nfts`, `positions` and `portfolio` are `Capped` (`lib/capped.ts`): the oldest
+  goes when it's full.
 
 - [ ] **25. Three copies of the Upstash client.**
   `lib/kv.ts`, `lib/alerts.ts:22-56`, `lib/safe/relayGuard.ts:19-59`, each with its own memory fallback, and they

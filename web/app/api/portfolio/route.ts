@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse, after } from "next/server";
+import { Capped } from "@/lib/capped";
 import { type Address, createPublicClient, erc20Abi, formatUnits, getAddress, http, isAddress } from "viem";
 import { CHAINS, ETH, chainById } from "@/lib/chains";
 import { alchemyNetwork, rpc, mustRpc } from "@/lib/rpcServer";
@@ -45,7 +46,7 @@ export async function GET(req: NextRequest) {
 }
 
 type Meta = { decimals: number | null; logo: string | null; name: string | null; symbol: string | null };
-const metaCache = new Map<string, Meta>();
+const metaCache = new Capped<string, Meta>(20_000);
 
 function row(chainId: number, asset: Address, symbol: string, name: string, decimals: number, balance: bigint, logo?: string): Asset {
   return {
@@ -115,7 +116,7 @@ async function pool<T, R>(items: T[], n: number, fn: (t: T) => Promise<R>): Prom
 }
 
 const SCAN_MS = 5 * 60_000;
-const scans = new Map<string, { at: number; tokens: Address[]; busy?: boolean }>();
+const scans = new Capped<string, { at: number; tokens: Address[]; busy?: boolean }>(5_000);
 
 /** Every ERC-20 the wallet holds: all of Alchemy's pages (100 each). */
 async function fullScan(chainId: number, wallet: Address) {
@@ -156,7 +157,7 @@ async function heldTokens(chainId: number, wallet: Address): Promise<{ address: 
 
 const PRICE_MS = 60_000;
 const NO_PRICE_MS = 30 * 60_000; // spam has no price; don't ask again every minute
-const priceCache = new Map<string, { at: number; v: number | null }>();
+const priceCache = new Capped<string, { at: number; v: number | null }>(20_000);
 
 async function price(assets: Asset[]) {
   const key = process.env.ALCHEMY_API_KEY;
@@ -177,7 +178,9 @@ async function price(assets: Asset[]) {
       const syms = [...new Set(todo.filter(a => a.asset === ETH).map(a => a.symbol))];
       const nativeP = new Map<string, number>();
       if (syms.length) {
-        const j = await fetch(`https://api.g.alchemy.com/prices/v1/${key}/tokens/by-symbol?${syms.map(s => `symbols=${s}`).join("&")}`, { cache: "no-store" }).then(r => r.json());
+        const j = await fetch(`https://api.g.alchemy.com/prices/v1/${key}/tokens/by-symbol?${syms.map(s => `symbols=${s}`).join("&")}`, { cache: "no-store", signal: AbortSignal.timeout(4_000) })
+          .then(r => r.json())
+          .catch(() => null); // late or down: the tokens still get their prices
         for (const d of j?.data ?? []) {
           const v = Number(d?.prices?.find((p: any) => p.currency === "usd")?.value);
           if (Number.isFinite(v)) nativeP.set(String(d.symbol).toUpperCase(), v);
@@ -196,6 +199,7 @@ async function price(assets: Asset[]) {
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ addresses: toks.slice(i * 25, i * 25 + 25).map(a => ({ network: alchemyNetwork(a.chainId), address: a.asset })) }),
             cache: "no-store",
+            signal: AbortSignal.timeout(4_000),
           })
             .then(r => r.json())
             .catch(() => null);
@@ -236,7 +240,7 @@ async function price(assets: Asset[]) {
 /** DefiLlama's name for each chain (its prices come from its own reading of the pools, not Alchemy's or DexScreener's). */
 const LLAMA: Record<number, string> = { 1: "ethereum", 8453: "base", 42161: "arbitrum", 10: "optimism", 137: "polygon", 56: "bsc", 43114: "avax", 100: "xdai", 42220: "celo", 146: "sonic", 999: "hyperliquid", 9745: "plasma" };
 const CHECK_USD = 20; // a row worth less can't make the total lie by much
-const llamaCache = new Map<string, { at: number; v: number | null }>();
+const llamaCache = new Capped<string, { at: number; v: number | null }>(5_000);
 
 /**
  * Any token row worth $20 or more gets a second opinion (DefiLlama). Ours more than twice theirs: theirs it is.
@@ -299,6 +303,7 @@ async function twinCheck(assets: Asset[]) {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ addresses: need.slice(0, 25).map(address => ({ network: alchemyNetwork(1), address })) }),
       cache: "no-store",
+      signal: AbortSignal.timeout(4_000),
     })
       .then(r => r.json())
       .catch(() => null);
@@ -316,7 +321,7 @@ async function twinCheck(assets: Asset[]) {
 }
 
 const DEX_MS = 5 * 60_000;
-const dexCache = new Map<string, { at: number; v: { image?: string; priceUsd: number | null } | null }>();
+const dexCache = new Capped<string, { at: number; v: { image?: string; priceUsd: number | null } | null }>(20_000);
 
 /** DexScreener token info (logo + USD price of the most liquid pair), 30 tokens per request, cached 5 min. */
 async function dexscreener(chainId: number, tokens: Address[]): Promise<Map<string, { image?: string; priceUsd: number | null }>> {
@@ -332,7 +337,7 @@ async function dexscreener(chainId: number, tokens: Address[]): Promise<Map<stri
   }
   const batches = Array.from({ length: Math.ceil(todo.length / 30) }, (_, i) => todo.slice(i * 30, i * 30 + 30));
   await Promise.all(batches.map(async batch => {
-    const pairs: any[] | null = await fetch(`https://api.dexscreener.com/tokens/v1/${slug}/${batch.join(",")}`, { cache: "no-store" })
+    const pairs: any[] | null = await fetch(`https://api.dexscreener.com/tokens/v1/${slug}/${batch.join(",")}`, { cache: "no-store", signal: AbortSignal.timeout(4_000) })
       .then(r => (r.ok ? r.json() : null))
       .catch(() => null);
     if (!pairs) return; // failed: not "no pair", so nothing cached

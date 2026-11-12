@@ -139,7 +139,8 @@ Suggested first: 1, 3, 5, 12, 20.
   `RecoverTool.tsx:90` and `SafeWelcome.tsx:160`.
 
 - [ ] **15. Words and colors against EXPECTATIONS #2. Decide: change, or write the exception down.**
-  - `Activity.tsx:114`: "Sending… / Sent" (rule: Executing / Executed). Added on purpose in `6bc331a`.
+  - Done 11-11 (Austin: Executing / Executed): Activity's row on its way says "Executing…"; so does the drop
+    take-back. `same-check.mjs` fails on "Sending…" for a tx.
   - `Apps.tsx:87-89`: a red "✕ Close". A comment says Austin asked for it on 10-31.
   - `TxPage.tsx:360`: the passkey row's button says "Face ID"; the other rows say "Sign".
   - A button that changes color: `DropAdmin.tsx:162`, `Waiting.tsx:149`, `WedgieButton.tsx:353,369`.

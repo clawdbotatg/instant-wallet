@@ -15,6 +15,8 @@ const RULES = [
   { re: /\bPress [ABXY]\b|\bthe [ABXY] button\b/, say: "wedgie buttons are <GreenButton /> or 'the green button', never A/B/X/Y" },
   { re: /[>"`]\s*[+−]\{|\{get \? "\+" : "−"\}/, say: "money with a hand-written + or −: use <Money>" },
   { re: /\b(send|sends|sent) it (yourself|myself)\b|relay (is )?send/i, say: "a signed tx is executed, not sent" },
+  // a tx on its way says Executing… (Austin 11-11: Activity's row said Sending…). A message that isn't a tx may say Sending…
+  { re: /"Sending( to the network)?…"/, say: "a tx on its way is 'Executing…', not 'Sending…'", skip: ["components/safe/Alerts.tsx", "components/safe/Join.tsx"] }, // a Telegram test; a key sent to the wallet's owner
   // every address is <Who> (Austin 11-11, twice). "// plain text:" on the line: a string no part can go in (the passkey's name in the phone)
   { re: /\bshort\((?!.*\/\/ plain text:)(?!.*from "@\/lib\/format")/, say: "a bare short address: use <Who> (flat: one line; or <Words> for one inside a sentence; a full address in an error's words)" },
   { re: /<Blockie\b/, say: "a blockie placed by hand: use <Who>", skip: ["components/safe/SafeSend.tsx", "components/safe/Join.tsx", "components/safe/Keys.tsx", "components/safe/TxPage.tsx", "components/safe/WedgieButton.tsx"] },

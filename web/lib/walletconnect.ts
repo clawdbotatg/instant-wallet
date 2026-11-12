@@ -58,11 +58,16 @@ export type Kit = Awaited<ReturnType<typeof WalletKit.init>>;
 let kit: Promise<Kit> | null = null;
 
 /** Does WalletConnect need to start with the page? Only when a site is connected (its requests come over
- * WalletConnect's socket). "0": this browser had none last time. Never written: not known yet, so start once and find out. */
+ * WalletConnect's socket). "0": this browser had none last time. Never written: not known yet. Then a browser where
+ * WalletConnect never ran (it has no database here) has no site either; one where it ran starts once and finds out.
+ * Starting it tells pulse.walletconnect.org (an id that lasts), telemetry off or not: the library sends that always. */
 const WANTED = "iws:wc";
-export function wcWanted() {
+export async function wcWanted(): Promise<boolean> {
   try {
-    return localStorage.getItem(WANTED) !== "0";
+    const v = localStorage.getItem(WANTED);
+    if (v) return v !== "0";
+    const dbs = await indexedDB.databases();
+    return dbs.some(d => d.name === "WALLET_CONNECT_V2_INDEXED_DB");
   } catch {
     return true;
   }

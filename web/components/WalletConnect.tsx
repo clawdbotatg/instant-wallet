@@ -60,7 +60,12 @@ export function ConnectLayer({
   // a wc: link came in. A wallet that never connects a site never starts it.
   const [on, setOn] = useState(false);
   useEffect(() => {
-    if (sheet || pairUri || wcWanted()) setOn(true);
+    if (sheet || pairUri) return setOn(true);
+    let live = true;
+    wcWanted().then(w => live && w && setOn(true));
+    return () => {
+      live = false;
+    };
   }, [sheet, pairUri]);
   const [proposal, setProposal] = useState<WalletKitTypes.SessionProposal | null>(null);
   const [queue, setQueue] = useState<Pending[]>([]);

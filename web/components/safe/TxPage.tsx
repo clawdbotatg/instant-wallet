@@ -251,7 +251,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
     return (
       <div className="stack">
         <h2>Removed</h2>
-        <p className="fine">It's off the list. Only Reject stops it for sure: its signatures can still run it until another transaction takes #{w?.tx.nonce.toString()}.</p>
+        <p className="fine">Off the list. Only Reject stops it for sure.</p>
         {!inWallet && (
           <a className="btn wide" href="/">
             Open Instant Wallet

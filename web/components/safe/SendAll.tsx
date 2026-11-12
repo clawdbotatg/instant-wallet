@@ -166,7 +166,7 @@ export function SendAll({
       {canMine && (
         <label className="row" style={{ gap: 8 }}>
           <input type="checkbox" checked={mine} onChange={(e) => (setMine(e.target.checked), setRows({}))} />
-          Execute it myself from my browser wallet (MetaMask, Rainbow…). No fee, my wallet pays the gas.
+          Execute it myself (no fee, I pay gas)
         </label>
       )}
       {chains.length === 0 && <p className="fine">Nothing to send.</p>}

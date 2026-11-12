@@ -140,7 +140,7 @@ function baseStatus(peek: Peek | null, account: SafeAccount, states: ChainState[
     return {
       tone: "off",
       title: "Wedgie: computer only",
-      detail: "A wedgie plugs into Chrome or Edge on a computer over USB, or into an iPhone with the Instant Wallet app. Open this wallet there to use it.",
+      detail: "A wedgie needs Chrome or Edge on a computer, or the iPhone app.",
     };
   if (peek?.kind === "phone") {
     if (peek.state === "readonly") // the app connects it by itself (the bottom bar shows it)

@@ -211,7 +211,7 @@ function SafeRequest({
           <div className="recess" style={{ whiteSpace: "pre-wrap", maxHeight: 260, overflow: "auto", fontSize: 14 }}>
             {pending.preview}
           </div>
-          <p className="fine">Signing proves it's your wallet. It doesn't move money by itself, but read it.</p>
+          <p className="fine">Moves no money. Read it anyway.</p>
         </>
       )}
       <div className="card">

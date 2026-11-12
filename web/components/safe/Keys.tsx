@@ -703,12 +703,10 @@ export function Keys({
         ) : (
           <>
             <p className="fine">
-              If you lose too many signers to sign, the DAO (dao.buidlguidl.eth) can replace them after {daoWait ?? 7} days. You can cancel a recovery you didn&apos;t start
-              any time before then.
-              {!layout && " Make it wait 60 days to get more time to cancel."}
+              Lose your signers? The DAO (dao.buidlguidl.eth) can replace them after {daoWait ?? 7} days. You can cancel before then.
             </p>
             <p className="fine">
-              Your own guardians (a friend, another wallet you keep) can do the same after 14 days. Any one of them is enough.
+              Any one of your guardians can too, after 14 days.
             </p>
             {mine.map(g => (
               <div className="keyrow" key={g} style={{ padding: 0 }}>

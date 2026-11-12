@@ -116,7 +116,7 @@ export function Alerts({ account, toast }: { account: SafeAccount; toast: (m: st
   return (
     <>
       <p className="fine">
-        {none ? "Nothing yet. " : ""}If anyone starts a recovery on this wallet, you hear about it here, even with the app closed. You have at least 7 days to cancel.
+        {none ? "Nothing yet. " : ""}You're told when a recovery starts. You get at least 7 days to cancel.
       </p>
 
       {info.channels.email && (

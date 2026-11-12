@@ -53,7 +53,7 @@ export function AppList({ onOpen }: { onOpen: (a: AppEntry) => void }) {
           </button>
         </div>
       </form>
-      <p className="fine">Apps other than Swap are other people&apos;s sites. They can only ask: every payment and signature shows here first.</p>
+      <p className="fine">Other people&apos;s sites. Every payment and signature shows here first.</p>
     </div>
   );
 }

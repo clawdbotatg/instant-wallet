@@ -79,7 +79,7 @@ export function Join() {
             {inv.from ? <b>{inv.from}</b> : "Someone"} invites you to sign for <Who address={inv.safe} inline />
           </p>
           <p className="fine">
-            Your passkey stays on your phone. Only its public key goes to them. Then they can ask you to sign.
+            Your passkey stays on your phone. They can only ask you to sign.
           </p>
           <div className="input">
             <input value={name} onChange={e => setName(e.target.value)} placeholder="Your name (so they know it's you)" maxLength={40} />

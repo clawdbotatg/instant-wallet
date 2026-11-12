@@ -101,6 +101,10 @@ for (const p of files) {
 for (const p of files) {
   if (/<Eject\b[^>]*>\s*Explorer/.test(readFileSync(p, "utf8"))) (bad++, console.log(`${relative(root, p)}  a button that says Explorer: the bare <Eject /> icon`));
 }
+// a tx on its way says Executing…, never Confirming… (Austin 11-12)
+for (const p of files) {
+  if (/["`>]Confirming…/.test(readFileSync(p, "utf8"))) (bad++, console.log(`${relative(root, p)}  "Confirming…": a tx on its way says Executing…`));
+}
 // a row that leaves the wallet says ↗ after its name (Austin 11-11)
 for (const p of files) {
   for (const m of readFileSync(p, "utf8").matchAll(/<a\b[^>]*className="(?:asset|grow)"[^>]*target="_blank"[^>]*>[\s\S]{0,400}/g))

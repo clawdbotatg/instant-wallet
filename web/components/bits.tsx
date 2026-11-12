@@ -851,9 +851,8 @@ export function stageLabel(stage?: string | null): React.ReactNode {
     case "signing-wedgie":
       return <>Press <GreenButton /> on the wedgie…</>;
     case "sending":
+    case "confirming": // still executing until it's in a block: never "Confirming…" (EXPECTATIONS: Executing…, ✓ Executed)
       return "Executing…";
-    case "confirming":
-      return "Confirming…";
   }
   return "…";
 }

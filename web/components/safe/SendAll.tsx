@@ -22,7 +22,7 @@ import {
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { AddressInput, Eject, Money, TokenIcon } from "../bits";
+import { AddressInput, Eject, Money, TokenIcon, stageLabel } from "../bits";
 import { friendly } from "@/lib/friendly";
 import { Progress } from "./Progress";
 import { ErrorLine } from "./WedgieButton";
@@ -234,7 +234,7 @@ export function SendAll({
                 {r.stage === "preparing"
                   ? "Getting the fee…"
                   : r.stage === "busy"
-                    ? "Executing…"
+                    ? stageLabel(r.send ?? "sending")
                     : r.stage === "ready"
                       ? `Sign to send all on ${chainById(chainId)?.name}`
                       : `Send all on ${chainById(chainId)?.name}`}

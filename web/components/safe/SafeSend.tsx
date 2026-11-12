@@ -16,7 +16,7 @@ import { type FeeToken, type Signer, type Stage, Shared, budgetSend, feeCall, ge
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { AmountBox, Blockie, ChainChip, DoneBar, GreenButton, Money, NameMoved, ScanIcon, TokenIcon, Who, useSheetBack } from "../bits";
+import { AmountBox, Blockie, ChainChip, DoneBar, Money, NameMoved, ScanIcon, TokenIcon, Who, stageLabel, useSheetBack } from "../bits";
 import { Scanner } from "../Scanner";
 import { Select, assetOpt } from "./Pick";
 import { friendly } from "@/lib/friendly";
@@ -278,14 +278,6 @@ export function SafeSend({
   if (stage !== "form" && resolved && asset && base !== null) {
     const busy = stage !== "review";
     const ran = !!quote && !!st?.deployed; // a wallet not yet on this network can't be run
-    const label: Record<string, React.ReactNode> = {
-      quote: "Getting the fee…",
-      signing: "Signing…",
-      "signing-hot": "Sign in your hot wallet…",
-      "signing-wedgie": <>Press <GreenButton /> on the wedgie…</>,
-      sending: "Executing…",
-      confirming: "Confirming…",
-    };
     return (
       <div className="stack confirm">
         {/* said once (Austin 11-10): dollars, the coin, who. The run still happens: it speaks only when something is wrong */}
@@ -322,7 +314,7 @@ export function SafeSend({
         {feeShort && <p className="err">Not enough {feeToken === "usdc" ? "USDC" : nativeSymbol(chainId)} on {chainById(chainId)?.name} for this plus the fee.</p>}
         {error && <ErrorLine text={error} />}
         <button className="btn btn-green wide" onClick={send} disabled={busy || !quote || feeShort}>
-          {busy ? label[stage] ?? "…" : "Send"}
+          {busy ? stageLabel(stage) : "Send"}
         </button>
         <Progress stage={stage} chainId={chainId} hash={hash} />
         {!busy && (

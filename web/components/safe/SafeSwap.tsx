@@ -12,7 +12,7 @@ import { POPULAR, type SwapRoute, type Token, swapCalls } from "@/lib/safe/swap"
 import { uniswapRoute } from "@/lib/safe/uniswap";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { AmountBox, DoneBar, Eject, Money, TokenIcon, GreenButton, Who } from "../bits";
+import { AmountBox, DoneBar, Eject, Money, TokenIcon, Who, stageLabel } from "../bits";
 import { ChainSelect, type Opt, Select, SignerChoice, assetOpt } from "./Pick";
 import { Progress, TimeBar } from "./Progress";
 import { friendly } from "@/lib/friendly";
@@ -385,14 +385,6 @@ export function SafeSwap({
   }
 
   const busy = stage !== "form";
-  const label: Record<string, React.ReactNode> = {
-    quote: "Getting the fee…",
-    signing: "Signing…",
-    "signing-hot": "Sign in your hot wallet…",
-    "signing-wedgie": <>Press <GreenButton /> on the wedgie…</>,
-    sending: "Executing…",
-    confirming: "Confirming…",
-  };
   const lost = fromUsd && toUsd ? 1 - toUsd / fromUsd : null;
   // the same as the card you sign on Home: the batch we'd send (the swap + the fee), run by the simulator.
   // Not across networks (what you get lands on the other one), nor before the wallet is on this network.
@@ -539,7 +531,7 @@ export function SafeSwap({
       {feeShort && <p className="err">Not enough {feeToken === "usdc" ? "USDC" : nativeSymbol(chainId)} on {chainById(chainId)?.name} for this plus the fee.</p>}
       {error && <ErrorLine text={error} />}
       <button className="btn btn-green wide go-swap" onClick={swap} disabled={busy || !ready}>
-        {busy ? label[stage] ?? "…" : "Swap"}
+        {busy ? stageLabel(stage) : "Swap"}
       </button>
       <Progress stage={stage} chainId={chainId} hash={hash} />
     </div>

@@ -8,7 +8,7 @@ import { siteCalls, siteGas, signForSite } from "@/lib/safe/connect";
 import { type FeeToken, type Prepared, type Signer, type Stage, Shared, finishOwners, ownerSigners, prepareOwners, signThenQueue, signerLabel, usesWedgie } from "@/lib/safe/send";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { type Pending, remember, respond } from "@/lib/walletconnect";
-import { ChainChip, GreenButton, Who } from "../bits";
+import { ChainChip, Who, stageLabel } from "../bits";
 import { ConnectLayer, DappHead, type Session } from "../WalletConnect";
 import { friendly } from "@/lib/friendly";
 import { Progress } from "./Progress";
@@ -186,14 +186,6 @@ function SafeRequest({
 
   const fee = prepared ? BigInt(feeToken === "usdc" ? prepared.fee.feeUsdc : prepared.fee.feeEth) : null;
   const feeLabel = prepared ? feeText(prepared.fee, feeToken, nativeSymbol(pending.chainId)) : "…";
-  const label: Record<string, React.ReactNode> = {
-    quote: "Getting the fee…",
-    signing: `${bio()}…`,
-    "signing-hot": "Sign in your hot wallet…",
-    "signing-wedgie": <>Press <GreenButton /> on the wedgie…</>,
-    sending: "Executing…",
-    confirming: "Confirming…",
-  };
   const ready = !!st && !refused && (pending.kind === "sign" || !!prepared);
 
   return (
@@ -238,7 +230,7 @@ function SafeRequest({
       {error && <ErrorLine text={error} />}
       {!refused && (
         <button className="btn btn-green wide" disabled={busy || !ready} onClick={go}>
-          {busy ? label[stage!] ?? "…" : pending.kind === "calls" ? (prepared ? "Sign" : "Getting the fee…") : "Sign"}
+          {busy ? stageLabel(stage) : pending.kind === "calls" ? (prepared ? "Sign" : "Getting the fee…") : "Sign"}
         </button>
       )}
       <Progress stage={stage} chainId={pending.chainId} hash={hash} />

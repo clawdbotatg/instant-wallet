@@ -370,7 +370,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
                 <span>✓ signed</span>
               ) : act ? (
                 <button className="btn btn-sm btn-green" onClick={act} disabled={!!busy}>
-                  {busy === k ? (k === "wedgie" ? <>Press <GreenButton /></> : "Signing…") : k === "face" ? bio() : "Sign"}
+                  {busy === k ? (k === "wedgie" ? <>Press <GreenButton /></> : "Signing…") : "Sign"}
                 </button>
               ) : (
                 <span className="fine">waiting</span>

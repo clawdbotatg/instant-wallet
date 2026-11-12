@@ -183,13 +183,7 @@ export function WhatItDoes({ chainId, safe, calls, tx, same, quiet, else: orElse
   const swapLines = swaps.map((s, i) => (
     <div key={i} className="stack" style={{ gap: 4 }}>
       {/* never a router flag (1 << 255) as an amount: no readable number = say so */}
-      {s.pay.unknown || !(Number(s.pay.amount) < 1e15) ? (
-        <span style={{ fontSize: 20, fontWeight: 700, color: "var(--coral)" }}>
-          − {s.pay.symbol} <span className="fine" style={{ fontWeight: 400 }}>(amount not known)</span>
-        </span>
-      ) : (
-        <Money amount={s.pay.amount} symbol={s.pay.symbol} usd={s.pay.usd} />
-      )}
+      <Money amount={s.pay.amount} symbol={s.pay.symbol} usd={s.pay.usd} unknown={s.pay.unknown || !(Number(s.pay.amount) < 1e15)} />
       <Money amount={s.get.amount} symbol={s.get.symbol} least={s.get.least} usd={s.get.usd} get />
     </div>
   ));

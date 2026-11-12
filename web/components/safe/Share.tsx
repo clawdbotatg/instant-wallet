@@ -12,7 +12,7 @@ import { type FeeToken, type Stage, Shared, budgetSend, getQuote, ownersSend, pl
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { AmountBox, GreenButton, Qr } from "../bits";
+import { AmountBox, Qr, stageLabel } from "../bits";
 import { ChainSelect, Select, assetOpt } from "./Pick";
 import { ErrorLine } from "./WedgieButton";
 import { Progress } from "./Progress";
@@ -214,7 +214,6 @@ export function Share({ account, states, assets, chainId: startChain, onDone }: 
   const funding = ["quote", "signing", "signing-hot", "signing-wedgie", "sending", "confirming"].includes(step);
   const funded = step === "done";
   if ((step === "ready" || step === "unfunded" || funding || funded) && card) {
-    const busyLabel: Record<string, React.ReactNode> = { quote: "Getting the fee…", signing: "Signing…", "signing-wedgie": <>Press <GreenButton /> on the wedgie…</>, sending: "Executing…", confirming: "Confirming…" };
     return (
       <div className="stack center">
         <h2>{card.label}</h2>
@@ -240,7 +239,7 @@ export function Share({ account, states, assets, chainId: startChain, onDone }: 
         ) : (
           <>
             <button className="btn btn-green wide" onClick={() => fund(card)} disabled={funding}>
-              {funding ? (busyLabel[step] ?? "…") : step === "unfunded" ? "Try again" : "Fund it"}
+              {funding ? stageLabel(step) : step === "unfunded" ? "Try again" : "Fund it"}
             </button>
             <Progress stage={step} chainId={chainId} />
             {!funding && <p className="fine">The {how === "qr" ? "QR" : "card"} is empty until you fund it.</p>}

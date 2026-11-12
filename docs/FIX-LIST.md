@@ -138,16 +138,16 @@ Suggested first: 1, 3, 5, 12, 20.
   mono `short(…)` span. Left: `ClaimMaker.tsx:224,255` (drops), and the recovery addresses listed as text in
   `RecoverTool.tsx:90` and `SafeWelcome.tsx:160`.
 
-- [ ] **15. Words and colors against EXPECTATIONS #2. Decide: change, or write the exception down.**
+- [x] **15. Words and colors against EXPECTATIONS #2. Decide: change, or write the exception down.**
   - Done 11-11 (Austin: Executing / Executed): Activity's row on its way says "Executing…"; so does the drop
     take-back. `same-check.mjs` fails on "Sending…" for a tx.
   - Done 11-12 (Austin: yes): the app frame's Close is white (was a red "✕ Close"); Swap's wait says "Executing…"
     (was "Swapping…"). `same-check.mjs` fails on both.
-  - `TxPage.tsx:360`: the passkey row's button says "Face ID"; the other rows say "Sign".
-  - A button that changes color: `DropAdmin.tsx:162`, `Waiting.tsx:149`, `WedgieButton.tsx:353,369`.
-  - Hand-written money: `WhatItDoes.tsx:164-166` ("− SYMBOL (amount not known)"), `Drop.tsx:118`, `Claim.tsx:385`.
-  - The stage words ("Signing…", "Executing…") are written four times and differ: `SafeSend.tsx:291`,
-    `SafeSwap.tsx:370`, `SafeConnect.tsx:172`, `Share.tsx:214`, `SendAll.tsx:225`. One `stageLabel` in `bits.tsx`.
+  - Done 11-12 (Austin: fine): the tx page's passkey row says "Sign". An amount we can't read is `<Money unknown>`.
+    The stage words are one `stageLabel` in `bits.tsx` (a site's request said "Face ID…" where the rest said
+    "Signing…"); `same-check.mjs` fails on a copy. EXPECTATIONS #4 now says green follows what's next, and a
+    button doesn't change color while it works, so the waiting tx's button and the wedgie's are right as they are.
+  - Left: `Drop.tsx:118`, `Claim.tsx:385` (hand-written money) and `DropAdmin.tsx:162`: drops, low.
 
 - [ ] **16. USDC dust on one network stops the whole claim.**
   `components/Claim.tsx:311-314`. `claimUsdc` throws inside the loop over networks, so later networks are never

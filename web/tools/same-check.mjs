@@ -112,6 +112,11 @@ for (const p of files) {
   const src = readFileSync(p, "utf8");
   if (/\b(finishOwners|ownersSend|budgetSend)\(/.test(src) && !/<(Progress|TimedBar|TimeBar)\b/.test(src)) (bad++, console.log(`${relative(root, p)}  sends a tx with no progress bar: <Progress stage chainId hash>`));
 }
+// a tx's stage words ("Signing…", "Executing…") are written once: stageLabel in bits.tsx
+for (const p of files) {
+  if (relative(root, p) === SHARED) continue;
+  if (/(sending|confirming|"signing-wedgie"|signing): ["<`]/.test(readFileSync(p, "utf8"))) (bad++, console.log(`${relative(root, p)}  a tx's stage words written by hand: stageLabel(stage)`));
+}
 // two button heights (Austin 11-11): every small one (pill, btn-sm) is as tall as a pill
 {
   const css = readFileSync(root + "app/globals.css", "utf8");

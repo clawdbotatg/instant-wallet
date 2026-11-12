@@ -84,7 +84,9 @@ Button sizes (11-11):
 ## 4. One obvious green
 
 - Green is the one thing people do next. Two greens are fine when they're in separate parts of a page. Make the
-  runner-up dark gray when you can. Never change a button's color as things change.
+  runner-up dark gray when you can.
+- Green follows what's next: when the next thing changes, green moves to it. A button doesn't change color while
+  it works (busy, done, failed).
 
 ## 5. Dollars first
 

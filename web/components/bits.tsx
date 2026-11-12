@@ -435,7 +435,14 @@ export function AmountBox({
  * Money moving, the same everywhere: out is red with −, in is green with +, dollars after it in grey. `least`: a
  * minimum (a swap's "at least"), shown as "or more". Every screen that shows what a transaction pays or gets uses this.
  */
-export function Money({ amount: a, symbol, usd: u, get, least, size = 20 }: { amount: string; symbol: string; usd?: number | null; get?: boolean; least?: boolean; size?: number }) {
+export function Money({ amount: a, symbol, usd: u, get, least, unknown, size = 20 }: { amount: string; symbol: string; usd?: number | null; get?: boolean; least?: boolean; unknown?: boolean; size?: number }) {
+  // unknown: no number we can read (a router's "all of it" flag): the coin, and that we don't know how much
+  if (unknown)
+    return (
+      <span style={{ fontSize: size, fontWeight: 700, color: get ? "var(--mint-d)" : "var(--coral)" }}>
+        {get ? "+" : "−"} {symbol} <span className="fine" style={{ fontWeight: 400 }}>(amount not known)</span>
+      </span>
+    );
   return (
     <span style={{ fontSize: size, fontWeight: 700, color: get ? "var(--mint-d)" : "var(--coral)" }}>
       {get ? "+" : "−"}
@@ -829,6 +836,25 @@ export function AddressInput({ initial, onChange, placeholder = "0x… or name.e
 }
 
 /** The wedgie's green button, drawn inline in text. Never name the buttons A/B/X/Y: people see green and red. */
+/** What a tx is doing right now, on its button: the same words everywhere (Send, Swap, a site's request, Share, Send everything). */
+export function stageLabel(stage?: string | null): React.ReactNode {
+  switch (stage) {
+    case "quote":
+      return "Getting the fee…";
+    case "signing":
+      return "Signing…";
+    case "signing-hot":
+      return "Sign in your hot wallet…";
+    case "signing-wedgie":
+      return <>Press <GreenButton /> on the wedgie…</>;
+    case "sending":
+      return "Executing…";
+    case "confirming":
+      return "Confirming…";
+  }
+  return "…";
+}
+
 export function GreenButton() {
   return <span className="green-key" role="img" aria-label="the green button" />;
 }

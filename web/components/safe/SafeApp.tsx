@@ -111,6 +111,13 @@ export function SafeApp({ link }: { link?: string } = {}) {
   const [switching, setSwitching] = useState(false); // covers the old wallet from the passkey prompt to the reload
   const openAccount = (a: SafeAccount) => {
     saveAccount(a);
+    // opening a wallet sends its passkey's name again, even if it's the name we sent last: the password manager
+    // once showed another wallet's name on it (Austin 11-12), and nothing put it right until a rename
+    try {
+      const k = `iws.passkeyName.${a.credentialId}`;
+      const last = JSON.parse(localStorage.getItem(k) || "null");
+      if (last) localStorage.setItem(k, JSON.stringify({ rough: last.rough }));
+    } catch {}
     window.location.reload();
   };
   const anotherPasskey = async () => {

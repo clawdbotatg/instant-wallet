@@ -257,11 +257,16 @@ export function Sheet({ onClose, children }: { onClose: () => void; children: Re
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    let inner = false; // the touch began in a list that scrolls by itself (a select's options): it's that list's swipe
     const start = (e: TouchEvent) => {
+      inner = false;
+      for (let n = e.target as HTMLElement | null; n && n !== el; n = n.parentElement)
+        if (n.scrollHeight > n.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(n).overflowY)) inner = true;
       // only when the sheet is at its top, so scrolling its content still works
-      drag.current = el.scrollTop <= 0 ? { y0: e.touches[0].clientY, t0: Date.now(), dy: 0, on: false } : null;
+      drag.current = !inner && el.scrollTop <= 0 ? { y0: e.touches[0].clientY, t0: Date.now(), dy: 0, on: false } : null;
     };
     const move = (e: TouchEvent) => {
+      if (inner) return;
       // the iOS app's page bounces (its pull-down reload): a swipe the sheet doesn't scroll itself must never
       // start that bounce, or the page and the dimmed backdrop slide down with the sheet
       const d = drag.current;

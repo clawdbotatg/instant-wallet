@@ -88,7 +88,7 @@ export function DropAdmin() {
     } catch {}
   }, [load]);
 
-  if (!authed) return <AdminLogin title="Drops" blurb="A pot of money and codes for it: cards to print, or one QR for a crowd. Each code pays into a new Instant Wallet." onDone={load} />;
+  if (!authed) return <AdminLogin title="Drops" blurb="Cards to print, or one QR for a crowd. Each code pays into a new Instant Wallet." onDone={load} />;
 
   return (
     <div className="app">
@@ -330,7 +330,7 @@ function DropCard({ id, toast, onClose }: { id: string; toast: (m: string) => vo
       {drop.kind === "cards" && (
         <>
           <b>The cards</b>
-          <p className="fine">The PDF has every unclaimed card, 10 to a page (Avery 8371 business-card sheets, or plain paper and scissors). The links file is for a print shop.</p>
+          <p className="fine">PDF: 10 cards a page (Avery 8371, or plain paper). Links file: for a print shop.</p>
           <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
             <button className="btn btn-green" onClick={pdf}>Download PDF</button>
             <button

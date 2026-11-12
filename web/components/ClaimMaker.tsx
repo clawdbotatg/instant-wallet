@@ -185,13 +185,13 @@ export function ClaimMaker() {
             </div>
             {empty > 0 && (
               <>
-                <p className="fine">1. Put money on them: {fmtUsdc(BigInt(Math.round(total * 1e6)))} USDC on Base, all at once with your browser wallet (BuidlGuidl&apos;s splitter, 25 cards per transaction). Or copy the addresses into split.buidlguidl.com.</p>
+                <p className="fine">1. Put money on them: {fmtUsdc(BigInt(Math.round(total * 1e6)))} USDC on Base from your browser wallet (25 cards per transaction). Or use split.buidlguidl.com.</p>
                 <button className="btn btn-green wide" onClick={() => fill(id, list)} disabled={!!busy || count("loading") > 0}>
                   {busy?.batch === id ? busy.step : `Fill ${empty} cards with my wallet`}
                 </button>
               </>
             )}
-            {count("ready") > 0 && <p className="fine">2. Print them: the PDF fits business-card sheets (10 a page), or plain paper with cut lines.</p>}
+            {count("ready") > 0 && <p className="fine">2. Print them: 10 a page, card sheets or plain paper.</p>}
             <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
               {count("ready") > 0 && (
                 <button className="pill" onClick={() => pdf(list)}>
@@ -248,7 +248,7 @@ export function ClaimMaker() {
             {state === "empty" && (
               <>
                 <b>1. Put money on this card</b>
-                <p className="fine">Send USDC or ETH on {CHAINS.map(x => x.name).join(" or ")} to this address. Scan it with your wallet, or copy it.</p>
+                <p className="fine">Send USDC or ETH on {CHAINS.map(x => x.name).join(" or ")} to this address.</p>
                 <div onClick={async () => (await copy(a)) && setToast("Address copied")} style={{ cursor: "pointer" }}>
                   <Qr value={a} center={a}>
                     <span style={{ marginTop: 8, fontWeight: 600 }}><Who flat plain address={a} /></span>

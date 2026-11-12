@@ -48,8 +48,11 @@ let j = await get(`/api/names?name=${first}`);
 ok(j.free === true && j.name === `${first}.inst.eth`, `a new name is free`);
 j = await get(`/api/names?name=Alice ${tag}.inst.eth`);
 ok(j.label === first, `"Alice ${tag}.inst.eth" is read as ${first}`);
-for (const [bad, why] of [["ab", "too short"], ["support", "ours"], ["official-alice", "leans on 'official'"], ["0xabc123", "looks like an address"], ["-abc", "dash at the end"], ["a--b", "doubled dash"]])
+for (const [bad, why] of [["ab", "too short"], ["support", "ours"], ["official-alice", "leans on 'official'"], ["0xabc123", "looks like an address"], ["-abc", "dash at the end"], ["a--b", "doubled dash"],
+  ["supp0rt", "a number for a letter"], ["adm1n", "1 for i"], ["c0inbase", "0 for o"], ["instant-wa11et", "1 for l"], ["coinbase-pay", "a company plus a word"], ["metamask-team", "a wallet plus a word"], ["help-desk", "a dash inside"], ["vitalik-eth", "reads as vitalik.eth"], ["alice-3th", "reads as alice.eth"]])
   ok((await get(`/api/names?name=${bad}`)).free === false, `${bad} can't be taken (${why})`);
+for (const fine of ["seth", "basement", "solo-trip", "ethan", "pineapple", "method", "l33t-coder", "my-wallet"])
+  ok((await get(`/api/names?name=${fine}-${tag}`)).free === true && (await get(`/api/names?name=${fine}`)).problem !== "Can't end in -eth", `${fine} is an ordinary name`);
 
 let r = await post({ label: first, address: me.wallet });
 ok(r.status === 401, `no signature: ${r.status} (want 401)`);

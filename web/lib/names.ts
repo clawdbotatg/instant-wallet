@@ -33,30 +33,51 @@ export function ourLabel(name: string): string | null {
   return /^[a-z0-9-]+$/.test(label) ? label : null;
 }
 
-// names that would pass for us, for a company, or for help
+// names that would pass for us, for a company, or for help: held back as a whole name
 const TAKEN = new Set(
   (
-    "inst instant instantwallet instant-wallet wallet wallets www api app apps mail email dns ns root admin administrator mod moderator " +
+    "inst instant instantwallet wallet wallets www api app apps mail email dns ns root admin administrator mod moderator " +
     "support help helpdesk service security secure safety official verify verified team staff owner system info contact abuse " +
     "billing payment payments pay refund refunds recover recovery claim claims airdrop drop drops giveaway bank treasury dao " +
-    "relay relayer guardian guardians signer wedgie wedgie-dev safe safewallet gnosis gnosis-safe ens eth ethereum base solana sol " +
+    "relay relayer guardian guardians signer wedgie wedgiedev safe safewallet gnosis gnosissafe ens eth ethereum base solana sol " +
     "bitcoin btc usdc usdt dai tether circle coinbase binance kraken okx bybit gemini robinhood metamask phantom rainbow ledger " +
-    "trezor uniswap lifi li-fi aave morpho lido opensea stripe paypal venmo cashapp apple google microsoft amazon " +
+    "trezor uniswap lifi aave morpho lido opensea stripe paypal venmo cashapp apple google microsoft amazon " +
     "buidlguidl atg austin austingriffith austintgriffith vitalik null undefined test"
   ).split(" "),
 );
-// and any name that leans on one of these words
-const LEANS = ["support", "official", "admin", "helpdesk", "instantwallet", "instant-wallet", "security", "customer", "refund"];
+// held back anywhere in a name: words a fake helper leans on, and wallets and companies people get phished as
+// (coinbase-pay, metamask-team). Only names long enough not to sit inside an ordinary word.
+const INSIDE = (
+  "support official admin helpdesk security customer refund verify airdrop giveaway recover moderator " +
+  "instantwallet buidlguidl wedgie austingriffith vitalik walletconnect safewallet gnosissafe " +
+  "coinbase binance kraken metamask phantom ledger trezor uniswap opensea paypal venmo cashapp robinhood microsoft"
+).split(" ");
+// numbers that stand in for letters (supp0rt, adm1n, c0inbase): read as the letter before the lists are checked.
+// 1 is an l or an i, so both are tried.
+const LOOKS: Record<string, string> = { "0": "o", "3": "e", "4": "a", "5": "s", "7": "t", "8": "b" };
+function reads(label: string): string[] {
+  const flat = label.replace(/-/g, "").replace(/[034578]/g, d => LOOKS[d]);
+  return [...new Set([flat.replace(/1/g, "l"), flat.replace(/1/g, "i")])];
+}
 
-/** Why a label can't be a name, in a few words, or null: it can. */
-export function labelProblem(label: string): string | null {
+/** Why a label isn't a name at all (its letters, its length), or null. A name already held is only ever checked for this. */
+export function labelShape(label: string): string | null {
   if (!label) return null;
   if (!/^[a-z0-9-]+$/.test(label)) return "Letters, numbers and - only";
   if (label.length < 3) return "3 or more letters";
   if (label.length > 32) return "32 letters at most";
   if (label.startsWith("-") || label.endsWith("-") || label.includes("--")) return "No - at the ends or doubled";
+  return null;
+}
+
+/** Why a label can't be taken as a new name, in a few words, or null: it can. */
+export function labelProblem(label: string): string | null {
+  const shape = labelShape(label);
+  if (!label || shape) return shape;
   if (/^0x/.test(label) || /^[0-9a-f]{40}$/.test(label)) return "Can't look like an address";
-  if (TAKEN.has(label) || LEANS.some(w => label.includes(w))) return "Taken";
+  // vitalik-eth reads as vitalik.eth at a glance
+  if (reads(label.replace(/-(?=[a-z0-9]+$)/, ".")).some(r => r.endsWith(".eth"))) return "Can't end in -eth";
+  if (reads(label).some(r => TAKEN.has(r) || INSIDE.some(w => r.includes(w)))) return "Taken";
   return null;
 }
 

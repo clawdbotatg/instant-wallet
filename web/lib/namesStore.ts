@@ -1,7 +1,7 @@
 import "server-only";
 import { type Address, getAddress, isAddress } from "viem";
 import { kv } from "./kv";
-import { MAX_NAMES, labelProblem } from "./names";
+import { MAX_NAMES, labelProblem, labelShape } from "./names";
 
 /**
  * Who holds which inst.eth name (lib/names.ts), in the store the relay uses.
@@ -25,7 +25,7 @@ function read<T>(v: unknown): T | null {
 
 /** The wallet a name pays, or null: nobody has it. */
 export async function nameOwner(label: string): Promise<Address | null> {
-  if (labelProblem(label)) return null;
+  if (!label || labelShape(label)) return null; // not the held-back lists: a name taken before a list grew still pays its wallet
   const h = read<Held>(await kv(["GET", N(label)]));
   return h && isAddress(h.a) ? getAddress(h.a) : null;
 }
@@ -38,10 +38,11 @@ export async function namesOf(address: string): Promise<Mine | null> {
 
 /** Give `label` to `address` (first come), or switch back to one it already holds. The caller has checked the passkey. */
 export async function claimName(label: string, address: Address): Promise<{ ok: true; mine: Mine } | { ok: false; error: string; status: number }> {
-  const problem = labelProblem(label);
-  if (!label || problem) return { ok: false, error: problem || "Name?", status: 400 };
+  if (!label || labelShape(label)) return { ok: false, error: labelShape(label) || "Name?", status: 400 };
   const mine = (await namesOf(address)) ?? { n: "", all: [] };
   if (!mine.all.includes(label)) {
+    const problem = labelProblem(label); // a new name only: one it holds can always be picked again
+    if (problem) return { ok: false, error: problem, status: 400 };
     if (mine.all.length >= MAX_NAMES) return { ok: false, error: `A wallet holds ${MAX_NAMES} names at most. Pick one of yours: ${mine.all.join(", ")}`, status: 409 };
     const took = await kv(["SET", N(label), JSON.stringify({ a: address, at: Math.floor(Date.now() / 1000) } satisfies Held), "NX"]);
     // not ours to take, unless an earlier claim of ours wrote the name and died before the list

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAddress } from "viem";
 import { tooMany } from "@/lib/limit";
-import { fullName, labelIn, labelProblem, nameChallenge } from "@/lib/names";
+import { fullName, labelIn, labelProblem, labelShape, nameChallenge } from "@/lib/names";
 import { claimName, nameOwner, namesOf } from "@/lib/namesStore";
 import { passkeyOwner } from "@/lib/passkeyAuth";
 
@@ -23,11 +23,11 @@ export async function GET(req: NextRequest) {
   if (q.has("name")) {
     if (await tooMany(req, "namecheck", 1200, 3600)) return NextResponse.json({ error: "Too many. Try again later." }, { status: 429 });
     const label = labelIn(q.get("name") ?? "");
-    const problem = labelProblem(label);
-    if (!label || problem) return NextResponse.json({ label, name: fullName(label), free: false, yours: false, problem }, none);
+    if (!label || labelShape(label)) return NextResponse.json({ label, name: fullName(label), free: false, yours: false, problem: labelShape(label) }, none);
     const owner = await nameOwner(label);
     const yours = !!owner && isAddress(address) && owner.toLowerCase() === address.toLowerCase();
-    return NextResponse.json({ label, name: fullName(label), free: !owner, yours, problem: owner && !yours ? "Taken" : null }, none);
+    const problem = yours ? null : owner ? "Taken" : labelProblem(label);
+    return NextResponse.json({ label, name: fullName(label), free: !owner && !problem, yours, problem }, none);
   }
   if (!isAddress(address)) return NextResponse.json({ error: "name or address required" }, { status: 400 });
   const mine = await namesOf(address);
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
   const b = await req.json().catch(() => null);
   const label = typeof b?.label === "string" ? b.label : "";
   // the label as signed must be the label as stored: no tidying here
-  const problem = labelProblem(label);
+  const problem = labelShape(label); // the held-back lists are checked once we know whose it is (lib/namesStore.ts)
   if (!label || problem) return NextResponse.json({ error: problem || "Name?" }, { status: 400 });
   // a room on one Wi-Fi shares an IP: far above what people do, well under what a name-grabbing script wants
   if (await tooMany(req, "nameclaim", 200, 86400)) return NextResponse.json({ error: "Too many. Try again later." }, { status: 429 });

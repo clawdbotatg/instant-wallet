@@ -268,13 +268,13 @@ Suggested first: 1, 3, 5, 12, 20.
   - Not checked: `docs/SWAP.md:12` "the wedgie's LI.FI decoding" not built.
   - No `.env.example`. `web/README.md` lists the names.
 
-- [ ] **31. Checks that miss things.**
-  - Done: `tools/same-check.mjs` walks `app/` too.
-  - `.github/workflows/expect.yaml` runs on docs-only pushes and starts with a blind `sleep 240`; it could wait
-    for `/api/version` to show the commit.
-  - Ten `.mts` tools say `npx tsx`, and `tsx` isn't a dependency.
-  - `tools/wedgie/serve.py` was fixed by reading in `e21311d` and never run (needs `micropython`).
-  - Recovery watcher (`lib/alerts.ts` `running`) passes no `multicallAddress`, so it can't run on a local anvil.
+- [x] **31. Checks that miss things.** Done 11-12.
+  - `tools/same-check.mjs` walks `app/` too.
+  - `.github/workflows/expect.yaml` skips docs-only pushes and waits for `/api/version` to show the commit (8 min at most).
+  - `tsx` is a dev dependency.
+  - `tools/wedgie-app-check.mts` was run (micropython) and was broken: `tools/wedgie/serve.py` had no storage, no raw
+    bytes, no key state, no p256. Fixed; it needs `WEDGIE_DEV` too. 2/2 against safe-59.
+  - The recovery watcher names its multicall address, so it runs on a local fork.
 
 ## Who sees what (from the lab, 2026-11-12)
 

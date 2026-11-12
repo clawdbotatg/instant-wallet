@@ -1,15 +1,17 @@
 // The app's wedgie code (lib/safe/wedgie.ts) against the real wedgie Safe app (clawdbotatg/wedgie-safe's safe.py)
 // run on MicroPython: a small batch, and one over the 6 KB USB line (sent in pieces). Checks the wedgie hashes
 // exactly what the app expects. Needs `micropython` (brew install micropython) and a wedgie-safe checkout:
-//   WEDGIE_SAFE=~/src/wedgie-safe npx tsx tools/wedgie-app-check.mts
+//   WEDGIE_SAFE=~/src/wedgie-safe WEDGIE_DEV=~/src/wedgie-dev npx tsx --conditions=react-server tools/wedgie-app-check.mts
 import { spawn } from "node:child_process";
 import type { Address, Hex } from "viem";
 import { batch, multiSendData, safeTxHash, transfer } from "../lib/safe/core";
 import { Wedgie } from "../lib/safe/wedgie";
 
 const dir = process.env.WEDGIE_SAFE;
-if (!dir) throw new Error("WEDGIE_SAFE=<a clawdbotatg/wedgie-safe checkout>");
-const mp = spawn("micropython", [new URL("./wedgie/serve.py", import.meta.url).pathname, dir], { stdio: ["pipe", "pipe", "pipe"] });
+const fw = process.env.WEDGIE_DEV;
+if (!dir || !fw) throw new Error("WEDGIE_SAFE=<a clawdbotatg/wedgie-safe checkout> WEDGIE_DEV=<a clawdbotatg/wedgie-dev checkout>");
+const mp = spawn("micropython", [new URL("./wedgie/serve.py", import.meta.url).pathname, dir, fw + "/firmware"], { stdio: ["pipe", "pipe", "pipe"] });
+mp.on("exit", c => c && console.log(`micropython stopped (${c}):\n${shown}`));
 let shown = "";
 mp.stderr.on("data", d => (shown += d));
 

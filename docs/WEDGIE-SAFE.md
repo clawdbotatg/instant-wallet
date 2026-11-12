@@ -52,7 +52,7 @@ Since b4e86f8 the wedgie also reads Instant Wallet's own transactions in plain w
 (add/drop guardian, cancel), the daily budget (Zodiac Roles: keys, what it may use, "up to 100 USDC a day"),
 modules on/off, exact approvals and their reset, Uniswap swaps (pay, at least back, "to this Safe" or red) and
 LI.FI swaps ("pays this Safe" when the calldata names it, else red). Check the app against the real wedgie code:
-`WEDGIE_SAFE=<checkout> npx tsx web/tools/wedgie-app-check.mts` (MicroPython, `tools/wedgie/serve.py`). The browser talks to it over Web Serial; wedgie-dev
+`WEDGIE_SAFE=<checkout> WEDGIE_DEV=<wedgie-dev checkout> npx tsx --conditions=react-server tools/wedgie-app-check.mts` in `web/` (MicroPython, `tools/wedgie/serve.py`). The browser talks to it over Web Serial; wedgie-dev
 `src/serial/` has the port handling (a wedgie's port drops and comes back once after plug-in).
 
 What the wedgie shows: chain, nonce, Safe, and in plain words: ETH sends, known-token transfers (USDC on

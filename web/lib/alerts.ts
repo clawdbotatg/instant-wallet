@@ -7,7 +7,7 @@ import { type Address, type Hex, createPublicClient, getAddress, http, keccak256
 import { CHAINS, chainById } from "./chains";
 import { upstreamRpc } from "./rpcServer";
 import { kv } from "./kv";
-import { RECOVERY_MODULES } from "./safe/config";
+import { MULTICALL3, RECOVERY_MODULES } from "./safe/config";
 import { abi, safeAddress, signerAddress } from "./safe/core";
 import { withLock } from "./safe/relayGuard";
 import { bytesToBase64url, hexToBytes } from "./webauthn";
@@ -237,6 +237,7 @@ export async function running(list: Address[], failed: string[] = []): Promise<R
     const mods = RECOVERY_MODULES;
     const n = mods.length * 2;
     const res = await pc.multicall({
+      multicallAddress: MULTICALL3, // named, so it runs on a local fork too
       contracts: list.flatMap(w => [
         ...mods.map(m => ({ address: m, abi: abi.recovery, functionName: "getRecoveryRequest", args: [w] }) as const),
         ...mods.map(m => ({ address: w, abi: abi.safe, functionName: "isModuleEnabled", args: [m] }) as const),

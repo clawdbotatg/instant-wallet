@@ -6,6 +6,10 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "packages/**"
   workflow_dispatch:
 
 jobs:
@@ -17,7 +21,13 @@ jobs:
         with:
           node-version: 22
       - name: Wait for Vercel to deploy it
-        run: sleep 240
+        # until /api/version shows this commit; 8 min at most (a later push can skip ours: then check what's live)
+        run: |
+          for i in $(seq 48); do
+            curl -s https://instantwallet.io/api/version | grep -q "$GITHUB_SHA" && exit 0
+            sleep 10
+          done
+          echo "not seen after 8 min; checking what's live"
       - name: Check the live site
         run: |
           mkdir -p /tmp/x && cp web/tools/expect-check.mjs /tmp/x/ && cd /tmp/x

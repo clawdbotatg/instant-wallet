@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { type Address, type Hex, formatUnits, keccak256, toHex, zeroAddress } from "viem";
 import { chainById, publicClient } from "@/lib/chains";
 import type { Asset } from "@/lib/types";
@@ -75,14 +75,25 @@ export function Activity({ safe, chains, undeployed = [], assets, late, live, ti
   useEffect(() => {
     let on = true;
     // each network shows as it answers; one that fails keeps what it showed
-    const put = (c: number, r: Row[]) => on && setBy(b => ({ key: safe, rows: { ...(b.key === safe ? b.rows : {}), [c]: r } }));
-    for (const c of chains) rowsOn(c, safe).then(r => put(c, r), () => {});
-    for (const c of bare) insOn(c, safe).then(r => put(c, r), () => {});
+    // (a failed read still counts as an answer, or the list would wait for it for good)
+    const put = (c: number, r?: Row[]) => on && setBy(b => ({ key: safe, rows: { ...(b.key === safe ? b.rows : {}), [c]: r ?? (b.key === safe ? b.rows[c] : undefined) ?? [] } }));
+    for (const c of chains) rowsOn(c, safe).then(r => put(c, r), () => put(c));
+    for (const c of bare) insOn(c, safe).then(r => put(c, r), () => put(c));
     return () => {
       on = false;
     };
   }, [key, tick, landed]); // eslint-disable-line react-hooks/exhaustive-deps
-  const rows = by.key === safe ? Object.values(by.rows).flat().sort((a, b) => (a.at < b.at ? 1 : -1)).slice(0, SHOW) : [];
+  // Until a network answers, the rows this browser last showed for it stand in, so the list is there the moment Home
+  // opens. Nothing saved (a new browser): grey rows hold the list's place, so it doesn't pop in 2 s later and push
+  // the page down (Austin, 11-12). `waiting`: the wallet's networks aren't known yet, or one hasn't answered.
+  const saved = useMemo(() => kept(safe), [safe]);
+  const got = by.key === safe ? by.rows : {};
+  const waiting = (!chains.length && !undeployed.length) || [...chains, ...bare].some(c => !(c in got));
+  const rows = [...Object.values(got).flat(), ...(waiting ? saved.filter(r => !(r.chainId in got)) : [])].sort((a, b) => (a.at < b.at ? 1 : -1)).slice(0, SHOW);
+  const list = JSON.stringify(rows);
+  useEffect(() => {
+    if (!waiting) keep(safe, JSON.parse(list));
+  }, [waiting, list, safe]);
 
   // a balance went up between two reads of now: a row at once, then the chain is read for the rest. Only the coins
   // the chain's history shows (the network's own, the main tokens), never while this page's own send is landing there
@@ -129,7 +140,19 @@ export function Activity({ safe, chains, undeployed = [], assets, late, live, ti
   const fresh = just.filter(j => Date.now() - j.at < 600_000 && !rows.some(r => r.chainId === j.chainId && Date.parse(r.at) >= j.at - 120_000));
   // still on its way: this wallet's, and not already in the chain's list
   const ours = out.filter(s => s.safe.toLowerCase() === safe.toLowerCase() && !rows.some(r => s.hash && r.hash === s.hash.toLowerCase()));
-  if (!rows.length && !ours.length && !fresh.length) return null;
+  if (!rows.length && !ours.length && !fresh.length)
+    return waiting ? (
+      <div className="card stack" style={{ gap: 10 }} aria-busy="true">
+        <b>Activity</b>
+        {[0, 1, 2].map(i => (
+          <div key={i} className="recess stack" style={{ gap: 8, padding: "14px" }}>
+            <span className="loading-bar" style={{ width: 110, height: 12 }} />
+            <span className="loading-bar" style={{ width: i === 1 ? "70%" : "55%", height: 16 }} />
+            <span className="loading-bar" style={{ width: 130, height: 12 }} />
+          </div>
+        ))}
+      </div>
+    ) : null;
   // dollars at today's price (what the home list uses)
   const usd = (chainId: number, m: Move) => {
     const a = assets.find(x => x.chainId === chainId && x.asset.toLowerCase() === (m.token === "eth" ? zeroAddress : m.token));

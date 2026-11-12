@@ -111,13 +111,6 @@ export function SafeApp({ link }: { link?: string } = {}) {
   const [switching, setSwitching] = useState(false); // covers the old wallet from the passkey prompt to the reload
   const openAccount = (a: SafeAccount) => {
     saveAccount(a);
-    // opening a wallet sends its passkey's name again, even if it's the name we sent last: the password manager
-    // once showed another wallet's name on it (Austin 11-12), and nothing put it right until a rename
-    try {
-      const k = `iws.passkeyName.${a.credentialId}`;
-      const last = JSON.parse(localStorage.getItem(k) || "null");
-      if (last) localStorage.setItem(k, JSON.stringify({ rough: last.rough }));
-    } catch {}
     window.location.reload();
   };
   const anotherPasskey = async () => {
@@ -337,19 +330,14 @@ export function SafeApp({ link }: { link?: string } = {}) {
     const pub = ens && !ourLabel(ens) ? ens : (instName ?? ens);
     const name = pub ? `${pub} · ~${compactUsd(rough)}` : `${customName ? `${customName} · ` : ""}${short(account.address)} · ~${compactUsd(rough)}`; // plain text: the passkey's name in the phone's own list
     if (name === last?.name) return;
-    // the name waits 2 s and is dropped if anything changes first (Austin 11-12). When it goes, the wallet open in
-    // this browser must still be this one: a switch here or in another tab, and nothing is sent
-    const t = setTimeout(() => {
-      const open = loadAccount();
-      if (open?.credentialId !== account.credentialId || open.address !== account.address) return;
-      renamePasskey(account.credentialId, name).then(ok => {
-        if (!ok) return;
-        try {
-          localStorage.setItem(namedKey, JSON.stringify({ name, rough }));
-        } catch {}
-      });
-    }, 2000);
-    return () => clearTimeout(t);
+    // sent only when the name changed. Every way into a wallet reloads the page, so the name and balance here are
+    // this wallet's own (Austin 11-12: a new passkey once got the last wallet's name)
+    renamePasskey(account.credentialId, name).then(ok => {
+      if (!ok) return;
+      try {
+        localStorage.setItem(namedKey, JSON.stringify({ name, rough }));
+      } catch {}
+    });
   }, [account, namedKey, fresh, posUsd, rough, customName, ens, instName]);
 
   // the iOS app's pull-down: a newer deploy reloads the whole page; otherwise reload the balance now, with the

@@ -12,7 +12,7 @@ import { type FeeToken, type Stage, Shared, budgetSend, getQuote, ownersSend, pl
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { AmountBox, Qr, stageLabel } from "../bits";
+import { Net, AmountBox, Qr, stageLabel } from "../bits";
 import { ChainSelect, Select, assetOpt } from "./Pick";
 import { ErrorLine } from "./WedgieButton";
 import { Progress } from "./Progress";
@@ -281,7 +281,7 @@ export function Share({ account, states, assets, chainId: startChain, onDone }: 
         {options.length ? (
           <Select value={asset ? assetOpt(asset) : null} options={options.map(assetOpt)} onPick={setPick} />
         ) : (
-          <p className="fine">Nothing on {net?.name}. Pick another network above.</p>
+          <p className="fine">Nothing on <Net chainId={chainId} />. Pick another network above.</p>
         )}
       </div>
       {price ? (

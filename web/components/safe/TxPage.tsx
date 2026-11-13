@@ -16,7 +16,7 @@ import { passkeySign } from "@/lib/safe/sign";
 import { startSending } from "@/lib/safe/sending";
 import { type ChainState, keyFromCode, loadAccount, loadSigners, readChain, wedgieHome, wedgieSigners } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
-import { BioSigner, Blockie, CopyLink, Eject, GreenButton, RemoveX, Who, Words, useToast } from "../bits";
+import { Net, BioSigner, Blockie, CopyLink, Eject, GreenButton, RemoveX, Who, Words, useToast } from "../bits";
 import { friendly } from "@/lib/friendly";
 import { Progress } from "./Progress";
 import { ErrorLine } from "./WedgieButton";
@@ -259,7 +259,6 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
     }
   });
 
-  const name = chainById(chainId)?.name ?? `chain ${chainId}`;
   if (removed)
     return (
       <div className="stack">
@@ -351,7 +350,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
         </span>
       </div>
       <p className="fine row" style={{ gap: 8 }}>
-        <Who address={safe} chain={chainId} size={20} inline /> on {name}
+        <Who address={safe} chain={chainId} size={20} inline /> on <Net chainId={chainId} />
       </p>
 
       <div className="card stack" style={{ gap: 6 }}>

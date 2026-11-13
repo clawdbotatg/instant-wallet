@@ -14,7 +14,7 @@ import { type FeeToken, type Prepared, Shared, type Signer, finishOwners, getQuo
 import { type ChainState, type SafeAccount, daoDays, loadSigners, loadWalletName, readChain, saveSigner, wedgieSigners, shownAs } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { AddressInput, BioIcon, BioSigner, Blockie, CopyAddress, CopyLink, PencilIcon, RemoveX, TimedBar, Who, copy } from "../bits";
+import { Net, AddressInput, BioIcon, BioSigner, Blockie, CopyAddress, CopyLink, PencilIcon, RemoveX, TimedBar, Who, copy } from "../bits";
 import { Alerts } from "./Alerts";
 import { ChainSelect } from "./Pick";
 import { ChainLimit } from "./Limits";
@@ -625,7 +625,7 @@ export function Keys({
                           {blocked && <p className="fine">{blocked}</p>}
                           {!canPay && assets.some(a => a.chainId !== chainId && (a.usd ?? 0) >= 0.5) && (
                             <button className="btn wide" onClick={() => onFund(chainId)}>
-                              Add gas on {chainById(chainId)?.name}
+                              Add gas on <Net chainId={chainId} />
                             </button>
                           )}
                         </>,
@@ -655,17 +655,17 @@ export function Keys({
       {!st && <p className="fine">Loading…</p>}
       {!canPay ? (
         <div className="card stack" style={{ gap: 8 }}>
-          <p className="fine">Changes on {chainById(chainId)?.name} need a little gas there, and this wallet has none on it yet.</p>
+          <p className="fine">Changes on <Net chainId={chainId} /> need a little gas there, and this wallet has none on it yet.</p>
           {assets.some(a => a.chainId !== chainId && (a.usd ?? 0) >= 0.5) ? (
             <button className="btn btn-green wide" onClick={() => onFund(chainId)}>
-              Add gas on {chainById(chainId)?.name}
+              Add gas on <Net chainId={chainId} />
             </button>
           ) : (
-            <p className="fine">Add a little USDC or {nativeSymbol(chainId)} on {chainById(chainId)?.name} first.</p>
+            <p className="fine">Add a little USDC or {nativeSymbol(chainId)} on <Net chainId={chainId} /> first.</p>
           )}
         </div>
       ) : (
-        st && !st.deployed && <p className="fine">The first change on {chainById(chainId)?.name} also sets up the wallet there.</p>
+        st && !st.deployed && <p className="fine">The first change on <Net chainId={chainId} /> also sets up the wallet there.</p>
       )}
 
 
@@ -762,7 +762,7 @@ export function Keys({
       <OldBurner toast={toast} />
 
       <button className="btn btn-green wide" onClick={() => onShare(chainId)}>
-        Share crypto on {chainById(chainId)?.name}
+        Share crypto on <Net chainId={chainId} />
       </button>
     </div>
   );

@@ -158,11 +158,23 @@ export function Words({ text, chain }: { text: string; chain?: number }) {
 }
 
 export function ChainChip({ chainId }: { chainId: number }) {
+  return (
+    <span className="chip" style={{ background: chainById(chainId)?.color ?? "#787b78" }}>
+      <Net chainId={chainId} />
+    </span>
+  );
+}
+
+/**
+ * A network, wherever one is named: its logo, then its name (Austin 11-12: Activity had the logo, a waiting tx
+ * didn't). Sits in a sentence like a word. The one place without it: an asset row, whose token icon has the badge.
+ */
+export function Net({ chainId }: { chainId: number }) {
   const c = chainById(chainId);
   return (
-    <span className="chip" style={{ background: c?.color ?? "#787b78" }}>
-      <ChainIcon chainId={chainId} size={14} />
-      {c?.name ?? chainId}
+    <span style={{ whiteSpace: "nowrap" }}>
+      {c?.icon && <img src={c.icon} alt="" style={{ width: "1.05em", height: "1.05em", borderRadius: "50%", verticalAlign: "-0.17em", marginRight: "0.3em" }} />}
+      {c?.name ?? `chain ${chainId}`}
     </span>
   );
 }

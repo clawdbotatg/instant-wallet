@@ -5,7 +5,7 @@ import { type Address, formatUnits } from "viem";
 import { chainById, explorerTx } from "@/lib/chains";
 import { cardsPdf } from "@/lib/claimBatch";
 import { type DropInfo, dropAmount, dropUrl } from "@/lib/dropClient";
-import { CopyAddress, CopyLink, Eject, Qr, TimedBar, Who, copy, useToast } from "./bits";
+import { Net, CopyAddress, CopyLink, Eject, Qr, TimedBar, Who, copy, useToast } from "./bits";
 import { AdminLogin, SESSION } from "./AdminLogin";
 import { friendly } from "@/lib/friendly";
 
@@ -119,7 +119,7 @@ export function DropAdmin() {
             <span className="stack" style={{ gap: 2 }}>
               <b>{d.name}</b>
               <span className="fine">
-                {d.kind === "cards" ? `${d.cap} cards` : `crowd · ${d.code}`} × {amt(d)} · {chainById(d.chainId)?.name}
+                {d.kind === "cards" ? `${d.cap} cards` : `crowd · ${d.code}`} × {amt(d)} · <Net chainId={d.chainId} />
               </span>
             </span>
             <span className="fine" style={{ textAlign: "right" }}>
@@ -253,7 +253,6 @@ function DropCard({ id, toast, onClose }: { id: string; toast: (m: string) => vo
   const left = drop.cap - d.claimed;
   const enough = per > 0n && each > 0n ? Number(have / per) : 0;
   const need = BigInt(Math.max(0, left - enough)) * per;
-  const net = chainById(drop.chainId)?.name;
   const origin = window.location.origin;
   const st = status(drop, d.claimed);
 
@@ -287,7 +286,7 @@ function DropCard({ id, toast, onClose }: { id: string; toast: (m: string) => vo
       <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
         <span className="pill on">{st}</span>
         <span className="pill">{dollars(drop)} {drop.token === "eth" ? "of ETH" : "USDC"}</span>
-        <span className="pill">{net}</span>
+        <span className="pill"><Net chainId={drop.chainId} /></span>
         <span className="pill">{d.claimed} / {drop.cap} claimed</span>
         {drop.closesAt && !drop.ended && <span className="pill">{Date.now() < drop.closesAt ? "closes" : "closed"} {new Date(drop.closesAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span>}
       </div>
@@ -297,7 +296,7 @@ function DropCard({ id, toast, onClose }: { id: string; toast: (m: string) => vo
           <>
             <div className="fine">Send to the pot</div>
             <div style={{ fontSize: 34, fontWeight: 700 }}>{drop.token === "eth" ? `${Number(formatUnits(need, 18)).toFixed(4)} ETH` : `${up(need)} USDC`}</div>
-            <div className="fine">on {net}{drop.token === "eth" ? ` · ≈ $${(Number(formatUnits(need, 18)) * d.pot.ethUsd).toFixed(2)}` : ""}</div>
+            <div className="fine">on <Net chainId={drop.chainId} />{drop.token === "eth" ? ` · ≈ $${(Number(formatUnits(need, 18)) * d.pot.ethUsd).toFixed(2)}` : ""}</div>
           </>
         ) : (
           <div style={{ fontSize: 28, fontWeight: 700 }}>✓ Pot is full</div>

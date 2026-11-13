@@ -22,7 +22,7 @@ import {
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { AddressInput, Eject, Money, TokenIcon, stageLabel } from "../bits";
+import { Net, AddressInput, Eject, Money, TokenIcon, stageLabel } from "../bits";
 import { friendly } from "@/lib/friendly";
 import { Progress } from "./Progress";
 import { ErrorLine } from "./WedgieButton";
@@ -208,7 +208,7 @@ export function SendAll({
         );
         return (
           <div key={chainId} className="card stack">
-            <b>{chainById(chainId)?.name}</b>
+            <b><Net chainId={chainId} /></b>
             {ran ? <WhatItDoes quiet chainId={chainId} safe={account.address} calls={callsOf(ran)} tx={ran} else={list} /> : list}
             {held.length > 5 && !ran && (
               <span className="fine">

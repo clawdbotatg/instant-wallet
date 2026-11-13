@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { chainById } from "@/lib/chains";
 import { usd } from "@/lib/format";
 import type { Asset, Position } from "@/lib/types";
+import { Net } from "../bits";
 
 const TYPE: Record<string, string> = { deposit: "Deposit", staked: "Staked", reward: "Reward", loan: "Loan", locked: "Locked" };
 
@@ -121,7 +122,7 @@ export function PositionList({
           <div className="grow">
             <div className="sym">{p.name} ↗</div>
             <div className="fine">
-              {[TYPE[p.type] ?? p.type, chainById(p.chainId)?.name, p.tokens.join(" + ")].filter(Boolean).join(" · ")}
+              {TYPE[p.type] ?? p.type} · <Net chainId={p.chainId} />{p.tokens.length ? ` · ${p.tokens.join(" + ")}` : ""}
             </div>
           </div>
           <div className="right">

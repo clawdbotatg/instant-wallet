@@ -7,7 +7,7 @@ import { abi } from "@/lib/safe/core";
 import { type Prepared, Shared, finishOwners, ownerSigners, prepareOwners } from "@/lib/safe/send";
 import type { ChainState, RecoveryOn, SafeAccount } from "@/lib/safe/state";
 import { SAFE_SVC } from "@/lib/safe/share";
-import { Eject, Who } from "../bits";
+import { Net, Eject, Who } from "../bits";
 import { friendly } from "@/lib/friendly";
 import { ErrorLine } from "./WedgieButton";
 import { Progress, useSendProgress } from "./Progress";
@@ -76,7 +76,7 @@ export function RecoveryAlert({
     <div className="card alert">
       <b>{mine ? "Your recovery is running" : "Someone is recovering this wallet"}</b>
       <p className="fine">
-        On {chainById(state.chainId)?.name}, on {when.toLocaleString()}, your keys get replaced by
+        On <Net chainId={state.chainId} />, on {when.toLocaleString()}, your keys get replaced by
         {r.newOwners.length > 1 ? ` any ${r.newThreshold} of these` : ""}:
       </p>
       {r.newOwners.map(o => (
@@ -101,7 +101,7 @@ export function AddonAlert({ safe, state }: { safe: Address; state: ChainState }
   return (
     <div className="card alert stack" style={{ gap: 8 }}>
       <div className="row" style={{ justifyContent: "space-between", gap: 8 }}>
-        <b>⚠️ Something else controls your wallet on {chainById(state.chainId)?.name}</b>
+        <b>⚠️ Something else controls your wallet on <Net chainId={state.chainId} /></b>
         {c && (
           <Eject href={`https://app.safe.global/settings/modules?safe=${c.app ?? c.key}:${safe}`} title="Open in Safe{Wallet}">
             Safe

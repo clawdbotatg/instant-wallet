@@ -8,7 +8,7 @@ import { MULTICALL3 } from "@/lib/safe/config";
 import { callsOf, relayFee } from "@/lib/safe/describe";
 import { type Sending, onSending, sendingNow } from "@/lib/safe/sending";
 import { type Move, chainHistory, inTokens, moved, moves } from "clear-signing-safe-kit";
-import { ChainIcon, Eject, Money, WhatFor, Who } from "../bits";
+import { Net, Eject, Money, WhatFor, Who } from "../bits";
 import { type Line, Lines, explainCalls, intents } from "./WhatItDoes";
 
 type Row = { chainId: number; at: string; hash?: string; link?: string; pay: Move[]; get: Move[]; words?: Line[]; from?: string | null; failed?: boolean }; // from: who sent money in; null: not known ("Received")
@@ -157,7 +157,7 @@ export function Activity({ safe, chains, undeployed = [], assets, late, live, ti
       {fresh.map(j => (
         <div key={`j${j.id}`} className="recess stack" style={{ gap: 4 }}>
           <span className="fine row" style={{ gap: 5 }}>
-            {day(j.at)} · <ChainIcon chainId={j.chainId} size={14} /> {chainById(j.chainId)?.name}
+            {day(j.at)} · <Net chainId={j.chainId} />
           </span>
           <WhatFor>Received</WhatFor>
           <Money amount={j.get.amount} symbol={j.get.symbol} usd={usd(j.chainId, j.get)} size={14} get />
@@ -167,7 +167,7 @@ export function Activity({ safe, chains, undeployed = [], assets, late, live, ti
         <div key={r.hash ? `${r.chainId}:${r.hash}` : i} className="recess stack" style={{ gap: 4 }}>
           <div className="row" style={{ justifyContent: "space-between", gap: 8 }}>
             <span className="fine row" style={{ gap: 5 }}>
-              {day(r.at)} · <ChainIcon chainId={r.chainId} size={14} /> {chainById(r.chainId)?.name}
+              {day(r.at)} · <Net chainId={r.chainId} />
             </span>
             {r.link && <Eject href={r.link} title="Open in the explorer" />}
           </div>
@@ -207,7 +207,7 @@ function SendingRow({ s, assets, usd }: { s: Sending; assets: Asset[]; usd: (cha
     <div className="recess stack" style={{ gap: 4, opacity: s.landed ? 1 : 0.6, transition: "opacity .3s" }} aria-label={s.landed ? undefined : "Executing, not on chain yet"}>
       <div className="row" style={{ justifyContent: "space-between", gap: 8 }}>
         <span className="fine row" style={{ gap: 5 }}>
-          {s.landed ? day(Date.now()) : <><span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /><b>Executing…</b></>} · <ChainIcon chainId={s.chainId} size={14} /> {chainById(s.chainId)?.name}
+          {s.landed ? day(Date.now()) : <><span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /><b>Executing…</b></>} · <Net chainId={s.chainId} />
         </span>
         {link && <Eject href={link} title="Open in the explorer" />}
       </div>

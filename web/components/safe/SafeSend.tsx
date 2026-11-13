@@ -16,7 +16,7 @@ import { type FeeToken, type Signer, type Stage, Shared, budgetSend, feeCall, ge
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { AddressInput, AmountBox, ChainChip, DoneBar, Money, NameMoved, TokenIcon, Who, stageLabel, useSheetBack } from "../bits";
+import { Net, AddressInput, AmountBox, ChainChip, DoneBar, Money, NameMoved, TokenIcon, Who, stageLabel, useSheetBack } from "../bits";
 import { Scanner } from "../Scanner";
 import { Select, assetOpt } from "./Pick";
 import { friendly } from "@/lib/friendly";
@@ -280,11 +280,11 @@ export function SafeSend({
           {!st?.deployed && (
             <div className="line">
               <span>First send here</span>
-              <span className="fine">deploys your wallet on {chainById(chainId)?.name}</span>
+              <span className="fine">deploys your wallet on <Net chainId={chainId} /></span>
             </div>
           )}
         </div>
-        {feeShort && <p className="err">Not enough {feeToken === "usdc" ? "USDC" : nativeSymbol(chainId)} on {chainById(chainId)?.name} for this plus the fee.</p>}
+        {feeShort && <p className="err">Not enough {feeToken === "usdc" ? "USDC" : nativeSymbol(chainId)} on <Net chainId={chainId} /> for this plus the fee.</p>}
         {error && <ErrorLine text={error} />}
         <button className="btn btn-green wide" onClick={send} disabled={busy || !quote || feeShort}>
           {busy ? stageLabel(stage) : "Send"}

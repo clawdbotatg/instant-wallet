@@ -1,6 +1,6 @@
 "use client";
 
-import { Eject } from "../bits";
+import { Eject, Net } from "../bits";
 import { useEffect, useState } from "react";
 import { type Hash, formatGwei } from "viem";
 import { chainById, publicClient } from "@/lib/chains";
@@ -56,7 +56,6 @@ export function Progress({ stage, chainId, hash }: { stage: Stage | string | nul
   }, [on, slow, hash, chainId]);
 
   if (!on) return null;
-  const name = info?.name ?? "the network";
   // fills toward 90% over the usual time, then creeps
   const p = Math.min(0.97, 0.9 * (1 - Math.exp((-2.3 * secs) / expect)) + (secs > expect ? 0.07 * (1 - Math.exp(-(secs - expect) / (expect * 4))) : 0));
   return (
@@ -65,7 +64,7 @@ export function Progress({ stage, chainId, hash }: { stage: Stage | string | nul
         <div style={{ width: `${Math.max(3, p * 100)}%`, transitionDuration: "500ms" }} />
       </div>
       <p className="fine" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-        <span className="grow">{stage === "sending" ? `The relay is executing it on ${name}…` : `Waiting for ${name} (~${expect} s)`}</span>
+        <span className="grow">{stage === "sending" ? <>The relay is executing it on <Net chainId={chainId} />…</> : <>Waiting for <Net chainId={chainId} /> (~{expect} s)</>}</span>
         <span>{secs} s</span>
         {hash && info?.explorer && <Eject href={`${info.explorer}/tx/${hash}`} title="See it on the explorer" />}
       </p>

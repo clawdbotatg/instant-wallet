@@ -11,7 +11,7 @@ import { loadHidden, loadPortfolio, loadShown, saveHidden, savePortfolio, saveSh
 import { dropOtherBudgetsCalls } from "@/lib/safe/core";
 import { type Prepared, Shared, finishOwners, ownerSigners, prepareOwners } from "@/lib/safe/send";
 import { friendly } from "@/lib/friendly";
-import { AppsIcon, Blockie, DepositIcon, GearIcon, SendIcon, SendScanIcon, Sheet, sheetOpen, TokenIcon, TrashIcon, CopyLink, Who, named, useName, useToast } from "../bits";
+import { AppsIcon, Blockie, Net, DepositIcon, GearIcon, SendIcon, SendScanIcon, Sheet, sheetOpen, TokenIcon, TrashIcon, CopyLink, Who, named, useName, useToast } from "../bits";
 import { Receive } from "../Receive";
 import { sendingNow } from "@/lib/safe/sending";
 import { Deposit } from "./Deposit";
@@ -483,7 +483,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
               <div key={`b${s.chainId}`} className="card alert">
                 <b>Turn off the old phone&apos;s budget</b>
                 <p className="fine">
-                  On {chainById(s.chainId)?.name}, a key that isn&apos;t this phone can still spend the Instant wallet's daily budget (a lost phone, after a recovery).
+                  On <Net chainId={s.chainId} />, a key that isn&apos;t this phone can still spend the Instant wallet's daily budget (a lost phone, after a recovery).
                 </p>
                 <button className="btn btn-red wide" onClick={() => dropOldBudget(s)}>
                   {dropReady?.opts.state.chainId === s.chainId ? "Sign to turn it off" : "Turn it off"}
@@ -558,7 +558,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
                 <div className="sym">{a.symbol}</div>
                 <div className="fine">
                   {a.name === a.symbol ? "" : `${a.name} · `}
-                  {chainById(a.chainId)?.name}
+                  {chainById(a.chainId)?.name /* in the token icon */}
                 </div>
               </div>
               <div className="right">
@@ -587,7 +587,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
                 <TokenIcon symbol={a.symbol} asset={a.asset} chainId={a.chainId} logo={a.logo} />
                 <div className="grow">
                   <div className="sym">{a.symbol}</div>
-                  <div className="fine">{chainById(a.chainId)?.name}</div>
+                  <div className="fine">{chainById(a.chainId)?.name /* in the token icon */}</div>
                 </div>
                 <button
                   className="pill"

@@ -8,7 +8,7 @@ import { siteCalls, siteGas, signForSite } from "@/lib/safe/connect";
 import { type FeeToken, type Prepared, type Signer, type Stage, Shared, finishOwners, ownerSigners, prepareOwners, signThenQueue, signerLabel, usesWedgie } from "@/lib/safe/send";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { type Pending, remember, respond } from "@/lib/walletconnect";
-import { ChainChip, Who, stageLabel } from "../bits";
+import { Net, ChainChip, Who, stageLabel } from "../bits";
 import { ConnectLayer, DappHead, type Session } from "../WalletConnect";
 import { friendly } from "@/lib/friendly";
 import { Progress } from "./Progress";
@@ -225,7 +225,7 @@ function SafeRequest({
           </span>
         </div>
       </div>
-      {!st && <p className="err">This wallet isn&apos;t on {chainById(pending.chainId)?.name ?? "that network"} here.</p>}
+      {!st && <p className="err">This wallet isn&apos;t on <Net chainId={pending.chainId} /> here.</p>}
       {refused && <p className="err">{refused}</p>}
       {error && <ErrorLine text={error} />}
       {!refused && (

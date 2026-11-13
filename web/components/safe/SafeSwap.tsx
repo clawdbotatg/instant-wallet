@@ -12,7 +12,7 @@ import { POPULAR, type SwapRoute, type Token, swapCalls } from "@/lib/safe/swap"
 import { uniswapRoute } from "@/lib/safe/uniswap";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { AmountBox, DoneBar, Eject, Money, TokenIcon, Who, stageLabel } from "../bits";
+import { Net, AmountBox, DoneBar, Eject, Money, TokenIcon, Who, stageLabel } from "../bits";
 import { ChainSelect, type Opt, Select, SignerChoice, assetOpt } from "./Pick";
 import { Progress, TimeBar } from "./Progress";
 import { friendly } from "@/lib/friendly";
@@ -400,7 +400,7 @@ export function SafeSwap({
   return (
     <div className="stack swap">
       <h2>{fund ? `Add gas on ${chainById(fund)?.name}` : "Swap"}</h2>
-      {fund && <p className="fine">Your wallet has the same address on every network. This moves a little to {chainById(fund)?.name} so it can pay for changes there.</p>}
+      {fund && <p className="fine">Your wallet has the same address on every network. This moves a little to <Net chainId={fund} /> so it can pay for changes there.</p>}
 
       <div className="field">
         <label>From</label>
@@ -516,7 +516,7 @@ export function SafeSwap({
           {!st?.deployed && (
             <div className="line">
               <span>First tx here</span>
-              <span className="fine">deploys your wallet on {chainById(chainId)?.name}</span>
+              <span className="fine">deploys your wallet on <Net chainId={chainId} /></span>
             </div>
           )}
           {!route && (
@@ -534,7 +534,7 @@ export function SafeSwap({
       )}
 
       {needsComputer && <p className="err">Swaps on this wallet need a key that isn&apos;t here: open Instant Wallet on your computer.</p>}
-      {feeShort && <p className="err">Not enough {feeToken === "usdc" ? "USDC" : nativeSymbol(chainId)} on {chainById(chainId)?.name} for this plus the fee.</p>}
+      {feeShort && <p className="err">Not enough {feeToken === "usdc" ? "USDC" : nativeSymbol(chainId)} on <Net chainId={chainId} /> for this plus the fee.</p>}
       {error && <ErrorLine text={error} />}
       <button className="btn btn-green wide go-swap" onClick={swap} disabled={busy || !ready}>
         {busy ? stageLabel(stage) : "Swap"}

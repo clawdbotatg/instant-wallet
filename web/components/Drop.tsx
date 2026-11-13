@@ -8,7 +8,7 @@ import { chainById } from "@/lib/chains";
 import { type DropInfo, clearStash, dropAmount, dropSig, normCode, stashCode, stashedCode } from "@/lib/dropClient";
 import { usd } from "@/lib/format";
 import { type SafeAccount, loadAccount, saveAccount } from "@/lib/safe/state";
-import { TimedBar } from "./bits";
+import { Net, TimedBar } from "./bits";
 import { SafeWelcome } from "./safe/SafeWelcome";
 import { friendly } from "@/lib/friendly";
 import { bio } from "@/lib/passkey";
@@ -88,7 +88,6 @@ export function Drop() {
 
   const tokens = info ? Number(formatUnits(BigInt(info.amount), info.decimals)) : 0;
   const value = info ? (info.token === "usdc" || info.usd ? usd(tokens) : price ? usd(tokens * price) : dropAmount(info)) : "…";
-  const net = info && chainById(info.chainId)?.name;
 
   /** `fresh`: the wallet the welcome just made or signed in to: the claim starts by itself. If the browser won't
    *  ask for the passkey without a tap, the Claim button is there, no error shown. */
@@ -122,7 +121,7 @@ export function Drop() {
       {account && <img className="mark" src="/mark.png" alt="" style={{ width: 96, margin: "0 auto" }} />}
       <div className="fine">{done ? "It's in your wallet" : info?.closed ? info.name : "You get"}</div>
       <div className="big" style={{ fontSize: 56, fontWeight: 700, color: "var(--mint-d)" }}>{info ? `+${value}` : value}</div>
-      {info && !info.closed && <div className="fine">{`${dropAmount(info)} on ${net}`}</div>}
+      {info && !info.closed && <div className="fine">{dropAmount(info)} on <Net chainId={info.chainId} /></div>}
     </div>
   );
 

@@ -32,6 +32,8 @@ const RULES = [
   // a link is copied, never shared (Austin 11-12: an invite showed its whole link and a Share button)
   { re: /^\s*Share\s*$|>\s*Share\s*<|navigator\.share\(\{ url/, say: "a Share button: a link is copied with <CopyLink>" },
   { re: /<AddressInput[^>]*\bbare\b/, say: "<AddressInput> has no modes: every box takes a word alone" },
+  // a network is its logo and its name, everywhere (Austin 11-12: Activity had the logo, a waiting tx didn't). An asset row is the one place without: its token icon has the badge
+  { re: /(?<!\$)\{chainById\([^()]*\)\?\.name\b(?!.*\/\* (in the token icon|plain text:))|<ChainIcon\b.*\?\.name\b/, say: "a network's name drawn by hand: use <Net> (logo, then name)" },
   { re: /inputMode="decimal"/, say: "an amount box by hand: use <AmountBox> (dollars first, switch to the coin)", skip: ["components/DropAdmin.tsx", "components/ClaimMaker.tsx"] }, // a drop's "dollars per claim" / "USDC on each": dollars only, no coin to switch to
 ];
 

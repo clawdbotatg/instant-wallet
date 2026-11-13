@@ -6,7 +6,7 @@ import { type AppEntry, APPS } from "@/lib/apps";
 import { CHAINS, chainById } from "@/lib/chains";
 import { hostApp } from "@/lib/safeapps";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
-import { ChainIcon, SwapIcon } from "../bits";
+import { Net, ChainIcon, SwapIcon } from "../bits";
 
 /** The Apps sheet: one row per app, what it does, its networks. Swap opens our own sheet; the rest open in the frame. */
 export function AppList({ onOpen }: { onOpen: (a: AppEntry) => void }) {
@@ -92,12 +92,12 @@ export function AppFrame({ app, account, states, onClose }: { app: AppEntry; acc
           <select className="pill" value={chainId} onChange={e => setChainId(Number(e.target.value))} aria-label="Network">
             {app.chains.map(id => (
               <option key={id} value={id}>
-                {chainById(id)?.name ?? id}
+                {chainById(id)?.name ?? id /* plain text: an <option> takes no icon */}
               </option>
             ))}
           </select>
         ) : (
-          <span className="pill">{chainById(chainId)?.name}</span>
+          <span className="pill"><Net chainId={chainId} /></span>
         )}
       </div>
       {ready ? (

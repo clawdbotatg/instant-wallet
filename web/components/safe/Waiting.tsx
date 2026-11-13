@@ -17,7 +17,7 @@ import {
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { ErrorLine } from "./WedgieButton";
 import { friendly } from "@/lib/friendly";
-import { CopyLink, Eject, RemoveX, Words } from "../bits";
+import { Net, CopyLink, Eject, RemoveX, Words } from "../bits";
 import { WhatItDoes } from "./WhatItDoes";
 import { Progress, useSendProgress } from "./Progress";
 
@@ -145,7 +145,7 @@ export function WaitingCards({
             <div className="recess stack" style={{ gap: 6 }}>
               <div className="row" style={{ justifyContent: "space-between", gap: 8 }}>
                 <span className="fine">
-                  <Words text={w.label ?? `Transaction #${w.tx.nonce}`} chain={w.chainId} /> · {chainById(w.chainId)?.name}
+                  <Words text={w.label ?? `Transaction #${w.tx.nonce}`} chain={w.chainId} /> · <Net chainId={w.chainId} />
                 </span>
                 <span className="row" style={{ gap: 6 }}>
                   {app && (

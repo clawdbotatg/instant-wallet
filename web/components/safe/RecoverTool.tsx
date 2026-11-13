@@ -5,7 +5,7 @@ import { type Address, type Hex, encodeFunctionData } from "viem";
 import { CHAINS, chainById, explorerTx, publicClient } from "@/lib/chains";
 import { DAO, RECOVERY_7D, RECOVERY_DAYS, RECOVERY_MODULES, SAFE_FACTORY } from "@/lib/safe/config";
 import { abi, deploySafeCall, safeAddress } from "@/lib/safe/core";
-import { AddressInput, Band, Who, Words, copy } from "../bits";
+import { Net, AddressInput, Band, Who, Words, copy } from "../bits";
 import { ChainSelect } from "./Pick";
 import { friendly } from "@/lib/friendly";
 
@@ -106,7 +106,7 @@ export function RecoverTool() {
       </div>
       {info && (
         <p className="fine">
-          On {chainById(chainId)?.name}: {info.deployed ? "deployed" : "not deployed yet"}. Recovery:{" "}
+          On <Net chainId={chainId} />: {info.deployed ? "deployed" : "not deployed yet"}. Recovery:{" "}
           {info.mods.length ? info.mods.map((m, i) => <span key={m.module}>{i > 0 && ", "}{names(m.guardians, ", ")} ({RECOVERY_DAYS[m.module]} days)</span>) : "none"}.
           {pending.map(m => (
             <span key={m.module}>
@@ -120,7 +120,7 @@ export function RecoverTool() {
       {info && !info.deployed && (
         <div className="card stack">
           <b>0. Deploy it here first</b>
-          <p className="fine">It was never used on {chainById(chainId)?.name}. Paste the &quot;Instant wallet key&quot; from the owner&apos;s wallet card.</p>
+          <p className="fine">It was never used on <Net chainId={chainId} />. Paste the &quot;Instant wallet key&quot; from the owner&apos;s wallet card.</p>
           <AddressInput onChange={setOriginal} placeholder="Instant wallet key: 0x… or name.eth" chain={chainId} />
           {original && w && safeAddress(original) !== w && <p className="err">That signer doesn&apos;t make this wallet.</p>}
           <button

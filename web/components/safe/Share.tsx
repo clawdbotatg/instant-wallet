@@ -250,7 +250,7 @@ export function Share({ account, states, assets, chainId: startChain, onDone }: 
         ) : (
           <>
             {pre && !funding && st && (
-              <div className="card" style={{ textAlign: "left", width: "100%" }}>
+              <div className="card confirm" style={{ textAlign: "left", width: "100%" }}>
                 <WhatItDoes quiet chainId={chainId} safe={account.address} calls={[...pre.calls, feeCall(pre.q, pre.feeToken)]} />
                 <div className="line">
                   <span>Network</span>

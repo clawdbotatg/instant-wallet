@@ -217,7 +217,7 @@ async function swap(fromSym, amount, toSym, via, shot) {
   const fromSel = page.locator(".swap .field").first().locator(".pill.select");
   if (!((await fromSel.textContent()) || "").includes(fromSym)) {
     await fromSel.tap();
-    await page.getByPlaceholder(/Type to filter|Search any token/).fill(fromSym.toLowerCase());
+    await page.getByPlaceholder(/Type to filter|Search any coin/).fill(fromSym.toLowerCase());
     await page.screenshot({ path: `${OUT}/${shot}-from.png` });
     await page.locator(".swap .picker .pill", { has: page.locator("b", { hasText: new RegExp(`^${fromSym}$`) }) }).first().tap();
   }
@@ -227,9 +227,9 @@ async function swap(fromSym, amount, toSym, via, shot) {
   await toSel.tap();
   if (toSym.startsWith("0x")) {
     await page.getByText("Custom: paste a contract address").tap();
-    await page.getByPlaceholder(/Token contract on/).fill(toSym);
+    await page.getByPlaceholder(/Coin.s contract on/).fill(toSym);
   } else {
-    await page.getByPlaceholder(/Type to filter|Search any token/).fill(toSym.toLowerCase());
+    await page.getByPlaceholder(/Type to filter|Search any coin/).fill(toSym.toLowerCase());
     await page.locator(".swap .picker .pill", { has: page.locator("b", { hasText: new RegExp(`^${toSym}$`) }) }).first().tap();
   }
   await page.screenshot({ path: `${OUT}/${shot}-to.png` });
@@ -306,14 +306,14 @@ async function sendBig(p, to, amount, shot) {
   await p.waitForTimeout(1500);
   const signedBy = await p.locator(".line", { hasText: "Signed by" }).textContent();
   await go.tap();
-  await p.getByText(/^Sign · 1 of 2$/).waitFor({ timeout: 60000 });
+  await p.getByText(/^Sign · 1 of 2$/).first().waitFor({ timeout: 60000 });
   await p.screenshot({ path: `${OUT}/${shot}-waiting.png` });
   await wedgieThenExecute(p);
   return signedBy;
 }
 // a change that needs the owners: on a 2 of 2 wallet Face ID signs and the tx's sheet opens for the wedgie
 async function maybeWedgie(p) {
-  if (await p.getByText(/^Sign · 1 of 2$/).waitFor({ timeout: 20000 }).then(() => true, () => false)) await wedgieThenExecute(p);
+  if (await p.getByText(/^Sign · 1 of 2$/).first().waitFor({ timeout: 20000 }).then(() => true, () => false)) await wedgieThenExecute(p);
 }
 // Settings (open) → recovery → Edit / learn more → Add a guardian → Sign
 async function addGuardian(p, g) {
@@ -413,7 +413,7 @@ await cdp2.send("WebAuthn.addVirtualAuthenticator", {
 });
 await page2.goto(`${APP}/`);
 await page2.getByText("Lost my phone: recover a wallet").tap();
-await page2.getByPlaceholder("0x… your wallet's address").fill(acct.address);
+await page2.getByPlaceholder("Your wallet: 0x… or name.eth").fill(acct.address);
 await page2.getByText("Make my new key").tap();
 await page2.getByText("Waiting for recovery").waitFor({ timeout: 30000 });
 await page2.screenshot({ path: `${OUT}/s12-waiting-for-recovery.png` });
@@ -445,7 +445,7 @@ await page2.getByRole("heading", { name: "Executed", exact: true }).waitFor({ ti
 ok(usdcOf(FRANK) === 7_000_000n, "the recovered wallet sends from the new phone (its signer deployed on the way)");
 await page2.getByText("Done").tap();
 await page2.waitForTimeout(13000);
-ok(await page2.getByText("Turn off the old phone's budget").isVisible(), "the new phone is told the lost phone still has a budget");
+ok(await page2.getByText("Turn off the old phone's daily limit").isVisible(), "the new phone is told the lost phone still has a budget");
 const rolesAddr = cast(`call ${acct.address} "getModulesPaginated(address,uint256)(address[],address)" 0x0000000000000000000000000000000000000001 10`);
 await page2.getByRole("button", { name: "Turn it off" }).tap();
 await page2.getByRole("button", { name: "Sign to turn it off" }).tap();

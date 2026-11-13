@@ -14,6 +14,7 @@ import { signForSite } from "@/lib/safe/connect";
 import { type Waiting, allSignatures, checkSigs, deleteHash, dropTx, forgetLocal, fromLink, openTx, readWaiting, safeAppTxLink, shareTx, sigHex, txLink } from "@/lib/safe/share";
 import { passkeySign } from "@/lib/safe/sign";
 import { startSending } from "@/lib/safe/sending";
+import { executeWaiting, sentOut } from "@/lib/safe/execute";
 import { type ChainState, keyFromCode, loadAccount, loadSigners, readChain, wedgieHome, wedgieSigners } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import { Net, BioSigner, Blockie, CopyLink, Eject, ExecutedLine, RemoveX, Who, Words, useToast, stageLabel } from "../bits";
@@ -39,7 +40,6 @@ const ERC6492 = "6492".repeat(16); // the ERC-6492 suffix: a signature that depl
 const goHome = () => {
   if (window.dispatchEvent(new CustomEvent("iw:home", { cancelable: true }))) location.assign("/");
 };
-const sentOut = (safeTx: Hex, hash: Hash) => window.dispatchEvent(new CustomEvent("iw:txsent", { detail: { safeTx, hash } }));
 
 export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; safe: Address; code?: string }) {
   const [w, setW] = useState<Waiting | null>(null);
@@ -259,27 +259,13 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
   // enough signatures: the relay sends it (a fee is in an Instant Wallet batch), or your own wallet (you pay the gas)
   const sendRelay = run("send", async () => {
     if (!w) return;
-    const ok = { ...w, sigs: valid };
-    setStage("sending");
     setPending(null);
-    const out = startSending(chainId, safe, callsOf(w.tx));
     try {
-      const r = await fetch("/api/safe/relay", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ chainId, kind: "exec", safe, tx: w.tx, signatures: allSignatures(ok), wedgie: (chain?.passkeys.length ?? 0) > 1 }, (_, v) => (typeof v === "bigint" ? v.toString() : v)),
-      });
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(j.error || `relay: ${r.status}`);
-      sentOut(w.hash, j.hash);
-      out.hash(j.hash);
-      setPending(j.hash);
-      setStage("confirming");
-      await waitFor(chainId, j.hash);
-      setSent(j.hash);
+      // the same Execute as Home's card (lib/safe/execute.ts)
+      const h = await executeWaiting(w, valid, (chain?.passkeys.length ?? 0) > 1, (s, hash) => (setStage(s), hash && setPending(hash)));
+      setSent(h);
       load();
     } finally {
-      out.done();
       setStage(null);
     }
   });

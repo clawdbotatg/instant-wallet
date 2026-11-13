@@ -5,11 +5,13 @@ import { chainById } from "@/lib/chains";
 import { callsOf, relayFee } from "@/lib/safe/describe";
 import { type FeeToken, type Prepared, Shared, finishOwners, ownerSigners, prepareOwners } from "@/lib/safe/send";
 import { passkeySign } from "@/lib/safe/sign";
+import { executeWaiting } from "@/lib/safe/execute";
 import {
   type Waiting,
   deleteHash,
   dropTx,
   forgetLocal,
+  checkSigs,
   openTx,
   safeAppTxLink,
   readWaiting,
@@ -67,6 +69,28 @@ export function WaitingCards({
       bar.end();
       signing.current = false;
       setRejecting(null);
+    }
+  };
+  // Execute, right here: the same thing the tx's own page does (lib/safe/execute.ts). It used to only open that page.
+  const [executing, setExecuting] = useState<string | null>(null);
+  const [exec, setExec] = useState<{ stage: "sending" | "confirming"; hash?: `0x${string}` } | null>(null);
+  const execute = async (w: Waiting, need: number) => {
+    if (signing.current) return; // a second tap must not execute it twice
+    const st = states.find(s => s.chainId === w.chainId);
+    signing.current = true;
+    setExecuting(w.hash);
+    setError(null);
+    try {
+      const sigs = await checkSigs(w);
+      if (sigs.length < need || !st) return openTx(w); // a signature didn't check out: its page says which
+      await executeWaiting(w, sigs, st.hasWedgie || st.friends.length > 0, (stage, hash) => setExec(x => ({ stage, hash: hash ?? x?.hash })));
+      setList(l => l.filter(x => !(x.w.chainId === w.chainId && x.w.tx.nonce === w.tx.nonce)));
+    } catch (e: any) {
+      setError(friendly(e));
+    } finally {
+      signing.current = false;
+      setExecuting(null);
+      setExec(null);
     }
   };
   const isReject = (w: Waiting) => {
@@ -183,13 +207,15 @@ export function WaitingCards({
                 style={{ flex: 1, minWidth: 0 }}
                 onClick={(e) => {
                   e.preventDefault();
-                  openTx(w);
+                  if (enough && !behind) execute(w, need);
+                  else openTx(w);
                 }}
               >
-                {behind ? `Signed · waits on #${next}` : enough ? "Execute" : `${mineLeft ? "Sign" : "Signed"} · ${w.sigs.length} of ${need}`}
+                {executing === w.hash ? stageLabel("sending") : behind ? `Signed · waits on #${next}` : enough ? "Execute" : `${mineLeft ? "Sign" : "Signed"} · ${w.sigs.length} of ${need}`}
               </a>
             </div>
             {r && <Progress stage={bar.stage} chainId={w.chainId} hash={bar.hash} />}
+            {executing === w.hash && exec && <Progress stage={exec.stage} chainId={w.chainId} hash={exec.hash} />}
           </div>
         );
       })}

@@ -31,8 +31,9 @@ export const chainOpt = (id: number): Opt => ({
 });
 
 /** Which network: a select box of every enabled one (type to filter once there are more than a handful). */
-export function ChainSelect({ value, onChange, disabled }: { value: number; onChange: (chainId: number) => void; disabled?: boolean }) {
-  return <Select value={chainOpt(value)} options={CHAINS.map(c => chainOpt(c.id))} onPick={k => onChange(Number(k))} filter={CHAINS.length > 5} disabled={disabled} />;
+export function ChainSelect({ value, onChange, disabled, only }: { value: number; onChange: (chainId: number) => void; disabled?: boolean; only?: number[] }) {
+  const ids = only ?? CHAINS.map(c => c.id); // only: the networks an app runs on
+  return <Select value={chainOpt(value)} options={ids.map(chainOpt)} onPick={k => onChange(Number(k))} filter={ids.length > 5} disabled={disabled} />;
 }
 
 export type Opt = { key: string; icon?: ReactNode; label: ReactNode; right?: ReactNode; search?: string };

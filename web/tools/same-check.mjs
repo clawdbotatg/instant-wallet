@@ -52,6 +52,8 @@ const RULES = [
   { re: /\.toLocaleString\(\)/, say: "a date written its own way: when() from lib/format (or Activity's day)" },
   { re: /<input className="grow"/, say: "a text box with no recessed box: wrap it in <div className=\"input\">" },
   { re: /"Checking what it does…"|>\s*Checking what it does…/, say: "said one way: Checking…" },
+  // a network named in words on a screen is <Net> too: no name typed by hand, no browser <select> of networks
+  { re: /[>"]\s*[^<>{}"]*\bon (Base|Ethereum|Gnosis|Arbitrum|Optimism|Polygon)\b|\((Base|Ethereum|Gnosis) (takes|fees)|\[\d+, "(Base|Ethereum|Gnosis)"\]|chain: "(Base|Ethereum|Gnosis)"|<select[^>]*aria-label="Network"/, say: "a network named by hand: use <Net> (logo, then name), or <ChainSelect> to pick one", skip: ["app/page.tsx", "app/layout.tsx", "app/terms/page.tsx", "app/privacy/page.tsx"] }, // the landing page's and the legal pages' prose
   { re: /\.length\}\/\{/, say: "a count as x/y: say 'x of y'" },
   { re: /(btn|pill)[^>]*style=\{\{[^}]*\bheight: \d/, say: "a button with its own height: two heights only, 56 and 38" },
   { re: /inputMode="decimal"/, say: "an amount box by hand: use <AmountBox> (dollars first, switch to the coin)", skip: ["components/DropAdmin.tsx", "components/ClaimMaker.tsx"] }, // a drop's "dollars per claim" / "USDC on each": dollars only, no coin to switch to

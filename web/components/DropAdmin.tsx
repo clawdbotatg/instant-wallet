@@ -189,7 +189,7 @@ function NewDrop({ onMade }: { onMade: (d: Drop) => void }) {
       {el}
     </label>
   );
-  const seg = <T extends string | number>(v: T, set: (x: T) => void, opts: [T, string][]) => (
+  const seg = <T extends string | number>(v: T, set: (x: T) => void, opts: [T, React.ReactNode][]) => (
     <div className="row" style={{ gap: 8 }}>
       {opts.map(([o, l]) => (
         <button key={String(o)} className={`pill ${v === o ? "on" : ""}`} onClick={() => set(o)}>
@@ -207,8 +207,8 @@ function NewDrop({ onMade }: { onMade: (d: Drop) => void }) {
       ])}
       {field("Name (only you see it)", <div className="input"><input value={name} placeholder={kind === "crowd" ? "ETHDenver talk" : "Business cards"} onChange={e => setName(e.target.value)} /></div>)}
       {seg(chainId, setChainId, [
-        [8453, "Base"],
-        [1, "Ethereum"],
+        [8453, <Net key={8453} chainId={8453} />],
+        [1, <Net key={1} chainId={1} />],
       ])}
       {seg(token, setToken, [
         ["usdc", "USDC"],
@@ -223,7 +223,7 @@ function NewDrop({ onMade }: { onMade: (d: Drop) => void }) {
         </>
       )}
       <p className="fine">
-        You&apos;ll fill it with about ${Number(amount) * Number(count) || 0}{token === "eth" ? " of ETH" : " USDC"} plus fees{chainId === 1 ? " (Ethereum fees are higher)" : ""}.
+        You&apos;ll fill it with about ${Number(amount) * Number(count) || 0}{token === "eth" ? " of ETH" : " USDC"} plus fees{chainId === 1 && <> (<Net chainId={1} /> fees are higher)</>}.
       </p>
       <button className="btn btn-green wide" onClick={make} disabled={busy}>
         {busy ? "…" : "Make it"}

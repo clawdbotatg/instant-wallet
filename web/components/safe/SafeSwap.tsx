@@ -379,7 +379,8 @@ export function SafeSwap({
         <h2>{failed ? "The bridge failed" : landed ? "Executed" : <>On its way to <Net chainId={toChain} /></>}</h2>
         <div className="stack" style={{ gap: 4 }}>
           <Money amount={amountIn} symbol={route.from.symbol} usd={fromUsd} />
-          <Money amount={formatUnits(BigInt(route.toAmount), route.to.decimals)} symbol={`${route.to.symbol}${crossChain ? ` on ${toName}` : ""}`} usd={toUsd} get />
+          <Money amount={formatUnits(BigInt(route.toAmount), route.to.decimals)} symbol={route.to.symbol} usd={toUsd} get />
+          {crossChain && <span className="fine">on <Net chainId={toChain} /></span>}
         </div>
         {crossChain && !landed && !failed && <TimeBar seconds={route.seconds} label={`Usually about ${Math.max(1, Math.round(route.seconds / 60))} min. You can close this.`} />}
         {failed && <p className="fine">{arrival?.substatus === "REFUNDED" ? <>Refunded to your wallet on <Net chainId={chainId} />.</> : "Check the explorer; LI.FI usually refunds."}</p>}
@@ -444,7 +445,7 @@ export function SafeSwap({
             onPick={k => setTo(toOptions.find(t => t.address === k) ?? null)}
             placeholder="Token"
             search={{ onQuery: setQuery, busy: searching, placeholder: "Search any coin, or paste its address" }}
-            custom={{ label: "Custom: paste a contract address", placeholder: `Token contract on ${toName}`, onCustom: customTo }}
+            custom={{ label: "Custom: paste a contract address", placeholder: `Coin's contract on ${toName}` /* plain text: a placeholder takes no logo */, onCustom: customTo }}
             disabled={busy}
           />
         </div>

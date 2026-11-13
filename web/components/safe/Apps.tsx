@@ -3,7 +3,8 @@
 /* eslint-disable @next/next/no-img-element */
 import { useEffect, useRef, useState } from "react";
 import { type AppEntry, APPS } from "@/lib/apps";
-import { CHAINS, chainById } from "@/lib/chains";
+import { CHAINS } from "@/lib/chains";
+import { ChainSelect } from "./Pick";
 import { hostApp } from "@/lib/safeapps";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Net, ChainIcon, SwapIcon } from "../bits";
@@ -89,13 +90,9 @@ export function AppFrame({ app, account, states, onClose }: { app: AppEntry; acc
         </button>
         <b className="grow">{app.name}</b>
         {app.chains.length > 1 ? (
-          <select className="pill" value={chainId} onChange={e => setChainId(Number(e.target.value))} aria-label="Network">
-            {app.chains.map(id => (
-              <option key={id} value={id}>
-                {chainById(id)?.name ?? id /* plain text: an <option> takes no icon */}
-              </option>
-            ))}
-          </select>
+          <div style={{ width: 190, flex: "none" }}>
+            <ChainSelect value={chainId} onChange={setChainId} only={app.chains} />
+          </div>
         ) : (
           <span className="pill"><Net chainId={chainId} /></span>
         )}

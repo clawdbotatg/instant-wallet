@@ -172,7 +172,7 @@ export function Drop() {
         {busy === "send" && (
           <>
             <TimedBar ms={info?.chainId === 1 ? 25_000 : 6_000} />
-            <p className="fine center">Sending it to your wallet{info?.chainId === 1 ? " (Ethereum takes up to half a minute)" : ""}.</p>
+            <p className="fine center">Sending it to your wallet{info?.chainId === 1 && <> (<Net chainId={1} /> takes up to half a minute)</>}.</p>
           </>
         )}
         {error && <ErrorLine text={error} />}

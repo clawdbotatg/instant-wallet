@@ -6,7 +6,7 @@ import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { CHAINS } from "@/lib/chains";
 import { claimUrl } from "@/lib/claim";
 import { type CardBalance, cardBalances, cardsPdf, fillWithWallet, fmtUsdc } from "@/lib/claimBatch";
-import { CopyAddress, CopyLink, Qr, Who, copy, useToast } from "./bits";
+import { CopyAddress, CopyLink, Net, Qr, Who, copy, useToast } from "./bits";
 import { ErrorLine } from "./safe/WedgieButton";
 
 /**
@@ -186,7 +186,7 @@ export function ClaimMaker() {
             </div>
             {empty > 0 && (
               <>
-                <p className="fine">1. Put money on them: {fmtUsdc(BigInt(Math.round(total * 1e6)))} USDC on Base from your browser wallet (25 cards per transaction). Or use split.buidlguidl.com.</p>
+                <p className="fine">1. Put money on them: {fmtUsdc(BigInt(Math.round(total * 1e6)))} USDC on <Net chainId={8453} /> from your browser wallet (25 cards per transaction). Or use split.buidlguidl.com.</p>
                 <button className="btn btn-green wide" onClick={() => fill(id, list)} disabled={!!busy || count("loading") > 0}>
                   {busy?.batch === id ? busy.step : `Fill ${empty} cards with my wallet`}
                 </button>

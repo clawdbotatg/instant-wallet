@@ -90,7 +90,7 @@ export function SendAll({
         const calls = held.map((a) => transfer(a.asset as Address, to, BigInt(a.balance)));
         const net = Object.fromEntries(held.map((a) => [a.asset, BigInt(a.balance)]));
         if (prev) return; // no fee to follow
-        const prepared = await prepareOwners({ account, state: st, calls, signers, feeToken: "usdc", self: true, label: `Send everything on ${chainById(chainId)?.name}` });
+        const prepared = await prepareOwners({ account, state: st, calls, signers, feeToken: "usdc", self: true, label: "Send everything" });
         set(chainId, { stage: "ready", prepared, net });
         return;
       }
@@ -131,7 +131,7 @@ export function SendAll({
         feeToken,
         quote: q,
         nonce: prev?.t.nonce,
-        label: `Send everything on ${chainById(chainId)?.name}`,
+        label: "Send everything",
       });
       put({ stage: "ready", prepared, net });
     } catch (e: any) {

@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
 import { blo } from "blo";
 import QRCode from "qrcode";
 import { type Address, getAddress, isAddress } from "viem";
-import { chainById } from "@/lib/chains";
+import { CHAINS, chainById } from "@/lib/chains";
 import { amount as fmtAmount, short, usd as fmtUsd, addressIn, nameIn } from "@/lib/format";
 import { movedFrom, nameTyped } from "@/lib/names";
 import { parse } from "@/lib/parse";
@@ -179,7 +179,14 @@ export function NameMoved({ name, address }: { name: string; address: string }) 
 /** Words about a transaction: every full address in them drawn as <Who> (blockie, name), never as bare hex. */
 export function Words({ text, chain }: { text: string; chain?: number }) {
   const parts = text.split(/(0x[0-9a-fA-F]{40})(?![0-9a-fA-F])/);
-  return <>{parts.map((p, i) => (i % 2 ? <Who key={i} address={p} chain={chain} size={18} inline /> : p))}</>;
+  return <>{parts.map((p, i) => (i % 2 ? <Who key={i} address={p} chain={chain} size={18} inline /> : <NetWords key={i} text={p} />))}</>;
+}
+
+// "on Base" in an error or a tx's words: the network drawn as <Net> (logo, then name), like everywhere else
+const ON_NET = new RegExp(`\\bon (${CHAINS.map(c => c.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})\\b`);
+function NetWords({ text }: { text: string }) {
+  const parts = text.split(ON_NET);
+  return <>{parts.map((p, i) => (i % 2 ? <span key={i}>on <Net chainId={CHAINS.find(c => c.name === p)!.id} /></span> : p))}</>;
 }
 
 /**

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type Address, type Hash, formatUnits, parseUnits, zeroAddress } from "viem";
 import { chainById, explorerTx, nativeSymbol } from "@/lib/chains";
 import { amount as fmtAmount, usd, feeText, addressIn } from "@/lib/format";
@@ -107,6 +107,21 @@ export function SafeSend({
       live = false;
     };
   }, [signers.join(), stage]);
+  // the fee follows gas while you look at it (EXPECTATIONS #6): the same kind of send, asked again every 15 s.
+  // Not once signing starts: what you signed is what's shown.
+  const live = useRef({ stage, kind: quote?.kind });
+  live.current = { stage, kind: quote?.kind };
+  useEffect(() => {
+    if (stage !== "review") return;
+    const t = setInterval(() => {
+      const k = live.current.kind;
+      if (document.hidden || !k) return;
+      getQuote(chainId, k)
+        .then(q => live.current.stage === "review" && live.current.kind === k && setQuote(q))
+        .catch(() => {});
+    }, 15_000);
+    return () => clearInterval(t);
+  }, [stage, chainId]);
   const feeBalance = feeToken === "usdc" ? BigInt(usdcHeld?.balance ?? "0") : BigInt(ethHeld?.balance ?? "0");
   const spentInFeeToken = (feeToken === "usdc" && sendingUsdc) || (feeToken === "eth" && sendingEth) ? (base ?? 0n) : 0n;
   const feeShort = !!quote && feeBalance < spentInFeeToken + fee;
@@ -259,7 +274,7 @@ export function SafeSend({
         </h2>
         <div className="card">
           {/* only while you decide: once it's signed the run has nothing left to say */}
-          {ran && quote && !busy && <WhatItDoes quiet chainId={chainId} safe={account.address} calls={[transfer(asset.asset as Address, resolved, base), feeCall(quote, feeToken)]} />}
+          {ran && quote && !busy && <WhatItDoes quiet same={`${asset.asset}|${base}|${resolved}`} chainId={chainId} safe={account.address} calls={[transfer(asset.asset as Address, resolved, base), feeCall(quote, feeToken)]} />}
           <div className="line">
             <span>To</span>
             <Who address={resolved} chain={chainId} label={toName ?? undefined} />

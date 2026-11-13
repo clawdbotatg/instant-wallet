@@ -24,7 +24,16 @@ export function NftGrid({ address }: { address: string }) {
         .catch(() => {});
     load();
     window.addEventListener("instantwallet:refresh", load);
-    return () => window.removeEventListener("instantwallet:refresh", load);
+    // a new one shows without a reload (EXPECTATIONS #6). The server keeps a wallet's answer for a minute, so this
+    // is one Alchemy call a minute at most
+    const t = setInterval(() => document.hidden || load(), 30_000);
+    const back = () => document.hidden || load();
+    document.addEventListener("visibilitychange", back);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener("visibilitychange", back);
+      window.removeEventListener("instantwallet:refresh", load);
+    };
   }, [address]);
   const setHidden = (h: string[]) => {
     saveHiddenNfts(h);

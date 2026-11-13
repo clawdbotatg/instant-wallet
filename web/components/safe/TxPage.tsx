@@ -115,6 +115,33 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
   useEffect(() => {
     load().catch(e => setError(friendly(e)));
   }, [load]);
+  // while it's open: a signature from another device, or it executed somewhere else, shows within seconds
+  // (EXPECTATIONS #6). Our queue and the chain only: Safe's service has a quota (api/safe/svc).
+  const wRef = useRef(w);
+  wRef.current = w;
+  useEffect(() => {
+    const look = async () => {
+      const cur = wRef.current;
+      if (document.hidden || running.current || !cur) return;
+      const [nonce, queue] = await Promise.all([
+        publicClient(chainId).readContract({ address: safe, abi: abi.safe, functionName: "nonce" }).catch(() => null),
+        readWaiting(chainId, safe, 0n, { svc: false }).catch(() => [] as Waiting[]),
+      ]);
+      if (nonce !== null) setChain(c => (c && c.nonce !== nonce ? { ...c, nonce } : c));
+      const more = (queue.find(x => x.hash.toLowerCase() === cur.hash.toLowerCase())?.sigs ?? []).filter(s => !cur.sigs.some(x => eq(x.owner, s.owner)));
+      if (!more.length) return;
+      const ok = await checkSigs({ ...cur, sigs: more }).catch(() => []);
+      setW(c => (c ? { ...c, sigs: [...c.sigs, ...more.filter(s => !c.sigs.some(x => eq(x.owner, s.owner)))] } : c));
+      setValid(c => [...c, ...ok.filter(s => !c.some(x => eq(x.owner, s.owner)))]);
+    };
+    const t = setInterval(look, 10_000);
+    const back = () => void look();
+    document.addEventListener("visibilitychange", back);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener("visibilitychange", back);
+    };
+  }, [chainId, safe]);
 
   // all of one press at once: a wedgie signs as two owners, and adding them one by one from the same `w` kept only the last
   async function add(...ss: Sig[]) {

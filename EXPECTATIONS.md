@@ -59,7 +59,6 @@ Where it lives: `WhatItDoes`, `<Money>`, clear-signing-safe-kit (`dangers`, `sim
 | Typing an amount of a coin | `<AmountBox>`: dollars first, a pill switches to the coin and back (Send, Swap, Share, Request, Limits) | a box that takes tokens only, a hand-made box |
 | Typing or pasting an address | ONE box, `<AddressInput>`, everywhere an address is typed: Send, the scan screen, Send everything, adding a signer or a guardian, both recover screens (11-12). It works the same in each: 0x…, a name (`nick.eth`), or a word alone (`lil` is tried as `lil.inst.eth`). The box and the cursor are never touched, so `nick` goes on to `nick.eth`; the match shows under the box with its name and address. The box keeps only the address: a dot, a space, words around it are dropped; `atg.eth.` is atg.eth (`addressIn()`, `nameIn()`). A scan pill in every one: the scanner opens as its own sheet over the page, looking like Send's scan screen (the short camera, Paste address, no WalletConnect), and closes itself with the address in the box | an `<input>` for an address by hand, a box with its own lookup, a box that swaps what you typed for a short address, a camera that opens inside the page, an error on `0x….` |
 | A wait of ~5 s or more | a progress bar sized to it | a dead screen, an "Ask again" button |
-| Something new (a transaction, a signature, money in) | on screen at once when it's made in this browser (11-12). From another device: within seconds, and at once when the tab comes back. A slower read needs a real limit, named in a comment | a list re-read every few minutes, a slow number picked for a limit nobody checked |
 
 Words:
 - Signing says **Sign**. Declining says **Reject**. Never Yes / Approve / Confirm on a signature.
@@ -97,6 +96,24 @@ Button sizes (11-11):
 ## 5. Dollars first
 
 - Show USD wherever we can. Typing an amount shows its USD value under it.
+
+## 6. It feels alive
+
+- The wallet is quick and never sluggish. What's on screen is what's true now.
+- Something you just did shows at once: a transaction you made is in the list, a signature is counted, the coins
+  you moved are read again. No wait for a timer.
+- Something from outside shows within seconds: money sent to you, a signature from another device, a transaction
+  someone else made. And at once when you come back to the tab.
+- While you're about to sign, the numbers are live: the fee follows gas, a swap keeps getting the latest price.
+- Be smart, not loud. Read what just changed (the two coins of a swap), read fast only while it matters (the
+  receive code is up, a sheet is open), slow down when nobody's there, stop when the tab is hidden.
+- A slow read needs a real limit: one that was checked, named in a comment next to the number. Never a slow
+  number picked just in case (11-12: Home re-read its waiting transactions every 5 minutes, to save a quota it
+  never touched).
+- The real limits today: Safe's service (a quota shared with wedgie.dev), Zerion (positions), LI.FI (swap
+  prices, no key).
+
+`node web/tools/same-check.mjs` fails on a list re-read slower than every 30 seconds.
 
 ## Known gaps (2026-10-29)
 

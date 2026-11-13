@@ -54,6 +54,15 @@ async function pick(expect: Address[] = []): Promise<{ p: Provider; who: Address
   throw new Error(`Switch your wallet to ${expect.join(" or ")}${on.length ? ` (${on.join(", ")})` : ""}.`);
 }
 
+/** Is `a` connected in a browser wallet here already? Asks each one quietly (eth_accounts: no popup). */
+export async function hotHas(a: Address): Promise<boolean> {
+  for (const { p } of wallets()) {
+    const as = await p.request({ method: "eth_accounts" }).catch(() => []);
+    if (Array.isArray(as) && as.some((x: string) => x.toLowerCase() === a.toLowerCase())) return true;
+  }
+  return false;
+}
+
 /** Connect, and say which address: one of `expect` when given (it fails, in words, if no wallet here holds one). */
 export async function connectHot(expect?: Address[]): Promise<Address> {
   return (await pick(expect)).who;

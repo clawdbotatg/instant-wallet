@@ -8,7 +8,7 @@ import { MULTISEND_CALL_ONLY } from "@/lib/safe/config";
 import { type Call, type Sig, abi, batch, execData, safeTxHash, signerAddress } from "@/lib/safe/core";
 import { callsOf, relayFee } from "@/lib/safe/describe";
 import { unpackMultiSend } from "@/lib/safe/fee";
-import { connectHot, hotAvailable, hotSend, hotSign } from "@/lib/safe/hot";
+import { connectHot, hotAvailable, hotHas, hotSend, hotSign } from "@/lib/safe/hot";
 import { type Prepared, Shared, feeCall, finishOwners, getQuote, ownerSigners, ownersSend, prepareOwners, usesWedgie, waitFor } from "@/lib/safe/send";
 import { signForSite } from "@/lib/safe/connect";
 import { type Waiting, allSignatures, checkSigs, deleteHash, dropTx, forgetLocal, fromLink, openTx, readWaiting, safeAppTxLink, shareTx, sigHex, txLink } from "@/lib/safe/share";
@@ -77,7 +77,9 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
       const k = keyFromCode(codes[i]);
       if (k) homes[o.toLowerCase()] = wedgieHome(k);
     });
-    const isCode = (i: number) => !!codes[i] && codes[i] !== "0x";
+    // an EIP-7702 account (0xef0100…: a MetaMask smart account) is a plain wallet that signs in MetaMask, not another
+    // Safe (Austin 11-12: austingriffith.eth showed as "Another wallet", waiting, with no way to sign)
+    const isCode = (i: number) => !!codes[i] && codes[i] !== "0x" && !codes[i]!.startsWith("0xef0100");
     setChain({
       owners: os,
       threshold: Number(threshold),
@@ -186,6 +188,24 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
     await add(await passkeySign(credentialId, signerAddress(c.qx, c.qy), w.hash));
   });
 
+  // browser-wallet signers already connected here (no popup to find out): the rest show Connect first, then Sign
+  const [linked, setLinked] = useState<string[]>([]);
+  const ownersKey = chain?.owners.join() ?? "";
+  useEffect(() => {
+    if (!chain || !hotAvailable()) return;
+    let live = true;
+    Promise.all(chain.owners.map(async o => ((await hotHas(o).catch(() => false)) ? o.toLowerCase() : null))).then(
+      got => live && setLinked(got.filter((x): x is string => !!x)),
+    );
+    return () => {
+      live = false;
+    };
+  }, [ownersKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const connectWallet = (o: Address) =>
+    run("connect", async () => {
+      const who = await connectHot([o]);
+      setLinked(l => [...l, who.toLowerCase()]);
+    });
   // the row's own address: with MetaMask and Rainbow both here, the wallet that holds it is the one asked
   const signWallet = (o: Address) =>
     run("wallet", async () => {
@@ -418,7 +438,8 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
           const shown = (k === "wedgie" || k === "wedgieFar") && chain.homes[o.toLowerCase()] ? chain.homes[o.toLowerCase()] : o;
           // one wedgie press signs all its slots: the button sits on the first one waiting
           const firstWedgie = chain.owners.find(x => kind(x) === "wedgie" && !valid.some(s => eq(s.owner, x)));
-          const act = signed || done || enough ? null : k === "face" ? signFace : k === "mine" && mine ? signMine : k === "wedgie" && firstWedgie === o ? signWedgie : k === "wallet" ? signWallet(o) : null;
+          const connect = k === "wallet" && !linked.includes(o.toLowerCase());
+          const act = signed || done || enough ? null : k === "face" ? signFace : k === "mine" && mine ? signMine : k === "wedgie" && firstWedgie === o ? signWedgie : k === "wallet" ? (connect ? connectWallet(o) : signWallet(o)) : null;
           return (
             <div key={o} className="keyrow" style={{ padding: 0, minHeight: 42 }}>
               <span className="row" style={{ gap: 8 }}>
@@ -432,7 +453,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
                 <span>✓ Signed</span>
               ) : act ? (
                 <button className="btn btn-sm btn-green" onClick={act} disabled={!!busy}>
-                  {busy === k ? stageLabel(k === "wedgie" ? "signing-wedgie" : "signing") : "Sign"}
+                  {connect ? (busy === "connect" ? "Connecting…" : "Connect") : busy === k ? stageLabel(k === "wedgie" ? "signing-wedgie" : "signing") : "Sign"}
                 </button>
               ) : (
                 <span className="fine">Waiting</span>

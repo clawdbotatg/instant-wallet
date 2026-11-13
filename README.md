@@ -26,65 +26,41 @@ Your passkey belongs to instantwallet.io. A page on local.instantwallet.io may u
 your own computer under that name. instantwallet.io always stays the real site; nothing here touches it.
 Mac, desktop Chrome or Safari. Being tested now. The plan and what doesn't work yet: `docs/LOCAL-MODE.md`.
 
-Run these in the Terminal app: steps 1 and 3 ask for your Mac password. You need Homebrew (brew.sh), Node 20 or
-newer (`brew install node`) and this repo:
+You need a Mac with Homebrew (brew.sh). In the Terminal app:
 
     cd ~ && git clone https://github.com/clawdbotatg/instant-wallet.git
+    cd instant-wallet && ./run-local.sh
 
-1. Install mkcert and trust its certificate:
+The first time it asks for your Mac password twice (to trust its own certificate, and to point
+local.instantwallet.io at this computer) and for a free Alchemy key (dashboard.alchemy.com: sign in, create an app,
+copy its API key). If you run your own Ethereum node, paste its URL when it asks (it finds one on port 8545 by
+itself); the app then reads and sends through your node instead of Alchemy. Then it builds and opens
+https://local.instantwallet.io. Leave the Terminal window open; Ctrl+C stops it. Next time: `./run-local.sh` again.
 
-       brew install mkcert
-       mkcert -install
+1. Tap "I already have one" and use your passkey. Your wallet opens.
+2. To send, pay the gas one of two ways:
+   - **Your relay:** Settings, at the bottom, **Your relay** → **Make my relay**. Send it a little ETH on each
+     network you use (Base: $1 is plenty, Ethereum: about $5). Each send's fee goes back to it, so you only pay the
+     gas. Its key stays in `web/.env.local` on your computer.
+   - **Execute from my wallet:** with MetaMask or another browser wallet, the dark gray button under Sign. No fee;
+     your browser wallet pays the gas.
 
-2. Make a certificate for local.instantwallet.io:
-
-       mkdir -p ~/.instantwallet-local && cd ~/.instantwallet-local
-       mkcert local.instantwallet.io
-
-3. Point local.instantwallet.io at your computer. This only touches the local name:
-
-       echo "127.0.0.1 local.instantwallet.io" | sudo tee -a /etc/hosts
-       sudo dscacheutil -flushcache
-
-4. Build and run the app. It needs your own free Alchemy key: sign in at dashboard.alchemy.com, create an app,
-   copy its API key, and put it in place of YOUR_KEY:
-
-       cd ~/instant-wallet/web
-       echo "ALCHEMY_API_KEY=YOUR_KEY" > .env.local
-       npm install
-       npm run build
-       npx next start -p 3000
-
-   Leave it running.
-
-
-5. In a second terminal, serve it on https:
-
-       cd ~/.instantwallet-local
-       npx local-ssl-proxy --source 443 --target 3000 --cert local.instantwallet.io.pem --key local.instantwallet.io-key.pem
-
-6. Open https://local.instantwallet.io, tap "I already have one" and use your passkey. Your wallet opens.
-
-7. Make your relay: Settings, at the bottom, **Your relay** → **Make my relay**. It pays the gas for your sends (our
-   site's relay did that before). It shows its address: send it a little ETH on each network you use (Base: $1 is
-   plenty, Ethereum: about $5). Each send's fee goes back to it, so you only pay the gas. Its key is saved in
-   `web/.env.local` on your computer. (Or from the terminal: `npm run relay-key` in `web`.)
+More nodes: add `RPC_URL_<chainId>=<url>` lines to `web/.env.local` (`RPC_URL_8453` for Base) and run it again.
 
 If it doesn't work:
 
-- **"This site can't be reached"**: the hosts line is missing. Check with `cat /etc/hosts`; redo step 3.
-- **"Your connection is not private"**: your Mac doesn't trust the certificate. Run `mkcert -install` again in the
+- **"This site can't be reached"**: the hosts line is missing (`cat /etc/hosts`), or the script isn't running.
+- **"Your connection is not private"**: your Mac doesn't trust the certificate. Run `mkcert -install` in the
   Terminal app (it needs your password, and a box may pop up), then reload. Check it with
   `security verify-cert -c ~/.instantwallet-local/local.instantwallet.io.pem -p ssl -s local.instantwallet.io`:
   a line about "signed certificate timestamps" is fine; "not trusted" is not.
-- **"No relay here"** when you sign: do step 7. **"insufficient funds"**: your relay needs ETH on that network.
-- **Nothing loads**: steps 4 and 5 must both still be running, each in its own Terminal window.
+- **"No relay here"** when you sign: make your relay (step 2). **"insufficient funds"**: your relay needs ETH on
+  that network.
+- **"Port 443 is in use"**: something else serves https on this Mac. Stop it, then run it again.
 - **The passkey isn't offered**: use the browser where you made the wallet, or one with the same iCloud or Google
   passwords.
 
-Next time you only need steps 4 and 5.
-
-To remove it: delete the line from `/etc/hosts` (`sudo sed -i '' '/local.instantwallet.io/d' /etc/hosts`).
+To remove it: `./run-local.sh --remove` takes local.instantwallet.io out of `/etc/hosts`.
 
 mkcert's root certificate can vouch for any site on your computer. Its key never leaves your computer.
 

@@ -1,9 +1,15 @@
 import "server-only";
 import { knownChain } from "./chains";
 
-/** Upstream JSON-RPC URL per chain (server only; the Alchemy key never reaches a browser). */
+/**
+ * Upstream JSON-RPC URL per chain (server only; the Alchemy key never reaches a browser). RPC_URL_<chainId> (e.g.
+ * RPC_URL_1=http://127.0.0.1:8545) is your own node for that network: on a copy you run yourself (run-local.sh), it
+ * carries the reads and the relay's sends instead of Alchemy. Alchemy still lists coins and prices.
+ */
 export function upstreamRpc(chainId: number): string | undefined {
   const key = process.env.ALCHEMY_API_KEY;
+  const own = process.env[`RPC_URL_${chainId}`];
+  if (own) return own;
   if (chainId === 31337) return process.env.LOCAL_RPC_URL || "http://127.0.0.1:8545";
   if (chainId === 8453 && process.env.BASE_RPC_URL) return process.env.BASE_RPC_URL;
   if (chainId === 1 && process.env.MAINNET_RPC_URL) return process.env.MAINNET_RPC_URL;

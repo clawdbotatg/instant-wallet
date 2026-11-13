@@ -54,9 +54,8 @@ with a passkey made on the real site. If it does, everything below is plumbing.
 
 ## What to build
 
-1. **The script** `tools/local/start.sh`: installs mkcert, makes the certificate, adds the hosts line (asks for your
-   password once), asks for an Alchemy key or a node URL, builds, runs on 443. And `tools/local/stop.sh`: stops it.
-   The hosts line can stay: it only covers local.instantwallet.io.
+1. **The script**: done, `./run-local.sh` at the repo root (installs mkcert, certificate, hosts line, asks for an
+   Alchemy key and your own node, builds, runs on 443; `--remove` takes the hosts line out).
 2. **`LOCAL=1`**: the server knows it's local. Production refuses to run without Upstash today; local uses a file store
    instead (`lib/kv.ts`: one JSON file, same commands).
 3. **A "Local" mark** in the app, so you know it's your copy. `/api/version` says `local: true`.

@@ -238,7 +238,7 @@ async function swap(fromSym, amount, toSym, via, shot) {
   const how = await page.locator(".swap .via").textContent();
   await page.screenshot({ path: `${OUT}/${shot}-swap.png` });
   await page.locator(".go-swap").tap();
-  await page.getByText("Swapped", { exact: true }).waitFor({ timeout: 90000 }).catch(async e => {
+  await page.getByText("Executed", { exact: true }).waitFor({ timeout: 90000 }).catch(async e => {
     console.log("on screen:", await page.locator(".err").allTextContents());
     await page.screenshot({ path: `${OUT}/${shot}-error.png` });
     throw e;
@@ -318,7 +318,7 @@ async function maybeWedgie(p) {
 // Settings (open) → recovery → Edit / learn more → Add a guardian → Sign
 async function addGuardian(p, g) {
   await p.getByText("Edit / learn more").tap();
-  const box = p.getByPlaceholder("Add a guardian: 0x… or name.eth");
+  const box = p.getByPlaceholder("Add a recovery address: 0x… or name.eth");
   const add = p.locator(".row", { has: box }).getByRole("button", { name: "Add", exact: true });
   ok(await add.isDisabled(), "guardian: Add is off until there's an address");
   await box.fill(g);
@@ -342,7 +342,7 @@ await page.waitForTimeout(1000);
 let w1 = wedgieSigns;
 const CAROL = rand();
 const by1 = await send(CAROL, "USDC", "40", "s6");
-ok(usdcOf(CAROL) === 40_000_000n && /daily budget/.test(by1) && wedgieSigns === w1, `within the budget: Face ID alone (${by1})`);
+ok(usdcOf(CAROL) === 40_000_000n && /daily limit/.test(by1) && wedgieSigns === w1, `within the budget: Face ID alone (${by1})`);
 const DAVE = rand();
 const by2 = await sendBig(page, DAVE, "300", "s7");
 ok(usdcOf(DAVE) === 300_000_000n && /then the wedgie/.test(by2) && wedgieSigns === w1 + 1, `over the budget: Face ID, then the wedgie (${by2})`);
@@ -507,7 +507,7 @@ await page.waitForTimeout(1000);
 ok((await lvl()) === "2/2", "Instant + wedgie: 2/2");
 const GUS = rand();
 const by4 = await send(GUS, "USDC", "30", "s16");
-ok(usdcOf(GUS) === 30_000_000n && /daily budget/.test(by4) && wedgieSigns === w0, "within the budget: Face ID alone");
+ok(usdcOf(GUS) === 30_000_000n && /daily limit/.test(by4) && wedgieSigns === w0, "within the budget: Face ID alone");
 const HAL = rand();
 const by5 = await sendBig(page, HAL, "300", "s17");
 ok(usdcOf(HAL) === 300_000_000n && /then the wedgie/.test(by5) && wedgieSigns === w0 + 1, "over the budget: Face ID, then the wedgie");

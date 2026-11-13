@@ -143,6 +143,11 @@ export function WaitingCards({
       {sorted.map(({ w, need, next }) => {
         const enough = w.sigs.length >= need;
         const behind = enough && w.tx.nonce > next;
+        // is there anything left for this device to sign? Its own key, then its wedgie. If not, the button is white and
+        // says Signed: the others sign next (the copy link beside it is how they get it)
+        const st = states.find(x => x.chainId === w.chainId);
+        const has = (o: string) => w.sigs.some(x => x.owner.toLowerCase() === o.toLowerCase());
+        const mineLeft = !st || !has(account.burnerSigner) || (st.hasWedgie && (!st.wedgie || !has(st.wedgie)));
         // nothing to reject: it is a Reject, or one is already waiting at its number
         const rejectable = !isReject(w) && !list.some(x => x.w.chainId === w.chainId && x.w.tx.nonce === w.tx.nonce && isReject(x.w));
         const r = rejecting?.hash === w.hash ? rejecting : null;
@@ -174,14 +179,14 @@ export function WaitingCards({
               )}
               <a
                 href={txLink(w).replace(location.origin, "")}
-                className={`btn btn-sm ${!enough || w.hash === lead ? "btn-green" : ""}`}
+                className={`btn btn-sm ${(!enough && mineLeft) || w.hash === lead ? "btn-green" : ""}`}
                 style={{ flex: 1, minWidth: 0 }}
                 onClick={(e) => {
                   e.preventDefault();
                   openTx(w);
                 }}
               >
-                {behind ? `Signed · waits on #${next}` : enough ? "Execute" : `Sign · ${w.sigs.length} of ${need}`}
+                {behind ? `Signed · waits on #${next}` : enough ? "Execute" : `${mineLeft ? "Sign" : "Signed"} · ${w.sigs.length} of ${need}`}
               </a>
             </div>
             {r && <Progress stage={bar.stage} chainId={w.chainId} hash={bar.hash} />}

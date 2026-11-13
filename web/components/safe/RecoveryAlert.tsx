@@ -33,6 +33,7 @@ export function RecoveryAlert({
   const when = new Date(r.executeAfter);
   // only "mine" when it hands the wallet to exactly this phone (a recovery to [this phone, someone else] is not)
   const mine = !!account.recovered && r.newOwners.length === 1 && r.newOwners[0].toLowerCase() === account.burnerSigner.toLowerCase();
+  const canCancel = !mine && state.owners.some(o => o.toLowerCase() === account.burnerSigner.toLowerCase()); // only a signer can
   const [ready, setReady] = useState<Prepared | null>(null);
   const bar = useSendProgress();
   // two taps: get it ready, then sign (Face ID must start straight from a tap)
@@ -83,8 +84,8 @@ export function RecoveryAlert({
       {r.newOwners.map(o => (
         <Who key={o} address={o} chain={state.chainId} link={explorerAddress(state.chainId, o) ?? undefined} />
       ))}
-      <p className="fine">{mine ? "That's this device." : "If that isn't you, cancel it now."}</p>
-      {!mine && state.owners.some(o => o.toLowerCase() === account.burnerSigner.toLowerCase()) && (
+      <p className="fine">{mine ? "That's this device." : canCancel ? "If that isn't you, cancel it now." : "If that isn't you, cancel it from a device that signs for this wallet. This one doesn't."}</p>
+      {canCancel && (
         <button className="btn btn-red wide" onClick={ready ? cancel : prepare} disabled={busy}>
           {busy ? (ready ? stageLabel("sending") : stageLabel("quote")) : ready ? "Sign to cancel it" : "Cancel it"}
         </button>

@@ -40,6 +40,9 @@ function memory(cmd: string[]): any {
     case "DECR":
       put(String(Number(v ?? 0) + (op === "INCR" ? 1 : -1)));
       return Number(mem.get(k)!.v);
+    case "INCRBY":
+      put(String(Number(v ?? 0) + Number(rest[0])));
+      return Number(mem.get(k)!.v);
     case "EXPIRE":
       if (v !== undefined) put(v, Number(rest[0]));
       return v !== undefined ? 1 : 0;

@@ -14,6 +14,12 @@ import { kv as store } from "../kv";
  *   - rate limits per IP and per wallet; a wallet whose relayed tx reverted is refused for a day, and its IP after
  *     three in a day
  *   - one send at a time per chain (relayer nonces)
+ * Audit 2026-11-13 (it paid for sends that never paid it):
+ *   - the wallet must be a Safe: a proxy we know on a singleton we know (ourSafeCheck), or not deployed yet and made
+ *     from the key the request carries. Anything else could "succeed" without paying
+ *   - one send in flight per wallet (takeTurn), and one per signed tx whatever bytes trail its signatures
+ *   - a send that wasn't paid counts like one that failed; a wallet with no deployed past gets no free failures
+ *     from its IP; over a day's lost gas, swaps and sites' calls are only sent for wallets that have sent before
  * State lives in the one store (lib/kv.ts, keys "iws:relay:").
  */
 
@@ -89,10 +95,45 @@ export const IP_REVERTS = 3;
  * The IP is refused only at its third revert in a day: a room on one Wi-Fi is one IP, and one person's failed send
  * locked everyone out. Three still stops someone making a new wallet for each try.
  */
-export async function reverted(safe: Address, ip: string, swap = false) {
-  if (swap && (await bump(`swaprev:${safe}`, 86_400)) < 3) return;
-  await flag(`bad:${safe}`, 86_400);
+export async function reverted(safe: Address, ip: string, swap = false, fresh = false) {
+  const forgiven = swap && (await bump(`swaprev:${safe}`, 86_400)) < 3;
+  // a wallet that wasn't deployed before this send costs nothing to make: forgiving each new one its first two
+  // failures was a free failure per key (audit IW-9). Its failures count against where it came from; the wallet
+  // itself (a new person's first swap that slipped) may still try again
+  if (forgiven && !fresh) return;
+  if (!forgiven) await flag(`bad:${safe}`, 86_400);
   if ((await bump(`iprev:${ip}`, 86_400)) >= IP_REVERTS) await flag(`badip:${ip}`, 86_400);
+}
+
+/** This wallet's relayed send landed and paid: it has a past (90 days). */
+export const sentFine = (safe: Address) => flag(`good:${safe}`, 90 * 86_400).catch(() => {});
+export const hasSentFine = (safe: Address) => flagged(`good:${safe}`).catch(() => false);
+
+/** Gas the relay paid today for sends that failed or didn't pay it, in US cents, per chain. Never throws. */
+const day = () => new Date().toISOString().slice(0, 10);
+export async function lost(chainId: number, cents: number) {
+  try {
+    const k = `${P}loss:${chainId}:${day()}`;
+    await kv(["SET", k, 0, "EX", 2 * 86_400, "NX"]);
+    await kv(["INCRBY", k, Math.max(1, Math.ceil(cents))]);
+  } catch {}
+}
+/** A day's losses on one chain before swaps and sites' calls are kept to wallets that have sent before. */
+export const LOSS_CAP_CENTS = Number(process.env.RELAY_LOSS_CAP_USD || 50) * 100;
+export const overLoss = (chainId: number) =>
+  kv(["GET", `${P}loss:${chainId}:${day()}`]).then(v => Number(v || 0) >= LOSS_CAP_CENTS, () => false);
+
+/**
+ * One send in flight per wallet: a second request for it waits its turn, up to `waitMs`. Six copies of one signed
+ * tx sent at once all passed the estimate (none had landed yet), and the relay paid for five reverts (audit IW-10).
+ * The caller gives the turn back (forget) when its tx has landed or was never sent; it lapses by itself in 90 s.
+ */
+export async function takeTurn(key: string, waitMs = 8_000) {
+  for (let i = 0; i <= waitMs / 400; i++) {
+    if (await once(key, 90)) return;
+    await new Promise(r => setTimeout(r, 400));
+  }
+  throw new RelayRefused("This wallet's last send is still on its way. Try again in a moment.", 409);
 }
 
 /** Delete the lock only if it's still ours (one step on Redis, so nothing can slip between the look and the delete). */
@@ -228,6 +269,10 @@ export async function checkCalls(
 /** Runtime code hashes of SafeProxy 1.3.0 and 1.5.0, and the singletons a real Safe points at. */
 const SAFE_PROXY_CODE = new Set([
   "0xb89c1b3bdf2cf8827818646bce9a8f6e372885f8c55e5c07acbd307cb133b000", // 1.3.0 (dao.buidlguidl.eth)
+  // 1.4.1 (a Safe made at wedgie.dev or app.safe.global): the proxy's own code, hashed here
+  keccak256(
+    "0x608060405273ffffffffffffffffffffffffffffffffffffffff600054167fa619486e0000000000000000000000000000000000000000000000000000000060003514156050578060005260206000f35b3660008037600080366000845af43d6000803e60008114156070573d6000fd5b3d6000f3fea264697066735822122003d1488ee65e08fa41e58e888a9865554c535f2c77126a82cb4c0f917f31441364736f6c63430007060033",
+  ),
   "0x4e381985ca68b3e5d27b4425fa581c19cf33146d3f887a3cfca96f55528ea46f", // 1.5.0
 ]);
 const SAFE_SINGLETONS = new Set(
@@ -243,15 +288,24 @@ const SAFE_SINGLETONS = new Set(
   ].map(a => a.toLowerCase()),
 );
 
+/**
+ * Is this deployed code a Safe: a proxy we know, pointing at a singleton we know? Then execTransaction is Safe's own
+ * code: it runs the signed batch or reverts. Any other contract named as "the wallet" can answer true to the relay's
+ * call and pay nothing (audit IW-1: a fallback that returns true had its gas paid, with no fee and no ban).
+ */
+export async function isSafe(code: Hex | undefined, getSlot0: () => Promise<Hex | undefined>): Promise<boolean> {
+  if (!code || code === "0x" || !SAFE_PROXY_CODE.has(keccak256(code))) return false;
+  const slot = await getSlot0();
+  return !!slot && SAFE_SINGLETONS.has(("0x" + slot.slice(-40)).toLowerCase());
+}
+
 /** Can the relay send ETH here without running someone's arbitrary code? */
 export function plainRecipientCheck(getCode: (a: Address) => Promise<Hex | undefined>, getSlot0: (a: Address) => Promise<Hex | undefined>) {
   return async (a: Address): Promise<boolean> => {
     const code = await getCode(a);
     if (!code || code === "0x") return true;
     if (code.startsWith("0xef0100") && size(code) === 23) return true; // EIP-7702: an EOA with delegated code
-    if (!SAFE_PROXY_CODE.has(keccak256(code))) return false;
-    const slot = await getSlot0(a);
-    return !!slot && SAFE_SINGLETONS.has(("0x" + slot.slice(-40)).toLowerCase());
+    return isSafe(code, () => getSlot0(a));
   };
 }
 

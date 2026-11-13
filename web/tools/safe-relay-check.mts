@@ -1,7 +1,10 @@
 // The relay's defences, against a local dev server on a fork (see safe-e2e.mjs for the setup):
 //   a valid first send works; the same signed body again is refused; a call into the wallet itself is refused;
 //   a Roles call that could fail silently (shouldRevert = false), a wrong role, or ETH that doesn't add up is refused;
-//   a swap batch must pay this wallet and leave no approval behind.
+//   a swap batch must pay this wallet and leave no approval behind;
+//   audit 11-13: a contract that isn't a Safe gets nothing sent for it; one signed tx goes out once however its
+//   signature bytes are padded; a call that only works in the estimate isn't sent; a Roles call for a wallet with no
+//   Roles module isn't sent.
 //   APP=http://localhost:3100 RPC=http://127.0.0.1:8545 CHAIN=8453 FUNDER_KEY=<anvil #1> npx tsx tools/safe-relay-check.mts
 import { createHash } from "node:crypto";
 import { p256 } from "@noble/curves/nist.js";
@@ -73,7 +76,7 @@ const x = hex(pub.slice(1, 33)), y = hex(pub.slice(33));
 const signer = signerAddress(x, y);
 const safe = safeAddress(signer);
 const q = await fetch(`${APP}/api/safe/relay?chainId=${CHAIN}&kind=first`).then(r => r.json());
-await pc.waitForTransactionReceipt({ hash: await wc.sendTransaction({ to: safe, value: BigInt(q.feeEth) * 4n }) });
+await pc.waitForTransactionReceipt({ hash: await wc.sendTransaction({ to: safe, value: BigInt(q.feeEth) * 40n }) });
 
 function sign(t: ReturnType<typeof batch>) {
   const h = safeTxHash(CHAIN, safe, t);
@@ -83,10 +86,12 @@ function sign(t: ReturnType<typeof batch>) {
   const sig = p256.sign(sha(new Uint8Array([...authData, ...sha(new TextEncoder().encode(json))])), pk, { prehash: false, format: "compact" });
   return encodeSignatures([{ signer, data: encodeWebAuthn({ authenticatorData: hex(authData), clientDataFields: fields, r: BigInt(hex(sig.slice(0, 32))), s: BigInt(hex(sig.slice(32))) }), kind: "contract" }]);
 }
+// each case comes from its own address: one case's refused IP must not be what refuses the next
+let from = 0;
 const post = (body: unknown) =>
   fetch(`${APP}/api/safe/relay`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", "x-forwarded-for": `10.77.0.${from}` },
     body: JSON.stringify(body, (_, v) => (typeof v === "bigint" ? v.toString() : v)),
   }).then(async r => ({ status: r.status, j: await r.json() }));
 
@@ -103,8 +108,33 @@ ok(rw.status === 400 && /won't send this swap/.test(rw.j.error), `a swap paying 
 
 const t = batch([transfer(zeroAddress, funder.address, 1000n), transfer(zeroAddress, q.relayer, BigInt(q.feeEth))], 0n);
 const body = { chainId: CHAIN, kind: "exec", safe, tx: t, signatures: sign(t), burner: { x, y } };
-const r1 = await post(body);
-ok(r1.status === 200 && !!r1.j.hash, `a valid first send is relayed (${r1.status})`);
+// the relayer's gas money: a refused request must leave it exactly as it was
+const relayBal = () => pc.getBalance({ address: q.relayer });
+const settle = () => new Promise(r => setTimeout(r, 2500)); // a sent tx is mined (anvil: at once) and the relay's own look at it is done
+const deploy = async (init: Hex) => (await pc.waitForTransactionReceipt({ hash: await wc.sendTransaction({ data: init }) })).contractAddress!;
+const quoteOf = (kind: string) => fetch(`${APP}/api/safe/relay?chainId=${CHAIN}&kind=${kind}`).then(r => r.json());
+
+from++;
+// a contract whose every call "succeeds" (fallback returns true) named as the wallet: the relay paid its gas and
+// was never paid (audit IW-1)
+{
+  const yes = await deploy("0x69600160005260206000f3600052600a6016f3");
+  const qe = await quoteOf("exec");
+  const tf = batch([transfer(zeroAddress, funder.address, 1n), transfer(zeroAddress, q.relayer, BigInt(qe.feeEth))], 0n);
+  const was = await relayBal();
+  const rf = await post({ chainId: CHAIN, kind: "exec", safe: yes, tx: tf, signatures: "0x" + "00".repeat(65) });
+  await settle();
+  ok(rf.status === 400 && (await relayBal()) === was, `a contract that isn't a Safe: nothing is sent for it (${rf.status} ${rf.j.error || rf.j.hash})`);
+}
+
+from++;
+// one signed tx, six requests at once, each with more padding after its signatures (the Safe ignores it): one send
+const burst = await Promise.all([0, 1, 2, 3, 4, 5].map(i => post({ ...body, signatures: (body.signatures + "00".repeat(32 * i)) as Hex })));
+const went = burst.filter(r => r.status === 200 && r.j.hash);
+ok(went.length === 1, `a valid first send is relayed, once, however its signatures are padded (${burst.map(r => r.status).join(" ")})`);
+const r1 = went[0] ?? burst[0];
+await settle();
+from++;
 const r2 = await post(body);
 ok(r2.status === 409 || /Already sent|would fail/.test(r2.j.error), `the same signed body again is refused (${r2.status} ${r2.j.error})`);
 
@@ -112,4 +142,28 @@ ok(r2.status === 409 || /Already sent|would fail/.test(r2.j.error), `the same si
 const t3 = batch([transfer(zeroAddress, funder.address, 1000n)], 1n);
 const r3 = await post({ chainId: CHAIN, kind: "exec", safe, tx: t3, signatures: sign(t3), burner: { x, y } });
 ok(r3.status === 402, `a batch without the fee is refused (${r3.status} ${r3.j.error})`);
+
+from++;
+// a call that works only while the relay estimates (it reads the tip the estimate used to hard-code) and fails in
+// the real tx: the relay paid for the revert (audit IW-9)
+{
+  const evil = await deploy("0x6b483a03600114600a57fe5b00600052600c6014f3"); // tx.gasprice - block.basefee == 1 ? stop : invalid
+  const qd = await quoteOf("dapp");
+  const td = batch([{ to: evil, value: 0n, data: "0x12345678" as Hex }, transfer(zeroAddress, q.relayer, BigInt(qd.feeEth))], 1n);
+  const was = await relayBal();
+  const rd = await post({ chainId: CHAIN, kind: "exec", safe, tx: td, signatures: sign(td) });
+  await settle();
+  ok(rd.status === 400 && (await relayBal()) === was, `a call that only works in the estimate isn't sent (${rd.status} ${rd.j.error || rd.j.hash})`);
+}
+
+from++;
+// a Roles spend for a wallet with no Roles module: the call goes to an address with no code, "succeeds", pays nothing (audit IW-2)
+{
+  const qr = await quoteOf("roles");
+  const call = encodeFunctionData({ abi: abi.roles, functionName: "execTransactionWithRole", args: [MULTISEND_CALL_ONLY, 0n, ms([transfer(zeroAddress, funder.address, 1n), transfer(zeroAddress, q.relayer, BigInt(qr.feeEth))]), 1, ROLE_BURNER, true] });
+  const was = await relayBal();
+  const rr = await post({ chainId: CHAIN, kind: "roles", safe, call, signer: funder.address, signature: "0x" + "11".repeat(65), salt: "0x" + "22".repeat(32) });
+  await settle();
+  ok(rr.status === 400 && (await relayBal()) === was, `a Roles call for a wallet with no Roles module isn't sent (${rr.status} ${rr.j.error || rr.j.hash})`);
+}
 process.exit(bad ? 1 : 0);

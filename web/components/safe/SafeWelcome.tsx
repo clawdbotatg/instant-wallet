@@ -161,7 +161,16 @@ export function SafeWelcome({ onReady, initialConfirm }: { onReady: (a: SafeAcco
             <p>This passkey is a signer on a wallet it took over by recovery:</p>
             <Who address={confirm.account.address} />
             <p className="fine">
-              Recovery address: {confirm.guardians.length ? confirm.guardians.map(g => (g.toLowerCase() === "0xef899e80aa814ab8d8e232f9ed6403a633c727ec" ? "dao.buidlguidl.eth" : g)).join(", ") : "none"}.
+              Recovery address:{" "}
+              {confirm.guardians.length
+                ? confirm.guardians.map((g, i) => (
+                    <span key={g}>
+                      {i > 0 && ", "}
+                      <Who flat plain address={g} size={16} label={g.toLowerCase() === "0xef899e80aa814ab8d8e232f9ed6403a633c727ec" ? "dao.buidlguidl.eth" : undefined} />
+                    </span>
+                  ))
+                : "none"}
+              .
               Only say yes if you recognise this wallet. Anyone can make a wallet that lists your key.
             </p>
           </div>

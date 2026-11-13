@@ -130,13 +130,13 @@ Suggested first: 1, 3, 5, 12, 20.
   Done 11-11: Reject (`Waiting.tsx`), the old phone's budget turn-off (`SafeApp.tsx`), cancelling a recovery
   (`RecoveryAlert.tsx`), funding a share (`Share.tsx`), checking your simulator (`SimSetting.tsx`). `useSendProgress`
   in `Progress.tsx`. `same-check.mjs` fails on a file that sends a tx and draws no bar.
-  Left: `Claim.tsx` (the normal claim; the xdai branch has one): drops, low.
+  Done 11-13: the normal claim (`Claim.tsx`) has its bar too.
 
 - [x] **14. Bare `short(…)` addresses where the rule says `<Who>` / `<Words>`.** Done 11-10: the recovery alert
   (who is taking the wallet), the recovery tool's pending line, Activity's "Received from", Send's done screen, a
   site's request ("from"), Join, and the welcome screen's raw hex. `same-check.mjs` now fails on `.map(short)` and a
-  mono `short(…)` span. Left: `ClaimMaker.tsx:224,255` (drops), and the recovery addresses listed as text in
-  `RecoverTool.tsx:90` and `SafeWelcome.tsx:160`.
+  mono `short(…)` span. Done 11-13: the welcome screen's recovery addresses are `<Who>`
+  (the card maker and the recover tool already were).
 
 - [x] **15. Words and colors against EXPECTATIONS #2. Decide: change, or write the exception down.**
   - Done 11-11 (Austin: Executing / Executed): Activity's row on its way says "Executing…"; so does the drop
@@ -147,7 +147,8 @@ Suggested first: 1, 3, 5, 12, 20.
     The stage words are one `stageLabel` in `bits.tsx` (a site's request said "Face ID…" where the rest said
     "Signing…"); `same-check.mjs` fails on a copy. EXPECTATIONS #4 now says green follows what's next, and a
     button doesn't change color while it works, so the waiting tx's button and the wedgie's are right as they are.
-  - Left: `Drop.tsx:118`, `Claim.tsx:385` (hand-written money) and `DropAdmin.tsx:162`: drops, low.
+  - Done 11-13: a drop's and a claim's big number is `<Money dollars>`; `same-check.mjs` fails on a hand-written
+    `+$`. `DropAdmin`'s New drop / Cancel is left: it's two buttons in one place, not one that changes color.
 
 - [x] **16. USDC dust on one network stops the whole claim.** Done 11-13: skipped; the done screen says what stayed.
   `components/Claim.tsx:311-314`. `claimUsdc` throws inside the loop over networks, so later networks are never

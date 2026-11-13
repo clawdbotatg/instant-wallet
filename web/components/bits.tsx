@@ -511,8 +511,16 @@ export function AmountBox({
 /**
  * Money moving, the same everywhere: out is red with −, in is green with +, dollars after it in grey. `least`: a
  * minimum (a swap's "at least"), shown as "or more". Every screen that shows what a transaction pays or gets uses this.
+ * `dollars`: the amount in dollars alone (a claim's big number): the same sign and color, no coin.
  */
-export function Money({ amount: a, symbol, usd: u, get, least, unknown, size = 20 }: { amount: string; symbol: string; usd?: number | null; get?: boolean; least?: boolean; unknown?: boolean; size?: number }) {
+export function Money({ amount: a = "", symbol = "", usd: u, get, least, unknown, dollars, size = 20 }: { amount?: string; symbol?: string; usd?: number | null; get?: boolean; least?: boolean; unknown?: boolean; dollars?: number; size?: number }) {
+  if (dollars !== undefined)
+    return (
+      <span style={{ fontSize: size, fontWeight: 700, color: get ? "var(--mint-d)" : "var(--coral)" }}>
+        {get ? "+" : "−"}
+        {fmtUsd(dollars)}
+      </span>
+    );
   // unknown: no number we can read (a router's "all of it" flag): the coin, and that we don't know how much
   if (unknown)
     return (

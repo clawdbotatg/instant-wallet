@@ -13,7 +13,7 @@ const RULES = [
   { re: /^\s*(OK|Ok|Yes|No|Approve|Confirm)\s*$|>\s*(OK|Yes|Approve|Confirm)\s*</, say: "OK/Yes/Approve/Confirm: say Done, Sign or Reject" },
   { re: /btn-green[^>]*>\s*(Done|Close|Cancel|Back)\b/, say: "Done/Close/Cancel/Back are white, not green" },
   { re: /\bPress [ABXY]\b|\bthe [ABXY] button\b/, say: "wedgie buttons are <GreenButton /> or 'the green button', never A/B/X/Y" },
-  { re: /[>"`]\s*[+−]\{|\{get \? "\+" : "−"\}/, say: "money with a hand-written + or −: use <Money>" },
+  { re: /[>"`]\s*[+−]\{|\{get \? "\+" : "−"\}|`[+−]\$\{/, say: "money with a hand-written + or −: use <Money> (a big dollar number: <Money dollars>)" },
   { re: /\b(send|sends|sent) it (yourself|myself)\b|relay (is )?send/i, say: "a signed tx is executed, not sent" },
   // a tx on its way says Executing… (Austin 11-11: Activity's row said Sending…). A message that isn't a tx may say Sending…
   { re: /"Swapping…"/, say: "a tx on its way is 'Executing…', whatever it does (Austin 11-12: Swap said Swapping…)" },

@@ -391,8 +391,8 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
       ) : (
         <>
           <div className="fine">{done !== null ? "It's in your wallet" : empty ? "This card" : burner ? "Your old Burner Wallet has" : "Someone sent you"}</div>
-          <div className="big" style={{ fontSize: 56, fontWeight: 700, color: empty ? undefined : "var(--mint-d)" }}>
-            {done !== null ? `+${usd(done)}` : onChain === null || (ethTotal > 0n && !nativeUsd) ? "…" : empty ? usd(value) : `+${usd(value)}`}
+          <div className="big" style={{ fontSize: 56, fontWeight: 700 }}>
+            {done !== null ? <Money dollars={done} get size={56} /> : onChain === null || (ethTotal > 0n && !nativeUsd) ? "…" : empty ? usd(value) : <Money dollars={value} get size={56} />}
           </div>
           {done === null && !empty && onChain && (parts.length > 1 || !onlyDollars) && <div className="fine">{parts.join(" + ")}</div>}
         </>
@@ -484,6 +484,7 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
         <button className="btn btn-green wide" onClick={() => claim()} disabled={busy || !onChain}>
           {busy ? (burner ? "Moving…" : "Claiming…") : burner ? "Move it to my wallet" : "Claim it"}
         </button>
+        {sweeping && <TimedBar ms={(onChain?.some(c => c.chainId === 1 && (c.usdc > 0n || c.eth > 0n)) ? 30_000 : 8_000) + 4_000 * movable.length} />}
         {error && <ErrorLine text={error} />}
         <p className="fine center">Goes to your Instant Wallet. A few cents of it pays the network fee.</p>
         {burner && !busy && (

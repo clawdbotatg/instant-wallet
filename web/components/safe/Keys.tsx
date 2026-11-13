@@ -14,7 +14,7 @@ import { type FeeToken, type Prepared, Shared, type Signer, finishOwners, getQuo
 import { type ChainState, type SafeAccount, daoDays, loadSigners, loadWalletName, readChain, saveSigner, wedgieSigners, shownAs } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { AddressInput, BioIcon, BioSigner, Blockie, CopyAddress, PencilIcon, RemoveX, TimedBar, Who, copy, shareOrCopy } from "../bits";
+import { AddressInput, BioIcon, BioSigner, Blockie, CopyAddress, CopyLink, PencilIcon, RemoveX, TimedBar, Who, copy } from "../bits";
 import { Alerts } from "./Alerts";
 import { ChainSelect } from "./Pick";
 import { ChainLimit } from "./Limits";
@@ -217,7 +217,6 @@ export function Keys({
   const IKEY = `iws.invites.${account.address.toLowerCase()}`;
   type Inv = { id: string; at: number; answer?: { x: Hex; y: Hex; name?: string } };
   const [invites, setInvites] = useState<Inv[]>([]);
-  const [newInvite, setNewInvite] = useState<string | null>(null);
   const saveInvites = (l: Inv[]) => {
     setInvites(l);
     try {
@@ -253,7 +252,6 @@ export function Keys({
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || `invite: ${r.status}`);
       saveInvites([...invites, { id: j.id, at: Date.now() }]);
-      setNewInvite(`${location.origin}/join#${j.id}`);
     } catch (e: any) {
       setErrorRaw({ what: "invite", msg: friendly(e) });
     }
@@ -560,27 +558,14 @@ export function Keys({
                         </button>
                       </span>
                     ) : (
-                      <span className="fine">Invite sent, waiting for them…</span>
+                      <>
+                        <span className="fine grow">Waiting for them…</span>
+                        <CopyLink link={`${location.origin}/join#${i.id}`} message="Invite link copied. Send it to them." label="Copy link" />
+                      </>
                     )}
                   </div>
                 );
               })}
-              {newInvite && (
-                <div className="row" style={{ gap: 6 }}>
-                  <span className="mono fine grow" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {newInvite}
-                  </span>
-                  <button
-                    className="btn btn-sm btn-dark"
-                    onClick={async () => {
-                      const m = await shareOrCopy(newInvite, "Be a signer");
-                      if (m) toast(m);
-                    }}
-                  >
-                    Share
-                  </button>
-                </div>
-              )}
               <p className="fine">
                 No address?{" "}
                 <a href="#" onClick={e => (e.preventDefault(), invite())}>

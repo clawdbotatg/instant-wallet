@@ -530,12 +530,6 @@ export function CopyAddress({ address, label = "Copy address", style }: { addres
   );
 }
 
-/** Share a link: the phone's share sheet where there is one, else copy it. Returns what to toast (null: shared). */
-export async function shareOrCopy(url: string, title: string): Promise<string | null> {
-  if (navigator.share) return navigator.share({ url, title }).then(() => null, () => null);
-  return (await copy(url)) ? "Link copied" : "Couldn't copy";
-}
-
 /** Remove / delete / end: the small red ✕ (EXPECTATIONS #2): far left when a green button follows it, else on the right. */
 export function RemoveX({ onClick, disabled, label = "Remove", busy }: { onClick: () => void; disabled?: boolean; label?: string; busy?: boolean }) {
   return (

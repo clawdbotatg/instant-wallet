@@ -29,6 +29,8 @@ const RULES = [
   // one address box, everywhere (Austin 11-12: adding a signer didn't look names up the way Send does)
   { re: /<input.*placeholder="[^"]*0x/, say: "an address box by hand: use <AddressInput>" },
   { re: /\bnameTyped\(|\buseAddressScan\(|\/api\/ens\?name=/, say: "a name looked up or an address scanned by hand: use <AddressInput>", skip: ["components/safe/SafeApp.tsx"] }, // ?watch=name.eth in the link: no box
+  // a link is copied, never shared (Austin 11-12: an invite showed its whole link and a Share button)
+  { re: /^\s*Share\s*$|>\s*Share\s*<|navigator\.share\(\{ url/, say: "a Share button: a link is copied with <CopyLink>" },
   { re: /<AddressInput[^>]*\bbare\b/, say: "<AddressInput> has no modes: every box takes a word alone" },
   { re: /inputMode="decimal"/, say: "an amount box by hand: use <AmountBox> (dollars first, switch to the coin)", skip: ["components/DropAdmin.tsx", "components/ClaimMaker.tsx"] }, // a drop's "dollars per claim" / "USDC on each": dollars only, no coin to switch to
 ];

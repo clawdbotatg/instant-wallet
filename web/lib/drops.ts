@@ -256,9 +256,21 @@ async function paid(d: Drop, hold: string, p: Pending): Promise<Hex | true | nul
  * `die` (tests only): stop like a killed function, just before or just after the send.
  */
 export async function claim(code: string, d: Drop, wallet: Address, ip: string, die?: string): Promise<{ hash?: Hex }> {
-  if ((await bump(`ip:${ip}`, 3600)) > 300) throw new DropRefused("Too many claims from here this hour.", 429);
   const why = closed(d, await claimedCount(d.id));
   if (why) throw new DropRefused(why, 410);
+  // an IP's cap counts claims that fail, never ones that pay: a whole room on one Wi-Fi claims a crowd code, and
+  // what stops one person taking it all is the passkey wallet per claim and the drop's own cap
+  if (Number((await kv(["GET", `${P}ipfail:${ip}`])) ?? 0) >= IP_FAILS) throw new DropRefused("Too many failed claims from here this hour.", 429);
+  try {
+    return await pay(code, d, wallet, die);
+  } catch (e) {
+    await bump(`ipfail:${ip}`, 3600).catch(() => {});
+    throw e;
+  }
+}
+const IP_FAILS = process.env.DROP_TEST && process.env.VERCEL_ENV !== "production" ? 5 : 300;
+
+async function pay(code: string, d: Drop, wallet: Address, die?: string): Promise<{ hash?: Hex }> {
   const hold = d.kind === "cards" ? `${P}u:${code}` : `${P}w:${d.id}:${wallet.toLowerCase()}`;
   const again = d.kind === "crowd" ? new DropRefused("This wallet already claimed this one.", 409) : new DropRefused("This card was claimed already.", 410);
   let now: Pending = { pending: Date.now(), wallet };

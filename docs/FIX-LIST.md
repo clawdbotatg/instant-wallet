@@ -110,12 +110,12 @@ Suggested first: 1, 3, 5, 12, 20.
   - Done 11-12: name → address is kept 5 minutes (was a day, and up to a week stale).
   - Done 11-12: a price of 0 isn't cached (`app/api/price`, `lib/price.ts` `nativeUsd`).
   - Done 11-10 for the relay: a revert refuses that wallet for a day and the IP only at its third revert in a day;
-    the IP's send cap is the route's 240 an hour, not 60 (`tools/relay-ban-check.mts`). Still as it was for drops
-    (`lib/drops.ts:212`): a crowd on one Wi-Fi shares an IP.
+    the IP's send cap is the route's 240 an hour, not 60 (`tools/relay-ban-check.mts`). Drops, done 11-13: an IP's cap counts
+    failed claims only (300 an hour), so a crowd on one Wi-Fi all get paid.
   - Done 11-10: `lib/alerts.ts` `authorize` checks origin, rpId and the UV flag, as `app/api/onramp` does
     (`tools/passkey-site-check.mts`).
   - Left (drops, low): a Uniswap pool's spot price sets what an ETH drop pays (`lib/drops.ts:252`); the wallet
-    itself now has one ETH price (the server's). Drops still share an IP ban (`lib/drops.ts:212`).
+    itself now has one ETH price (the server's).
 
 ## What people see
 

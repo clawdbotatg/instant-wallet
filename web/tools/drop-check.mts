@@ -46,8 +46,10 @@ function sign(k: Key, wallet: string, change: string, ts = Date.now()) {
   return { qx: k.qx, qy: k.qy, authenticatorData: toHex(authData), clientDataFields: fields, r: toHex(sig.slice(0, 32)), s: toHex(sig.slice(32)), ts };
 }
 
-const post = async (path: string, body: object) => {
-  const r = await fetch(`${APP}${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+let ipN = 0;
+// each call from its own IP, unless the test names one: the cap on failed claims (5 with DROP_TEST) is per IP
+const post = async (path: string, body: object, ip = `10.0.${++ipN >> 8}.${ipN & 255}`) => {
+  const r = await fetch(`${APP}${path}`, { method: "POST", headers: { "content-type": "application/json", "x-forwarded-for": ip }, body: JSON.stringify(body) });
   return { status: r.status, j: (await r.json()) as any };
 };
 const admin = (op: string, b: object = {}) => post("/api/drop/admin", { op, token, ...b });
@@ -126,6 +128,23 @@ let ks = Array.from({ length: 20 }, key);
 let rs = await Promise.all(ks.map(k => claim(k, rush.code)));
 ok(rs.every(x => x.status === 200), `20 USDC claims at once all paid (${rs.filter(x => x.status !== 200).map(x => x.j.error).join("; ") || "ok"})`);
 ok(ks.every(k => usdcOf(k.wallet) === 1_000_000n), "each wallet has 1 USDC");
+
+// ---- one IP: claims that pay don't count toward its cap, failed ones do (5 with DROP_TEST)
+r = await admin("create", { drop: { name: "Wifi", chainId: 8453, token: "usdc", amount: "1", kind: "crowd", count: 8 } });
+const wifi = r.j.drop;
+setUsdc((await admin("get", { id: wifi.id })).j.pot.address, await fund(8, 1_000_000n));
+const from = (k: Key, ip: string) => post("/api/drop", { code: wifi.code, wallet: k.wallet, sig: sign(k, k.wallet, `claim ${wifi.code}`) }, ip);
+ks = Array.from({ length: 7 }, key);
+rs = [];
+for (const k of ks) rs.push(await from(k, "7.7.7.7"));
+ok(rs.every(x => x.status === 200), `7 claims from one IP all paid (${rs.map(x => x.status).join(" ")})`);
+rs = [];
+for (let i = 0; i < 5; i++) rs.push(await from(ks[0], "7.7.7.7"));
+ok(rs.every(x => x.status === 409), "5 repeats from that IP are refused as repeats");
+r = await from(key(), "7.7.7.7");
+ok(r.status === 429, `after 5 failed claims that IP is stopped (${r.j.error})`);
+r = await from(key(), "7.7.7.8");
+ok(r.status === 200, "another IP still claims");
 
 // ---- 20 at once: ETH
 r = await admin("create", { drop: { name: "Eth", chainId: 8453, token: "eth", amount: "2", kind: "crowd", count: 20 } });

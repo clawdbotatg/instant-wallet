@@ -43,7 +43,7 @@ only pays a passkey wallet, so a code is worth nothing without making a wallet.
   Uniswap v3 WETH/USDC 0.05% pool on that chain (`ethUsd` in `web/lib/drops.ts`).
 - **Claim checks:** code is live → the wallet's passkey signed `claim <CODE>` (same check as recovery alerts) →
   reserve (card used / this wallet's crowd claim / a place under the cap) → send → wait for it to land. A failed send
-  gives the reservation back. 300 claims per IP per hour.
+  gives the reservation back. An IP is stopped after 300 failed claims in an hour; claims that pay don't count.
 - **Farming:** one person can make many passkey wallets and claim a crowd code many times. The cap and the window
   bound the loss. Cards can't be farmed.
 - **Storage:** Upstash Redis (`RELAY_KV_*`), keys `iws:drop:`. Layout in `web/lib/drops.ts`.

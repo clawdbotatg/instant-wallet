@@ -276,6 +276,9 @@ export function WedgiePanel({
   const plugged = peek?.kind === "hello" || peek?.kind === "busy";
   const hello = peek?.kind === "hello" ? peek.hello : null;
   const onWallet = states.some(s => s.hasWedgie);
+  // `add` is passed only where the wedgie isn't a signer on the network being edited. So the right wedgie, plugged in,
+  // can be added there even when it's already on another network (onWallet says any network: the button never showed).
+  const canAdd = !!add && !!st.key && st.tone !== "bad";
 
   if (onStatus && (looking || st.tone === "ok")) return null;
   return (
@@ -362,7 +365,8 @@ export function WedgiePanel({
                 Find my wedgie
               </button>
             )}
-            {st.tone === "warn" && st.key && !onWallet && add}
+            {canAdd && st.tone === "ok" && <p className="fine">It isn&apos;t a signer on this network yet.</p>}
+            {canAdd && add}
             {st.tone === "bad" && ((wedgieSerial() && armed) || (wedgieDrive() && plugged)) && !installing && (
               <button className="btn wide" onClick={() => check(true)} disabled={checking}>
                 {checking ? "Checking…" : "Check again"}

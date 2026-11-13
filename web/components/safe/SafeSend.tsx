@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { type Address, type Hash, formatUnits, parseUnits, zeroAddress } from "viem";
 import { chainById, explorerTx, nativeSymbol } from "@/lib/chains";
-import { amount as fmtAmount, usd, feeText } from "@/lib/format";
+import { amount as fmtAmount, usd, feeText, addressIn } from "@/lib/format";
 import { isClaimLink } from "@/lib/claim";
 import { isXdai } from "@/lib/brand";
 import { dropCode } from "@/lib/dropClient";

@@ -13,6 +13,7 @@ import {
   toHex,
   numberToHex,
 } from "viem";
+import { typedParts } from "./safe/raw";
 import { CHAINS, SENDABLE, publicClient } from "./chains";
 import { extRespond, isExt } from "./extension";
 import { appRespond, isApp } from "./safeapps";
@@ -130,7 +131,7 @@ export type Dapp = { name: string; url: string; icon?: string };
 /** A request that needs the user: a batch of calls, or a message to sign. */
 export type Pending =
   | { kind: "calls"; id: number; topic: string; chainId: number; dapp: Dapp; calls: Call[]; method: string }
-  | { kind: "sign"; id: number; topic: string; chainId: number; dapp: Dapp; hash: Hex; preview: string; method: string; raw?: Hex };
+  | { kind: "sign"; id: number; topic: string; chainId: number; dapp: Dapp; hash: Hex; preview: string; method: string; raw?: Hex; parts?: { domain: Hex; message: Hex } };
 
 const chainOf = (eip155: string) => Number(eip155.split(":")[1]);
 
@@ -227,7 +228,7 @@ export function toPending(topic: string, id: number, method: string, p: any[], c
       const raw = typeof p[1] === "string" ? JSON.parse(p[1]) : p[1];
       const { EIP712Domain: _, ...types } = raw.types ?? {};
       const hash = hashTypedData({ domain: raw.domain, types, primaryType: raw.primaryType, message: raw.message });
-      return { kind: "sign", id, topic, chainId, dapp, hash, preview: typedPreview(raw), method };
+      return { kind: "sign", id, topic, chainId, dapp, hash, preview: typedPreview(raw), method, parts: typedParts(raw) };
     }
     default:
       return null;

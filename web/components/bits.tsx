@@ -423,6 +423,35 @@ export function WhatFor({ children }: { children: React.ReactNode }) {
 }
 
 /**
+ * The raw view under every signing screen (ERC-8213, lib/safe/raw.ts): a small "Raw" link that opens the exact
+ * bytes and hashes being signed, each copied on a tap. Closed by default: the screen itself stays plain words
+ * (EXPECTATIONS #1). The one place the wallet shows hex.
+ */
+export function Raw({ rows }: { rows: { label: string; value: string }[] }) {
+  const [open, setOpen] = useState(false);
+  const [toast, setToast] = useToast();
+  if (!rows.length) return null;
+  return (
+    <>
+      <button data-raw className="hidden-link fine" aria-expanded={open} onClick={() => setOpen(!open)}>
+        {open ? "Close raw" : "Raw"}
+      </button>
+      {open && (
+        <div className="recess stack" style={{ gap: 8 }}>
+          {rows.map((r, i) => (
+            <button key={i} className="stack" style={{ gap: 2, textAlign: "left", border: 0, background: "none", padding: 0, font: "inherit", color: "inherit", cursor: "pointer" }} onClick={async () => setToast((await copy(r.value)) ? `${r.label} copied` : "Couldn't copy")}>
+              <span className="fine">{r.label}</span>
+              <span className="mono" style={{ fontSize: 12, maxHeight: 120, overflow: "auto" }}>{r.value}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {toast && <div className="toast">{toast}</div>}
+    </>
+  );
+}
+
+/**
  * The amount box, the same everywhere a coin amount is typed (Send, Swap, Share, Request, Limits): you type dollars,
  * and the pill on its right switches to the coin and back. `value` is always the coin amount. A coin with no price
  * takes the coin only. Under it: the other unit on the left, `right` (what you have, what's left) on the right.

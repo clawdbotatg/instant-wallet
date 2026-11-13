@@ -8,7 +8,8 @@ import { siteCalls, siteGas, signForSite } from "@/lib/safe/connect";
 import { type FeeToken, type Prepared, type Signer, type Stage, Shared, finishOwners, ownerSigners, prepareOwners, requote, signThenQueue, signerLabel, usesWedgie } from "@/lib/safe/send";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { type Pending, remember, respond } from "@/lib/walletconnect";
-import { Net, Who, Words, stageLabel } from "../bits";
+import { Net, Raw, Who, Words, stageLabel } from "../bits";
+import { messageRows } from "@/lib/safe/raw";
 import { ConnectLayer, DappHead, type Session } from "../WalletConnect";
 import { friendly } from "@/lib/friendly";
 import { Progress } from "./Progress";
@@ -210,7 +211,7 @@ function SafeRequest({
       {pending.kind === "calls" ? (
         calls && (
           <div className="card stack" style={{ gap: 8 }}>
-            <WhatItDoes chainId={pending.chainId} safe={account.address} calls={calls} />
+            <WhatItDoes chainId={pending.chainId} safe={account.address} calls={calls} signs={prepared?.t} />
           </div>
         )
       ) : (
@@ -220,6 +221,7 @@ function SafeRequest({
             {pending.preview}
           </div>
           <p className="fine">Moves no money. Read it anyway.</p>
+          <Raw rows={messageRows(pending.chainId, account.address, pending)} />
         </>
       )}
       <div className="card">

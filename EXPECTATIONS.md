@@ -13,7 +13,9 @@ What Instant Wallet must always do. If a change breaks one, it doesn't ship. In 
 
 ## 1. You know exactly what you sign
 
-- Every transaction says what it does in plain English. Never hex, never a function name.
+- Every transaction says what it does in plain English. Never hex, never a function name. The one exception is
+  `<Raw>`: a small "Raw" link under every signing screen, closed until tapped, with the exact bytes and the hashes
+  the keys sign (ERC-8213), so anyone can check them against another tool or the wedgie.
 - Money out is red with a −. Money in is green with a +. Dollars next to it.
 - The coins come from the simulator (clear-sim, sim.wedgie.dev), its answer checked. You can point the
   wallet at your own simulator (Settings → Simulator).
@@ -55,6 +57,7 @@ Where it lives: `WhatItDoes`, `<Money>`, clear-signing-safe-kit (`dangers`, `sim
 | Where a tx step's words came from | `<SrcTag>`: the kit's `MARKS` emoji in place of the step number (🛡️ audited · ✅ our robot checked it · 🔏 EF · 📝 ours · 🛠️ our code · 🤖 robot · ⚠️ raw), same on wedgie.dev | a number, a pill, a word |
 | What a tx does | `WhatItDoes` in plain words. Its line (clear signing's words) in bold `<WhatFor>` ABOVE the coins, as in Activity | hex, a function name, small text under the coins |
 | Removing | `<RemoveX>`, the small red ✕. Far left when a green button follows it; else on the right. Wherever a waiting tx has Reject, it has the ✕ too (Home card, tx page) | a hand-drawn ✕, Reject alone |
+| The exact bytes being signed | `<Raw>` (lib/safe/raw.ts), closed, under `WhatItDoes` and a site's message | hex anywhere else on the screen |
 | The passkey | `bio()` / `<BioSigner>`: Face ID, Touch ID… for this device | "Face ID" hard-coded |
 | The wedgie's buttons | `<GreenButton />`, "the green button" | A / B / X / Y |
 | Typing an amount of a coin | `<AmountBox>`: dollars first, a pill switches to the coin and back (Send, Swap, Share, Request, Limits) | a box that takes tokens only, a hand-made box |

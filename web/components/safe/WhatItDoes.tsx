@@ -3,7 +3,8 @@
 import { useEffect, useState, useRef } from "react";
 import { type Address, type Hex, formatUnits, getAddress } from "viem";
 import { amount, feeWords, short, usd } from "@/lib/format";
-import { Money, WhatFor, Who, Words } from "../bits";
+import { Money, Raw, WhatFor, Who, Words } from "../bits";
+import { txRows } from "@/lib/safe/raw";
 import { WARN, describe, ours, relayFee } from "@/lib/safe/describe";
 import type { Call } from "@/lib/safe/core";
 import { type Sim, asSafeTx, lightOn, moves, simulate } from "@/lib/safe/sim";
@@ -27,7 +28,7 @@ function sentTo(c: Call): string | undefined {
   if (c.data.slice(0, 10).toLowerCase() === "0xa9059cbb" && c.data.length >= 138) return getAddress("0x" + c.data.slice(34, 74));
 }
 
-type SafeTxLike = { to: Address; value: bigint; data: Hex; operation: 0 | 1 };
+type SafeTxLike = { to: Address; value: bigint; data: Hex; operation: 0 | 1; nonce?: bigint };
 
 type Field = { label: string; value: string; address?: string };
 type Told = { what: string; short?: string; fields: Field[]; who?: string; swap?: { pay: Move & { most?: boolean }; get: Move & { least?: boolean } }; src?: Exclude<Mark, "bot" | "raw"> } | null;
@@ -144,7 +145,7 @@ function ask(chainId: number, safe: Address, calls: Call[], tx?: SafeTxLike) {
 /** What a Safe tx does: first what it does to your coins (clear-sim runs it on the latest block: you pay, you get),
  * the fee (read from its own call to the relay), then each step in words: ours (describe.ts `ours`: fee, approvals, swaps), else clear signing (ERC-7730,
  * the words the wedgie shows) where the registry has it, else describe.ts. */
-export function WhatItDoes({ chainId, safe, calls, tx, same, quiet, else: orElse }: { chainId: number; safe: Address; calls: Call[]; tx?: SafeTxLike; same?: string; quiet?: boolean; else?: React.ReactNode }) {
+export function WhatItDoes({ chainId, safe, calls, tx, signs, same, quiet, else: orElse }: { chainId: number; safe: Address; calls: Call[]; tx?: SafeTxLike; signs?: SafeTxLike | null; same?: string; quiet?: boolean; else?: React.ReactNode }) {
   const [res, setRes] = useState<Got | null>(null);
   // `same`: a swap gets a new route every 20 s. While this stays the same, the old answer stays up until the new one lands.
   const was = useRef<string | undefined>(undefined);
@@ -173,6 +174,8 @@ export function WhatItDoes({ chainId, safe, calls, tx, same, quiet, else: orElse
   const [eth, setEth] = useState(0);
   useEffect(() => void nativeUsd(chainId).then(setEth), [chainId]);
   const sim = res?.sim;
+  // the exact bytes and hashes, on a tap (ERC-8213): `signs` is the Safe tx the keys will sign, when it's made already
+  const raw = <Raw rows={txRows(chainId, safe, calls, signs ?? tx ?? null)} />;
   const fees = calls.flatMap(c => relayFee(chainId, c) ?? []);
   // the relay's fee isn't a step worth reading (the coins line shows it when the run works)
   // nor a swap whose in and out are already shown above it
@@ -211,6 +214,7 @@ export function WhatItDoes({ chainId, safe, calls, tx, same, quiet, else: orElse
         {!res && <span className="fine">Checking…</span>}
         {sim && !sim.fails && sim.pay.map((m, i) => <Money key={`p${i}`} amount={m.amount} symbol={m.symbol} usd={m.usd} />)}
         {sim && !sim.fails && sim.get.map((m, i) => <Money key={`g${i}`} amount={m.amount} symbol={m.symbol} usd={m.usd} get />)}
+        {raw}
       </div>
     );
   }
@@ -266,6 +270,7 @@ export function WhatItDoes({ chainId, safe, calls, tx, same, quiet, else: orElse
           </div>
         );
       })}
+      {raw}
     </div>
   );
 }

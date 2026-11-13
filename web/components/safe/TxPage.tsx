@@ -210,7 +210,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
     const me = loadAccount();
     if (!w || !me || !mine || !chain) return;
     const st = mine;
-    if (!st.deployed) throw new Error(`Your wallet isn't on ${chainById(chainId)?.name ?? "this chain"} yet. Send anything from it there first.`);
+    if (!st.deployed) throw new Error(`Your wallet isn't on ${chainById(chainId)?.name ?? "this network"} yet. Send anything from it there first.`);
     // a 1.5 Safe asks its owner Safe about the tx's hash; a 1.4.1 one (wedgie.dev's) about its bytes, which a 1.5
     // Safe like this wallet can't answer (tested on a Base fork, 10-30): your wallet approves the hash on chain
     // instead (approveHash, a normal send: relay and fee), and its signature is then r = owner, s = 0, v = 1
@@ -230,7 +230,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
     const signers = ownerSigners(st, me, true);
     if (usesWedgie(me, st, signers)) throw new Error("Your wallet needs its wedgie too, and a wedgie can't sign for another wallet yet.");
     const sig = await signForSite(me, st, signers, w.hash);
-    if (sig.endsWith(ERC6492)) throw new Error(`Your ${bio()} key isn't on ${chainById(chainId)?.name ?? "this chain"} yet. Send anything from your wallet there first.`);
+    if (sig.endsWith(ERC6492)) throw new Error(`Your ${bio()} key isn't on ${chainById(chainId)?.name ?? "this network"} yet. Send anything from your wallet there first.`);
     await add({ signer: me.address, data: sig, kind: "contract" });
   });
 
@@ -406,7 +406,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
                 )}
               </span>
               {signed ? (
-                <span>✓ signed</span>
+                <span>✓ Signed</span>
               ) : act ? (
                 <button className="btn btn-sm btn-green" onClick={act} disabled={!!busy}>
                   {busy === k ? (k === "wedgie" ? <>Press <GreenButton /></> : "Signing…") : "Sign"}
@@ -421,7 +421,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
 
       {sent ? (
         <p className="row" style={{ gap: 8, justifyContent: "space-between" }}>
-          ✓ Executed {explorerTx(chainId, sent) && <Eject href={explorerTx(chainId, sent)!} title="See it on the explorer" />}
+          ✓ Executed {explorerTx(chainId, sent) && <Eject href={explorerTx(chainId, sent)!} />}
         </p>
       ) : done ? (
         <p className="fine">This wallet already used number #{w.tx.nonce.toString()}: this one was executed or replaced.</p>

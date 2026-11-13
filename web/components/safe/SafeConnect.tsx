@@ -8,7 +8,7 @@ import { siteCalls, siteGas, signForSite } from "@/lib/safe/connect";
 import { type FeeToken, type Prepared, type Signer, type Stage, Shared, finishOwners, ownerSigners, prepareOwners, signThenQueue, signerLabel, usesWedgie } from "@/lib/safe/send";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { type Pending, remember, respond } from "@/lib/walletconnect";
-import { Net, ChainChip, Who, stageLabel } from "../bits";
+import { Net, Who, stageLabel } from "../bits";
 import { ConnectLayer, DappHead, type Session } from "../WalletConnect";
 import { friendly } from "@/lib/friendly";
 import { Progress } from "./Progress";
@@ -209,7 +209,7 @@ function SafeRequest({
       <div className="card">
         <div className="line">
           <span>Network</span>
-          <ChainChip chainId={pending.chainId} />
+          <span><Net chainId={pending.chainId} /></span>
         </div>
         {pending.kind === "calls" && (
           <div className="line">

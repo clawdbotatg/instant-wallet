@@ -16,7 +16,7 @@ import { type FeeToken, type Signer, type Stage, Shared, budgetSend, feeCall, ge
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { Net, AddressInput, AmountBox, ChainChip, DoneBar, Money, NameMoved, TokenIcon, Who, stageLabel, useSheetBack } from "../bits";
+import { Net, AddressInput, AmountBox, DoneBar, Money, NameMoved, TokenIcon, Who, stageLabel, useSheetBack } from "../bits";
 import { Scanner } from "../Scanner";
 import { Select, assetOpt } from "./Pick";
 import { friendly } from "@/lib/friendly";
@@ -245,7 +245,6 @@ export function SafeSend({
   }
 
   const what = asset && amountIn ? `${fmtAmount(amountIn)} ${asset.symbol}` : "";
-  const usd2 = (v: number) => "$" + v.toFixed(2);
 
 
   if (stage === "done" && resolved) {
@@ -270,7 +269,7 @@ export function SafeSend({
       <div className="stack confirm">
         {/* said once (Austin 11-10): dollars, the coin, who. The run still happens: it speaks only when something is wrong */}
         <h2>
-          Send {asset.price ? `${usd2(Number(amountIn) * asset.price)} of ${asset.symbol}` : what} to <Who flat address={resolved} chain={chainId} label={toName ?? undefined} />?
+          Send {asset.price ? `${usd(Number(amountIn) * asset.price)} of ${asset.symbol}` : what} to <Who flat address={resolved} chain={chainId} label={toName ?? undefined} />?
         </h2>
         <div className="card">
           {/* only while you decide: once it's signed the run has nothing left to say */}
@@ -282,7 +281,7 @@ export function SafeSend({
           {toName && <NameMoved name={toName} address={resolved} />}
           <div className="line">
             <span>Network</span>
-            <ChainChip chainId={chainId} />
+            <span><Net chainId={chainId} /></span>
           </div>
           <div className="line">
             <span>Fee</span>
@@ -290,7 +289,7 @@ export function SafeSend({
           </div>
           <div className="line">
             <span>Signed by</span>
-            {p ? <SignerChoice options={options} value={signers} onChange={setChosen} disabled={busy} note={p.path === "budget" ? "daily budget" : st && signThenQueue(st, account) ? "then the wedgie or the others" : undefined} /> : <span>…</span>}
+            {p ? <SignerChoice options={options} value={signers} onChange={setChosen} disabled={busy} note={p.path === "budget" ? "daily limit" : st && signThenQueue(st, account) ? "then the wedgie or the others" : undefined} /> : <span>…</span>}
           </div>
           {!st?.deployed && (
             <div className="line">

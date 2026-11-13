@@ -83,7 +83,7 @@ export function Share({ account, states, assets, chainId: startChain, onDone }: 
   } catch {}
   const label = (a: Asset, amt: bigint) => {
     const t = `${fmtAmount(formatUnits(amt, a.decimals))} ${a.symbol}`;
-    return isUsdc(a) ? `$${fmtAmount(formatUnits(amt, 6), 2)}` : price ? `${t} (${usd(Number(formatUnits(amt, a.decimals)) * price)})` : t;
+    return isUsdc(a) ? usd(Number(formatUnits(amt, 6))) : price ? `${t} (${usd(Number(formatUnits(amt, a.decimals)) * price)})` : t;
   };
 
   /** The send: its calls, path, fee — or why it can't go. */

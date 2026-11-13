@@ -158,14 +158,6 @@ export function Words({ text, chain }: { text: string; chain?: number }) {
   return <>{parts.map((p, i) => (i % 2 ? <Who key={i} address={p} chain={chain} size={18} inline /> : p))}</>;
 }
 
-export function ChainChip({ chainId }: { chainId: number }) {
-  return (
-    <span className="chip" style={{ background: chainById(chainId)?.color ?? "#787b78" }}>
-      <Net chainId={chainId} />
-    </span>
-  );
-}
-
 /**
  * A network, wherever one is named: its logo, then its name (Austin 11-12: Activity had the logo, a waiting tx
  * didn't). Sits in a sentence like a word. The one place without it: an asset row, whose token icon has the badge.
@@ -175,7 +167,7 @@ export function Net({ chainId }: { chainId: number }) {
   return (
     <span style={{ whiteSpace: "nowrap" }}>
       {c?.icon && <img src={c.icon} alt="" style={{ width: "1.05em", height: "1.05em", borderRadius: "50%", verticalAlign: "-0.17em", marginRight: "0.3em" }} />}
-      {c?.name ?? `chain ${chainId}`}
+      {c?.name ?? `network ${chainId}`}
     </span>
   );
 }
@@ -474,7 +466,7 @@ export function Money({ amount: a, symbol, usd: u, get, least, unknown, size = 2
  * Use it everywhere something "ejects" — a tx's own page, Safe{Wallet}, an explorer — so it looks and acts the same.
  * No children: the eject icon. With children: that text and ↗.
  */
-export function Eject({ href, title, children }: { href: string; title: string; children?: React.ReactNode }) {
+export function Eject({ href, title = "See it on the explorer", children }: { href: string; title?: string; children?: React.ReactNode }) {
   // never stretched: as wide as its words, on the right. A block explorer is the bare icon, never the word (11-12)
   return (
     <a className="pill" href={href} target="_blank" rel="noopener noreferrer" title={title} aria-label={title} style={{ flex: "none", justifySelf: "end", ...(children ? {} : { width: 38, padding: 0, justifyContent: "center" }) }}>
@@ -495,7 +487,7 @@ export function DoneBar({ onDone, href }: { onDone: () => void; href?: string | 
     <>
       {href && (
         <div style={{ position: "absolute", top: 20, right: 20 }}>
-          <Eject href={href} title="See it on the explorer" />
+          <Eject href={href} />
         </div>
       )}
       <button className="btn wide" onClick={onDone}>
@@ -898,7 +890,7 @@ export function stageLabel(stage?: string | null): React.ReactNode {
     case "signing":
       return "Signing…";
     case "signing-hot":
-      return "Sign in your hot wallet…";
+      return "Sign in your browser wallet…";
     case "signing-wedgie":
       return <>Press <GreenButton /> on the wedgie…</>;
     case "sending":

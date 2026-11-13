@@ -66,7 +66,7 @@ export function Progress({ stage, chainId, hash }: { stage: Stage | string | nul
       <p className="fine" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
         <span className="grow">{stage === "sending" ? <>The relay is executing it on <Net chainId={chainId} />…</> : <>Waiting for <Net chainId={chainId} /> (~{expect} s)</>}</span>
         <span>{secs} s</span>
-        {hash && info?.explorer && <Eject href={`${info.explorer}/tx/${hash}`} title="See it on the explorer" />}
+        {hash && info?.explorer && <Eject href={`${info.explorer}/tx/${hash}`} />}
       </p>
       {why && <p className="fine">{why}</p>}
     </div>

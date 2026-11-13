@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type Address, getAddress, isAddress, zeroAddress } from "viem";
 import { CHAINS, chainById } from "@/lib/chains";
-import { amount, short, usd, nameIn } from "@/lib/format";
+import { amount, compactUsd, short, usd, nameIn } from "@/lib/format";
 import { type ChainState, type SafeAccount, forgetKnown, loadAccount, loadWalletName, readAll, saveAccount, saveWalletName } from "@/lib/safe/state";
 import { type Asset, type Portfolio, keepLate } from "@/lib/types";
 import { loadHidden, loadPortfolio, loadShown, saveHidden, savePortfolio, saveShown } from "@/lib/store";
@@ -431,7 +431,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
       // one card per network: a tx made ready on another network's card is not this card's (it signed that one)
       const ready = dropReady?.opts.state.chainId === s.chainId ? dropReady : null;
       if (!ready) {
-        if (!s.rolesMembers) throw new Error("Couldn't read the budget's keys. Try again.");
+        if (!s.rolesMembers) throw new Error("Couldn't read the daily limit's keys. Try again.");
         const calls = dropOtherBudgetsCalls(account!.address, s.rolesMembers, account!.burnerSigner);
         setDropReady(await prepareOwners({ account: account!, state: s, calls, signers: ownerSigners(s, account!), feeToken: feeTokenOn(s.chainId) }));
         return; // the next tap signs (Face ID must start straight from a tap)
@@ -439,7 +439,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
       dropBar.watch(ready);
       await finishOwners(ready);
       setDropReady(null);
-      setToast("The old phone's budget is off");
+      setToast("The old phone's daily limit is off");
       refresh();
     } catch (e: any) {
       setDropReady(null); // its page has the sheet now (Shared), or it failed: the next tap gets a fresh fee and number
@@ -481,9 +481,9 @@ export function SafeApp({ link }: { link?: string } = {}) {
             s.staleBudget &&
             s.owners.some(o => o.toLowerCase() === account.burnerSigner.toLowerCase()) && (
               <div key={`b${s.chainId}`} className="card alert">
-                <b>Turn off the old phone&apos;s budget</b>
+                <b>Turn off the old phone&apos;s daily limit</b>
                 <p className="fine">
-                  On <Net chainId={s.chainId} />, a key that isn&apos;t this phone can still spend the Instant wallet's daily budget (a lost phone, after a recovery).
+                  On <Net chainId={s.chainId} />, a key that isn&apos;t this phone can still spend the Instant Wallet's daily limit (a lost phone, after a recovery).
                 </p>
                 <button className="btn btn-red wide" onClick={() => dropOldBudget(s)}>
                   {dropReady?.opts.state.chainId === s.chainId ? "Sign to turn it off" : "Turn it off"}
@@ -685,5 +685,4 @@ function roughUsd(v: number): number {
   const p = 10 ** (Math.floor(Math.log10(v)) - 1);
   return Math.round(v / p) * p;
 }
-const compactUsd = (v: number) => (v >= 1e6 ? `$${+(v / 1e6).toPrecision(3)}M` : v >= 1e3 ? `$${+(v / 1e3).toPrecision(3)}k` : `$${v}`);
 

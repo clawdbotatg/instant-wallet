@@ -189,6 +189,8 @@ export function WhatItDoes({ chainId, safe, calls, tx, same, quiet, else: orElse
   ));
   // coins in and out say it all; the steps show when no coins move (a signer, a limit), the run failed, or a step warns
   const steps = danger || !sim || !!sim.fails || (!sim.pay.length && !sim.get.length) || calls.some(c => describe(chainId, safe, c).startsWith(WARN));
+  // the headline over the coins, and the coins the size they are in Activity (14 under a headline, 17 alone)
+  const said = !steps ? intents(chainId, safe, calls, res?.calls ?? null, true) : [];
   // quiet (the Send, Swap and Send-everything sheets, which already say what and the fee): the coins and any trouble.
   // A danger or a step that warns is never quiet: then it's the full card.
   if (quiet && !danger && !calls.some(c => describe(chainId, safe, c).startsWith(WARN))) {
@@ -232,15 +234,12 @@ export function WhatItDoes({ chainId, safe, calls, tx, same, quiet, else: orElse
       ) : sim ? (
         <div className="stack" style={{ gap: 4 }}>
           {/* what it's for first, in clear signing's words, as Activity: then the coins */}
-          {!steps && (() => {
-            const w = intents(chainId, safe, calls, res?.calls ?? null, true);
-            return w.length ? <WhatFor><Lines lines={w} chain={chainId} /></WhatFor> : null;
-          })()}
-          {sim.pay.map((m, i) => <Money key={`p${i}`} amount={m.amount} symbol={m.symbol} usd={m.usd} />)}
-          {sim.get.map((m, i) => <Money key={`g${i}`} amount={m.amount} symbol={m.symbol} usd={m.usd} get />)}
+          {said.length > 0 && <WhatFor><Lines lines={said} chain={chainId} /></WhatFor>}
+          {sim.pay.map((m, i) => <Money key={`p${i}`} amount={m.amount} symbol={m.symbol} usd={m.usd} size={said.length ? 14 : 17} />)}
+          {sim.get.map((m, i) => <Money key={`g${i}`} amount={m.amount} symbol={m.symbol} usd={m.usd} size={said.length ? 14 : 17} get />)}
           {fees.map((f, i) => (
             <span key={`f${i}`} className="fine">
-              Network fee: {amount(formatUnits(f.amount, f.decimals))} {f.symbol}
+              Fee {amount(formatUnits(f.amount, f.decimals))} {f.symbol}
               {res?.feeUsd[f.token] !== undefined && ` (${usd(res.feeUsd[f.token])})`}
             </span>
           ))}

@@ -10,7 +10,7 @@ import { type Prepared, Shared, finishOwners, getQuote, ownerSigners, prepareOwn
 import { type ChainState, type SafeAccount, readChain } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { AmountBox, TimedBar } from "../bits";
+import { AmountBox, Net, TimedBar } from "../bits";
 import { friendly } from "@/lib/friendly";
 import { ErrorLine } from "./WedgieButton";
 
@@ -107,7 +107,7 @@ export function ChainLimit({ account, st, assets, onRefresh, onPoll, toast, onCl
     <>
       {wait ? (
         <div className="stack" style={{ gap: 6 }}>
-          <p className="fine">{busy ? "Executing…" : `Waiting for ${chainById(chainId)?.name}…`}</p>
+          <p className="fine">{busy ? "Executing…" : <>Waiting for <Net chainId={chainId} />…</>}</p>
           <TimedBar ms={wait.ms} />
         </div>
       ) : ready ? (

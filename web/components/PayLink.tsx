@@ -7,7 +7,7 @@ import { claimKey } from "@/lib/claim";
 import { amount, short } from "@/lib/format";
 import { parse } from "@/lib/parse";
 import { loadAccount } from "@/lib/safe/state";
-import { CopyAddress, Money, Qr, Who } from "./bits";
+import { CopyAddress, Money, Net, Qr, Who } from "./bits";
 import { SafeApp } from "./safe/SafeApp";
 import { bio } from "@/lib/passkey";
 import { nativeUsd } from "@/lib/price";
@@ -67,7 +67,7 @@ export function PayLink() {
         )}
         <p className="fine center">
           to {p.to.startsWith("0x") ? <Who address={p.to} chain={p.chainId} inline /> : <span className="mono">{p.to}</span>}
-          {chain && ` on ${chain.name}`}
+          {chain && <> on <Net chainId={chain.id} /></>}
         </p>
         {isRequest && (
           <>

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { type Hash, formatUnits, getAddress, parseUnits, zeroAddress } from "viem";
 import { CHAINS, chainById, explorerAddress, explorerTx, publicClient, nativeSymbol } from "@/lib/chains";
-import { amount as fmtAmount, usd, feeText } from "@/lib/format";
+import { amount as fmtAmount, compactUsd, usd, feeText } from "@/lib/format";
 import { abi } from "@/lib/safe/core";
 import type { Quote } from "@/lib/safe/fee";
 import { type FeeToken, type Signer, type Stage, Shared, feeCall, getQuote, ownerSigners, ownersSend, sendKind, signThenQueue, signerOptions, usesWedgie } from "@/lib/safe/send";
@@ -23,7 +23,6 @@ const SLIPPAGE_BPS = 50;
 const tokenOf = (a: Asset): Token => ({ chainId: a.chainId, address: a.asset, symbol: a.symbol, decimals: a.decimals, logo: a.logo, priceUsd: a.price ?? undefined });
 /** A search hit: a token plus its name and how deep its pools are (what tells the real coin from its copies). */
 type Found = Token & { name: string; liquidityUsd?: number };
-const compactUsd = (v: number) => "$" + v.toLocaleString("en-US", { notation: "compact", maximumFractionDigits: 1 });
 const tokenOpt = (t: Token | Found): Opt => ({
   key: t.address,
   icon: <TokenIcon symbol={t.symbol} asset={t.address} chainId={t.chainId} logo={t.logo} size={28} />,
@@ -377,13 +376,13 @@ export function SafeSwap({
     return (
       <div className="stack center">
         <div style={{ fontSize: 64 }}>{failed ? "!" : landed ? "✓" : "⇄"}</div>
-        <h2>{failed ? "The bridge failed" : landed ? "Swapped" : `On its way to ${toName}`}</h2>
+        <h2>{failed ? "The bridge failed" : landed ? "Executed" : <>On its way to <Net chainId={toChain} /></>}</h2>
         <div className="stack" style={{ gap: 4 }}>
           <Money amount={amountIn} symbol={route.from.symbol} usd={fromUsd} />
           <Money amount={formatUnits(BigInt(route.toAmount), route.to.decimals)} symbol={`${route.to.symbol}${crossChain ? ` on ${toName}` : ""}`} usd={toUsd} get />
         </div>
         {crossChain && !landed && !failed && <TimeBar seconds={route.seconds} label={`Usually about ${Math.max(1, Math.round(route.seconds / 60))} min. You can close this.`} />}
-        {failed && <p className="fine">{arrival?.substatus === "REFUNDED" ? `Refunded to your wallet on ${chainById(chainId)?.name}.` : "Check the explorer; LI.FI usually refunds."}</p>}
+        {failed && <p className="fine">{arrival?.substatus === "REFUNDED" ? <>Refunded to your wallet on <Net chainId={chainId} />.</> : "Check the explorer; LI.FI usually refunds."}</p>}
         {arrival?.substatus === "PARTIAL" && <p className="fine">It arrived as a different token than planned (the bridge's fallback).</p>}
         <DoneBar onDone={onDone} href={url} />
       </div>
@@ -399,7 +398,7 @@ export function SafeSwap({
 
   return (
     <div className="stack swap">
-      <h2>{fund ? `Add gas on ${chainById(fund)?.name}` : "Swap"}</h2>
+      <h2>{fund ? <>Add gas on <Net chainId={fund} /></> : "Swap"}</h2>
       {fund && <p className="fine">Your wallet has the same address on every network. This moves a little to <Net chainId={fund} /> so it can pay for changes there.</p>}
 
       <div className="field">
@@ -452,7 +451,7 @@ export function SafeSwap({
         {unknownTo && to && (
           <span className="fine">
             Anyone can make a token called {to.symbol}. This one is{" "}
-            <Eject href={explorerAddress(to.chainId, to.address) ?? ""} title="See it on the explorer">
+            <Eject href={explorerAddress(to.chainId, to.address) ?? ""}>
               <Who flat plain address={to.address} size={16} />
             </Eject>
             {"liquidityUsd" in to && (to as Found).liquidityUsd ? ` · ${compactUsd((to as Found).liquidityUsd!)} in its pools` : ""}.
@@ -480,7 +479,7 @@ export function SafeSwap({
             <div className="line">
               <span>Arrives</span>
               <span>
-                {route ? `on ${toName} in ~${route.seconds < 90 ? `${route.seconds} s` : `${Math.round(route.seconds / 60)} min`}` : "—"}
+                {route ? <>on <Net chainId={toChain} /> in ~{route.seconds < 90 ? `${route.seconds} s` : `${Math.round(route.seconds / 60)} min`}</> : "—"}
               </span>
             </div>
           )}

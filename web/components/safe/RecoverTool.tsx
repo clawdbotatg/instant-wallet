@@ -120,8 +120,8 @@ export function RecoverTool() {
       {info && !info.deployed && (
         <div className="card stack">
           <b>0. Deploy it here first</b>
-          <p className="fine">It was never used on <Net chainId={chainId} />. Paste the &quot;Instant wallet key&quot; from the owner&apos;s wallet card.</p>
-          <AddressInput onChange={setOriginal} placeholder="Instant wallet key: 0x… or name.eth" chain={chainId} />
+          <p className="fine">It was never used on <Net chainId={chainId} />. Paste the &quot;Instant Wallet key&quot; from the owner&apos;s wallet card.</p>
+          <AddressInput onChange={setOriginal} placeholder="Instant Wallet key: 0x… or name.eth" chain={chainId} />
           {original && w && safeAddress(original) !== w && <p className="err">That signer doesn&apos;t make this wallet.</p>}
           <button
             className="btn btn-green wide"

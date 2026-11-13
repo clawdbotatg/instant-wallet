@@ -426,7 +426,7 @@ export function Keys({
     <>
       {wait?.what === what && wait.chainId === chainId ? (
         <div className="stack" style={{ gap: 8 }}>
-          <p className="fine">{busy ? "Executing…" : `Waiting for ${chainById(chainId)?.name}…`}</p>
+          <p className="fine">{busy ? "Executing…" : <>Waiting for <Net chainId={chainId} />…</>}</p>
           <TimedBar ms={wait.ms} />
         </div>
       ) : pending?.what === what ? (
@@ -463,9 +463,9 @@ export function Keys({
   const idle = !!busy || !!pending || !!wait || !canPay;
   // why a step's button is grey, said under it (a green button that does nothing is a bug report)
   const blocked = busy ? null
-    : !canPay ? `Needs a little gas on ${chainById(chainId)?.name} first.`
+    : !canPay ? <>Needs a little for the fee on <Net chainId={chainId} /> first.</>
     : pending ? "Finish or cancel the change above first."
-    : wait ? `Waiting for the last change on ${chainById(wait.chainId)?.name}…`
+    : wait ? <>Waiting for the last change on <Net chainId={wait.chainId} />…</>
     : null;
 
 
@@ -738,7 +738,7 @@ export function Keys({
         <Alerts account={account} toast={toast} />
       </Step>
 
-      <Step title={`${chainById(chainId)?.name} RPC`} key={`rpc${chainId}`}>
+      <Step title={<>Your node on <Net chainId={chainId} /></>} key={`rpc${chainId}`}>
         <RpcSetting chainId={chainId} toast={toast} />
       </Step>
 
@@ -855,7 +855,7 @@ function Summary({ account, st, assets, onRefresh, onPoll, toast, children }: { 
   );
 }
 
-function Step({ title, done, children }: { title: string; done?: boolean; children: React.ReactNode }) {
+function Step({ title, done, children }: { title: React.ReactNode; done?: boolean; children: React.ReactNode }) {
   return (
     <div className={`card step ${done ? "done" : ""}`}>
       <div className="row" style={{ justifyContent: "space-between" }}>

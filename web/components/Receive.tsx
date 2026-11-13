@@ -9,7 +9,7 @@ import { requestLink, requestUri } from "@/lib/parse";
 import { nativeUsd } from "@/lib/price";
 import { loadRequestLink, saveRequestLink } from "@/lib/store";
 import type { Account } from "@/lib/types";
-import { AmountBox, ChainIcon, CopyIcon, Money, PencilIcon, Qr, SwitchIcon, WhatFor, Who, copy } from "./bits";
+import { AmountBox, CopyIcon, Money, Net, PencilIcon, Qr, SwitchIcon, WhatFor, Who, copy } from "./bits";
 import { ChainSelect } from "./safe/Pick";
 
 /**
@@ -104,9 +104,9 @@ export function Receive({
           <div role="status" style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", alignContent: "center", gap: 8, borderRadius: 22, background: "#fff", animation: "fade .15s" }}>
             <WhatFor>Received</WhatFor>
             {got.map(g => (
-              <span key={g.id} className="row" style={{ gap: 8 }}>
-                <ChainIcon chainId={g.chainId} size={22} />
+              <span key={g.id} className="stack center" style={{ gap: 2 }}>
                 <Money amount={g.get.amount} symbol={g.get.symbol} usd={g.usd} size={28} get />
+                <span className="fine"><Net chainId={g.chainId} /></span>
               </span>
             ))}
           </div>

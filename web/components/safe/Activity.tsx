@@ -169,7 +169,7 @@ export function Activity({ safe, chains, undeployed = [], assets, late, live, ti
             <span className="fine row" style={{ gap: 5 }}>
               {day(r.at)} · <Net chainId={r.chainId} />
             </span>
-            {r.link && <Eject href={r.link} title="Open in the explorer" />}
+            {r.link && <Eject href={r.link} />}
           </div>
           {(r.from !== undefined || r.words) && <WhatFor>{r.from ? <>Received from <From a={r.from} chainId={r.chainId} /></> : r.from === null ? "Received" : <Lines lines={r.words!} chain={r.chainId} />}</WhatFor>}
           {r.failed && <span style={{ fontSize: 15, color: "#c62828", fontWeight: 600 }}>⚠️ Failed: nothing moved</span>}
@@ -209,7 +209,7 @@ function SendingRow({ s, assets, usd }: { s: Sending; assets: Asset[]; usd: (cha
         <span className="fine row" style={{ gap: 5 }}>
           {s.landed ? day(Date.now()) : <><span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /><b>Executing…</b></>} · <Net chainId={s.chainId} />
         </span>
-        {link && <Eject href={link} title="Open in the explorer" />}
+        {link && <Eject href={link} />}
       </div>
       {words && words.length > 0 && <WhatFor><Lines lines={words} chain={s.chainId} /></WhatFor>}
       {pay.length > 0 && (

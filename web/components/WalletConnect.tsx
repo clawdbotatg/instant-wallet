@@ -25,7 +25,7 @@ import {
   toPending,
   triage,
 } from "@/lib/walletconnect";
-import { Blockie, ChainChip, Sheet, Who, useToast } from "./bits";
+import { Blockie, Sheet, Who, useToast } from "./bits";
 import { WhatItDoes } from "./safe/WhatItDoes";
 import { Scanner } from "./Scanner";
 import { friendly } from "@/lib/friendly";

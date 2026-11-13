@@ -4,7 +4,7 @@ import { useState } from "react";
 import { assertChallenge, bio } from "@/lib/passkey";
 import { onrampChallenge } from "@/lib/onramp";
 import type { SafeAccount } from "@/lib/safe/state";
-import { ReceiveIcon, TokenIcon } from "../bits";
+import { Net, ReceiveIcon, TokenIcon } from "../bits";
 
 /**
  * Buy USDC or ETH on Base with Apple Pay (or a card), straight into this wallet: Coinbase Pay, through /api/onramp.
@@ -58,7 +58,7 @@ export function Deposit({ account, onReceive }: { account: SafeAccount; onReceiv
           </button>
         ))}
       </div>
-      <p className="fine">Lands on Base.</p>
+      <p className="fine">Lands on <Net chainId={8453} />.</p>
       {ready ? (
         <a className="btn btn-green wide" href={ready.url} target="_blank" rel="noopener noreferrer" onClick={() => setReady(null)}>
           Continue to Coinbase ({ready.asset})

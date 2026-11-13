@@ -220,7 +220,7 @@ export function SendAll({
             {r.error && <ErrorLine text={r.error} />}
             {r.stage === "done" ? (
               <p className="fine row" style={{ gap: 8, justifyContent: "space-between" }}>
-                ✓ Executed {url && <Eject href={url} title="See it on the explorer" />}
+                ✓ Executed {url && <Eject href={url} />}
               </p>
             ) : (
               <button
@@ -237,8 +237,8 @@ export function SendAll({
                   : r.stage === "busy"
                     ? stageLabel(r.send ?? "sending")
                     : r.stage === "ready"
-                      ? `Sign to send all on ${chainById(chainId)?.name}`
-                      : `Send all on ${chainById(chainId)?.name}`}
+                      ? <>Sign to send everything on <Net chainId={chainId} /></>
+                      : <>Send everything on <Net chainId={chainId} /></>}
               </button>
             )}
             {r.stage === "busy" && <Progress stage={r.send ?? null} chainId={chainId} hash={r.hash} />}

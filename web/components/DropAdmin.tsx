@@ -382,7 +382,7 @@ function DropCard({ id, toast, onClose }: { id: string; toast: (m: string) => vo
             <div key={c.tx} className="row fine" style={{ justifyContent: "space-between", padding: "4px 0", gap: 8 }}>
               <Who address={c.wallet} chain={drop.chainId} size={18} inline />
               <span>{new Date(c.at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
-              {explorerTx(drop.chainId, c.tx) && <Eject href={explorerTx(drop.chainId, c.tx)!} title="See it on the explorer" />}
+              {explorerTx(drop.chainId, c.tx) && <Eject href={explorerTx(drop.chainId, c.tx)!} />}
             </div>
           ))}
         </details>

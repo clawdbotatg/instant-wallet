@@ -5,6 +5,9 @@ export function usd(v: number | null | undefined): string {
   return v.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: v < 0.01 && v > 0 ? 4 : 2 });
 }
 
+/** Rough dollars, short: "$1.2K". */
+export const compactUsd = (v: number) => "$" + v.toLocaleString("en-US", { notation: "compact", maximumFractionDigits: 1 });
+
 export function amount(formatted: string, max = 6): string {
   const n = Number(formatted);
   if (!Number.isFinite(n)) return formatted;

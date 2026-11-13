@@ -43,6 +43,10 @@ const RULES = [
   { re: /"(Working|Getting ready|Cancelling|Signing)…"|`(Check )?\$\{bio\(\)\}…`/, say: "a button's busy words written by hand: stageLabel(\"quote\" | \"signing\" | \"sending\")", skip: [SHARED] },
   { re: /<p className="err">\{(error|err|refused)\}/, say: "an error drawn by hand: use <ErrorLine> (an address in it is drawn as <Who>)" },
   { re: /^\s*Disconnect\s*$/, say: "a Disconnect word button: <RemoveX label=\"Disconnect\">, the red ✕ like every other row" },
+  // picked by what most of the app already says (11-12): Sign on the tap that signs, recovery address, coin
+  { re: /stageLabel\((stage|step)\) : (step === "unfunded" \? "Try again" : )?"(Send|Swap|Fund it)"/, say: "the tap that signs says Sign, or 'Sign to …'" },
+  { re: /["`>][^"`<{]*( [Gg]uardians?\b|\b[Gg]uardians? )[^"`<{]*["`<]/, say: "'guardian' in words a user reads: say 'recovery address'", skip: ["components/safe/RecoverTool.tsx", "components/safe/SafeWelcome.tsx"] }, // code that reads getGuardians
+  { re: /Execute it myself|your wallet pays the gas/, say: "said one way: '… from my wallet (I pay gas)'" },
   { re: /\.length\}\/\{/, say: "a count as x/y: say 'x of y'" },
   { re: /(btn|pill)[^>]*style=\{\{[^}]*\bheight: \d/, say: "a button with its own height: two heights only, 56 and 38" },
   { re: /inputMode="decimal"/, say: "an amount box by hand: use <AmountBox> (dollars first, switch to the coin)", skip: ["components/DropAdmin.tsx", "components/ClaimMaker.tsx"] }, // a drop's "dollars per claim" / "USDC on each": dollars only, no coin to switch to

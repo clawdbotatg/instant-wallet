@@ -371,9 +371,9 @@ export function Keys({
     prep("guardian", async () => {
       const s = await fresh();
       if (s.recovery) throw new Error("A recovery is running on this wallet. Cancel it or let it finish first.");
-      if (!s.stored) throw new Error("Couldn't read the guardians. Try again in a moment.");
+      if (!s.stored) throw new Error("Couldn't read the recovery addresses. Try again in a moment.");
       const code = await publicClient(chainId).getCode({ address: RECOVERY_14D }).catch(() => undefined);
-      if (!code || code === "0x") throw new Error(`Your own guardians aren't on ${chainById(chainId)?.name} yet.`);
+      if (!code || code === "0x") throw new Error(`Your own recovery addresses aren't on ${chainById(chainId)?.name} yet.`);
       const calls: Call[] = [];
       if (!s.modules.some(m => same(m, RECOVERY_14D))) calls.push(selfCall(account.address, encodeFunctionData({ abi: abi.safe, functionName: "enableModule", args: [RECOVERY_14D] })));
       calls.push(...guardianListCalls(RECOVERY_14D, s.stored[RECOVERY_14D] ?? [], next));
@@ -464,7 +464,7 @@ export function Keys({
   const idle = !!busy || !!pending || !!wait || !canPay;
   // why a step's button is grey, said under it (a green button that does nothing is a bug report)
   const blocked = busy ? null
-    : !canPay ? <>Needs a little for the fee on <Net chainId={chainId} /> first.</>
+    : !canPay ? <>Needs a little gas on <Net chainId={chainId} /> first.</>
     : pending ? "Finish or cancel the change above first."
     : wait ? <>Waiting for the last change on <Net chainId={wait.chainId} />…</>
     : null;
@@ -700,7 +700,7 @@ export function Keys({
             {mine.map(g => (
               <div className="keyrow" key={g} style={{ padding: 0 }}>
                 <Who address={g} chain={chainId} />
-                <RemoveX disabled={idle} label="Remove this guardian" onClick={() => setGuardians(mine.filter(x => !same(x, g)), "Remove guardian")} />
+                <RemoveX disabled={idle} label="Remove this recovery address" onClick={() => setGuardians(mine.filter(x => !same(x, g)), "Remove recovery address")} />
               </div>
             ))}
             {action(
@@ -708,11 +708,11 @@ export function Keys({
               <AddressInput
                 key={`${chainId}-${guardKey}`}
                 onChange={setGuardIn}
-                placeholder="Add a guardian: 0x… or name.eth"
+                placeholder="Add a recovery address: 0x… or name.eth"
                 after={
                   <button
                     className="btn btn-sm"
-                    onClick={() => guardIn && setGuardians([...mine.filter(x => !same(x, guardIn)), guardIn], "Add guardian")}
+                    onClick={() => guardIn && setGuardians([...mine.filter(x => !same(x, guardIn)), guardIn], "Add recovery address")}
                     disabled={idle || !guardIn || mine.some(x => same(x, guardIn)) || same(guardIn, DAO)}
                   >
                     {busy === "guardian" ? stageLabel("quote") : "Add"}

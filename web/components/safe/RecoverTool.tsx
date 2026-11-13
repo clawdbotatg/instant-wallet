@@ -129,7 +129,7 @@ export function RecoverTool() {
             disabled={!w || !original || safeAddress(original) !== w}
             onClick={() => original && run(SAFE_FACTORY, deploySafeCall(original).data, "Deploy")}
           >
-            Deploy it (your wallet pays the gas)
+            Deploy it from my wallet (I pay gas)
           </button>
         </div>
       )}

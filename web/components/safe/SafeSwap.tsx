@@ -169,7 +169,7 @@ export function SafeSwap({
       pc.readContract({ address, abi: abi.erc20, functionName: "symbol" }),
       pc.readContract({ address, abi: abi.erc20, functionName: "decimals" }),
     ]).catch(() => [null, null] as const);
-    if (symbol === null || decimals === null) return `That isn't a token on ${chainById(toChain)?.name}.`;
+    if (symbol === null || decimals === null) return `That isn't a coin on ${chainById(toChain)?.name}.`;
     setTo({ chainId: toChain, address, symbol: String(symbol), decimals: Number(decimals) });
     return null;
   }
@@ -383,7 +383,7 @@ export function SafeSwap({
         </div>
         {crossChain && !landed && !failed && <TimeBar seconds={route.seconds} label={`Usually about ${Math.max(1, Math.round(route.seconds / 60))} min. You can close this.`} />}
         {failed && <p className="fine">{arrival?.substatus === "REFUNDED" ? <>Refunded to your wallet on <Net chainId={chainId} />.</> : "Check the explorer; LI.FI usually refunds."}</p>}
-        {arrival?.substatus === "PARTIAL" && <p className="fine">It arrived as a different token than planned (the bridge's fallback).</p>}
+        {arrival?.substatus === "PARTIAL" && <p className="fine">It arrived as a different coin than planned (the bridge's fallback).</p>}
         <DoneBar onDone={onDone} href={url} />
       </div>
     );
@@ -443,7 +443,7 @@ export function SafeSwap({
             options={toOptions.map(tokenOpt)}
             onPick={k => setTo(toOptions.find(t => t.address === k) ?? null)}
             placeholder="Token"
-            search={{ onQuery: setQuery, busy: searching, placeholder: "Search any token, or paste its address" }}
+            search={{ onQuery: setQuery, busy: searching, placeholder: "Search any coin, or paste its address" }}
             custom={{ label: "Custom: paste a contract address", placeholder: `Token contract on ${toName}`, onCustom: customTo }}
             disabled={busy}
           />
@@ -536,7 +536,7 @@ export function SafeSwap({
       {feeShort && <p className="err">Not enough {feeToken === "usdc" ? "USDC" : nativeSymbol(chainId)} on <Net chainId={chainId} /> for this plus the fee.</p>}
       {error && <ErrorLine text={error} />}
       <button className="btn btn-green wide go-swap" onClick={swap} disabled={busy || !ready}>
-        {busy ? stageLabel(stage) : "Swap"}
+        {busy ? stageLabel(stage) : "Sign to swap"}
       </button>
       <Progress stage={stage} chainId={chainId} hash={hash} />
     </div>

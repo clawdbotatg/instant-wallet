@@ -20,8 +20,13 @@ export function amount(formatted: string, max = 6): string {
  * same fee in dollars (the relay prices it), so no other price is needed. */
 export function feeText(fee: { feeUsdc: string | bigint; feeEth: string | bigint }, token: "usdc" | "eth", coin: string): string {
   const dollars = Number(BigInt(fee.feeUsdc)) / 1e6;
-  if (token === "usdc") return `${dollars >= 0.01 ? dollars.toFixed(2) : amount(String(dollars))} USDC`;
-  return `${amount(String(Number(BigInt(fee.feeEth)) / 1e18))} ${coin} (${usd(dollars)})`;
+  return feeWords(token === "usdc" ? dollars : Number(BigInt(fee.feeEth)) / 1e18, token === "usdc" ? "USDC" : coin, dollars);
+}
+
+/** A fee, the same wherever one shows: the coin, then dollars: "0.03 USDC ($0.03)", "0.00004 ETH ($0.15)". */
+export function feeWords(n: number, symbol: string, dollars?: number | null): string {
+  const coin = symbol === "USDC" && n >= 0.01 ? n.toFixed(2) : amount(String(n));
+  return `${coin} ${symbol}${dollars === null || dollars === undefined ? "" : ` (${usd(dollars)})`}`;
 }
 
 /**

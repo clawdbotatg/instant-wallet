@@ -192,7 +192,7 @@ export function SafeSend({
       if (!m) {
         setPick(null);
         setAmountIn("");
-        return setError("That request is for a token or network you don't hold here.");
+        return setError("That request is for a coin or network you don't hold here.");
       }
       setPick(key(m));
     }
@@ -301,7 +301,7 @@ export function SafeSend({
         {feeShort && <p className="err">Not enough {feeToken === "usdc" ? "USDC" : nativeSymbol(chainId)} on <Net chainId={chainId} /> for this plus the fee.</p>}
         {error && <ErrorLine text={error} />}
         <button className="btn btn-green wide" onClick={send} disabled={busy || !quote || feeShort}>
-          {busy ? stageLabel(stage) : "Send"}
+          {busy ? stageLabel(stage) : "Sign"}
         </button>
         <Progress stage={stage} chainId={chainId} hash={hash} />
         {!busy && (

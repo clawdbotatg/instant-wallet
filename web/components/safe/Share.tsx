@@ -239,7 +239,7 @@ export function Share({ account, states, assets, chainId: startChain, onDone }: 
         ) : (
           <>
             <button className="btn btn-green wide" onClick={() => fund(card)} disabled={funding}>
-              {funding ? stageLabel(step) : step === "unfunded" ? "Try again" : "Fund it"}
+              {funding ? stageLabel(step) : step === "unfunded" ? "Try again" : "Sign to fund it"}
             </button>
             <Progress stage={step} chainId={chainId} />
             {!funding && <p className="fine">The {how === "qr" ? "QR" : "card"} is empty until you fund it.</p>}

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { type Address, type Hex, formatUnits, getAddress } from "viem";
-import { amount, short, usd } from "@/lib/format";
+import { amount, feeWords, short, usd } from "@/lib/format";
 import { Money, WhatFor, Who, Words } from "../bits";
 import { WARN, describe, ours, relayFee } from "@/lib/safe/describe";
 import type { Call } from "@/lib/safe/core";
@@ -239,8 +239,7 @@ export function WhatItDoes({ chainId, safe, calls, tx, same, quiet, else: orElse
           {sim.get.map((m, i) => <Money key={`g${i}`} amount={m.amount} symbol={m.symbol} usd={m.usd} size={said.length ? 14 : 17} get />)}
           {fees.map((f, i) => (
             <span key={`f${i}`} className="fine">
-              Fee {amount(formatUnits(f.amount, f.decimals))} {f.symbol}
-              {res?.feeUsd[f.token] !== undefined && ` (${usd(res.feeUsd[f.token])})`}
+              Fee {feeWords(Number(formatUnits(f.amount, f.decimals)), f.symbol, res?.feeUsd[f.token])}
             </span>
           ))}
         </div>

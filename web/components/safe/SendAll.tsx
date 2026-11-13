@@ -183,7 +183,7 @@ export function SendAll({
       {canMine && (
         <label className="row" style={{ gap: 8 }}>
           <input type="checkbox" checked={mine} onChange={(e) => (setMine(e.target.checked), setRows({}))} />
-          Execute it myself (no fee, I pay gas)
+          Execute from my wallet (no fee, I pay gas)
         </label>
       )}
       {chains.length === 0 && <p className="fine">Nothing to send.</p>}
@@ -228,7 +228,7 @@ export function SendAll({
             {ran ? <WhatItDoes quiet chainId={chainId} safe={account.address} calls={callsOf(ran)} tx={ran} else={list} /> : list}
             {held.length > 5 && !ran && (
               <span className="fine">
-                {held.length} tokens · scroll to see all
+                {held.length} coins · scroll to see all
               </span>
             )}
             {fee && <span className="fine">Fee {fee}</span>}

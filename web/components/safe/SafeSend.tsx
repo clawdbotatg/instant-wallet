@@ -13,6 +13,7 @@ import { openWalletConnect } from "@/lib/walletconnect";
 import { transfer } from "@/lib/safe/core";
 import type { Quote } from "@/lib/safe/fee";
 import { type FeeToken, type Signer, type Stage, Shared, budgetSend, feeCall, getQuote, ownersSend, plan, sendKind, signThenQueue, signerOptions, usesWedgie } from "@/lib/safe/send";
+import { hotAvailable } from "@/lib/safe/hot";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
@@ -217,7 +218,12 @@ export function SafeSend({
     if (scanned) onScan(scanned);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function send() {
+  // Execute from my wallet: MetaMask or Rainbow sends it and pays the gas, no relay and no fee (Austin 11-13: you can
+  // always run your own tx, on our site too, and on a copy with no relay)
+  const [canSelf, setCanSelf] = useState(false);
+  useEffect(() => setCanSelf(hotAvailable()), [stage]);
+
+  async function send(self = false) {
     if (!resolved || !asset || base === null || !st || !p) return;
     setError(null);
     let wedgie: Wedgie | null = null;
@@ -230,8 +236,8 @@ export function SafeSend({
       if (st && usesWedgie(account, st, signers) && wedgieSupported()) wedgie = await Wedgie.connect(); // a computer: it signs here too
       const h =
         p.path === "budget"
-          ? await budgetSend({ account, state: st, calls, feeToken, quote: quote ?? undefined, onStage })
-          : await ownersSend({ account, state: st, calls, signers, feeToken, wedgie, quote: quote ?? undefined, onStage, label: `Send ${what} to ${toName ?? resolved}` });
+          ? await budgetSend({ account, state: st, calls, feeToken, quote: quote ?? undefined, self, onStage })
+          : await ownersSend({ account, state: st, calls, signers, feeToken, wedgie, quote: quote ?? undefined, self, onStage, label: `Send ${what} to ${toName ?? resolved}` });
       setHash(h);
       setStage("done");
       if (toName) rememberPaid(toName, resolved);
@@ -300,9 +306,14 @@ export function SafeSend({
         </div>
         {feeShort && <p className="err">Not enough {feeToken === "usdc" ? "USDC" : nativeSymbol(chainId)} on <Net chainId={chainId} /> for this plus the fee.</p>}
         {error && <ErrorLine text={error} />}
-        <button className="btn btn-green wide" onClick={send} disabled={busy || !quote || feeShort}>
+        <button className="btn btn-green wide" onClick={() => send()} disabled={busy || !quote || feeShort}>
           {busy ? stageLabel(stage) : "Sign"}
         </button>
+        {!busy && canSelf && st?.deployed && p && (
+          <button className="btn btn-dark wide" onClick={() => send(true)}>
+            Execute from my wallet (no fee, I pay gas)
+          </button>
+        )}
         <Progress stage={stage} chainId={chainId} hash={hash} />
         {!busy && (
           <button className="btn wide" onClick={() => setStage("form")}>

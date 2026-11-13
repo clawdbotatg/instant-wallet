@@ -12,6 +12,7 @@ import {
   rolesAddress,
   rolesSpendCall,
   safeTxHash,
+  signedRolesCalldata,
   transfer,
 } from "./core";
 import { type Quote, type SendKind } from "./fee";
@@ -319,13 +320,16 @@ export async function budgetSend(opts: {
   calls: Call[]; // all ETH, or all USDC transfers
   feeToken: FeeToken;
   quote?: Quote;
+  self?: boolean; // your own browser wallet sends it and pays the gas: no relay, no fee
   onStage?: (s: Stage, hash?: Hash) => void;
 }): Promise<Hash> {
   const { account: a, state: st } = opts;
   const stage = opts.onStage ?? (() => {});
   stage("quote");
-  const q = opts.quote && opts.quote.kind === "roles" && opts.quote.until > Date.now() + 30_000 ? opts.quote : await getQuote(st.chainId, "roles");
-  const call = rolesSpendCall([...opts.calls, feeCall(q, opts.feeToken)]);
+  if (opts.self && !st.deployed) throw new Error("Send one through the relay first on this network (it sets the wallet up there).");
+  if (opts.self && !hotAvailable()) throw new Error("No browser wallet here to execute it.");
+  const q = opts.self ? null : opts.quote && opts.quote.kind === "roles" && opts.quote.until > Date.now() + 30_000 ? opts.quote : await getQuote(st.chainId, "roles");
+  const call = rolesSpendCall(q ? [...opts.calls, feeCall(q, opts.feeToken)] : opts.calls);
   const s: Hex = salt();
   const h = moduleTxHash(st.chainId, rolesAddress(a.address), call, s);
   stage("signing");
@@ -333,7 +337,9 @@ export async function budgetSend(opts: {
   stage("sending");
   const out = startSending(st.chainId, a.address, opts.calls);
   try {
-    const hash = await post({ chainId: st.chainId, kind: "roles", safe: a.address, call, signer: a.burnerSigner, signature, salt: s });
+    const hash = opts.self
+      ? await hotSend(st.chainId, rolesAddress(a.address), signedRolesCalldata(call, a.burnerSigner, signature, s))
+      : await post({ chainId: st.chainId, kind: "roles", safe: a.address, call, signer: a.burnerSigner, signature, salt: s });
     out.hash(hash);
     stage("confirming", hash);
     await waitFor(st.chainId, hash);

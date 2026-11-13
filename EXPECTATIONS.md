@@ -63,13 +63,19 @@ Where it lives: `WhatItDoes`, `<Money>`, clear-signing-safe-kit (`dangers`, `sim
 
 Words:
 - Signing says **Sign**. Declining says **Reject**. Never Yes / Approve / Confirm on a signature.
+- The tap that signs says **Sign**, or "Sign to …" when the screen has no question above it (Sign to swap, Sign to fund it, Sign to reject) (11-12). Never Send / Swap / Fund it on that tap.
 - Running a signed tx is **Execute** (Executing…, ✓ Executed). Never send.
+- A tx that ran says **✓ Executed** the same way everywhere: `<ExecutedLine>` in a card or a row, the big ✓ and "Executed" on a sheet. Never Swapped / Funded.
 - A finished screen says **Done**, white (the only button, nothing to compete with). Never OK.
 - Fewest words (11-10). Make it obvious with less on screen. Never a sentence that explains what the screen
   already shows.
 - Say it once (11-10). The Send sheet is one line: "Send $1.00 of ETH to atg.eth?". Send, Swap and Send
   everything show the run's coins (red −, green +) and a Fee row, no sentence (`<WhatItDoes quiet>`); a danger
   or a warning brings the full card back. Never hide the coins. Never "Checked in this browser".
+- One word per thing (11-12): **recovery address** (never guardian), **coin** (never token), **signer** (never owner or key), **daily limit** (never budget), **network** (never chain), **browser wallet** (never hot wallet), **Instant Wallet**. "Gas" only where your own browser wallet pays it.
+- A fee reads the same everywhere: the coin, then dollars: "Fee 0.03 USDC ($0.03)" (`feeText`, `feeWords`).
+- A signer is shown the same in Settings and on a tx's page: the name you gave it, else what it is (Wedgie, Browser wallet).
+- A working button says what `stageLabel` says: Getting the fee…, Signing…, Executing….
 - Dollars are cents ($0.25), four places only under a cent.
 
 Button colors (10-30):

@@ -402,7 +402,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
                 {k === "face" ? (
                   <BioSigner />
                 ) : (
-                  <Who address={shown} chain={chainId} label={NAMES[k]} plain={k === "wedgie" || k === "wedgieFar"} />
+                  <Who address={friends[o.toLowerCase()]?.wallet ?? shown} chain={chainId} label={friends[o.toLowerCase()]?.name ?? NAMES[k]} plain={k === "wedgie" || k === "wedgieFar"} />
                 )}
               </span>
               {signed ? (
@@ -412,7 +412,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
                   {busy === k ? stageLabel(k === "wedgie" ? "signing-wedgie" : "signing") : "Sign"}
                 </button>
               ) : (
-                <span className="fine">waiting</span>
+                <span className="fine">Waiting</span>
               )}
             </div>
           );

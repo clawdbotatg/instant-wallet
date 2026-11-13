@@ -534,14 +534,16 @@ export function Keys({
             </button>
           ) : (
             <>
-              <div className="row" style={{ gap: 6 }}>
-                <div className="grow">
-                  <AddressInput key={`${chainId}-${inKey}`} onChange={setSignerIn} placeholder="Add: 0x… or name.eth" />
-                </div>
-                <button className="btn btn-sm" onClick={() => signerIn && stage({ a: signerIn })} disabled={idle || !signerIn}>
-                  Add
-                </button>
-              </div>
+              <AddressInput
+                key={`${chainId}-${inKey}`}
+                onChange={setSignerIn}
+                placeholder="Add: 0x… or name.eth"
+                after={
+                  <button className="btn btn-sm" onClick={() => signerIn && stage({ a: signerIn })} disabled={idle || !signerIn}>
+                    Add
+                  </button>
+                }
+              />
               {error?.what === "stage" && <ErrorLine text={error.msg} />}
               {invites.map(i => {
                 const who = i.answer && signerAddress(i.answer.x, i.answer.y);
@@ -716,18 +718,20 @@ export function Keys({
             ))}
             {action(
               "guardian",
-              <div className="row" style={{ gap: 6 }}>
-                <div className="grow">
-                  <AddressInput key={`${chainId}-${guardKey}`} onChange={setGuardIn} placeholder="Add a guardian: 0x… or name.eth" />
-                </div>
-                <button
-                  className="btn btn-sm"
-                  onClick={() => guardIn && setGuardians([...mine.filter(x => !same(x, guardIn)), guardIn], "Add guardian")}
-                  disabled={idle || !guardIn || mine.some(x => same(x, guardIn)) || same(guardIn, DAO)}
-                >
-                  {busy === "guardian" ? "Working…" : "Add"}
-                </button>
-              </div>,
+              <AddressInput
+                key={`${chainId}-${guardKey}`}
+                onChange={setGuardIn}
+                placeholder="Add a guardian: 0x… or name.eth"
+                after={
+                  <button
+                    className="btn btn-sm"
+                    onClick={() => guardIn && setGuardians([...mine.filter(x => !same(x, guardIn)), guardIn], "Add guardian")}
+                    disabled={idle || !guardIn || mine.some(x => same(x, guardIn)) || same(guardIn, DAO)}
+                  >
+                    {busy === "guardian" ? "Working…" : "Add"}
+                  </button>
+                }
+              />,
             )}
             {st &&
               st.has60 &&

@@ -769,7 +769,8 @@ export function useAddressScan(onAddress: (to: string) => void) {
  * and the cursor are never touched, so `nick` goes on to `nick.eth`. A match shows under the box.
  * `onChange` gets the address (and the name that was looked up), or null.
  * `value` + `onText`: the text is held outside (Send fills it from a scan). `onScan`: the scan pill opens the
- * caller's own scanner. `scan={false}`: no pill (the screen is already a scanner).
+ * caller's own scanner. `scan={false}`: no pill (the screen is already a scanner). `after`: a button beside the box
+ * (Add): it stays level with the box when a match shows under it.
  */
 const lookedUp = new Map<string, Address>(); // names already answered: a box that comes back (Back from the review) has its match at once
 export function AddressInput({
@@ -782,6 +783,7 @@ export function AddressInput({
   scan = true,
   onScan,
   onEnter,
+  after,
 }: {
   initial?: string;
   value?: string;
@@ -792,6 +794,7 @@ export function AddressInput({
   scan?: boolean;
   onScan?: () => void;
   onEnter?: () => void;
+  after?: React.ReactNode;
 }) {
   const [own, setOwn] = useState(initial ?? "");
   const text = value ?? own;
@@ -832,17 +835,20 @@ export function AddressInput({
   const cam = useAddressScan(setText);
   return (
     <div style={{ display: "grid", gap: 6 }}>
-      <div className="input">
-        {addr && !name && <Blockie address={addr} size={30} />}
-        <input value={text} onChange={e => setText(addressIn(e.target.value))} onKeyDown={e => e.key === "Enter" && addr && onEnter?.()} placeholder={placeholder} autoCapitalize="none" autoCorrect="off" spellCheck={false} />
-        {scan &&
-          (onScan ? (
-            <button type="button" className="pill" onClick={onScan} aria-label="Scan">
-              <ScanIcon size={20} />
-            </button>
-          ) : (
-            cam.pill
-          ))}
+      <div className="row" style={{ gap: 6 }}>
+        <div className="input grow">
+          {addr && !name && <Blockie address={addr} size={30} />}
+          <input value={text} onChange={e => setText(addressIn(e.target.value))} onKeyDown={e => e.key === "Enter" && addr && onEnter?.()} placeholder={placeholder} autoCapitalize="none" autoCorrect="off" spellCheck={false} />
+          {scan &&
+            (onScan ? (
+              <button type="button" className="pill" onClick={onScan} aria-label="Scan">
+                <ScanIcon size={20} />
+              </button>
+            ) : (
+              cam.pill
+            ))}
+        </div>
+        {after}
       </div>
       {looking && <span className="fine">Looking up {text}…</span>}
       {addr && name && <Who address={addr} chain={chain} label={text.includes(".") ? undefined : name} />}

@@ -114,8 +114,8 @@ Suggested first: 1, 3, 5, 12, 20.
     failed claims only (300 an hour), so a crowd on one Wi-Fi all get paid.
   - Done 11-10: `lib/alerts.ts` `authorize` checks origin, rpId and the UV flag, as `app/api/onramp` does
     (`tools/passkey-site-check.mts`).
-  - Left (drops, low): a Uniswap pool's spot price sets what an ETH drop pays (`lib/drops.ts:252`); the wallet
-    itself now has one ETH price (the server's).
+  - Done 11-13: an ETH drop pays at the server's ETH price, the same one the wallet uses (it was one Uniswap
+    pool's price at that moment).
 
 ## What people see
 

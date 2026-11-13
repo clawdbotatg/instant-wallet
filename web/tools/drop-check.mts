@@ -151,13 +151,14 @@ r = await admin("create", { drop: { name: "Eth", chainId: 8453, token: "eth", am
 const eth = r.j.drop;
 const pot4g = (await admin("get", { id: eth.id })).j.pot;
 const pot4: string = pot4g.address;
-const each = BigInt(pot4g.each); // $2 of ETH at the Uniswap price
+const each = BigInt(pot4g.each); // $2 of ETH at the server's price (kept a minute: a claim may pay at the next one)
+const about = (got: bigint, want: bigint) => got > (want * 99n) / 100n && got < (want * 101n) / 100n;
 ok(pot4g.ethUsd > 100 && Math.abs(Number(each) / 1e18 * pot4g.ethUsd - 2) < 0.01, `$2 of ETH = ${Number(each) / 1e18} ETH at $${pot4g.ethUsd.toFixed(2)}`);
 cast(`rpc anvil_setBalance ${pot4} 0x${(25n * (each + 10n ** 13n)).toString(16)}`);
 ks = Array.from({ length: 20 }, key);
 rs = await Promise.all(ks.map(k => claim(k, eth.code)));
 ok(rs.every(x => x.status === 200), `20 ETH claims at once all paid (${rs.filter(x => x.status !== 200).map(x => x.j.error).join("; ") || "ok"})`);
-ok(ks.every(k => ethOf(k.wallet) === each), "each wallet has $2 of ETH");
+ok(ks.every(k => about(ethOf(k.wallet), each)), "each wallet has $2 of ETH");
 
 // ---- a claim killed mid-way: `die` (DROP_TEST=1) stops it just before or just after the send; a retry takes over after 2 s
 const dying = (k: Key, code: string, die: string) => post("/api/drop", { code, wallet: k.wallet, die, sig: sign(k, k.wallet, `claim ${code}`) });
@@ -190,15 +191,15 @@ const kEach = BigInt(keg.each);
 cast(`rpc anvil_setBalance ${keg.address} 0x${(5n * (kEach + 10n ** 13n)).toString(16)}`);
 const [k4, k5] = [key(), key()];
 r = await dying(k4, ke.code, "after");
-ok(r.status !== 200 && ethOf(k4.wallet) === kEach, `ETH: killed after the send: it paid (${r.j.error})`);
+ok(r.status !== 200 && about(ethOf(k4.wallet), kEach), `ETH: killed after the send: it paid (${r.j.error})`);
 await wait(2500);
 r = await claim(k4, ke.code);
-ok(r.status === 200 && ethOf(k4.wallet) === kEach, `the retry finds the tx and pays nothing more (${r.j.error ?? ethOf(k4.wallet)})`);
+ok(r.status === 200 && about(ethOf(k4.wallet), kEach), `the retry finds the tx and pays nothing more (${r.j.error ?? ethOf(k4.wallet)})`);
 r = await dying(k5, ke.code, "before");
 ok(r.status !== 200 && ethOf(k5.wallet) === 0n, `ETH: killed before the send: nothing paid (${r.j.error})`);
 await wait(2500);
 r = await claim(k5, ke.code);
-ok(r.status === 200 && ethOf(k5.wallet) === kEach, `the retry pays once (${r.j.error ?? ethOf(k5.wallet)})`);
+ok(r.status === 200 && about(ethOf(k5.wallet), kEach), `the retry pays once (${r.j.error ?? ethOf(k5.wallet)})`);
 ok(cast(`nonce ${keg.address}`) === "2", `the pot sent 2 txs: the retry took the same nonce (${cast(`nonce ${keg.address}`)})`);
 r = await claim(k5, ke.code);
 ok(r.status === 409, `and again is refused (${r.j.error})`);

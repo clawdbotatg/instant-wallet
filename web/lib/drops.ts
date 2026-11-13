@@ -10,7 +10,7 @@ import { mustRpc } from "./rpcServer";
 import { MULTICALL3 } from "./safe/config";
 import { abi } from "./safe/core";
 import { GAS_BUDGET } from "./safe/fee";
-import { L1_ALLOWANCE, clients, quote, tipFloor } from "./safe/relayCore";
+import { L1_ALLOWANCE, clients, nativeUsd, quote, tipFloor } from "./safe/relayCore";
 import { NONCE_MEMORY, pickNonce, relaySend, withLock } from "./safe/relayGuard";
 
 /**
@@ -350,23 +350,8 @@ class Killed extends Error {}
 
 // ---------------------------------------------------------------- the ETH price
 
-// Uniswap v3 WETH/USDC 0.05%, the deepest pool on each chain. [pool, true if USDC is token0]
-const POOLS: Record<number, [Address, boolean]> = {
-  1: ["0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640", true],
-  8453: ["0xd0b53D9277642d899DF5C87A3966A349A798F224", false],
-};
-const slot0 = [{ type: "function", name: "slot0", stateMutability: "view", inputs: [], outputs: [{ type: "uint160" }, { type: "int24" }, { type: "uint16" }, { type: "uint16" }, { type: "uint16" }, { type: "uint8" }, { type: "bool" }] }] as const;
-
-/** Dollars per ETH, from the pool right now. */
-export async function ethUsd(chainId: number): Promise<number> {
-  const [pool, usdcFirst] = POOLS[chainId] ?? POOLS[1];
-  const pc = createPublicClient({ chain: knownChain(POOLS[chainId] ? chainId : 1)!.chain, transport: http(mustRpc(POOLS[chainId] ? chainId : 1)) });
-  const [sqrt] = await pc.readContract({ address: pool, abi: slot0, functionName: "slot0" });
-  const p = (Number(sqrt) / 2 ** 96) ** 2; // token1 per token0, smallest units
-  const v = usdcFirst ? 1e12 / p : p * 1e12;
-  if (!(v > 100 && v < 1e6)) throw new Error("no ETH price");
-  return v;
-}
+/** Dollars per ETH: the server's one price (relayCore's `nativeUsd`), the same one the wallet's fees use. */
+export const ethUsd = (chainId: number): Promise<number> => nativeUsd(chainId);
 
 /** What one claim pays, in wei. */
 export async function weiOf(d: Drop, price?: number): Promise<bigint> {

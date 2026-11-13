@@ -36,7 +36,7 @@ export const maxDuration = 120; // take-back is two sends, each up to 25 s in li
  *   POST { op: "get", token, id }            → { drop, mine, claimed, pot: balances, codes: [{ code, used }], claims }
  *   POST { op: "create", token, drop }       → { drop }     NewDrop in lib/drops.ts
  *   POST { op: "set", token, id, paused?, ended?, minutes? } → { drop }
- *   POST { op: "price", token }              → { ethUsd }   Uniswap, Base
+ *   POST { op: "price", token }              → { ethUsd }   the server's ETH price
  *   POST { op: "takeback", token, id }       → { hashes }   everything left, to the logged-in wallet
  * Any admin sees every drop; set and takeback are for the wallet that made it.
  */

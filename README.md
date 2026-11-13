@@ -26,7 +26,10 @@ Your passkey belongs to instantwallet.io. A page on local.instantwallet.io may u
 your own computer under that name. instantwallet.io always stays the real site; nothing here touches it.
 Mac, desktop Chrome or Safari. Being tested now. The plan and what doesn't work yet: `docs/LOCAL-MODE.md`.
 
-Run these in the Terminal app: steps 1 and 3 ask for your Mac password.
+Run these in the Terminal app: steps 1 and 3 ask for your Mac password. You need Homebrew (brew.sh), Node 20 or
+newer (`brew install node`) and this repo:
+
+    cd ~ && git clone https://github.com/clawdbotatg/instant-wallet.git
 
 1. Install mkcert and trust its certificate:
 
@@ -43,20 +46,36 @@ Run these in the Terminal app: steps 1 and 3 ask for your Mac password.
        echo "127.0.0.1 local.instantwallet.io" | sudo tee -a /etc/hosts
        sudo dscacheutil -flushcache
 
-4. Build and run the app. Put your own free Alchemy key (dashboard.alchemy.com) in `web/.env.local` as
-   `ALCHEMY_API_KEY=...` first.
+4. Build and run the app. It needs your own free Alchemy key: sign in at dashboard.alchemy.com, create an app,
+   copy its API key, and put it in place of YOUR_KEY:
 
-       cd web
+       cd ~/instant-wallet/web
+       echo "ALCHEMY_API_KEY=YOUR_KEY" > .env.local
        npm install
        npm run build
        npx next start -p 3000
+
+   Leave it running.
 
 5. In a second terminal, serve it on https:
 
        cd ~/.instantwallet-local
        npx local-ssl-proxy --source 443 --target 3000 --cert local.instantwallet.io.pem --key local.instantwallet.io-key.pem
 
-6. Open https://local.instantwallet.io and sign in with your passkey.
+6. Open https://local.instantwallet.io, tap "I already have one" and use your passkey. Your wallet opens.
+
+If it doesn't work:
+
+- **"This site can't be reached"**: the hosts line is missing. Check with `cat /etc/hosts`; redo step 3.
+- **"Your connection is not private"**: your Mac doesn't trust the certificate. Run `mkcert -install` again in the
+  Terminal app (it needs your password, and a box may pop up), then reload. Check it with
+  `security verify-cert -c ~/.instantwallet-local/local.instantwallet.io.pem -p ssl -s local.instantwallet.io`:
+  a line about "signed certificate timestamps" is fine; "not trusted" is not.
+- **Nothing loads**: steps 4 and 5 must both still be running, each in its own Terminal window.
+- **The passkey isn't offered**: use the browser where you made the wallet, or one with the same iCloud or Google
+  passwords.
+
+Next time you only need steps 4 and 5.
 
 To remove it: delete the line from `/etc/hosts` (`sudo sed -i '' '/local.instantwallet.io/d' /etc/hosts`).
 

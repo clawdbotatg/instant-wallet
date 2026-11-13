@@ -48,6 +48,28 @@ export function Revoke({ account, assets, states, onDone }: { account: SafeAccou
   const [canMine, setCanMine] = useState(false);
   useEffect(() => setCanMine(hotAvailable()), []);
   const set = (chainId: number, r: Row) => setRows(x => ({ ...x, [chainId]: r }));
+  // who each approval is to, in a word or two (/api/spender): "CoW Protocol", "Aave DAO"
+  const [names, setNames] = useState<Record<string, { name: string | null; sure: boolean }>>({});
+  const asked = useRef(new Set<string>());
+  useEffect(() => {
+    for (const [id, l] of Object.entries(found))
+      if (Array.isArray(l))
+        for (const a of l) {
+          const k = `${id}:${a.spender.toLowerCase()}`;
+          if (asked.current.has(k)) continue;
+          asked.current.add(k);
+          fetch(`/api/spender?chain=${id}&address=${a.spender}`)
+            .then(r => (r.ok ? r.json() : null))
+            .then(j => j && setNames(x => ({ ...x, [k]: { name: j.name ?? null, sure: !!j.sure } })))
+            .catch(() => {});
+        }
+  }, [found]);
+  // a name its deployer picked (Sourcify) could be a scam calling itself Uniswap: it says "unchecked"
+  const whoIs = (chainId: number, spender: string) => {
+    const n = names[`${chainId}:${spender.toLowerCase()}`];
+    if (n?.name) return n.sure ? n.name : `${n.name} (unchecked)`;
+    return spenderLabel(spender) ?? (n ? "Unknown app" : undefined);
+  };
 
   const look = (chainId: number) =>
     findApprovals(chainId, account.address)
@@ -171,18 +193,16 @@ export function Revoke({ account, assets, states, onDone }: { account: SafeAccou
                 <div key={a.key} className="row" style={{ gap: 10, opacity: picked || !r.pick || r.stage === "idle" || r.stage === "done" ? 1 : 0.4 }}>
                   <TokenIcon symbol={a.symbol} asset={a.token} chainId={chainId} logo={coin?.logo} size={36} />
                   <div className="grow" style={{ minWidth: 0 }}>
-                    <div>
-                      <b>{a.kind === "nft" ? a.name || a.symbol : a.symbol}</b>{" "}
-                      <span className="fine">
-                        {a.kind === "nft"
-                          ? "any of them"
-                          : a.any
-                            ? "any amount"
-                            : `up to ${fmtAmount(formatUnits(a.amount, a.decimals))}`}
-                        {coin?.usd ? ` · you have ${usd(coin.usd)}` : ""}
-                      </span>
+                    <Who address={a.spender} chain={chainId} size={18} label={whoIs(chainId, a.spender)} />
+                    <div className="fine">
+                      can spend{" "}
+                      {a.kind === "nft"
+                        ? `any of your ${a.name || a.symbol}`
+                        : a.any
+                          ? `any amount of your ${a.symbol}`
+                          : `up to ${fmtAmount(formatUnits(a.amount, a.decimals))} ${a.symbol}`}
+                      {coin?.usd ? ` · you have ${usd(coin.usd)}` : ""}
                     </div>
-                    <Who address={a.spender} chain={chainId} size={18} label={spenderLabel(a.spender)} />
                   </div>
                   <RemoveX label="Revoke" disabled={busy || r.stage === "ready"} busy={picked && r.stage === "preparing"} onClick={() => prepare(chainId, [a.key])} />
                 </div>

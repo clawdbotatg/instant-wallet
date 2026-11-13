@@ -147,6 +147,26 @@ export async function prepareOwners(opts: OwnersOpts): Promise<Prepared> {
   return { opts, t, h: safeTxHash(chainId, a.address, t), fee: q };
 }
 
+/** The fee has moved enough to show (5% either way), or the quote on screen is about to run out. Under that the
+ * old one stands: the relay takes it (the fee has a 1.5x margin), and the screen doesn't change every block. */
+export function feeMoved(old: Quote, q: Quote): boolean {
+  const a = BigInt(old.feeEth);
+  const b = BigInt(q.feeEth);
+  return old.until < Date.now() + 60_000 || (a > b ? a - b : b - a) * 20n > a;
+}
+
+/** A prepared tx with the fee as gas is now: the same calls, the same number (no nonce or queue read, so it can run
+ * every few seconds while a sheet is up: EXPECTATIONS #6). The same object back when the fee hasn't moved. For calls
+ * that don't depend on the fee (a site's); Send everything builds its own (what it sends is the balance less the fee). */
+export async function requote(p: Prepared): Promise<Prepared> {
+  if (p.opts.self) return p;
+  const chainId = p.opts.state.chainId;
+  const q = await getQuote(chainId, p.fee.kind, p.opts.swapGas ?? p.opts.dappGas);
+  if (!feeMoved(p.fee, q)) return p;
+  const t: SafeTx = batch([...p.opts.calls, feeCall(q, p.opts.feeToken)], p.t.nonce);
+  return { opts: p.opts, t, h: safeTxHash(chainId, p.opts.account.address, t), fee: q };
+}
+
 /** Sign (the burner first, straight from the tap) and relay. */
 export async function finishOwners(p: Prepared): Promise<Hash> {
   const { account: a, state: st, signers } = p.opts;

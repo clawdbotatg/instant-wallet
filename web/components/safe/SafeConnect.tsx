@@ -5,7 +5,7 @@ import { type Hash, formatUnits } from "viem";
 import { CHAINS, chainById, nativeSymbol } from "@/lib/chains";
 import { amount as fmtAmount, feeText } from "@/lib/format";
 import { siteCalls, siteGas, signForSite } from "@/lib/safe/connect";
-import { type FeeToken, type Prepared, type Signer, type Stage, Shared, finishOwners, ownerSigners, prepareOwners, signThenQueue, signerLabel, usesWedgie } from "@/lib/safe/send";
+import { type FeeToken, type Prepared, type Signer, type Stage, Shared, finishOwners, ownerSigners, prepareOwners, requote, signThenQueue, signerLabel, usesWedgie } from "@/lib/safe/send";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { type Pending, remember, respond } from "@/lib/walletconnect";
 import { Net, Who, stageLabel } from "../bits";
@@ -128,6 +128,22 @@ function SafeRequest({
       clearTimeout(again);
     };
   }, [st?.chainId, st?.nonce, signers.join(), feeToken, tick]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // the fee follows gas while the sheet is up (EXPECTATIONS #6; Austin 11-12: it was read once, and a jump in gas
+  // only showed after the tap). Every 15 s, the same tx and number with the new fee; never once signing has started.
+  const now = useRef({ prepared, busy });
+  now.current = { prepared, busy };
+  useEffect(() => {
+    if (!prepared || busy) return;
+    const t = setInterval(() => {
+      const was = now.current.prepared;
+      if (document.hidden || !was) return;
+      requote(was)
+        .then(p => p !== was && now.current.prepared === was && !now.current.busy && setPrepared(p))
+        .catch(() => {});
+    }, 15_000);
+    return () => clearInterval(t);
+  }, [!!prepared, busy]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function go() {
     if (!st) return;

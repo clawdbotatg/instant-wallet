@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { type Address, type Hash, formatUnits, zeroAddress } from "viem";
 import { chainById, explorerTx, nativeSymbol } from "@/lib/chains";
 import { amount as fmtAmount, usd, feeText } from "@/lib/format";
@@ -12,6 +12,7 @@ import {
   type Prepared,
   type Stage,
   Shared,
+  feeMoved,
   finishOwners,
   getQuote,
   ownerSigners,
@@ -69,13 +70,16 @@ export function SendAll({
   const chains = [...new Set([...assets.map((a) => a.chainId), ...Object.keys(rows).map(Number).filter((id) => rows[id]?.stage === "busy" || rows[id]?.stage === "done")])];
   const self = !!to && to.toLowerCase() === account.address.toLowerCase();
 
-  async function prepare(chainId: number) {
+  // `prev`: the one on screen, asked again quietly (the fee follows gas: EXPECTATIONS #6). Its number is kept, the
+  // row doesn't blink, and nothing changes unless the fee moved and the row is still waiting on that same one.
+  async function prepare(chainId: number, prev?: Prepared) {
     const st = states.find((s) => s.chainId === chainId);
     const held = assets.filter(
       (a) => a.chainId === chainId && BigInt(a.balance) > 0n,
     );
     if (!st || !to) return;
-    set(chainId, { stage: "preparing" });
+    const put = (r: Row) => (prev ? setRows((x) => (x[chainId]?.stage === "ready" && x[chainId]?.prepared === prev ? { ...x, [chainId]: r } : x)) : set(chainId, r));
+    if (!prev) set(chainId, { stage: "preparing" });
     try {
       const usdcAddr = chainById(chainId)?.usdc?.toLowerCase();
       const usdcA = held.find((a) => a.asset.toLowerCase() === usdcAddr);
@@ -85,6 +89,7 @@ export function SendAll({
         // no fee: every token goes out whole, the wallet that sends pays the gas
         const calls = held.map((a) => transfer(a.asset as Address, to, BigInt(a.balance)));
         const net = Object.fromEntries(held.map((a) => [a.asset, BigInt(a.balance)]));
+        if (prev) return; // no fee to follow
         const prepared = await prepareOwners({ account, state: st, calls, signers, feeToken: "usdc", self: true, label: `Send everything on ${chainById(chainId)?.name}` });
         set(chainId, { stage: "ready", prepared, net });
         return;
@@ -95,6 +100,7 @@ export function SendAll({
         kind,
         PER_TOKEN_GAS * BigInt(Math.max(0, held.length - 1)),
       );
+      if (prev && !feeMoved(prev.fee, q)) return;
       // the fee in USDC when there's enough of it, else ETH
       const feeToken: FeeToken | null =
         usdcA && BigInt(usdcA.balance) > BigInt(q.feeUsdc)
@@ -124,13 +130,23 @@ export function SendAll({
         signers,
         feeToken,
         quote: q,
+        nonce: prev?.t.nonce,
         label: `Send everything on ${chainById(chainId)?.name}`,
       });
-      set(chainId, { stage: "ready", prepared, net });
+      put({ stage: "ready", prepared, net });
     } catch (e: any) {
-      set(chainId, { stage: "idle", error: friendly(e) });
+      if (!prev) set(chainId, { stage: "idle", error: friendly(e) }); // a quiet ask that failed: the one on screen stands
     }
   }
+  const again = useRef<() => void>(() => {});
+  again.current = () => {
+    if (document.hidden) return;
+    for (const [id, r] of Object.entries(rows)) if (r.stage === "ready" && r.prepared && !r.prepared.opts.self) prepare(Number(id), r.prepared);
+  };
+  useEffect(() => {
+    const t = setInterval(() => again.current(), 15_000);
+    return () => clearInterval(t);
+  }, []);
 
   async function sign(chainId: number) {
     const r = rows[chainId];

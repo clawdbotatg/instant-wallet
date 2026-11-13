@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { type Hash, formatUnits, zeroAddress } from "viem";
 import { chainById, explorerTx, nativeSymbol } from "@/lib/chains";
 import { amount as fmtAmount, usd, feeText } from "@/lib/format";
-import { type Approval, PERMIT2, findApprovals, revokeCall } from "@/lib/safe/approvals";
+import { type Approval, PERMIT2, Unchecked, findApprovals, revokeCall } from "@/lib/safe/approvals";
 import { UNISWAP } from "@/lib/safe/describe";
 import { hotAvailable } from "@/lib/safe/hot";
 import { type FeeToken, type Prepared, type Stage, Shared, feeMoved, finishOwners, getQuote, ownerSigners, prepareOwners, sendKind, usesWedgie } from "@/lib/safe/send";
@@ -33,6 +33,7 @@ type Row = {
 };
 
 const eq = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+const UNCHECKED = "unchecked"; // found[]: a network with no way to list them (named once, gray, at the bottom)
 const spenderLabel = (a: string) => (UNISWAP.some(u => eq(u, a)) ? "Uniswap" : eq(a, PERMIT2) ? "Permit2" : undefined);
 
 /**
@@ -74,7 +75,7 @@ export function Revoke({ account, assets, states, onDone }: { account: SafeAccou
   const look = (chainId: number) =>
     findApprovals(chainId, account.address)
       .then(list => setFound(x => ({ ...x, [chainId]: list })))
-      .catch(e => setFound(x => ({ ...x, [chainId]: friendly(e) })));
+      .catch(e => setFound(x => ({ ...x, [chainId]: e instanceof Unchecked ? UNCHECKED : friendly(e) })));
   const key = chains.join(",");
   useEffect(() => {
     for (const id of chains) if (!(id in found)) look(id);
@@ -148,7 +149,7 @@ export function Revoke({ account, assets, states, onDone }: { account: SafeAccou
 
   const read = chains.filter(id => id in found).length;
   const all = chains.flatMap(id => (Array.isArray(found[id]) ? (found[id] as Approval[]) : []));
-  const shown = chains.filter(id => (Array.isArray(found[id]) && (found[id] as Approval[]).length > 0) || typeof found[id] === "string" || rows[id]?.stage === "done");
+  const shown = chains.filter(id => (Array.isArray(found[id]) && (found[id] as Approval[]).length > 0) || (typeof found[id] === "string" && found[id] !== UNCHECKED) || rows[id]?.stage === "done");
 
   return (
     <div className="stack">
@@ -231,6 +232,19 @@ export function Revoke({ account, assets, states, onDone }: { account: SafeAccou
           </div>
         );
       })}
+      {read === chains.length && chains.some(id => found[id] === UNCHECKED) && (
+        <p className="fine">
+          Not checked:{" "}
+          {chains
+            .filter(id => found[id] === UNCHECKED)
+            .map((id, i) => (
+              <span key={id}>
+                {i > 0 && ", "}
+                <Net chainId={id} />
+              </span>
+            ))}
+        </p>
+      )}
       {Object.values(rows).some(r => r?.stage === "done") && !Object.values(rows).some(r => r?.stage === "busy" || r?.stage === "preparing") && <DoneBar onDone={onDone} />}
     </div>
   );

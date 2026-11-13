@@ -60,6 +60,13 @@ async function logs(chainId: number, owner: Address, topic0: Hex, address?: Addr
 
 const at = (t: Hex) => getAddress(`0x${t.slice(26)}`);
 
+/** A network we have no way to list them on (its node asks logs 10K blocks at a time, and Safe's service isn't there). */
+export class Unchecked extends Error {
+  constructor() {
+    super("not checked on this network");
+  }
+}
+
 type Pair = { kind: Approval["kind"]; token: Address; spender: Address };
 
 /** The (coin, spender) pairs ever approved, from the logs: one ask per kind over the whole history (Alchemy answers
@@ -82,7 +89,7 @@ async function fromLogs(chainId: number, owner: Address): Promise<Pair[]> {
 /** The same from the wallet's own executed transactions (Safe's service), where the logs can't be asked: every
  * approve, setApprovalForAll and Permit2 approve in them, batches opened up. A Permit2 signature (no tx) isn't seen. */
 async function fromSafeTxs(chainId: number, owner: Address): Promise<Pair[]> {
-  if (!SAFE_SVC[chainId]) throw new Error("Can't list them on this network yet.");
+  if (!SAFE_SVC[chainId]) throw new Unchecked();
   const out: Pair[] = [];
   let path: string | null = `safes/${owner}/multisig-transactions/?executed=true&limit=100`;
   for (let page = 0; path && page < 3; page++) {

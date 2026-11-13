@@ -105,7 +105,20 @@ export function WaitingCards({
     // removed on its own page (TxPage): gone here too, no wait for the next load
     const dropped = (e: Event) => setList(l => l.filter(x => x.w.hash.toLowerCase() !== (e as CustomEvent<string>).detail));
     window.addEventListener("iw:txdropped", dropped);
+    // one just made or signed (shareTx): on the card at once, no wait for the next load
+    const shared = (e: Event) => {
+      const w = (e as CustomEvent<Waiting>).detail;
+      const s = multi.find(x => x.chainId === w.chainId);
+      if (!s || w.safe.toLowerCase() !== account.address.toLowerCase() || w.tx.nonce < s.nonce) return;
+      setList(l =>
+        l.some(x => x.w.hash.toLowerCase() === w.hash.toLowerCase())
+          ? l.map(x => (x.w.hash.toLowerCase() === w.hash.toLowerCase() ? { ...x, w: { ...x.w, sigs: [...x.w.sigs, ...w.sigs.filter(n => !x.w.sigs.some(o => o.owner.toLowerCase() === n.owner.toLowerCase()))] } } : x))
+          : [...l, { w, need: s.threshold, next: s.nonce }],
+      );
+    };
+    window.addEventListener("iw:txshared", shared);
     return () => {
+      window.removeEventListener("iw:txshared", shared);
       live = false;
       clearInterval(t);
       window.removeEventListener("iw:txdropped", dropped);

@@ -88,15 +88,26 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
     const code = inWallet ?? location.hash.slice(1);
     const linked = code ? fromLink(chainId, safe, code) : null;
     const h = (linked?.hash ?? (inWallet ? "" : new URLSearchParams(location.search).get("h")) ?? "").toLowerCase();
+    // the link has the tx and its signatures: on screen now, the queue (Safe's service can take seconds) adds to it after
+    if (linked) {
+      const ok = await checkSigs(linked).catch(() => []);
+      setW({ ...linked });
+      setValid(ok);
+    }
     const queue = await readWaiting(chainId, safe, 0n).catch(() => [] as Waiting[]);
     const q = queue.find(x => x.hash.toLowerCase() === h);
     setAhead(queue.find(x => x.tx.nonce === nonce && x.hash.toLowerCase() !== h) ?? null);
-    const m = linked ?? q ?? null;
-    if (!m) return setMissing(true);
-    for (const s of q?.sigs ?? []) if (!m.sigs.some(x => eq(x.owner, s.owner))) m.sigs.push(s);
-    m.label ??= q?.label;
-    setW({ ...m });
-    setValid(await checkSigs(m).catch(() => []));
+    if (!linked) {
+      if (!q) return setMissing(true);
+      setW({ ...q });
+      setValid(await checkSigs(q).catch(() => []));
+    } else {
+      // merged into what's on screen (it may have been signed here since), never over it
+      const more = (q?.sigs ?? []).filter(s => !linked.sigs.some(x => eq(x.owner, s.owner)));
+      const ok = more.length ? await checkSigs({ ...linked, sigs: more }).catch(() => []) : [];
+      setW(cur => (cur ? { ...cur, label: cur.label ?? q?.label, sigs: [...cur.sigs, ...more.filter(s => !cur.sigs.some(x => eq(x.owner, s.owner)))] } : cur));
+      setValid(cur => [...cur, ...ok.filter(s => !cur.some(x => eq(x.owner, s.owner)))]);
+    }
     // this browser's own wallet is a signer here: read what it signs now, so Face ID starts straight from the tap
     const me = loadAccount();
     if (me && os.some(o => eq(o, me.address))) setMine(await readChain(chainId, me).catch(() => null));
@@ -146,11 +157,13 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
     await add(await passkeySign(credentialId, signerAddress(c.qx, c.qy), w.hash));
   });
 
-  const signWallet = run("wallet", async () => {
-    if (!w) return;
-    const who = await connectHot();
-    await add(await hotSign(chainId, safe, w.tx, who));
-  });
+  // the row's own address: with MetaMask and Rainbow both here, the wallet that holds it is the one asked
+  const signWallet = (o: Address) =>
+    run("wallet", async () => {
+      if (!w) return;
+      const who = await connectHot([o]);
+      await add(await hotSign(chainId, safe, w.tx, who));
+    });
 
   const signWedgie = run("wedgie", async () => {
     if (!w || !chain) return;
@@ -356,7 +369,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
           const shown = (k === "wedgie" || k === "wedgieFar") && chain.homes[o.toLowerCase()] ? chain.homes[o.toLowerCase()] : o;
           // one wedgie press signs all its slots: the button sits on the first one waiting
           const firstWedgie = chain.owners.find(x => kind(x) === "wedgie" && !valid.some(s => eq(s.owner, x)));
-          const act = signed || done || enough ? null : k === "face" ? signFace : k === "mine" && mine ? signMine : k === "wedgie" && firstWedgie === o ? signWedgie : k === "wallet" ? signWallet : null;
+          const act = signed || done || enough ? null : k === "face" ? signFace : k === "mine" && mine ? signMine : k === "wedgie" && firstWedgie === o ? signWedgie : k === "wallet" ? signWallet(o) : null;
           return (
             <div key={o} className="keyrow" style={{ padding: 0, minHeight: 42 }}>
               <span className="row" style={{ gap: 8 }}>

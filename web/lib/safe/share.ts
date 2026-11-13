@@ -91,6 +91,8 @@ export async function shareTx(w: Waiting): Promise<{ safe: boolean; queue: boole
   for (const s of w.sigs) if (!m.sigs.some(x => eq(x.owner, s.owner))) m.sigs.push(s);
   l[h.toLowerCase()] = m;
   saveLocal(c, a, l);
+  // Home's waiting card shows it now, before any network call (it only re-reads the queue every few minutes)
+  if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("iw:txshared", { detail: { ...w, sigs: [...m.sigs], label: w.label ?? m.label } }));
   const toSafe = async () => {
     if (!SAFE_SVC[c]) throw new Error("not on Safe's service");
     const had = await fetch(svc(c, `multisig-transactions/${h}/`)).then(r => (r.ok ? r.json() : null)).catch(() => null);

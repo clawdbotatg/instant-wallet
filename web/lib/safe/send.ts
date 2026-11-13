@@ -163,8 +163,7 @@ export async function finishOwners(p: Prepared): Promise<Hash> {
   // without Face ID first (whose prompt must start straight from the tap), check the browser wallet is the right one
   // before the wedgie is asked to press anything
   if (wallets.length && !face) {
-    const who = await connectHot();
-    if (!eq(who, wallets[0])) throw new Error(`Switch your wallet to ${wallets[0]} (it's on ${who}).`);
+    await connectHot([wallets[0]]);
   }
   // the wedgie can't plug in here (a phone): sign the rest; it goes in the queue and the wedgie signs on its page
   const later = slots.length > 0 && !p.opts.wedgie && !wedgieSupported();
@@ -192,8 +191,9 @@ export async function finishOwners(p: Prepared): Promise<Hash> {
     if (!st.deployed) throw new Error("Set the wallet up on this network first (one send it signs alone), then ask the others.");
     stage("sending");
     const w: Waiting = { chainId, safe: a.address, tx: t, hash: h, sigs: sigs.map(s => ({ owner: s.signer, signature: sigHex(s) })), label: p.opts.label };
-    const got = await shareTx(w);
-    if (!got.safe && !got.queue) w.label = (w.label ? `${w.label} ` : "") + "(saved in this browser only)";
+    // not waited for (Austin 11-12: its page and Home's card come up at once). It's in this browser and on Home
+    // before the first network call; Safe's service and our queue take it behind the page (up to 15 s each)
+    shareTx(w).catch(() => {});
     queued.set(`${chainId}:${a.address}`, t.nonce);
     // one thing here: your signature. The rest (the wedgie, or a link for the others) happens on its page. Callers
     // treat Shared as done (no error, nothing left ready to sign): the sheet is already the transaction's.

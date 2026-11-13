@@ -23,8 +23,8 @@ Push to main deploys (Vercel, root `web/`). Before pushing a UI change: `node we
 ## Run it fully local (if instantwallet.io is gone)
 
 Your passkey belongs to instantwallet.io. A page on local.instantwallet.io may use it too, so you run the app on
-your own computer under that name. The real site keeps working next to it. Mac, desktop Chrome or Safari. Being
-tested now. The plan and what doesn't work yet: `docs/LOCAL-MODE.md`.
+your own computer under that name. instantwallet.io always stays the real site; nothing here touches it.
+Mac, desktop Chrome or Safari. Being tested now. The plan and what doesn't work yet: `docs/LOCAL-MODE.md`.
 
 1. Install mkcert and trust its certificate (asks for your password):
 

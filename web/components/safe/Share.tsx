@@ -12,7 +12,7 @@ import { type FeeToken, type Stage, Shared, budgetSend, feeCall, getQuote, owner
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { Net, AmountBox, DoneBar, ExecutedLine, Qr, Words, stageLabel } from "../bits";
+import { Net, AmountBox, DoneBar, ExecutedLine, Proven, Qr, Words, stageLabel } from "../bits";
 import { WhatItDoes } from "./WhatItDoes";
 import { ChainSelect, Select, assetOpt } from "./Pick";
 import { ErrorLine } from "./WedgieButton";
@@ -332,7 +332,7 @@ export function Share({ account, states, assets, chainId: startChain, onDone }: 
             decimals={asset.decimals}
             price={price}
             disabled={busy}
-            right={`You have ${asset.usd ? usd(asset.usd) : `${fmtAmount(asset.formatted)} ${asset.symbol}`}`}
+            right={<>You have <Proven a={asset}>{b => (b.usd ? usd(b.usd) : `${fmtAmount(b.formatted)} ${b.symbol}`)}</Proven></>}
           />
         )}
       </div>

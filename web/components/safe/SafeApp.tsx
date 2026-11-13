@@ -11,7 +11,8 @@ import { loadHidden, loadPortfolio, loadShown, saveHidden, savePortfolio, saveSh
 import { dropOtherBudgetsCalls } from "@/lib/safe/core";
 import { type Prepared, Shared, finishOwners, ownerSigners, prepareOwners } from "@/lib/safe/send";
 import { friendly } from "@/lib/friendly";
-import { AppsIcon, Blockie, Net, DepositIcon, GearIcon, SendIcon, SendScanIcon, Fold, Sheet, sheetOpen, TokenIcon, TrashIcon, CopyLink, SiteRow, Who, named, useName, useToast } from "../bits";
+import { AppsIcon, Blockie, Net, DepositIcon, GearIcon, SendIcon, SendScanIcon, Fold, Proven, ProvenMark, provenCoin, Sheet, sheetOpen, TokenIcon, TrashIcon, CopyLink, SiteRow, Who, named, useName, useToast } from "../bits";
+import { see, useProven } from "@/lib/safe/proven";
 import { Receive } from "../Receive";
 import { onSending, sendingNow } from "@/lib/safe/sending";
 import { Deposit } from "./Deposit";
@@ -139,6 +140,8 @@ export function SafeApp({ link }: { link?: string } = {}) {
   // happened that can bring a new one (a tx of ours landed, a pull, a sheet closed, back to the tab), the next read
   // asks for the scan now. A flag, not an argument: a read already on its way must not swallow the ask.
   const wantScan = useRef(false);
+  // the coins Home draws (not hidden, not a position's receipt): the ones this browser proves (lib/safe/proven.ts)
+  const drawn = useRef<(a: Asset) => boolean>(() => true);
   const loadBalance = useCallback(async (scan?: boolean) => {
     if (scan) wantScan.current = true;
     if (!account || busy.current) return;
@@ -152,6 +155,9 @@ export function SafeApp({ link }: { link?: string } = {}) {
       .catch(() => null)
       .finally(() => (busy.current = false));
     if (p?.assets) {
+      // EVERY answer, the same numbers again too: the server saying its number again after a proof disagreed is
+      // what makes a strike. This read only, never the saved one; its late networks are left as they were.
+      see(account.address, (p.assets as Asset[]).filter(a => drawn.current(a)), p.late);
       setPortfolio(prev => {
         const m = keepLate(p, prev);
         // nothing changed: keep the same object, so Home doesn't draw itself again every 3 s
@@ -321,7 +327,10 @@ export function SafeApp({ link }: { link?: string } = {}) {
   }, [namedKey]);
   const isReceipt = (a: Asset) => receipts.includes(`${a.chainId}:${a.asset}`.toLowerCase());
   const receiptUsd = (portfolio?.assets ?? []).filter(isReceipt).reduce((t, a) => t + (a.usd ?? 0), 0);
-  const total = portfolio ? (portfolio.totalUsd ?? 0) - receiptUsd + (posUsd ?? 0) : null;
+  // a coin this browser proved wrong counts in the total at its proven number, not the server's
+  const pv = useProven(null, undefined);
+  const provenFix = (portfolio?.assets ?? []).reduce((t, a) => (pv.state(a) === "wrong" ? t + (provenCoin(a, pv.proven(a)).usd ?? 0) - (a.usd ?? 0) : t), 0);
+  const total = portfolio ? (portfolio.totalUsd ?? 0) + provenFix - receiptUsd + (posUsd ?? 0) : null;
   const rough = total === null ? null : stickyRough(total, roughRef.current);
   roughRef.current = rough ?? roughRef.current;
   const [ens, setEns] = useState<string | null | undefined>(undefined);
@@ -427,6 +436,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
   // under a penny or no price: almost always spam, hidden on its own unless the user tapped Show for it (e.g. their own new token)
   const isHidden = (a: Asset) => hidden.includes(keyOf(a)) || ((a.usd ?? 0) < 0.01 && !isCore(a) && !shown.includes(keyOf(a)));
   const assets: Asset[] = held.filter(a => !isHidden(a));
+  drawn.current = a => BigInt(a.balance) > 0n && !isReceipt(a) && !isHidden(a);
   const hiddenAssets = held.filter(isHidden);
   const close = () => {
     setView({ kind: "home" });
@@ -576,10 +586,15 @@ export function SafeApp({ link }: { link?: string } = {}) {
                   {chainById(a.chainId)?.name /* in the token icon */}
                 </div>
               </div>
-              <div className="right">
-                <div className="sym">{showUsd ? usd(a.usd) : "****"}</div>
-                <div className="fine">{showUsd ? `${amount(a.formatted)} ${a.symbol}` : `**** ${a.symbol}`}</div>
-              </div>
+              <ProvenMark a={a} />
+              <Proven a={a} as="div" className="right">
+                {b => (
+                  <>
+                    <div className="sym">{showUsd ? usd(b.usd) : "****"}</div>
+                    <div className="fine">{showUsd ? `${amount(b.formatted)} ${b.symbol}` : `**** ${b.symbol}`}</div>
+                  </>
+                )}
+              </Proven>
               {isDust(a) && (
                 <button className="btn send-one" aria-label={`Hide ${a.symbol}`} onClick={() => {
                     setHidden([...hidden, keyOf(a)]);

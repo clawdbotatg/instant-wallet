@@ -23,7 +23,7 @@ import {
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { Net, AddressInput, DoneBar, ExecutedLine, Money, TokenIcon, stageLabel } from "../bits";
+import { Net, AddressInput, DoneBar, ExecutedLine, Money, Proven, ProvenMark, TokenIcon, stageLabel } from "../bits";
 import { friendly } from "@/lib/friendly";
 import { Progress } from "./Progress";
 import { ErrorLine } from "./WedgieButton";
@@ -211,12 +211,18 @@ export function SendAll({
                       logo={a.logo}
                     />
                     <span className="grow">{a.symbol}</span>
-                    <Money
-                      amount={formatUnits(n > 0n ? n : 0n, a.decimals)}
-                      symbol={a.symbol}
-                      usd={a.price ? Number(formatUnits(n > 0n ? n : 0n, a.decimals)) * a.price : null}
-                      size={16}
-                    />
+                    <ProvenMark a={a} />
+                    {/* keep: this is what the tx moves, so a wrong one is red, never swapped for the proven number */}
+                    <Proven a={a} keep>
+                      {() => (
+                        <Money
+                          amount={formatUnits(n > 0n ? n : 0n, a.decimals)}
+                          symbol={a.symbol}
+                          usd={a.price ? Number(formatUnits(n > 0n ? n : 0n, a.decimals)) * a.price : null}
+                          size={16}
+                        />
+                      )}
+                    </Proven>
                   </div>
                 );
               })}

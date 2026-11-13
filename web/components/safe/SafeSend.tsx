@@ -17,7 +17,7 @@ import { hotAvailable } from "@/lib/safe/hot";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { Net, AddressInput, AmountBox, DoneBar, Money, NameMoved, TokenIcon, Who, stageLabel, useSheetBack } from "../bits";
+import { Net, AddressInput, AmountBox, DoneBar, Money, NameMoved, Proven, TokenIcon, Who, stageLabel, useSheetBack } from "../bits";
 import { Scanner } from "../Scanner";
 import { Select, assetOpt } from "./Pick";
 import { friendly } from "@/lib/friendly";
@@ -387,7 +387,7 @@ export function SafeSend({
                 right={
                   st?.budget && (sendingUsdc || sendingEth)
                     ? `${sendingUsdc ? `${fmtAmount(formatUnits(st.budget.usdc, 6))} USDC` : price ? usd(Number(formatUnits(st.budget.eth, 18)) * price) : `${fmtAmount(formatUnits(st.budget.eth, 18))} ${nativeSymbol(chainId)}`} left today`
-                    : `You have ${asset.usd ? usd(asset.usd) : `${fmtAmount(asset.formatted)} ${asset.symbol}`}`
+                    : <>You have <Proven a={asset}>{b => (b.usd ? usd(b.usd) : `${fmtAmount(b.formatted)} ${b.symbol}`)}</Proven></>
                 }
               />
               {tooMuch && <span className="err">More than you have</span>}

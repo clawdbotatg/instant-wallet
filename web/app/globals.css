@@ -135,6 +135,15 @@ div.asset:active { background: none; }
 .asset .sym { font-weight: 600; }
 .asset .right { text-align: right; max-width: 45%; min-width: 0; }
 .asset .send-one { flex: none; width: 38px; height: 38px; padding: 0; border-radius: 14px; display: grid; place-items: center; }
+/* a coin's balance (<Proven>): faded until this browser proves it, red when the chain says another number. Never on
+   top of .stale (the whole card is already dimmed while Home shows last open's saved balances) */
+:root { --unproven: .9; }
+.proven { transition: opacity .6s, color .6s; }
+.proven.faded { opacity: var(--unproven); }
+.stale .proven.faded { opacity: 1; }
+.proven.wrong, .proven.wrong .fine, .proven-mark { color: var(--coral); }
+.proven-mark { flex: none; display: inline-flex; }
+.proven-mark > [role="button"] { display: grid; place-items: center; width: 38px; height: 38px; margin: 0 -9px; cursor: pointer; }
 .fold.folded { overflow: hidden; -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 56px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 56px), transparent); }
 .fold-rows { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; }
 .hidden-link { display: block; margin: 6px auto 2px; border: 0; background: none; padding: 6px 10px; font-family: inherit; cursor: pointer; }

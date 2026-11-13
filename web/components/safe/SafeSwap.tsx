@@ -12,7 +12,7 @@ import { POPULAR, type SwapRoute, type Token, swapCalls } from "@/lib/safe/swap"
 import { uniswapRoute } from "@/lib/safe/uniswap";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { Net, AmountBox, DoneBar, Eject, Money, TimedBar, TokenIcon, Who, stageLabel } from "../bits";
+import { Net, AmountBox, DoneBar, Eject, Money, Proven, TimedBar, TokenIcon, Who, stageLabel } from "../bits";
 import { ChainSelect, type Opt, Select, SignerChoice, assetOpt } from "./Pick";
 import { Progress, TimeBar } from "./Progress";
 import { friendly } from "@/lib/friendly";
@@ -428,7 +428,7 @@ export function SafeSwap({
               price={from.price}
               onMax={max}
               disabled={busy}
-              right={`You have ${from.usd ? usd(from.usd) : `${fmtAmount(from.formatted)} ${from.symbol}`}`}
+              right={<>You have <Proven a={from}>{b => (b.usd ? usd(b.usd) : `${fmtAmount(b.formatted)} ${b.symbol}`)}</Proven></>}
             />
             {tooMuch && <span className="err">More than you have</span>}
           </>

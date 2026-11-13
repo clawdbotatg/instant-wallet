@@ -6,7 +6,7 @@ import { CHAINS, chainById } from "@/lib/chains";
 import { amount as fmtAmount, usd, addressIn } from "@/lib/format";
 import type { Signer, SignerOption } from "@/lib/safe/send";
 import type { Asset } from "@/lib/types";
-import { ChainIcon, TokenIcon, Words } from "../bits";
+import { ChainIcon, Proven, TokenIcon, Words } from "../bits";
 import { bio } from "@/lib/passkey";
 
 /** A token you hold, as a select-box row: icon, symbol, and how much (in dollars too). */
@@ -15,9 +15,13 @@ export const assetOpt = (a: Asset): Opt => ({
   icon: <TokenIcon symbol={a.symbol} asset={a.asset} chainId={a.chainId} logo={a.logo} size={28} />,
   label: a.symbol,
   right: (
-    <>
-      {fmtAmount(a.formatted)} {a.usd !== null && <span style={{ opacity: 0.75 }}>· {usd(a.usd)}</span>}
-    </>
+    <Proven a={a}>
+      {b => (
+        <>
+          {fmtAmount(b.formatted)} {b.usd !== null && <span style={{ opacity: 0.75 }}>· {usd(b.usd)}</span>}
+        </>
+      )}
+    </Proven>
   ),
   search: `${a.symbol} ${a.name} ${chainById(a.chainId)?.name ?? ""}`,
 });

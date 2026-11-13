@@ -169,6 +169,24 @@ for (const p of files) {
 for (const p of files) {
   if (/euc\.li|ipfs\.io|src=\{[^}]*avatarUrl/.test(readFileSync(p, "utf8"))) (bad++, console.log(`${relative(root, p)}  an avatar from its own host: /api/avatar?name=`));
 }
+// a coin's balance is <Proven> (Austin 11-13: faded until this browser proves it, red when the chain says otherwise):
+// its numbers are drawn from the coin <Proven> hands its children ({b => usd(b.usd)}), never from the server's own.
+// Claim.tsx: a drop's coins, in the claim's own wallet, not this one's. Positions.tsx: positions aren't proven (Zerion's)
+for (const p of files) {
+  const rel = relative(root, p);
+  if ([SHARED, "components/Claim.tsx", "components/safe/Positions.tsx"].includes(rel)) continue;
+  const src = readFileSync(p, "utf8");
+  src.split("\n").forEach((line, i) => {
+    if (/^\s*(\/\/|\*|\/\*|\{\/\*)/.test(line)) return;
+    for (const m of line.matchAll(/\b(?:usd|fmtUsd|amount|fmtAmount)\((\w+)\.(?:usd|formatted)\)/g))
+      if (!new RegExp(`<Proven\\b[^>]*>\\s*\\{\\s*\\(?${m[1]}\\)?\\s*=>`).test(src))
+        (bad++, console.log(`${rel}:${i + 1}  a coin's balance drawn bare: <Proven a={coin}>{b => …b.usd / b.formatted…}</Proven>\n    ${line.trim().slice(0, 140)}`));
+  });
+}
+// something wrong is a color and an icon, never words next to it (Austin 11-13: a red row said "Doesn't match the chain")
+for (const p of files) {
+  if (/proven-note|Doesn(&apos;|')t match the chain/.test(readFileSync(p, "utf8"))) (bad++, console.log(`${relative(root, p)}  words next to a wrong balance: red and <ProvenMark> (the !), the words go in its sheet`));
+}
 // two button heights (Austin 11-11): every small one (pill, btn-sm) is as tall as a pill
 {
   const css = readFileSync(root + "app/globals.css", "utf8");

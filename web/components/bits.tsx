@@ -5,13 +5,15 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { createPortal } from "react-dom";
 import { blo } from "blo";
 import QRCode from "qrcode";
-import { type Address, getAddress, isAddress } from "viem";
+import { type Address, formatUnits, getAddress, isAddress } from "viem";
 import { CHAINS, chainById } from "@/lib/chains";
 import { amount as fmtAmount, short, usd as fmtUsd, addressIn, nameIn } from "@/lib/format";
 import { movedFrom, nameTyped } from "@/lib/names";
 import { parse } from "@/lib/parse";
 import { homeOf } from "@/lib/safe/state";
 import { bio } from "@/lib/passkey";
+import { useProven } from "@/lib/safe/proven";
+import type { Asset } from "@/lib/types";
 import { Scanner } from "./Scanner";
 
 export function Band() {
@@ -535,6 +537,74 @@ export function AmountBox({
       </div>
     </>
   );
+}
+
+/**
+ * A coin's balance (EXPECTATIONS #1, #2; lib/safe/proven.ts), wherever one is drawn: Home's rows, the coin pickers,
+ * "You have", Send everything. Faded until this browser has proven it (full means proven: a network with no light
+ * client stays faded), full once proven, red when the chain says another number, and then `children` gets the coin
+ * with the PROVEN number in it (a coin the server made up: 0). Settings → Balances off: drawn exactly as before.
+ * Only the numbers: `children` draws them from the coin it's handed. `as`: its element (a div in a row of divs).
+ * `keep`: the number is what a transaction moves (Send everything), so it's never swapped, only faded or red.
+ */
+export function Proven({ a, as: Tag = "span", className, keep, children }: { a: Asset; as?: "span" | "div"; className?: string; keep?: boolean; children: (a: Asset) => React.ReactNode }) {
+  const p = useProven(null, undefined);
+  const s = p.state(a);
+  const shown = s === "wrong" && !keep ? provenCoin(a, p.proven(a)) : a;
+  const cls = s === null ? className : `${className ? `${className} ` : ""}proven ${s === "checked" ? "" : s === "wrong" ? "wrong" : "faded"}`.trim();
+  return <Tag className={cls}>{children(shown)}</Tag>;
+}
+/** A wrong coin's mark: a small red ! by its numbers, nothing when the coin isn't wrong. No words in the row (Austin
+ * 11-13: color and an icon, never text next to the thing). A tap opens what we know: our server's number, the network's. */
+export function ProvenMark({ a }: { a: Asset }) {
+  const p = useProven(null, undefined);
+  const [open, setOpen] = useState(false);
+  if (p.state(a) !== "wrong") return null;
+  const b = provenCoin(a, p.proven(a));
+  const tap = (e: React.SyntheticEvent) => (e.stopPropagation(), e.preventDefault(), setOpen(true));
+  return (
+    // the row it sits in is often a button (Home: tap to send): a tap on the mark or in its sheet is not a tap on the row
+    <span className="proven-mark" onClick={e => e.stopPropagation()}>
+      <span role="button" tabIndex={0} aria-label={`${a.symbol}: why it's red`} onClick={tap} onKeyDown={e => (e.key === "Enter" || e.key === " ") && tap(e)}>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden>
+          <circle cx="12" cy="12" r="10" />
+          <path d="M12 7v6M12 16.6v.4" />
+        </svg>
+      </span>
+      {open && <ProvenSheet a={a} b={b} onClose={() => setOpen(false)} />}
+    </span>
+  );
+}
+/** What a wrong coin's mark opens: our server's number struck out, the network's under it. Its own sheet over the
+ * page (the row is inside a folded list, and may be inside another sheet: a swipe down closes only this one). */
+function ProvenSheet({ a, b, onClose }: { a: Asset; b: Asset; onClose: () => void }) {
+  useSheetBack(onClose);
+  return createPortal(
+    <Sheet onClose={onClose}>
+          <div className="stack" style={{ gap: 14 }}>
+            <div className="row" style={{ gap: 10 }}>
+              <TokenIcon symbol={a.symbol} asset={a.asset} chainId={a.chainId} logo={a.logo} />
+              <b>{a.symbol}</b>
+            </div>
+            <div className="row" style={{ justifyContent: "space-between", gap: 12 }}>
+              <span className="fine">Our server</span>
+              <s className="fine">{fmtAmount(a.formatted)} {a.symbol}</s>
+            </div>
+            <div className="row" style={{ justifyContent: "space-between", gap: 12 }}>
+              <Net chainId={a.chainId} />
+              <b>{fmtAmount(b.formatted)} {a.symbol}</b>
+            </div>
+            <button className="btn" onClick={onClose}>Done</button>
+          </div>
+    </Sheet>,
+    document.body,
+  );
+}
+/** The coin with the proven number in place of the server's: dollars at the server's price. */
+export function provenCoin(a: Asset, n: bigint | null | undefined): Asset {
+  const b = n ?? 0n; // null: no balanceOf at all (a coin the server made up)
+  const formatted = formatUnits(b, a.decimals);
+  return { ...a, balance: String(b), formatted, usd: a.price === null ? null : Number(formatted) * a.price };
 }
 
 /**

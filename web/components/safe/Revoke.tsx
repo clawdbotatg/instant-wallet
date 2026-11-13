@@ -13,7 +13,7 @@ import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
 import { friendly } from "@/lib/friendly";
 import { callsOf } from "@/lib/safe/describe";
-import { DoneBar, ExecutedLine, Net, RemoveX, TokenIcon, Who, stageLabel } from "../bits";
+import { DoneBar, ExecutedLine, Net, Proven, RemoveX, TokenIcon, Who, stageLabel } from "../bits";
 import { Progress } from "./Progress";
 import { ErrorLine } from "./WedgieButton";
 import { WhatItDoes } from "./WhatItDoes";
@@ -202,7 +202,7 @@ export function Revoke({ account, assets, states, onDone }: { account: SafeAccou
                         : a.any
                           ? `any amount of your ${a.symbol}`
                           : `up to ${fmtAmount(formatUnits(a.amount, a.decimals))} ${a.symbol}`}
-                      {coin?.usd ? ` · you have ${usd(coin.usd)}` : ""}
+                      {coin?.usd ? <> · you have <Proven a={coin}>{b => usd(b.usd)}</Proven></> : ""}
                     </div>
                   </div>
                   <RemoveX label="Revoke" disabled={busy || r.stage === "ready"} busy={picked && r.stage === "preparing"} onClick={() => prepare(chainId, [a.key])} />

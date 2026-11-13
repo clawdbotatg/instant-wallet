@@ -67,6 +67,52 @@ export function lightWarm(chainId: number, rpc: string, prover?: string, wasm?: 
     .catch(() => {});
 }
 
+const MULTICALL = "0xcA11bde05977b3631167028862bE2a173976CA11"; // Multicall3, same address on Ethereum and Gnosis
+const MC = parseAbi([
+  "struct Call3 { address target; bool allowFailure; bytes callData; }",
+  "struct Result { bool success; bytes returnData; }",
+  "function aggregate3(Call3[] calls) payable returns (Result[] returnData)",
+  "function getEthBalance(address) view returns (uint256)",
+  "function balanceOf(address) view returns (uint256)",
+]);
+// Coins per proven call. Measured 11-13 on a laptop (tools/proven-measure.mts, vitalik.eth): 50 coins in one call took
+// 0.2 s on Ethereum and 0.4 to 0.7 s on Gnosis, warm. The cost is per coin, not per call: one eth_createAccessList
+// plus about one eth_getProof per coin (56 for 50 on Ethereum, 66 on Gnosis), so smaller calls save nothing. Not
+// measured on a phone.
+export const LIGHT_CHUNK = 50;
+
+export type LightBalances = { block: number; time: number; balances: Record<string, bigint | null> };
+
+/**
+ * The wallet's balances, proven: one Multicall3 eth_call per LIGHT_CHUNK coins (balanceOf each, getEthBalance for the
+ * native coin, `zeroAddress` in `coins`), all at one block. The block is the proven header of "latest" (its number and
+ * time are what the proof is for), the call pinned to it: the node's own head can't be proven yet (its proof needs the
+ * block after it). A coin whose call fails (no code, reverts, an answer that isn't one number) is null; the others are
+ * still proven. A proof that fails throws: never an unproven number.
+ */
+export async function lightBalances(o: { chainId: number; wallet: Address; coins: Address[]; rpc: string; prover?: string; wasm?: string }): Promise<LightBalances> {
+  const lc = await client(o.chainId, o.rpc, o.prover || PROVER[o.chainId], o.wasm);
+  const head = await lc.request({ method: "eth_getBlockHeader", params: ["latest"] });
+  const block = head?.blockNumber as Hex;
+  if (!block) throw new Error("no block header");
+  const coins = [...new Set(o.coins.map(c => c.toLowerCase() as Address))];
+  const balances: Record<string, bigint | null> = {};
+  for (let i = 0; i < coins.length; i += LIGHT_CHUNK) {
+    const part = coins.slice(i, i + LIGHT_CHUNK);
+    const calls = part.map(c =>
+      c === zeroAddress
+        ? { target: MULTICALL as Address, allowFailure: true, callData: encodeFunctionData({ abi: MC, functionName: "getEthBalance", args: [o.wallet] }) }
+        : { target: c, allowFailure: true, callData: encodeFunctionData({ abi: MC, functionName: "balanceOf", args: [o.wallet] }) },
+    );
+    const out = (await lc.request({ method: "eth_call", params: [{ to: MULTICALL, data: encodeFunctionData({ abi: MC, functionName: "aggregate3", args: [calls] }) }, block] })) as Hex;
+    const res = decodeFunctionResult({ abi: MC, functionName: "aggregate3", data: out });
+    if (res.length !== part.length) throw new Error("multicall answered the wrong count");
+    // an address with no code "succeeds" with no bytes: that's no balance, not 0
+    part.forEach((c, j) => (balances[c] = res[j].success && res[j].returnData.length === 66 ? BigInt(res[j].returnData) : null));
+  }
+  return { block: Number(block), time: Number(head.timestamp), balances };
+}
+
 export type LightAnswer = Pick<SimAnswer, "ok" | "block" | "changes">;
 
 /**

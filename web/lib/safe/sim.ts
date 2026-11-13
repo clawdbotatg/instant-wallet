@@ -66,7 +66,7 @@ export function setLight(chainId: number, on: boolean, prover?: string) {
   } catch {}
   if (on) warm(chainId);
 }
-const WASM = "/colibri/c4w.wasm";
+export const WASM = "/colibri/c4w.wasm";
 const warm = (chainId: number) => lightWarm(chainId, rpcPath(chainId), lightProver(chainId), WASM);
 // a page that opens with it on starts it now, so the first transaction doesn't wait for it
 if (typeof window !== "undefined") setTimeout(() => LIGHT_CHAINS.filter(lightOn).forEach(warm), 2000);

@@ -442,7 +442,14 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
                   {connect ? (busy === "connect" ? "Connecting…" : "Connect") : busy === k ? stageLabel(k === "wedgie" ? "signing-wedgie" : "signing") : "Sign"}
                 </button>
               ) : (
-                <span className="fine">Waiting</span>
+                // no button here: say what it takes, never a bare "Waiting" (Austin 11-13). Nothing once it has enough
+                done || enough ? null : k === "safe" ? (
+                  app ? <Eject href={app} title="Sign it in Safe{Wallet}, connected as that wallet's signer">Sign in Safe</Eject> : <span className="fine">In its own app</span>
+                ) : k === "other" ? (
+                  <span className="fine">Needs a wallet extension</span>
+                ) : (
+                  <span className="fine">Waiting</span>
+                )
               )}
             </div>
           );

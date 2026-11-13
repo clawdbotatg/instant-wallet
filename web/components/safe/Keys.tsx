@@ -1,5 +1,6 @@
 "use client";
 
+import { recoveryChecked } from "./RecoveryAlert";
 import { RpcSetting } from "./RpcSetting";
 import { SimSetting } from "./SimSetting";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
@@ -414,7 +415,7 @@ export function Keys({
           label,
           p,
           settled: x => (x.stored?.[RECOVERY_14D] ?? []).map(g => g.toLowerCase()).sort().join() === want,
-          after: () => setGuardKey(k => k + 1),
+          after: () => (recoveryChecked(account.address), setGuardKey(k => k + 1)), // just set: the next check is 90 days on
           close: async () => w?.close(),
         };
       } catch (e) {

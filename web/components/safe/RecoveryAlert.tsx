@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { type Address, encodeFunctionData } from "viem";
 import { chainById, explorerAddress } from "@/lib/chains";
 import { abi } from "@/lib/safe/core";
+import { DAO } from "@/lib/safe/config";
 import { type Prepared, Shared, finishOwners, ownerSigners, prepareOwners } from "@/lib/safe/send";
 import type { ChainState, RecoveryOn, SafeAccount } from "@/lib/safe/state";
 import { SAFE_SVC } from "@/lib/safe/share";
@@ -122,6 +123,54 @@ export function AddonAlert({ safe, state }: { safe: Address; state: ChainState }
           <span className="fine">Can block every transaction from this wallet.</span>
         </div>
       )}
+    </div>
+  );
+}
+
+const CHECK_DAYS = 90;
+const checkKey = (safe: Address) => `iw3.recheck.${safe.toLowerCase()}`;
+
+/** Count a recovery check as done now (Home's card, and adding or changing a recovery address in Keys). */
+export function recoveryChecked(safe: Address) {
+  try {
+    localStorage.setItem(checkKey(safe), String(Date.now()));
+  } catch {}
+}
+
+/**
+ * The recovery check (WalletBeat's "guardian account check-up"): every 90 days, Home asks whether you can still use
+ * your own recovery addresses, while there's still time to change them. Only yours: the DAO isn't yours to lose.
+ * The clock starts the first time this browser sees them.
+ */
+export function RecoveryCheck({ safe, states, onChange }: { safe: Address; states: ChainState[]; onChange: () => void }) {
+  const seen = new Map<string, Address>();
+  for (const s of states) for (const r of s.recoveries) for (const g of r.guardians ?? []) if (g.toLowerCase() !== DAO.toLowerCase()) seen.set(g.toLowerCase(), g);
+  const mine = [...seen.values()];
+  const [due, setDue] = useState(false);
+  useEffect(() => {
+    if (!mine.length) return;
+    try {
+      const at = Number(localStorage.getItem(checkKey(safe)));
+      if (!at) recoveryChecked(safe);
+      setDue(!!at && Date.now() - at > CHECK_DAYS * 86_400_000);
+    } catch {}
+  }, [safe, mine.length]);
+  if (!due || !mine.length) return null;
+  return (
+    <div className="card stack" style={{ gap: 8 }}>
+      <b>Recovery check</b>
+      <p className="fine">Can you still use {mine.length > 1 ? "these" : "this"}? If you lose this device, {mine.length > 1 ? "they get" : "it gets"} your wallet back.</p>
+      {mine.map(g => (
+        <Who key={g} address={g} />
+      ))}
+      <div style={{ display: "flex", gap: 8 }}>
+        <button className="btn" style={{ flex: 1 }} onClick={onChange}>
+          Change
+        </button>
+        <button className="btn btn-green" style={{ flex: 2 }} onClick={() => (recoveryChecked(safe), setDue(false))}>
+          I still have {mine.length > 1 ? "them" : "it"}
+        </button>
+      </div>
     </div>
   );
 }

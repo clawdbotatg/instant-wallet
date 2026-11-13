@@ -17,7 +17,7 @@ import { onSending, sendingNow } from "@/lib/safe/sending";
 import { Deposit } from "./Deposit";
 import { Keys } from "./Keys";
 import { Share } from "./Share";
-import { AddonAlert, RecoveryAlert } from "./RecoveryAlert";
+import { AddonAlert, RecoveryAlert, RecoveryCheck } from "./RecoveryAlert";
 import { SafeSend } from "./SafeSend";
 import { SendAll } from "./SendAll";
 import { SafeSwap } from "./SafeSwap";
@@ -496,6 +496,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
           </div>
         )}
         {states.filter(s => s.deployed && (s.strangers.length || s.guard)).map(s => <AddonAlert key={`addon${s.chainId}`} safe={account.address} state={s} />)}
+        <RecoveryCheck safe={account.address} states={states} onChange={() => setView({ kind: "keys" })} />
         {states.flatMap(s => s.recoveries.filter(r => r.request).map(r => <RecoveryAlert key={`${s.chainId}:${r.module}`} account={account} state={s} rec={r} feeToken={feeTokenOn(s.chainId)} onDone={refresh} />))}
         {states.map(
           s =>

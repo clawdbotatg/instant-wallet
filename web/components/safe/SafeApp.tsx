@@ -13,7 +13,7 @@ import { type Prepared, Shared, finishOwners, ownerSigners, prepareOwners } from
 import { friendly } from "@/lib/friendly";
 import { AppsIcon, Blockie, Net, DepositIcon, GearIcon, SendIcon, SendScanIcon, Sheet, sheetOpen, TokenIcon, TrashIcon, CopyLink, RemoveX, Who, named, useName, useToast } from "../bits";
 import { Receive } from "../Receive";
-import { sendingNow } from "@/lib/safe/sending";
+import { onSending, sendingNow } from "@/lib/safe/sending";
 import { Deposit } from "./Deposit";
 import { Keys } from "./Keys";
 import { Share } from "./Share";
@@ -134,12 +134,19 @@ export function SafeApp({ link }: { link?: string } = {}) {
   const same = (a: unknown, b: unknown) => JSON.stringify(a, big) === JSON.stringify(b, big);
   // the balance shows as soon as it lands; the keys read (slower, several calls per network) never holds it up
   const busy = useRef(false);
-  const loadBalance = useCallback(async () => {
+  // a wallet with hundreds of tokens is only scanned in full every 5 minutes (api/portfolio). When something just
+  // happened that can bring a new one (a tx of ours landed, a pull, a sheet closed, back to the tab), the next read
+  // asks for the scan now. A flag, not an argument: a read already on its way must not swallow the ask.
+  const wantScan = useRef(false);
+  const loadBalance = useCallback(async (scan?: boolean) => {
+    if (scan) wantScan.current = true;
     if (!account || busy.current) return;
     busy.current = true;
+    const ask = wantScan.current ? "&scan=1" : "";
+    wantScan.current = false;
     // a timeout: iOS can freeze a fetch while the app is in the background (e.g. sending from Rainbow) and never settle
     // it, which held `busy` forever and stopped every later balance read
-    const p = await fetch(`/api/portfolio?address=${account.address}`, { cache: "no-store", signal: AbortSignal.timeout(15_000) })
+    const p = await fetch(`/api/portfolio?address=${account.address}${ask}`, { cache: "no-store", signal: AbortSignal.timeout(15_000) })
       .then(r => r.json())
       .catch(() => null)
       .finally(() => (busy.current = false));
@@ -191,8 +198,22 @@ export function SafeApp({ link }: { link?: string } = {}) {
   const [actTick, setActTick] = useState(0);
   const refresh = useCallback(async () => {
     setActTick(n => n + 1);
-    await Promise.all([loadBalance(), loadStates()]);
+    await Promise.all([loadBalance(true), loadStates()]);
   }, [loadBalance, loadStates]);
+  // a tx of ours landed (a swap into a coin the wallet never held): scan now, and once more after the indexer has it
+  useEffect(() => {
+    let t: ReturnType<typeof setTimeout> | undefined;
+    const off = onSending(landed => {
+      if (!landed) return;
+      loadBalance(true);
+      clearTimeout(t);
+      t = setTimeout(() => loadBalance(true), 20_000);
+    });
+    return () => {
+      off();
+      clearTimeout(t);
+    };
+  }, [loadBalance]);
 
   useEffect(() => {
     if (!account) return;

@@ -29,7 +29,10 @@ export async function GET(req: NextRequest) {
   const timer = () => new Promise<null>(r => setTimeout(() => r(LATE), 6_000));
   // a chain that failed is late too, never "holds nothing": the page keeps its last rows (an empty answer made every
   // coin there vanish, then come back as money just received)
-  const work = CHAINS.map(c => chainAssets(c.id, wallet).catch((): Asset[] | null => LATE));
+  // scan=1: the page just did something that can bring a new token (its own tx landed, a pull, back to the tab):
+  // a big wallet's full scan runs now, not at its next 5 minutes (EXPECTATIONS #6)
+  const scan = req.nextUrl.searchParams.get("scan") === "1";
+  const work = CHAINS.map(c => chainAssets(c.id, wallet, scan).catch((): Asset[] | null => LATE));
   after(Promise.allSettled(work));
   const perChain = await Promise.all(work.map(w => Promise.race([w, timer()])));
   const late = CHAINS.filter((_, i) => perChain[i] === LATE).map(c => c.id);
@@ -63,7 +66,7 @@ function row(chainId: number, asset: Address, symbol: string, name: string, deci
   };
 }
 
-async function chainAssets(chainId: number, wallet: Address): Promise<Asset[]> {
+async function chainAssets(chainId: number, wallet: Address, scan = false): Promise<Asset[]> {
   const client = createPublicClient({ chain: chainById(chainId)!.chain, transport: http(mustRpc(chainId)) });
   const info = chainById(chainId)!;
   const eth = await client.getBalance({ address: wallet });
@@ -81,7 +84,7 @@ async function chainAssets(chainId: number, wallet: Address): Promise<Asset[]> {
     }
     return out;
   }
-  const held = await heldTokens(chainId, wallet);
+  const held = await heldTokens(chainId, wallet, scan);
   // 25 at a time: a thousand at once gets rate-limited. A failed read isn't cached (it would hide a real coin for good).
   const metas = await pool(held, 25, async t => {
     const k = `${chainId}:${t.address}`;
@@ -137,12 +140,13 @@ async function fullScan(chainId: number, wallet: Address) {
 /**
  * The wallet's tokens with a balance, all of them: any cap cuts real coins once spam outnumbers it (atg.eth's FOLD was
  * #157 of 278 on Ethereum; it holds 1,061 on Base). A wallet with more than one page is scanned in full every 5 min
- * (15 pages = 7 s); polls in between re-read just those tokens + the well-known ones, 100 per call, in parallel.
+ * (15 pages = 7 s), and when the page asks (`asked`: something just happened that can bring a new token); polls in between re-read just those tokens + the well-known ones, 100 per call, in parallel.
  */
-async function heldTokens(chainId: number, wallet: Address): Promise<{ address: Address; balance: bigint }[]> {
+const SCAN_ASKED_MS = 15_000; // asked for (scan=1): at most this often, so a page can't make it scan on every poll
+async function heldTokens(chainId: number, wallet: Address, asked = false): Promise<{ address: Address; balance: bigint }[]> {
   const s = scans.get(`${chainId}:${wallet}`);
   if (!s) return fullScan(chainId, wallet);
-  if (Date.now() - s.at > SCAN_MS && !s.busy) {
+  if (Date.now() - s.at > (asked ? SCAN_ASKED_MS : SCAN_MS) && !s.busy) {
     s.busy = true;
     after(fullScan(chainId, wallet).catch(() => void (s.busy = false)));
   }

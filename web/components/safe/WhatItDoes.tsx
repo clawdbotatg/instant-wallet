@@ -6,11 +6,13 @@ import { amount, feeWords, short, usd } from "@/lib/format";
 import { Money, Raw, WhatFor, Who, Words } from "../bits";
 import { txRows } from "@/lib/safe/raw";
 import { WARN, describe, ours, relayFee } from "@/lib/safe/describe";
+import { type Line, type Src, type Told, intents, srcOf } from "@/lib/safe/intents";
+export { type Line, type Src, intents };
 import type { Call } from "@/lib/safe/core";
 import { type Sim, asSafeTx, lightOn, moves, simulate } from "@/lib/safe/sim";
 import { RECOVERY_DAYS } from "@/lib/safe/config";
 import { rolesAddress } from "@/lib/safe/core";
-import { type Mark, MARKS, dangers } from "clear-signing-safe-kit";
+import { MARKS, dangers } from "clear-signing-safe-kit";
 import { chainById } from "@/lib/chains";
 import { nativeUsd } from "@/lib/price";
 
@@ -22,17 +24,8 @@ function sendUsd(chainId: number, c: Call, eth: number): number | undefined {
     return Number(BigInt("0x" + c.data.slice(74, 138))) / 1e6;
 }
 
-/** Who a plain send pays (the chain's coin, or a token transfer), so its headline can say so. */
-function sentTo(c: Call): string | undefined {
-  if (c.data === "0x" && c.value > 0n) return c.to;
-  if (c.data.slice(0, 10).toLowerCase() === "0xa9059cbb" && c.data.length >= 138) return getAddress("0x" + c.data.slice(34, 74));
-}
-
 type SafeTxLike = { to: Address; value: bigint; data: Hex; operation: 0 | 1; nonce?: bigint };
 
-type Field = { label: string; value: string; address?: string };
-type Told = { what: string; short?: string; fields: Field[]; who?: string; swap?: { pay: Move & { most?: boolean }; get: Move & { least?: boolean } }; src?: Exclude<Mark, "bot" | "raw"> } | null;
-type Move = { symbol: string; amount: string; usd?: number; unknown?: boolean };
 type Got = { calls: Told[] | null; sim: Sim | null; feeUsd: Record<string, number>; light?: "ok" | "failed"; why?: string };
 
 // one ask per set of calls. The words never change, so they're kept for the page's life. The coins come from a run on
@@ -57,14 +50,11 @@ export function explainCalls(chainId: number, safe: Address, calls: Call[]): Pro
   return said.get(body)!;
 }
 
-/** Where a step's words came from (clear-signing-safe-kit MARKS: the same emoji on wedgie.dev). */
-export type Src = Mark;
 /** The step's mark, in place of its number: just the emoji (its meaning on hover). */
 export function SrcTag({ src }: { src: Src }) {
   const [icon, title] = MARKS[src];
   return <span title={title} style={{ marginRight: 6 }}>{icon}</span>;
 }
-export type Line = { text: string; src: Src };
 /** Steps' words, each with where they came from, one step per line (Austin, 10-31). */
 export function Lines({ lines, chain }: { lines: Line[]; chain?: number }) {
   return (
@@ -78,34 +68,6 @@ export function Lines({ lines, chain }: { lines: Line[]; chain?: number }) {
     </>
   );
 }
-const srcOf = (text: string, t: Told | undefined, mine: string | null): Src =>
-  mine ? "code" : t ? (t.src ?? (t.swap ? "code" : "ef")) : text.startsWith(WARN) || text.startsWith("Call ") ? "raw" : "code";
-
-/**
- * What a tx is for, one line per step: clear signing's intent and who it's with ("Deposit · Steakhouse Financial"),
- * else ours / describe.ts. Never the relay's fee, never a bare "Call 0x…". brief (headlines: Activity, signing): an
- * approval only feeds the step after it, so it's left out when there's another; each step is the descriptor's short
- * intent (its full sentence can carry every address in the call), and who it's with is said once per run of steps.
- */
-export function intents(chainId: number, safe: Address, calls: Call[], told: Told[] | null, brief = false): Line[] {
-  const lines = calls.flatMap((c, i) => {
-    const mine = ours(chainId, c);
-    if (mine?.startsWith("Network fee")) return [];
-    const t = mine ? null : told?.[i];
-    const said = mine ?? (t ? ((brief && t.short) || t.what) : describe(chainId, safe, c));
-    // a send always says who to (Austin 11-11: Activity said "Send" and never where); <Words> draws it as <Who>
-    const to = mine ? undefined : sentTo(c);
-    const text = to && !/0x[0-9a-fA-F]{40}/.test(said) ? `${said} to ${to}` : said;
-    if (text.startsWith("Call ")) return [];
-    const approve = /^(Let|Stop) /.test(text) || t?.what === "Approve";
-    // "Morpho DAO" goes unsaid after "Borrow from Morpho Market"
-    const who = t?.who && !text.includes(t.who.split(" ")[0]) ? t.who : undefined;
-    return [{ text, approve, who, src: srcOf(text, t ?? undefined, mine) }];
-  });
-  const keep = brief && lines.some(l => !l.approve) ? lines.filter(l => !l.approve) : lines;
-  return keep.map((l, i) => ({ text: l.who && (!brief || keep[i + 1]?.who !== l.who) ? `${l.text} · ${l.who}` : l.text, src: l.src }));
-}
-
 function ask(chainId: number, safe: Address, calls: Call[], tx?: SafeTxLike) {
   const body = JSON.stringify({ chain: chainId, safe, calls: calls.map(c => ({ to: c.to, value: String(c.value), data: c.data })), op: tx?.operation, to: tx?.to });
   const had = got.get(body);
@@ -191,9 +153,11 @@ export function WhatItDoes({ chainId, safe, calls, tx, signs, same, quiet, else:
     </div>
   ));
   // coins in and out say it all; the steps show when no coins move (a signer, a limit), the run failed, or a step warns
-  const steps = danger || !sim || !!sim.fails || (!sim.pay.length && !sim.get.length) || calls.some(c => describe(chainId, safe, c).startsWith(WARN));
+  // …or an approval outlives the batch, or a call can't be named: those are never left to a headline (audit 11-13)
+  const head = intents(chainId, safe, calls, res?.calls ?? null, true);
+  const steps = danger || !sim || !!sim.fails || (!sim.pay.length && !sim.get.length) || calls.some(c => describe(chainId, safe, c).startsWith(WARN)) || head.some(l => l.approve || l.warn);
   // the headline over the coins, and the coins the size they are in Activity (14 under a headline, 17 alone)
-  const said = !steps ? intents(chainId, safe, calls, res?.calls ?? null, true) : [];
+  const said = !steps ? head : [];
   // quiet (the Send, Swap and Send-everything sheets, which already say what and the fee): the coins and any trouble.
   // A danger or a step that warns is never quiet: then it's the full card.
   if (quiet && !danger && !calls.some(c => describe(chainId, safe, c).startsWith(WARN))) {

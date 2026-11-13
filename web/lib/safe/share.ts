@@ -64,7 +64,21 @@ const wire = (t: SafeTx) => ({
   refundReceiver: zeroAddress,
   nonce: t.nonce.toString(),
 });
-const txOf = (t: any): SafeTx => ({ to: getAddress(t.to), value: BigInt(t.value ?? 0), data: (t.data || "0x") as Hex, operation: Number(t.operation) as 0 | 1, nonce: BigInt(t.nonce) });
+// Only clean hex and plain numbers (audit 11-13): viem left-pads odd-length hex when it hashes, so "0x95ea7b3…" was
+// signed as 0x095ea7b3… (approve) and shown as an unknown call. What is shown must be the bytes that are hashed.
+const HEX = /^0x([0-9a-fA-F]{2})*$/;
+const DEC = /^(0|[1-9][0-9]{0,77})$/;
+export const txOf = (t: any): SafeTx => {
+  const data = t.data == null || t.data === "" ? "0x" : t.data;
+  if (typeof data !== "string" || !HEX.test(data)) throw new Error("bad data");
+  if (typeof t.to !== "string" || !isAddress(t.to)) throw new Error("bad to");
+  const op = String(t.operation ?? 0);
+  if (op !== "0" && op !== "1") throw new Error("bad operation");
+  const value = String(t.value ?? 0);
+  const nonce = String(t.nonce);
+  if (!DEC.test(value) || !DEC.test(nonce)) throw new Error("bad number");
+  return { to: getAddress(t.to), value: BigInt(value), data: data as Hex, operation: Number(op) as 0 | 1, nonce: BigInt(nonce) };
+};
 // a tx with gas refunds or a gas token isn't one we can sign or send: left out
 const plain = (t: any) => !Number(t.safeTxGas || 0) && !Number(t.baseGas || 0) && !Number(t.gasPrice || 0) && (!t.gasToken || eq(t.gasToken, zeroAddress)) && (!t.refundReceiver || eq(t.refundReceiver, zeroAddress));
 
@@ -129,9 +143,20 @@ export async function readWaiting(c: number, a: Address, nonce: bigint, o: { svc
   const all = new Map<string, Waiting>();
   const dropped = new Set<string>();
   const add = (t: any, h: string, sigs: { owner: string; signature: string | null }[], o: { inSafe?: boolean; label?: string } = {}) => {
-    if (BigInt(t.nonce) < nonce || !plain(t)) return;
-    const k = h.toLowerCase();
-    const w = all.get(k) ?? { chainId: c, safe: a, tx: txOf(t), hash: h as Hex, sigs: [] };
+    // the hash the keys sign is worked out here from the tx shown: a server's hash that isn't this tx's is dropped
+    // (audit 11-13: a lying queue could show a harmless tx with a drain's hash). A tx that doesn't read is skipped.
+    let tx: SafeTx;
+    try {
+      if (!plain(t)) return;
+      tx = txOf(t);
+    } catch {
+      return;
+    }
+    if (tx.nonce < nonce) return;
+    const real = safeTxHash(c, a, tx);
+    if (typeof h !== "string" || !eq(real, h)) return;
+    const k = real.toLowerCase();
+    const w = all.get(k) ?? { chainId: c, safe: a, tx, hash: real, sigs: [] };
     if (o.inSafe) w.inSafe = true;
     if (o.label) w.label ??= o.label;
     for (const s of sigs) if (s.signature && isAddress(s.owner) && !w.sigs.some(x => eq(x.owner, s.owner))) w.sigs.push({ owner: getAddress(s.owner), signature: s.signature as Hex });
@@ -150,7 +175,11 @@ export async function readWaiting(c: number, a: Address, nonce: bigint, o: { svc
   ]);
   const l = loadLocal(c, a);
   for (const [h, e] of Object.entries(l)) {
-    if (BigInt(e.tx.nonce) < nonce) delete l[h];
+    let old = true; // a stored tx that doesn't read is dropped too
+    try {
+      old = BigInt(e.tx.nonce) < nonce;
+    } catch {}
+    if (old) delete l[h];
     else add(e.tx, h, e.sigs, { label: e.label });
   }
   saveLocal(c, a, l);

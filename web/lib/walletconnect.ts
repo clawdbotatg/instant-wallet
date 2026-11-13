@@ -15,6 +15,7 @@ import {
 } from "viem";
 import { parseSiweMessage } from "viem/siwe";
 import { typedParts } from "./safe/raw";
+import { type TypedCard, typedCard } from "./safe/typed";
 import { CHAINS, SENDABLE, publicClient } from "./chains";
 import { extRespond, isExt } from "./extension";
 import { appRespond, isApp } from "./safeapps";
@@ -132,7 +133,7 @@ export type Dapp = { name: string; url: string; icon?: string };
 /** A request that needs the user: a batch of calls, or a message to sign. */
 export type Pending =
   | { kind: "calls"; id: number; topic: string; chainId: number; dapp: Dapp; calls: Call[]; method: string }
-  | { kind: "sign"; id: number; topic: string; chainId: number; dapp: Dapp; hash: Hex; preview: string; method: string; raw?: Hex; parts?: { domain: Hex; message: Hex }; siwe?: Siwe };
+  | { kind: "sign"; id: number; topic: string; chainId: number; dapp: Dapp; hash: Hex; preview: string; method: string; raw?: Hex; parts?: { domain: Hex; message: Hex }; siwe?: Siwe; typed?: TypedCard };
 
 /** A Sign-In with Ethereum message (ERC-4361), read from a personal_sign's text: shown as a sign-in, not as text. */
 export type Siwe = { domain: string; address: string; uri: string; chainId: number; statement?: string; expires?: string };
@@ -167,7 +168,13 @@ export async function respondError(topic: string, id: number, message = "User re
 
 const toCall = (c: { to?: string; value?: string; data?: string }): Call => {
   if (!c.to) throw new Error("Deploying contracts isn't supported");
-  return { target: getAddress(c.to), value: c.value ? BigInt(c.value) : 0n, data: (c.data as Hex) || "0x" };
+  // only whole bytes: odd-length hex is left-padded when it's hashed, so the card would read another call than the
+  // one signed (audit 11-13)
+  const data = c.data == null || c.data === "" ? "0x" : c.data;
+  if (typeof data !== "string" || !/^0x([0-9a-fA-F]{2})*$/.test(data)) throw new Error("That request's data isn't valid hex");
+  const value = c.value ? BigInt(c.value) : 0n;
+  if (value < 0n) throw new Error("That request's value isn't valid");
+  return { target: getAddress(c.to), value, data: data as Hex };
 };
 
 /**
@@ -239,7 +246,13 @@ export function toPending(topic: string, id: number, method: string, p: any[], c
       const raw = typeof p[1] === "string" ? JSON.parse(p[1]) : p[1];
       const { EIP712Domain: _, ...types } = raw.types ?? {};
       const hash = hashTypedData({ domain: raw.domain, types, primaryType: raw.primaryType, message: raw.message });
-      return { kind: "sign", id, topic, chainId, dapp, hash, preview: typedPreview(raw), method, parts: typedParts(raw) };
+      // its card is read from the same types the hash is made from (lib/safe/typed.ts): a permit in red, no extra lines
+      let site = dapp.name;
+      try {
+        site = new URL(dapp.url).host || site;
+      } catch {}
+      const typed = typedCard(raw, chainId, site);
+      return { kind: "sign", id, topic, chainId, dapp, hash, preview: [`${typed.app} · ${raw.primaryType}`, ...typed.lines].join("\n"), method, parts: typedParts(raw), typed };
     }
     default:
       return null;
@@ -253,12 +266,6 @@ function tryUtf8(h: Hex): string | null {
   } catch {
     return null;
   }
-}
-
-function typedPreview(t: any): string {
-  const lines = [`${t.domain?.name ?? "Unknown app"} · ${t.primaryType}`];
-  for (const [k, v] of Object.entries(t.message ?? {})) lines.push(`${k}: ${typeof v === "object" ? JSON.stringify(v) : String(v)}`);
-  return lines.join("\n");
 }
 
 // ---------------------------------------------------------------- EIP-5792 status

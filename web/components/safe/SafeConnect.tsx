@@ -10,6 +10,7 @@ import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { type Pending, type Siwe, remember, respond } from "@/lib/walletconnect";
 import { Net, Raw, Who, Words, stageLabel } from "../bits";
 import { messageRows } from "@/lib/safe/raw";
+import type { TypedCard } from "@/lib/safe/typed";
 import { ConnectLayer, DappHead, type Session } from "../WalletConnect";
 import { friendly } from "@/lib/friendly";
 import { Progress } from "./Progress";
@@ -219,13 +220,22 @@ function SafeRequest({
           <SignIn siwe={pending.siwe} site={pending.dapp.url} safe={account.address} />
           <Raw rows={messageRows(pending.chainId, account.address, pending)} />
         </>
+      ) : pending.typed ? (
+        <Typed typed={pending.typed} chainId={pending.chainId}>
+          <Raw rows={messageRows(pending.chainId, account.address, pending)} />
+        </Typed>
       ) : (
         <>
           <h2>Sign this?</h2>
           <div className="recess" style={{ whiteSpace: "pre-wrap", maxHeight: 260, overflow: "auto", fontSize: 14 }}>
             {pending.preview}
           </div>
-          <p className="fine">Moves no money. Read it anyway.</p>
+          {/* text a person can read moves no money; bytes that aren't text could be anything (an order's hash) */}
+          {pending.raw && pending.preview === pending.raw ? (
+            <p className="err">This isn&apos;t text, so the wallet can&apos;t read it. Only sign if you trust the site.</p>
+          ) : (
+            <p className="fine">Moves no money. Read it anyway.</p>
+          )}
           <Raw rows={messageRows(pending.chainId, account.address, pending)} />
         </>
       )}
@@ -266,6 +276,47 @@ function SafeRequest({
         from <Who address={account.address} size={18} inline />
       </p>
     </div>
+  );
+}
+
+/**
+ * A typed-data request (EIP-712, lib/safe/typed.ts). A signature like this can move money with no transaction (a
+ * token's permit, Permit2, an order), so it never says "moves no money": a permit says who may spend what, in red;
+ * then the app, its network and the contract that takes the signature; then the message's own fields.
+ */
+function Typed({ typed, chainId, children }: { typed: TypedCard; chainId: number; children?: React.ReactNode }) {
+  return (
+    <>
+      <h2>Sign this?</h2>
+      {typed.warn.map((w, i) => (
+        <p key={i} className="err" data-typed-warn style={{ fontWeight: 600 }}>
+          <Words text={w} chain={chainId} />
+        </p>
+      ))}
+      {typed.otherChain !== undefined && (
+        <p className="err">
+          This is for another network: <Net chainId={typed.otherChain} />.
+        </p>
+      )}
+      <div className="card">
+        <div className="line">
+          <span>App</span>
+          <span>{typed.app}{typed.version ? ` (${typed.version})` : ""}</span>
+        </div>
+        {typed.contract && (
+          <div className="line">
+            <span>Contract</span>
+            <span><Who address={typed.contract} chain={typed.chain ?? chainId} size={18} inline /></span>
+          </div>
+        )}
+      </div>
+      <div className="recess stack" style={{ gap: 2, maxHeight: 260, overflow: "auto", fontSize: 14, wordBreak: "break-word" }}>
+        {typed.lines.map((l, i) => (
+          <span key={i}><Words text={l} chain={chainId} /></span>
+        ))}
+      </div>
+      {children}
+    </>
   );
 }
 

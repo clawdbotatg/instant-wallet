@@ -26,6 +26,14 @@ What Instant Wallet must always do. If a change breaks one, it doesn't ship. In 
   fallback to ours.
 - Anything that could take everything says so in red, first: a delegatecall that isn't a plain batch, a
   module, a guard, a fallback handler.
+- What is shown is what is signed (11-13). The hash the keys sign is worked out in the wallet from the transaction
+  on screen, never taken from a server or a link. A transaction that isn't whole bytes and plain numbers is refused.
+  `tools/share-check.mts`.
+- An approval that outlives the transaction is always said, and so is a call the wallet can't name ("Unknown call
+  to …"). Only a swap's own approval, set back to 0 in the same transaction, goes unsaid. `tools/intents-check.mts`.
+- A site's typed message (EIP-712) never says "moves no money": a signature can be a permit. A permit says who may
+  spend what, in red. Anything else typed says it can move money. Only the fields that are signed are shown.
+  `tools/typed-check.mts`.
 - The wedgie shows the same thing on its own screen. Its coins come from clear-sim only (the one answer it can
   check). Turn that off (Settings → Simulator) and it shows the words, no coins, and no simulator is asked.
 

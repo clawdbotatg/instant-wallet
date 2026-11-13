@@ -70,7 +70,8 @@ setUsdc(safe, 20_000_000n);
 await page.waitForTimeout(3000); // the connect layer starts listening
 
 // scan the site's QR with the wallet's own scan button
-await page.getByLabel("Scan to send").click();
+// (the scan itself is the Send sheet's now; this is what it does with a wc: code it reads)
+await page.evaluate(u => window.dispatchEvent(new CustomEvent("iw:walletconnect", { detail: u })), uri);
 const session = await approval(); // the scan was the yes: no question
 await page.getByText("Connected to WC probe").waitFor({ timeout: 10000 });
 await page.screenshot({ path: `${OUT}/wc-1-connected.png` });
@@ -100,10 +101,13 @@ const calls = [
   { to: USDC, data: encodeFunctionData({ abi: erc20Abi, functionName: "transfer", args: [to, 1_000_000n] }), value: "0x0" },
 ];
 const sendP = ask("wallet_sendCalls", [{ version: "2.0.0", chainId: "0x2105", from: safe, atomicRequired: true, calls }]);
-await page.getByText("2 steps, all or nothing").waitFor({ timeout: 30000 });
-await page.getByRole("button", { name: "Approve", exact: true }).waitFor({ timeout: 30000 });
+await page.getByRole("button", { name: "Sign", exact: true }).waitFor({ timeout: 60000 });
+await page.waitForTimeout(1500);
+const batchCard = await page.evaluate(() => document.body.innerText);
 await page.screenshot({ path: `${OUT}/wc-2-calls.png` });
-await page.getByRole("button", { name: "Approve", exact: true }).click();
+// audit 11-13: an approval that outlives the batch is on the card, whatever else the batch does
+ok(/spend up to 5 USDC/.test(batchCard) && /Send\s+Amount: 1 USDC/.test(batchCard), "approve + transfer: the card says both");
+await page.getByRole("button", { name: "Sign", exact: true }).click();
 const res = await sendP;
 ok(/^0x[0-9a-f]{64}$/i.test(res?.id), `wallet_sendCalls answered with the tx (${res?.id?.slice(0, 10)}…)`);
 const allowance = BigInt(cast(`call ${USDC} "allowance(address,address)(uint256)" ${safe} ${spender}`).split(" ")[0]);
@@ -127,10 +131,45 @@ await sign(
   "eth_signTypedData_v4: valid (ERC-1271)",
 );
 
+// audit 11-13: a token's permit is typed data too, and the Safe's signature is good for it. The card says who may
+// spend what, in red, never "moves no money"; a key the types don't name isn't shown. Then the spender uses it.
+const taker = rand();
+const deadline = Math.floor(Date.now() / 1000) + 3600;
+const permitTypes = { Permit: [{ name: "owner", type: "address" }, { name: "spender", type: "address" }, { name: "value", type: "uint256" }, { name: "nonce", type: "uint256" }, { name: "deadline", type: "uint256" }] };
+const permit = {
+  domain: { name: "USD Coin", version: "2", chainId: 8453, verifyingContract: USDC },
+  types: permitTypes,
+  primaryType: "Permit",
+  message: { owner: safe, spender: taker, value: "3000000", nonce: Number(cast(`call ${USDC} "nonces(address)(uint256)" ${safe}`).split(" ")[0]), deadline },
+};
+const permitP = ask("eth_signTypedData_v4", [safe, JSON.stringify({ ...permit, message: { ...permit.message, note: "Free refund, moves no money" } })]);
+await page.getByText("Sign this?").waitFor({ timeout: 30000 });
+await page.locator("[data-typed-warn]").first().waitFor({ timeout: 10000 });
+const card = await page.evaluate(() => document.body.innerText);
+const red = await page.locator("[data-typed-warn]").first().innerText();
+await page.screenshot({ path: `${OUT}/wc-permit.png` });
+ok(/^Let .* spend up to 3 USDC$/.test(red.replace(/\s+/g, " ").trim()), `a USDC permit's card says it in red: "${red.replace(/\s+/g, " ").trim()}"`);
+ok(!/moves no money/i.test(card) && !/refund/i.test(card), "…never 'moves no money', and the site's extra line isn't shown");
+await page.getByRole("button", { name: "Sign", exact: true }).click();
+const permitSig = await permitP;
+const before = usdcOf(taker);
+cast(`rpc anvil_setBalance ${taker} 0x16345785D8A0000`);
+cast(`rpc anvil_impersonateAccount ${taker}`);
+const sendAs = a => execSync(`cast send ${a} --from ${taker} --unlocked --rpc-url ${RPC}`, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+let took = "";
+try {
+  sendAs(`${USDC} "permit(address,address,uint256,uint256,bytes)" ${safe} ${taker} 3000000 ${deadline} ${permitSig}`);
+  sendAs(`${USDC} "transferFrom(address,address,uint256)" ${safe} ${taker} 3000000`);
+} catch (e) {
+  took = String(e.stderr || e.message).slice(0, 300);
+}
+// it works: that's why the card is red (if USDC ever refuses a Safe's signature here, this line says so)
+ok(usdcOf(taker) - before === 3_000_000n, `the signature is a real USDC permit: the spender took 3 USDC with it, no transaction from the wallet ${took}`);
+
 // a site asking the wallet to change itself: refused on the card
 const evilP = ask("eth_sendTransaction", [{ from: safe, to: safe, data: "0xe19a9dd9" + "0".repeat(64), value: "0x0" }]).catch(e => e);
 await page.getByText("A site can't change your wallet's keys or settings.").waitFor({ timeout: 30000 });
-ok((await page.getByRole("button", { name: "Approve", exact: true }).count()) === 0, "a call into the wallet itself: refused, no Approve button");
+ok((await page.getByRole("button", { name: "Sign", exact: true }).count()) === 0, "a call into the wallet itself: refused, no Sign button");
 await page.screenshot({ path: `${OUT}/wc-3-refused.png` });
 await page.getByRole("button", { name: "Reject", exact: true }).click();
 const evil = await evilP;

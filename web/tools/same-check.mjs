@@ -26,7 +26,10 @@ const RULES = [
   { re: /`\$\{(many \? )?`?\$\{n \+ 1\}\. /, say: "a tx step numbered by hand: its <SrcTag> mark goes there (kit MARKS)" },
   // every coin amount is typed the same way: dollars first, a pill to switch to the coin (Austin 11-11: Send took dollars, Swap took tokens)
   // an address box keeps only the address (Austin 11-12: a pasted "0x….", a space, words around it)
-  { re: /^(?!.*addressIn\().*<input.*placeholder="[^"]*0x/, say: "an address box by hand: use <AddressInput>, or addressIn() in its onChange (lib/format)" },
+  // one address box, everywhere (Austin 11-12: adding a signer didn't look names up the way Send does)
+  { re: /<input.*placeholder="[^"]*0x/, say: "an address box by hand: use <AddressInput>" },
+  { re: /\bnameTyped\(|\buseAddressScan\(|\/api\/ens\?name=/, say: "a name looked up or an address scanned by hand: use <AddressInput>", skip: ["components/safe/SafeApp.tsx"] }, // ?watch=name.eth in the link: no box
+  { re: /<AddressInput[^>]*\bbare\b/, say: "<AddressInput> has no modes: every box takes a word alone" },
   { re: /inputMode="decimal"/, say: "an amount box by hand: use <AmountBox> (dollars first, switch to the coin)", skip: ["components/DropAdmin.tsx", "components/ClaimMaker.tsx"] }, // a drop's "dollars per claim" / "USDC on each": dollars only, no coin to switch to
 ];
 

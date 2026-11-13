@@ -1,7 +1,6 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { addressIn } from "@/lib/format";
 import { useState } from "react";
 import { type Address, getAddress, isAddress } from "viem";
 import { CHAINS, publicClient } from "@/lib/chains";
@@ -9,7 +8,7 @@ import { type Candidate, confirmKey, createPasskey, recoverKeys, walletAppBrowse
 import { RECOVERY_MODULES } from "@/lib/safe/config";
 import { abi, rolesAddress } from "@/lib/safe/core";
 import { type SafeAccount, accountFor, knownAccounts } from "@/lib/safe/state";
-import { Band, CopyLink, Who, useAddressScan } from "../bits";
+import { AddressInput, Band, CopyLink, Who } from "../bits";
 import { friendly } from "@/lib/friendly";
 
 /** Has this address got code or money anywhere? (Picks the real key out of a login's candidates.) */
@@ -106,8 +105,7 @@ export async function signIn(): Promise<{ account: SafeAccount } | { confirm: Co
 export function SafeWelcome({ onReady, initialConfirm }: { onReady: (a: SafeAccount) => void; initialConfirm?: Confirm | null }) {
   const [busy, setBusy] = useState<"create" | "login" | "recover" | null>(null);
   const [recovering, setRecovering] = useState(false);
-  const [wallet, setWallet] = useState("");
-  const scan = useAddressScan(setWallet);
+  const [wallet, setWallet] = useState<Address | null>(null);
   const [confirm, setConfirm] = useState<Confirm | null>(initialConfirm ?? null);
   const [error, setError] = useState<string | null>(null);
   const supported = typeof window === "undefined" || webauthnAvailable();
@@ -140,12 +138,12 @@ export function SafeWelcome({ onReady, initialConfirm }: { onReady: (a: SafeAcco
   }
 
   async function recover() {
-    if (!isAddress(wallet.trim())) return setError("Paste the wallet's address (0x…).");
+    if (!wallet) return setError("Paste the wallet's address or name.");
     setBusy("recover");
     setError(null);
     try {
       const pk = await createPasskey("Instant Wallet (recovered)");
-      onReady(accountFor(pk.credentialId, pk.qx, pk.qy, getAddress(wallet.trim())));
+      onReady(accountFor(pk.credentialId, pk.qx, pk.qy, wallet));
     } catch (e: any) {
       setError(friendly(e));
     } finally {
@@ -193,11 +191,7 @@ export function SafeWelcome({ onReady, initialConfirm }: { onReady: (a: SafeAcco
             <h1>Recover a wallet</h1>
             <p>Lost your phone? This makes a new key on this device. Your recovery address (the DAO, or your own recovery wallet) then swaps it in; it takes 7 days (with a wedgie: 14 from your own recovery address, 60 from the DAO), and you can cancel it from any key you still have.</p>
           </div>
-          <div className="input">
-            <input value={wallet} onChange={e => setWallet(addressIn(e.target.value))} placeholder="0x… your wallet's address" autoCapitalize="none" spellCheck={false} />
-            {scan.pill}
-          </div>
-          {scan.camera}
+          <AddressInput onChange={setWallet} placeholder="Your wallet: 0x… or name.eth" />
           <button className="btn btn-green wide" onClick={recover} disabled={!!busy}>
             {busy === "recover" ? "Making the new key…" : "Make my new key"}
           </button>

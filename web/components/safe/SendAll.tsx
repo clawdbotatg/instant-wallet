@@ -160,7 +160,6 @@ export function SendAll({
       <div className="field">
         <label>To</label>
         <AddressInput
-          bare
           onChange={(a, name) => (setTo(a), setToName(name ?? null), setRows({}))}
         />
         {self && <span className="err">That&apos;s this wallet.</span>}

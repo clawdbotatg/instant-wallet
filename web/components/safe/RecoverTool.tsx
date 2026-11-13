@@ -1,12 +1,11 @@
 "use client";
 
-import { addressIn } from "@/lib/format";
 import { useEffect, useState } from "react";
-import { type Address, type Hex, encodeFunctionData, getAddress, isAddress } from "viem";
+import { type Address, type Hex, encodeFunctionData } from "viem";
 import { CHAINS, chainById, explorerTx, publicClient } from "@/lib/chains";
 import { DAO, RECOVERY_7D, RECOVERY_DAYS, RECOVERY_MODULES, SAFE_FACTORY } from "@/lib/safe/config";
 import { abi, deploySafeCall, safeAddress } from "@/lib/safe/core";
-import { Band, Who, Words, copy, useAddressScan } from "../bits";
+import { AddressInput, Band, Who, Words, copy } from "../bits";
 import { ChainSelect } from "./Pick";
 import { friendly } from "@/lib/friendly";
 
@@ -32,16 +31,14 @@ async function sendFromWallet(chainId: number, to: Address, data: Hex): Promise<
 export function RecoverTool() {
   const q = typeof window === "undefined" ? null : new URLSearchParams(window.location.search);
   const [chainId, setChainId] = useState(CHAINS[0].id);
-  const [wallet, setWallet] = useState(q?.get("wallet") ?? "");
-  const scan = useAddressScan(setWallet);
-  const [newKey, setNewKey] = useState(q?.get("owner") ?? "");
-  const [original, setOriginal] = useState("");
+  const [w, setW] = useState<Address | null>(null); // the wallet
+  const [newKey, setNewKey] = useState<Address | null>(null);
+  const [original, setOriginal] = useState<Address | null>(null);
   type Mod = { module: Address; guardians: Address[]; executeAfter: number; newOwners: Address[] };
   const [info, setInfo] = useState<{ deployed: boolean; mods: Mod[] } | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
-  const w = isAddress(wallet.trim()) ? getAddress(wallet.trim()) : null;
 
   useEffect(() => {
     if (!w) return setInfo(null);
@@ -69,7 +66,7 @@ export function RecoverTool() {
     };
   }, [w, chainId, tick]);
 
-  const startData = w && isAddress(newKey.trim()) ? encodeFunctionData({ abi: abi.recovery, functionName: "confirmRecovery", args: [w, [getAddress(newKey.trim())], 1n, true] }) : null;
+  const startData = w && newKey ? encodeFunctionData({ abi: abi.recovery, functionName: "confirmRecovery", args: [w, [newKey], 1n, true] }) : null;
   const finalizeData = w ? encodeFunctionData({ abi: abi.recovery, functionName: "finalizeRecovery", args: [w] }) : null;
 
   async function run(to: Address, data: Hex, what: string) {
@@ -105,11 +102,7 @@ export function RecoverTool() {
       <ChainSelect value={chainId} onChange={setChainId} />
       <div className="field">
         <label>The wallet</label>
-        <div className="input">
-          <input value={wallet} onChange={e => setWallet(addressIn(e.target.value))} placeholder="0x…" autoCapitalize="none" spellCheck={false} />
-          {scan.pill}
-        </div>
-        {scan.camera}
+        <AddressInput initial={q?.get("wallet") ?? ""} onChange={setW} chain={chainId} />
       </div>
       {info && (
         <p className="fine">
@@ -128,14 +121,12 @@ export function RecoverTool() {
         <div className="card stack">
           <b>0. Deploy it here first</b>
           <p className="fine">It was never used on {chainById(chainId)?.name}. Paste the &quot;Instant wallet key&quot; from the owner&apos;s wallet card.</p>
-          <div className="input">
-            <input value={original} onChange={e => setOriginal(addressIn(e.target.value))} placeholder="0x… Instant wallet key" autoCapitalize="none" spellCheck={false} />
-          </div>
-          {isAddress(original.trim()) && w && safeAddress(getAddress(original.trim())) !== w && <p className="err">That signer doesn&apos;t make this wallet.</p>}
+          <AddressInput onChange={setOriginal} placeholder="Instant wallet key: 0x… or name.eth" chain={chainId} />
+          {original && w && safeAddress(original) !== w && <p className="err">That signer doesn&apos;t make this wallet.</p>}
           <button
             className="btn btn-green wide"
-            disabled={!w || !isAddress(original.trim()) || safeAddress(getAddress(original.trim())) !== w}
-            onClick={() => run(SAFE_FACTORY, deploySafeCall(getAddress(original.trim())).data, "Deploy")}
+            disabled={!w || !original || safeAddress(original) !== w}
+            onClick={() => original && run(SAFE_FACTORY, deploySafeCall(original).data, "Deploy")}
           >
             Deploy it (your wallet pays the gas)
           </button>
@@ -144,9 +135,7 @@ export function RecoverTool() {
 
       <div className="card stack">
         <b>1. Start the recovery</b>
-        <div className="input">
-          <input value={newKey} onChange={e => setNewKey(addressIn(e.target.value))} placeholder="0x… the owner's new key (from their new phone)" autoCapitalize="none" spellCheck={false} />
-        </div>
+        <AddressInput initial={q?.get("owner") ?? ""} onChange={setNewKey} placeholder="The owner's new key: 0x… or name.eth" chain={chainId} />
         {info?.mods.map((m, i) => (
           <button key={m.module} className={`btn ${i === 0 && info.deployed && !due ? "btn-green" : ""} wide`} disabled={!startData || !info.deployed} onClick={() => startData && run(m.module, startData, "Start")}>
             Start as {names(m.guardians, " or ")} ({RECOVERY_DAYS[m.module]} days)

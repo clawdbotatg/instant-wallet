@@ -764,94 +764,91 @@ export function useAddressScan(onAddress: (to: string) => void) {
 }
 
 /**
- * An address field: the blockie + its ENS name (or 0x12ab…cdef) while idle, the full text while editing.
- * Takes 0x… or name.eth; `onChange` gets the address it resolves to (and the name, when one was typed), or null.
+ * THE address box. Every place an address is typed uses this one, so they all work the same (Austin 11-12).
+ * Takes 0x…, a name (nick.eth), or a word alone (lil → lil.inst.eth). The box always shows what was typed: the text
+ * and the cursor are never touched, so `nick` goes on to `nick.eth`. A match shows under the box.
+ * `onChange` gets the address (and the name that was looked up), or null.
+ * `value` + `onText`: the text is held outside (Send fills it from a scan). `onScan`: the scan pill opens the
+ * caller's own scanner. `scan={false}`: no pill (the screen is already a scanner).
  */
-/** `bare`: a word alone is tried as our name (lil → lil.inst.eth). For paying, never for adding a signer or guardian. */
-export function AddressInput({ initial, onChange, placeholder = "0x… or name.eth", bare }: { initial?: Address; onChange: (a: Address | null, name?: string) => void; placeholder?: string; bare?: boolean }) {
-  const [text, setText] = useState<string>(initial ?? "");
-  const [addr, setAddr] = useState<Address | null>(initial ?? null);
-  const [name, setName] = useState<string | null>(null);
-  const [focus, setFocus] = useState(false);
+const lookedUp = new Map<string, Address>(); // names already answered: a box that comes back (Back from the review) has its match at once
+export function AddressInput({
+  initial,
+  value,
+  onText,
+  onChange,
+  placeholder = "0x… or name.eth",
+  chain,
+  scan = true,
+  onScan,
+  onEnter,
+}: {
+  initial?: string;
+  value?: string;
+  onText?: (t: string) => void;
+  onChange: (a: Address | null, name?: string) => void;
+  placeholder?: string;
+  chain?: number;
+  scan?: boolean;
+  onScan?: () => void;
+  onEnter?: () => void;
+}) {
+  const [own, setOwn] = useState(initial ?? "");
+  const text = value ?? own;
+  const setText = (t: string) => (onText ? onText(t) : setOwn(t));
+  const [addr, setAddr] = useState<Address | null>(null);
+  const [name, setName] = useState<string | null>(null); // the name that was looked up: as typed, or lil.inst.eth for a bare "lil"
   const [looking, setLooking] = useState(false);
-  // a guardian read from chain arrives after the first paint: take it while the field is untouched
-  const touched = useRef(false);
-  useEffect(() => {
-    if (initial && !touched.current) setText(initial);
-  }, [initial]);
+  const tell = useRef(onChange);
+  tell.current = onChange;
   useEffect(() => {
     const v = nameIn(text);
-    let live = true; // a late answer for older text must never land on newer text
-    setName(null);
-    if (isAddress(v)) {
-      const a = getAddress(v);
+    const set = (a: Address | null, n: string | null) => {
       setAddr(a);
-      onChange(a);
-      fetch(`/api/ens?address=${a}`)
-        .then(r => r.json())
-        .then(j => live && j?.name && setName(j.name))
-        .catch(() => {});
-      return () => {
-        live = false;
-      };
-    }
-    setAddr(null);
-    onChange(null);
-    const lookup = nameTyped(v, bare);
+      setName(n);
+      tell.current(a, n ?? undefined);
+    };
+    if (isAddress(v)) return set(getAddress(v), null);
+    const lookup = nameTyped(v, true);
+    const before = lookup ? lookedUp.get(lookup) : undefined;
+    set(before ?? null, before && lookup ? lookup : null);
     if (!lookup) return;
-    if (v.includes(".")) setLooking(true); // a word alone is tried quietly
+    if (v.includes(".") && !before) setLooking(true); // a word alone is tried quietly: no "Looking up…" on the way to nick.eth
+    let live = true; // a late answer for older text must never land on newer text
     const t = setTimeout(async () => {
       const j = await fetch(`/api/ens?name=${encodeURIComponent(lookup)}`).then(r => r.json()).catch(() => null);
       if (!live) return;
       setLooking(false);
-      if (j?.address) {
-        const a = getAddress(j.address);
-        setAddr(a);
-        setName(lookup);
-        onChange(a, lookup);
-      }
+      if (j?.address) (lookedUp.set(lookup, getAddress(j.address)), set(getAddress(j.address), lookup));
+      else if (j) (lookedUp.delete(lookup), set(null, null));
     }, 350);
     return () => {
       live = false;
       clearTimeout(t);
-      setLooking(false);
+      setLooking(false); // else "Looking up…" sticks when the next text isn't a name
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [text]);
-  const scan = useAddressScan(to => {
-    touched.current = true;
-    setText(to);
-  });
-  const idle = !focus && !!addr;
+  const cam = useAddressScan(setText);
   return (
-    <>
+    <div style={{ display: "grid", gap: 6 }}>
       <div className="input">
-        {addr && <Blockie address={addr} size={30} />}
-        <input
-          className={idle && !name ? "mono" : undefined}
-          value={idle ? (name ?? short(addr)) : text}
-          onChange={e => {
-            touched.current = true;
-            setText(addressIn(e.target.value));
-          }}
-          onFocus={e => {
-            setFocus(true);
-            // the full address replaces the short one on focus: select it all, so a paste replaces it
-            const el = e.currentTarget;
-            requestAnimationFrame(() => el.select());
-          }}
-          onBlur={() => setFocus(false)}
-          placeholder={looking ? "Looking it up…" : placeholder}
-          autoCapitalize="none"
-          autoCorrect="off"
-          spellCheck={false}
-        />
-        {scan.pill}
+        {addr && !name && <Blockie address={addr} size={30} />}
+        <input value={text} onChange={e => setText(addressIn(e.target.value))} onKeyDown={e => e.key === "Enter" && addr && onEnter?.()} placeholder={placeholder} autoCapitalize="none" autoCorrect="off" spellCheck={false} />
+        {scan &&
+          (onScan ? (
+            <button type="button" className="pill" onClick={onScan} aria-label="Scan">
+              <ScanIcon size={20} />
+            </button>
+          ) : (
+            cam.pill
+          ))}
       </div>
-      {addr && name && focus && !nameIn(text).includes(".") && !isAddress(nameIn(text)) && <Who address={addr} label={name} />}
-      {addr && name && !isAddress(nameIn(text)) && <NameMoved name={name} address={addr} />}
-      {scan.camera}
-    </>
+      {looking && <span className="fine">Looking up {text}…</span>}
+      {addr && name && <Who address={addr} chain={chain} label={text.includes(".") ? undefined : name} />}
+      {addr && name && <NameMoved name={name} address={addr} />}
+      {cam.camera}
+    </div>
   );
 }
 

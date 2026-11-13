@@ -1,13 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { type Address, type Hash, formatUnits, getAddress, isAddress, parseUnits, zeroAddress } from "viem";
+import { type Address, type Hash, formatUnits, parseUnits, zeroAddress } from "viem";
 import { chainById, explorerTx, nativeSymbol } from "@/lib/chains";
-import { amount as fmtAmount, usd, feeText, addressIn, nameIn } from "@/lib/format";
+import { amount as fmtAmount, usd, feeText } from "@/lib/format";
 import { isClaimLink } from "@/lib/claim";
 import { isXdai } from "@/lib/brand";
 import { dropCode } from "@/lib/dropClient";
-import { nameTyped, rememberPaid } from "@/lib/names";
+import { rememberPaid } from "@/lib/names";
 import { parse } from "@/lib/parse";
 import { openWalletConnect } from "@/lib/walletconnect";
 import { transfer } from "@/lib/safe/core";
@@ -16,7 +16,7 @@ import { type FeeToken, type Signer, type Stage, Shared, budgetSend, feeCall, ge
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { AmountBox, Blockie, ChainChip, DoneBar, Money, NameMoved, ScanIcon, TokenIcon, Who, stageLabel, useSheetBack } from "../bits";
+import { AddressInput, AmountBox, ChainChip, DoneBar, Money, NameMoved, TokenIcon, Who, stageLabel, useSheetBack } from "../bits";
 import { Scanner } from "../Scanner";
 import { Select, assetOpt } from "./Pick";
 import { friendly } from "@/lib/friendly";
@@ -55,7 +55,6 @@ export function SafeSend({
   }, []);
   useSheetBack(scanning && scanFromForm ? leaveScan : null);
   const [resolved, setResolved] = useState<Address | null>(null);
-  const [resolving, setResolving] = useState(false);
   const [toName, setToName] = useState<string | null>(null); // the name that was looked up: as typed, or lil.inst.eth for a bare "lil"
   const key = (a: { chainId: number; asset: string }) => `${a.chainId}:${a.asset.toLowerCase()}`;
   const [pick, setPick] = useState<string | null>(start ? key(start) : null);
@@ -75,33 +74,6 @@ export function SafeSend({
   const usdcAddr = chainById(chainId)?.usdc;
   const usdcHeld = assets.find(a => a.chainId === chainId && a.asset.toLowerCase() === usdcAddr?.toLowerCase());
   const ethHeld = assets.find(a => a.chainId === chainId && a.asset === zeroAddress);
-
-  // resolve the recipient
-  useEffect(() => {
-    const v = nameIn(toInput);
-    setResolved(null);
-    setToName(null);
-    if (isAddress(v)) return setResolved(getAddress(v));
-    const name = nameTyped(v, true);
-    if (!name) return;
-    const bare = !v.includes("."); // a word alone is tried as our name, quietly: no "Looking up…" on the way to nick.eth
-    if (!bare) setResolving(true);
-    let live = true; // a late answer for an older name must never land on a newer input
-    const t = setTimeout(async () => {
-      const j = await fetch(`/api/ens?name=${encodeURIComponent(name)}`).then(r => r.json()).catch(() => null);
-      if (!live) return;
-      setResolving(false);
-      if (j?.address) {
-        setResolved(getAddress(j.address));
-        setToName(name);
-      }
-    }, 350);
-    return () => {
-      live = false;
-      clearTimeout(t);
-      setResolving(false); // else "Looking up…" sticks when the next input isn't a name
-    };
-  }, [toInput]);
 
   let base: bigint | null = null;
   try {
@@ -333,39 +305,25 @@ export function SafeSend({
     );
   }
 
-  // the To box: the same one on the scan screen and on the form (the scan pill only on the form: the scan screen is the scanner)
-  const toField = (onScanScreen: boolean) => (
-    <div className="field">
-      <label>To</label>
-      <div className="input">
-        {resolved && !toName && <Blockie address={resolved} size={30} />}
-        <input value={toInput} onChange={e => setToInput(addressIn(e.target.value))} onKeyDown={e => e.key === "Enter" && onScanScreen && resolved && leaveScan()} placeholder="0x… or name.eth" autoCapitalize="none" autoCorrect="off" spellCheck={false} />
-        {!onScanScreen && (
-          <button
-            className="pill"
-            onClick={() => {
-              setScanFromForm(true);
-              setScanning(true);
-            }}
-            aria-label="Scan"
-          >
-            <ScanIcon size={20} />
-          </button>
-        )}
-      </div>
-      {resolving && <span className="fine">Looking up {toInput}…</span>}
-      {resolved && toName && <Who address={resolved} chain={chainId} label={toInput.includes(".") ? undefined : toName} />}
-      {resolved && toName && <NameMoved name={toName} address={resolved} />}
-    </div>
-  );
-
   return (
     <div className="stack">
       <h2>{scanning ? "Send or scan" : "Send"}</h2>
+      {scanning && <Scanner short onResult={onScan} />}
+      {/* the one To box, on the scan screen and on the form (the scan pill only on the form: the scan screen is the scanner) */}
+      <div className="field">
+        <label>To</label>
+        <AddressInput
+          value={toInput}
+          onText={setToInput}
+          onChange={(a, name) => (setResolved(a), setToName(name ?? null))}
+          chain={chainId}
+          scan={!scanning}
+          onScan={() => (setScanFromForm(true), setScanning(true))}
+          onEnter={scanning ? leaveScan : undefined}
+        />
+      </div>
       {scanning ? (
         <>
-          <Scanner short onResult={onScan} />
-          {toField(true)}
           {/* typed or pasted instead of scanned: green once it is an address or a name that points somewhere */}
           <button className="btn btn-green wide" disabled={!resolved} onClick={leaveScan}>
             {resolved ? <>Send to <Who flat address={resolved} chain={chainId} label={toName ?? undefined} /></> : "Send"}
@@ -379,8 +337,6 @@ export function SafeSend({
         </>
       ) : (
         <>
-          {toField(false)}
-
           <div className="field">
             <label>What</label>
             {assets.length ? (

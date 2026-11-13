@@ -15,6 +15,7 @@ import { createPasskey } from "@/lib/passkey";
 import { type SafeAccount, accountFor, loadAccount, saveAccount } from "@/lib/safe/state";
 import type { Asset, Nft } from "@/lib/types";
 import { CopyAddress, Money, TimedBar, Who } from "./bits";
+import { ErrorLine } from "./safe/WedgieButton";
 import { SafeWelcome } from "./safe/SafeWelcome";
 import { friendly } from "@/lib/friendly";
 
@@ -430,7 +431,7 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
             {busy ? "Sweeping…" : "Sweep to Instant Wallet"}
           </button>
           {sweeping && <TimedBar ms={15_000 + 2_000 * nftsMovable.length} />}
-          {error && <p className="err">{error}</p>}
+          {error && <ErrorLine text={error} />}
           {burner && !busy && (
             <button className="nfts-link" onClick={burner.onDone}>
               Not now
@@ -470,7 +471,7 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
         <button className="btn btn-green wide" onClick={() => claim()} disabled={busy || !onChain}>
           {busy ? (burner ? "Moving…" : "Claiming…") : burner ? "Move it to my wallet" : "Claim it"}
         </button>
-        {error && <p className="err">{error}</p>}
+        {error && <ErrorLine text={error} />}
         <p className="fine center">Goes to your Instant Wallet. A few cents of it pays the network fee.</p>
         {burner && !busy && (
           <button className="nfts-link" onClick={burner.onDone}>

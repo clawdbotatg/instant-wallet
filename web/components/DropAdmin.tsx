@@ -6,6 +6,7 @@ import { chainById, explorerTx } from "@/lib/chains";
 import { cardsPdf } from "@/lib/claimBatch";
 import { type DropInfo, dropAmount, dropUrl } from "@/lib/dropClient";
 import { Net, CopyAddress, CopyLink, Eject, Qr, TimedBar, Who, copy, useToast } from "./bits";
+import { ErrorLine } from "./safe/WedgieButton";
 import { AdminLogin, SESSION } from "./AdminLogin";
 import { friendly } from "@/lib/friendly";
 
@@ -107,7 +108,7 @@ export function DropAdmin() {
           }}
         />
       )}
-      {error && <p className="err">{error}</p>}
+      {error && <ErrorLine text={error} />}
       <EthPrice />
       {drops === null && <p className="fine center">…</p>}
       {drops?.length === 0 && !making && <p className="fine center">No drops yet. Tap New drop.</p>}
@@ -227,7 +228,7 @@ function NewDrop({ onMade }: { onMade: (d: Drop) => void }) {
       <button className="btn btn-green wide" onClick={make} disabled={busy}>
         {busy ? "…" : "Make it"}
       </button>
-      {error && <p className="err">{error}</p>}
+      {error && <ErrorLine text={error} />}
     </div>
   );
 }
@@ -373,7 +374,7 @@ function DropCard({ id, toast, onClose }: { id: string; toast: (m: string) => vo
         </button>
       </div>
       {busy === "takeback" && <TimedBar ms={drop.chainId === 1 ? 30_000 : 8_000} />}
-      {error && <p className="err">{error}</p>}
+      {error && <ErrorLine text={error} />}
 
       {d.claims.length > 0 && (
         <details>

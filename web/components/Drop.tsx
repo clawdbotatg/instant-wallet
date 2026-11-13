@@ -9,6 +9,7 @@ import { type DropInfo, clearStash, dropAmount, dropSig, normCode, stashCode, st
 import { usd } from "@/lib/format";
 import { type SafeAccount, loadAccount, saveAccount } from "@/lib/safe/state";
 import { Net, TimedBar } from "./bits";
+import { ErrorLine } from "./safe/WedgieButton";
 import { SafeWelcome } from "./safe/SafeWelcome";
 import { friendly } from "@/lib/friendly";
 import { bio } from "@/lib/passkey";
@@ -174,7 +175,7 @@ export function Drop() {
             <p className="fine center">Sending it to your wallet{info?.chainId === 1 ? " (Ethereum takes up to half a minute)" : ""}.</p>
           </>
         )}
-        {error && <p className="err">{error}</p>}
+        {error && <ErrorLine text={error} />}
         {!busy && <p className="fine center">{bio()} once more: it proves the wallet is yours.</p>}
       </div>
     </div>

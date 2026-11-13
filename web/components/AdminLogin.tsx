@@ -6,6 +6,7 @@ import { dropSig } from "@/lib/dropClient";
 import { bio } from "@/lib/passkey";
 import { type SafeAccount, loadAccount } from "@/lib/safe/state";
 import { friendly } from "@/lib/friendly";
+import { ErrorLine } from "./safe/WedgieButton";
 
 /** The admin session (12 hours), for /drops. */
 export const SESSION = "iw.dropAdmin";
@@ -71,7 +72,7 @@ export function AdminLogin({ title, blurb, onDone }: { title: string; blurb: str
         <button className="btn btn-dark wide" onClick={wallet} disabled={busy}>
           Log in with a wallet
         </button>
-        {error && <p className="err">{error}</p>}
+        {error && <ErrorLine text={error} />}
       </div>
     </div>
   );

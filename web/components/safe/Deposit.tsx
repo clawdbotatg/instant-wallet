@@ -42,7 +42,7 @@ export function Deposit({ account, onReceive }: { account: SafeAccount; onReceiv
       if (!j.url) throw new Error(j.error || "Coinbase didn't answer");
       setReady({ asset, url: j.url });
     } catch (e: any) {
-      setErr(e.name === "NotAllowedError" ? "Cancelled" : e.message);
+      setErr(e.name === "NotAllowedError" ? "Cancelled." : e.message);
     } finally {
       setBusy(null);
     }

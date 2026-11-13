@@ -6,6 +6,7 @@ import { createPasskey, bio } from "@/lib/passkey";
 import { signerAddress } from "@/lib/safe/core";
 import { loadAccount } from "@/lib/safe/state";
 import { Blockie, Who, stageLabel } from "../bits";
+import { ErrorLine } from "./WedgieButton";
 import { friendly } from "@/lib/friendly";
 import { signIn } from "./SafeWelcome";
 
@@ -105,7 +106,7 @@ export function Join() {
       ) : (
         !error && <p className="fine">Loading…</p>
       )}
-      {error && <p className="err">{error}</p>}
+      {error && <ErrorLine text={error} />}
     </div>
   );
 }

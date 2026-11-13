@@ -9,6 +9,7 @@ import { RECOVERY_MODULES } from "@/lib/safe/config";
 import { abi, rolesAddress } from "@/lib/safe/core";
 import { type SafeAccount, accountFor, knownAccounts } from "@/lib/safe/state";
 import { AddressInput, Band, CopyLink, Who } from "../bits";
+import { ErrorLine } from "./WedgieButton";
 import { friendly } from "@/lib/friendly";
 
 /** Has this address got code or money anywhere? (Picks the real key out of a login's candidates.) */
@@ -198,7 +199,7 @@ export function SafeWelcome({ onReady, initialConfirm }: { onReady: (a: SafeAcco
           <button className="btn wide" onClick={() => setRecovering(false)}>
             Back
           </button>
-          {error && <p className="err">{error}</p>}
+          {error && <ErrorLine text={error} />}
         </div>
       </div>
     );
@@ -226,7 +227,7 @@ export function SafeWelcome({ onReady, initialConfirm }: { onReady: (a: SafeAcco
         ) : (
           <p className="err">This browser can&apos;t use passkeys. Open this page in Safari or Chrome.</p>
         )}
-        {error && <p className="err">{error}</p>}
+        {error && <ErrorLine text={error} />}
         {error && walletAppBrowser() && (
           <CopyLink green link={location.href} message="Link copied. Paste it into Safari or Chrome." label="Copy link" />
         )}

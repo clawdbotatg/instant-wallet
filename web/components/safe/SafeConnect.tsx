@@ -242,7 +242,7 @@ function SafeRequest({
         </div>
       </div>
       {!st && <p className="err">This wallet isn&apos;t on <Net chainId={pending.chainId} /> here.</p>}
-      {refused && <p className="err">{refused}</p>}
+      {refused && <ErrorLine text={refused} />}
       {error && <ErrorLine text={error} />}
       {!refused && (
         <button className="btn btn-green wide" disabled={busy || !ready} onClick={go}>

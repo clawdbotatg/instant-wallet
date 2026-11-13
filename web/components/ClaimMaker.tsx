@@ -7,6 +7,7 @@ import { CHAINS } from "@/lib/chains";
 import { claimUrl } from "@/lib/claim";
 import { type CardBalance, cardBalances, cardsPdf, fillWithWallet, fmtUsdc } from "@/lib/claimBatch";
 import { CopyAddress, CopyLink, Qr, Who, copy, useToast } from "./bits";
+import { ErrorLine } from "./safe/WedgieButton";
 
 /**
  * /claim/new: make claim cards (docs/CLAIM.md). A card goes empty → ready → claimed:
@@ -164,7 +165,7 @@ export function ClaimMaker() {
             </button>
           </div>
         )}
-        {error && <p className="err">{error}</p>}
+        {error && <ErrorLine text={error} />}
       </div>
 
       {batches.map(list => {

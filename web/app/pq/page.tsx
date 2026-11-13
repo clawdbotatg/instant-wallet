@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { Hex } from "viem";
 import { hybridSign } from "@/lib/safe/pq/hybrid";
 import { stageLabel } from "@/components/bits";
+import { ErrorLine } from "@/components/safe/WedgieButton";
 
 /**
  * EXPERIMENTAL lab page, not linked from the app (docs/PQ-HYBRID.md). One passkey tap makes a P-256 signature
@@ -50,7 +51,7 @@ export default function PQLab() {
       <button className="btn btn-green" disabled={busy} onClick={run}>
         {busy ? stageLabel("signing") : "Tap to test"}
       </button>
-      {err && <p className="err">{err}</p>}
+      {err && <ErrorLine text={err} />}
       {out.length > 0 && (
         <div className="card kv">
           {out.map(l => {

@@ -26,6 +26,7 @@ import {
   triage,
 } from "@/lib/walletconnect";
 import { Blockie, Sheet, Who, useToast } from "./bits";
+import { ErrorLine } from "./safe/WedgieButton";
 import { WhatItDoes } from "./safe/WhatItDoes";
 import { Scanner } from "./Scanner";
 import { friendly } from "@/lib/friendly";
@@ -298,7 +299,7 @@ function Manage({
           Connect
         </button>
       </div>
-      {error && <p className="err">{error}</p>}
+      {error && <ErrorLine text={error} />}
       {sessions.length > 0 && (
         <div className="card stack" style={{ gap: 10 }}>
           <b>Connected</b>
@@ -333,7 +334,7 @@ function Connect({ proposal, onYes, onNo }: { proposal: WalletKitTypes.SessionPr
         <p className="err">{scam ? "Known scam site. Don't connect." : "This site isn't who it says it is. Check the address."}</p>
       )}
       <p className="fine">It will see your address and can ask you to sign things. Nothing moves without {bio()}.</p>
-      {error && <p className="err">{error}</p>}
+      {error && <ErrorLine text={error} />}
       <button
         className={`btn wide ${scam ? "btn-red" : "btn-green"}`}
         disabled={busy}

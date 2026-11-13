@@ -225,7 +225,7 @@ function NameTitle({ name, start, address, onClaim }: { name: string | null; sta
           await onClaim(v);
           setEditing(false);
         } catch (e: any) {
-          setErr(e?.name === "NotAllowedError" ? "Cancelled" : e?.message || "Try again");
+          setErr(e?.name === "NotAllowedError" ? "Cancelled." : e?.message || "Try again");
         } finally {
           setBusy(false);
         }

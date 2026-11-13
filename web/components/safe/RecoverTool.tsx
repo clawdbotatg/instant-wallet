@@ -6,6 +6,7 @@ import { CHAINS, chainById, explorerTx, publicClient } from "@/lib/chains";
 import { DAO, RECOVERY_7D, RECOVERY_DAYS, RECOVERY_MODULES, SAFE_FACTORY } from "@/lib/safe/config";
 import { abi, deploySafeCall, safeAddress } from "@/lib/safe/core";
 import { Net, AddressInput, Band, Who, Words, copy } from "../bits";
+import { ErrorLine } from "./WedgieButton";
 import { ChainSelect } from "./Pick";
 import { friendly } from "@/lib/friendly";
 
@@ -166,7 +167,7 @@ export function RecoverTool() {
         )}
       </div>
       {msg && <p className="fine mono">{msg}</p>}
-      {error && <p className="err">{error}</p>}
+      {error && <ErrorLine text={error} />}
     </div>
   );
 }

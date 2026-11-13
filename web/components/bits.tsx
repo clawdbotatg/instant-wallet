@@ -1,7 +1,8 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { blo } from "blo";
 import QRCode from "qrcode";
 import { type Address, getAddress, isAddress } from "viem";
@@ -740,25 +741,49 @@ export function TokenIcon({
 }
 
 /**
- * The scan button for an address field: `pill` goes inside the `.input`, `camera` right under it.
- * A read QR (0x…, name.eth, a payment link) hands its recipient to `onAddress`.
+ * The scanner for an address box: its own sheet over the page, the same look as Send's scan screen (title, the short
+ * camera, Paste address), with no WalletConnect. It closes itself on a scan or a paste. Inside another sheet, a
+ * swipe down or Escape closes only the scanner.
+ */
+function ScanSheet({ onText, onClose }: { onText: (text: string) => void; onClose: () => void }) {
+  useSheetBack(onClose);
+  return createPortal(
+    <Sheet onClose={onClose}>
+      <div className="stack">
+        <h2>Scan</h2>
+        <Scanner short onResult={onText} />
+        <button className="btn wide" onClick={async () => onText(((await navigator.clipboard?.readText().catch(() => "")) ?? "").trim())}>
+          Paste address
+        </button>
+      </div>
+    </Sheet>,
+    document.body,
+  );
+}
+
+/**
+ * The scan button for an address field: `pill` goes inside the `.input`, `camera` right under it (the scanner's sheet,
+ * and what went wrong). A read QR (0x…, name.eth, a payment link) hands its recipient to `onAddress`.
  */
 export function useAddressScan(onAddress: (to: string) => void) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const close = useCallback(() => setOpen(false), []);
   const pill = (
-    <button type="button" className="pill" onClick={() => (setError(null), setOpen(!open))} aria-label="Scan">
+    <button type="button" className="pill" onClick={() => (setError(null), setOpen(true))} aria-label="Scan">
       <ScanIcon size={20} />
     </button>
   );
   const camera = (
     <>
       {open && (
-        <Scanner
-          onResult={text => {
+        <ScanSheet
+          onClose={close}
+          onText={text => {
             setOpen(false);
+            if (!text) return;
             const r = parse(text);
-            if (r.kind !== "pay") return setError("That QR isn't an address.");
+            if (r.kind !== "pay") return setError("That isn't an address.");
             onAddress(r.to);
           }}
         />

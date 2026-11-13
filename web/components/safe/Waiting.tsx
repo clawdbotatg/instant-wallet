@@ -17,7 +17,7 @@ import {
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { ErrorLine } from "./WedgieButton";
 import { friendly } from "@/lib/friendly";
-import { Net, CopyLink, Eject, RemoveX, Words } from "../bits";
+import { Net, CopyLink, Eject, RemoveX, Words, stageLabel } from "../bits";
 import { WhatItDoes } from "./WhatItDoes";
 import { Progress, useSendProgress } from "./Progress";
 
@@ -167,7 +167,7 @@ export function WaitingCards({
               <RemoveX disabled={!!removing} busy={removing === w.hash} onClick={() => remove(w)} />
               {rejectable && (
                 <button className="btn btn-sm" style={{ flex: "none" }} disabled={!!rejecting && !r?.ready} onClick={() => reject(w)}>
-                  {r ? (r.ready ? "Sign to reject" : "…") : "Reject"}
+                  {r ? (r.ready ? "Sign to reject" : stageLabel("quote")) : "Reject"}
                 </button>
               )}
               <a

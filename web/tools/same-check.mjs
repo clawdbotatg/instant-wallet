@@ -40,6 +40,9 @@ const RULES = [
   { re: /<ChainChip\b|<ChainIcon\b[^>]*\/>\s*$/, say: "a network as a chip, or its logo alone: use <Net> (logo, then name)", skip: ["components/safe/Apps.tsx", "components/safe/Pick.tsx"] }, // an app's row of logos; the picker's own icon slot
   { re: /Network fee: \{|[Dd]aily budget|Instant wallet\b|hot wallet…|title="(Open in|See it on) the explorer"|"Swapped"|✓ signed/, say: "said another way elsewhere: Fee · daily limit · Instant Wallet · browser wallet · <Eject>'s own title · Executed · ✓ Signed" },
   { re: /"\$" \+|`\$\$\{\(?[\w.]+\)?\.toFixed\(|const compactUsd/, say: "dollars written by hand: usd() or compactUsd() from lib/format" },
+  { re: /"(Working|Getting ready|Cancelling|Signing)…"|`(Check )?\$\{bio\(\)\}…`/, say: "a button's busy words written by hand: stageLabel(\"quote\" | \"signing\" | \"sending\")", skip: [SHARED] },
+  { re: /\.length\}\/\{/, say: "a count as x/y: say 'x of y'" },
+  { re: /(btn|pill)[^>]*style=\{\{[^}]*\bheight: \d/, say: "a button with its own height: two heights only, 56 and 38" },
   { re: /inputMode="decimal"/, say: "an amount box by hand: use <AmountBox> (dollars first, switch to the coin)", skip: ["components/DropAdmin.tsx", "components/ClaimMaker.tsx"] }, // a drop's "dollars per claim" / "USDC on each": dollars only, no coin to switch to
 ];
 

@@ -157,7 +157,7 @@ export function SafeWelcome({ onReady, initialConfirm }: { onReady: (a: SafeAcco
         <div className="welcome">
           <div className="stack">
             <h1>Is this your wallet?</h1>
-            <p>This passkey is an owner of a wallet it took over by recovery:</p>
+            <p>This passkey is a signer on a wallet it took over by recovery:</p>
             <Who address={confirm.account.address} />
             <p className="fine">
               Recovery address: {confirm.guardians.length ? confirm.guardians.map(g => (g.toLowerCase() === "0xef899e80aa814ab8d8e232f9ed6403a633c727ec" ? "dao.buidlguidl.eth" : g)).join(", ") : "none"}.

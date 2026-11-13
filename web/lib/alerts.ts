@@ -135,7 +135,7 @@ export async function authorize(wallet: Address, change: string, s: Signed, host
   if (on.includes("unknown")) return "Couldn't check the wallet. Try again.";
   const deployed = on.includes("not");
   if (!deployed && safeAddress(signer).toLowerCase() === wallet.toLowerCase()) return null;
-  return "This passkey isn't a key of that wallet.";
+  return "This passkey isn't a signer on that wallet.";
 }
 
 // ---------------------------------------------------------------- sending

@@ -578,7 +578,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
           })}
           {hiddenAssets.length > 0 && (
             <button className="hidden-link fine" onClick={() => setShowHidden(!showHidden)}>
-              {showHidden ? "Close" : `${hiddenAssets.length} token${hiddenAssets.length === 1 ? "" : "s"} hidden`}
+              {showHidden ? "Close" : `${hiddenAssets.length} hidden`}
             </button>
           )}
           {showHidden &&

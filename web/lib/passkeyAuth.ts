@@ -56,7 +56,7 @@ export async function passkeyOwner(req: Request, b: any, use: string, want: (add
       code && code !== "0x"
         ? (await client.readContract({ address, abi: abi.safe, functionName: "getOwners" })).some(o => o.toLowerCase() === signer.toLowerCase())
         : safeAddress(signer) === address;
-    if (!owns) return bad("This passkey isn't an owner of that wallet", 403);
+    if (!owns) return bad("This passkey isn't a signer on that wallet.", 403);
   } catch {
     return bad("Couldn't check the wallet. Try again.", 502);
   }

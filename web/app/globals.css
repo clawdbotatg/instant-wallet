@@ -134,7 +134,7 @@ div.asset:active { background: none; }
 .asset .grow > div, .asset .right > div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .asset .sym { font-weight: 600; }
 .asset .right { text-align: right; max-width: 45%; min-width: 0; }
-.asset .send-one { flex: none; width: 44px; height: 44px; padding: 0; border-radius: 14px; display: grid; place-items: center; }
+.asset .send-one { flex: none; width: 38px; height: 38px; padding: 0; border-radius: 14px; display: grid; place-items: center; }
 .hidden-link { display: block; margin: 6px auto 2px; border: 0; background: none; padding: 6px 10px; font-family: inherit; cursor: pointer; }
 
 .fab { position: fixed; right: max(18px, calc(50vw - 222px)); bottom: calc(22px + env(safe-area-inset-bottom)); width: 74px; height: 74px; border-radius: 50%; border: 0;

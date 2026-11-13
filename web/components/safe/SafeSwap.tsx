@@ -514,8 +514,8 @@ export function SafeSwap({
           </div>
           {!st?.deployed && (
             <div className="line">
-              <span>First tx here</span>
-              <span className="fine">deploys your wallet on <Net chainId={chainId} /></span>
+              <span>First one here</span>
+              <span className="fine">sets up your wallet on <Net chainId={chainId} /></span>
             </div>
           )}
           {!route && (

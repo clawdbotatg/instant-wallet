@@ -172,7 +172,7 @@ export function Activity({ safe, chains, undeployed = [], assets, late, live, ti
             {r.link && <Eject href={r.link} />}
           </div>
           {(r.from !== undefined || r.words) && <WhatFor>{r.from ? <>Received from <From a={r.from} chainId={r.chainId} /></> : r.from === null ? "Received" : <Lines lines={r.words!} chain={r.chainId} />}</WhatFor>}
-          {r.failed && <span style={{ fontSize: 15, color: "#c62828", fontWeight: 600 }}>⚠️ Failed: nothing moved</span>}
+          {r.failed && <span className="err">⚠️ Failed: nothing moved</span>}
           {(r.pay.length > 0 || r.get.length > 0) && (
             <div className="row" style={{ gap: "2px 12px", flexWrap: "wrap" }}>
               {r.pay.map((m, j) => <Money key={`p${j}`} amount={m.amount} symbol={m.symbol} usd={usd(r.chainId, m)} size={r.from !== undefined || r.words ? 14 : 17} />)}

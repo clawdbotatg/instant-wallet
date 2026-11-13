@@ -5,7 +5,7 @@ import type { Address, Hex } from "viem";
 import { createPasskey, bio } from "@/lib/passkey";
 import { signerAddress } from "@/lib/safe/core";
 import { loadAccount } from "@/lib/safe/state";
-import { Blockie, Who } from "../bits";
+import { Blockie, Who, stageLabel } from "../bits";
 import { friendly } from "@/lib/friendly";
 import { signIn } from "./SafeWelcome";
 
@@ -94,7 +94,7 @@ export function Join() {
                 </button>
               )}
               <button className={`btn wide ${mine ? "btn-dark" : "btn-green"}`} onClick={() => answer("signin")} disabled={!!busy}>
-                {busy === "signin" ? `Check ${bio()}…` : `Use my passkey (${bio()})`}
+                {busy === "signin" ? stageLabel("signing") : `Use my passkey (${bio()})`}
               </button>
               <button className={`btn wide ${mine ? "" : "btn-dark"}`} onClick={() => answer("new")} disabled={!!busy}>
                 {busy === "new" ? "Making it…" : "Make a new passkey for this"}

@@ -502,7 +502,7 @@ export function DoneBar({ onDone, href }: { onDone: () => void; href?: string | 
  * for the other signers); with `label` a pill with the words. `message`: what the toast says once copied.
  * `green`: copying is the one thing left to do (the first page inside a wallet app's browser, where passkeys can't work).
  */
-export function CopyLink({ link, message = "Link copied. Share it with the other signers.", label, green }: { link: string; message?: string; label?: React.ReactNode; green?: boolean }) {
+export function CopyLink({ link, message = "Link copied. Send it to the other signers.", label, green }: { link: string; message?: string; label?: React.ReactNode; green?: boolean }) {
   const [toast, setToast] = useToast();
   const go = async () => setToast((await copy(link)) ? message : "Couldn't copy");
   return (
@@ -512,7 +512,7 @@ export function CopyLink({ link, message = "Link copied. Share it with the other
           <CopyIcon size={16} /> {label}
         </button>
       ) : (
-        <button className="btn btn-dark" title="Copy a link to it" aria-label="Copy a link to it" style={{ width: 32, height: 32, padding: 0, flex: "none" }} onClick={go}>
+        <button className="pill dark" title="Copy a link to it" aria-label="Copy a link to it" style={{ width: 38, padding: 0, justifyContent: "center", flex: "none" }} onClick={go}>
           <CopyIcon size={16} />
         </button>
       )}

@@ -7,7 +7,7 @@ import { abi } from "@/lib/safe/core";
 import { type Prepared, Shared, finishOwners, ownerSigners, prepareOwners } from "@/lib/safe/send";
 import type { ChainState, RecoveryOn, SafeAccount } from "@/lib/safe/state";
 import { SAFE_SVC } from "@/lib/safe/share";
-import { Net, Eject, Who } from "../bits";
+import { Net, Eject, Who, stageLabel } from "../bits";
 import { friendly } from "@/lib/friendly";
 import { ErrorLine } from "./WedgieButton";
 import { Progress, useSendProgress } from "./Progress";
@@ -85,7 +85,7 @@ export function RecoveryAlert({
       <p className="fine">{mine ? "That's this phone." : "If that isn't you, cancel it now."}</p>
       {!mine && state.owners.some(o => o.toLowerCase() === account.burnerSigner.toLowerCase()) && (
         <button className="btn btn-red wide" onClick={ready ? cancel : prepare} disabled={busy}>
-          {busy ? (ready ? "Cancelling…" : "Getting ready…") : ready ? "Sign to cancel it" : "Cancel it"}
+          {busy ? (ready ? stageLabel("sending") : stageLabel("quote")) : ready ? "Sign to cancel it" : "Cancel it"}
         </button>
       )}
       <Progress stage={bar.stage} chainId={state.chainId} hash={bar.hash} />

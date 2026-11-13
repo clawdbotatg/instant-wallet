@@ -216,7 +216,7 @@ export function SignerChoice({ options, value, onChange, disabled, note }: { opt
             disabled={disabled || !o.ready}
             onClick={() => onChange(o.signers)}
           >
-            {o.label} <span className="fine">{o.signers.length}/{o.of}</span>
+            {o.label} <span className="fine">{o.signers.length} of {o.of}</span>
           </button>
         ))}
       </span>

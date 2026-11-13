@@ -16,7 +16,7 @@ import { passkeySign } from "@/lib/safe/sign";
 import { startSending } from "@/lib/safe/sending";
 import { type ChainState, keyFromCode, loadAccount, loadSigners, readChain, wedgieHome, wedgieSigners } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
-import { Net, BioSigner, Blockie, CopyLink, Eject, GreenButton, RemoveX, Who, Words, useToast } from "../bits";
+import { Net, BioSigner, Blockie, CopyLink, Eject, RemoveX, Who, Words, useToast, stageLabel } from "../bits";
 import { friendly } from "@/lib/friendly";
 import { Progress } from "./Progress";
 import { ErrorLine } from "./WedgieButton";
@@ -409,7 +409,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
                 <span>✓ Signed</span>
               ) : act ? (
                 <button className="btn btn-sm btn-green" onClick={act} disabled={!!busy}>
-                  {busy === k ? (k === "wedgie" ? <>Press <GreenButton /></> : "Signing…") : "Sign"}
+                  {busy === k ? stageLabel(k === "wedgie" ? "signing-wedgie" : "signing") : "Sign"}
                 </button>
               ) : (
                 <span className="fine">waiting</span>
@@ -434,7 +434,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
           {me && chain.owners.some(o => eq(o, me.burnerSigner)) && <RemoveX disabled={!!busy} busy={busy === "remove"} onClick={remove} />}
           {!isReject && (
             <button className="btn btn-sm" style={{ flex: "none" }} onClick={reject} disabled={!!busy}>
-              {busy === "reject" ? "Getting ready…" : "Reject"}
+              {busy === "reject" ? stageLabel("quote") : "Reject"}
             </button>
           )}
           {/* where Execute goes, white (not green): an older tx runs first. To that one, or Home's list when it isn't in the queue */}

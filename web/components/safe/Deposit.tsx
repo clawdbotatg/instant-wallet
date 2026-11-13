@@ -4,7 +4,7 @@ import { useState } from "react";
 import { assertChallenge, bio } from "@/lib/passkey";
 import { onrampChallenge } from "@/lib/onramp";
 import type { SafeAccount } from "@/lib/safe/state";
-import { Net, ReceiveIcon, TokenIcon } from "../bits";
+import { Net, ReceiveIcon, TokenIcon, stageLabel } from "../bits";
 
 /**
  * Buy USDC or ETH on Base with Apple Pay (or a card), straight into this wallet: Coinbase Pay, through /api/onramp.
@@ -65,7 +65,7 @@ export function Deposit({ account, onReceive }: { account: SafeAccount; onReceiv
         </a>
       ) : (
         <button className="btn btn-green wide" disabled={!!busy} onClick={() => go(asset)}>
-          {busy ? `${bio()}…` : `Coinbase · Apple Pay, card`}
+          {busy ? stageLabel("signing") : `Coinbase · Apple Pay, card`}
         </button>
       )}
       {!ready && (

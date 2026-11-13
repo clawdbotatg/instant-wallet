@@ -14,7 +14,7 @@ import { type FeeToken, type Prepared, Shared, type Signer, finishOwners, getQuo
 import { type ChainState, type SafeAccount, daoDays, loadSigners, loadWalletName, readChain, saveSigner, wedgieSigners, shownAs } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { Net, AddressInput, BioIcon, BioSigner, Blockie, CopyAddress, CopyLink, PencilIcon, RemoveX, TimedBar, Who, copy } from "../bits";
+import { Net, AddressInput, BioIcon, BioSigner, Blockie, CopyAddress, CopyLink, PencilIcon, RemoveX, TimedBar, Who, copy, stageLabel } from "../bits";
 import { Alerts } from "./Alerts";
 import { ChainSelect } from "./Pick";
 import { ChainLimit } from "./Limits";
@@ -437,7 +437,7 @@ export function Keys({
             {signLabel(pending.p)}.
           </p>
           <button className="btn btn-green wide" onClick={sign} disabled={!!busy}>
-            {busy ? "Signing…" : "Sign"}
+            {busy ? stageLabel("signing") : "Sign"}
           </button>
           <button
             className="btn wide"
@@ -638,7 +638,7 @@ export function Keys({
                 "save",
                 changed && (
                   <button className="btn btn-green wide" onClick={save} disabled={idle}>
-                    {busy === "save" ? "Working…" : "Save"}
+                    {busy === "save" ? stageLabel("quote") : "Save"}
                   </button>
                 ),
               )}
@@ -713,7 +713,7 @@ export function Keys({
                     onClick={() => guardIn && setGuardians([...mine.filter(x => !same(x, guardIn)), guardIn], "Add guardian")}
                     disabled={idle || !guardIn || mine.some(x => same(x, guardIn)) || same(guardIn, DAO)}
                   >
-                    {busy === "guardian" ? "Working…" : "Add"}
+                    {busy === "guardian" ? stageLabel("quote") : "Add"}
                   </button>
                 }
               />,
@@ -724,7 +724,7 @@ export function Keys({
               action(
                 "layout",
                 <button className="btn wide" onClick={upgradeLayout} disabled={idle}>
-                  {busy === "layout" ? "Working…" : "Make the DAO wait 60 days"}
+                  {busy === "layout" ? stageLabel("quote") : "Make the DAO wait 60 days"}
                 </button>,
               )}
             <button className="btn btn-sm" onClick={() => setRecEdit(false)} disabled={!!busy}>

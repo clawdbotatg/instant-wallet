@@ -197,7 +197,7 @@ type Pending = { res: (v: any) => void; rej: (e: Error) => void; t: number };
 const NOT_SAFE = "Your wedgie isn't in Safe Signer. Open Safe Signer on it, then try again.";
 /** Any answer but a signature, as an error that says what the wedgie said. */
 function notSigned(g: any): Error {
-  if (g?.type === "refused") return new Error("Refused on the wedgie.");
+  if (g?.type === "refused") return new Error("Rejected on the wedgie.");
   const e = String(g?.error || "");
   if (g?.type === "error" && /unknown type|^locked/.test(e)) return new Error(NOT_SAFE); // another app has it
   if (g?.type === "error" && e) return new Error(`The wedgie won't sign it: ${e}`);
@@ -584,7 +584,7 @@ export class Wedgie {
   async key(): Promise<{ x: Hex; y: Hex }> {
     activity({ what: "Talking to your wedgie", p: 0.1 });
     const h = await this.request({ type: "hello" }, 5000).finally(() => activity(null));
-    if (!h?.safe) throw new Error("The wedgie has no Safe key yet: press green on it to make one, then try again.");
+    if (!h?.safe) throw new Error("The wedgie has no Safe key yet: press the green button on it to make one, then try again.");
     return { x: h.safe.x, y: h.safe.y };
   }
 
@@ -758,7 +758,7 @@ export async function installSafeApp(step: (what: string, p?: number) => void): 
       const h2 = await w.request({ type: "hello" }, 1500).catch(() => null);
       if (!h2?.job) throw new Error("The wedgie restarted without the install (Y on its screen?).");
       bin = h2.bin;
-    } else if (go.type === "refused") throw new Error("You said no on the wedgie.");
+    } else if (go.type === "refused") throw new Error("Rejected on the wedgie.");
     else if (go.type === "busy") throw new Error("The wedgie is busy signing. Try again after.");
     else if (go.type !== "go") throw new Error(`The wedgie said ${go.error || go.type}.`);
 

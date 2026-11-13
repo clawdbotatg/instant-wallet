@@ -9,7 +9,7 @@ import { requestLink, requestUri } from "@/lib/parse";
 import { nativeUsd } from "@/lib/price";
 import { loadRequestLink, saveRequestLink } from "@/lib/store";
 import type { Account } from "@/lib/types";
-import { AmountBox, CopyIcon, Money, Net, PencilIcon, Qr, SwitchIcon, WhatFor, Who, copy } from "./bits";
+import { AmountBox, CopyIcon, Money, Net, PencilIcon, Qr, SwitchIcon, WhatFor, Who, copy, stageLabel } from "./bits";
 import { ChainSelect } from "./safe/Pick";
 
 /**
@@ -77,7 +77,7 @@ export function Receive({
   const onTap = async () => {
     if (got.length) return onSeen?.();
     if (uri) (await copy(uri)) && setCopied("Request copied");
-    else (await copy(account.address)) && setCopied("Copied");
+    else (await copy(account.address)) && setCopied("Address copied");
   };
   return (
     <div className="stack">
@@ -237,7 +237,7 @@ function NameTitle({ name, start, address, onClaim }: { name: string | null; sta
       </div>
       {(err || problem) && <span className="err">{err || problem}</span>}
       <button className="btn btn-green wide" type="submit" disabled={busy || !now?.ok}>
-        {busy ? `${bio()}…` : "Save"}
+        {busy ? stageLabel("signing") : "Save"}
       </button>
       <button className="btn wide" type="button" disabled={busy} onClick={() => setEditing(false)}>
         Cancel

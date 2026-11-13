@@ -9,7 +9,7 @@ import { hostApp } from "@/lib/safeapps";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Net, ChainIcon, SwapIcon } from "../bits";
 
-/** The Apps sheet: one row per app, what it does, its networks. Swap opens our own sheet; the rest open in the frame. */
+/** The Apps sheet: one row per app, what it does, its networks. Swap and Revoke open our own sheets; the rest open in the frame. */
 export function AppList({ onOpen }: { onOpen: (a: AppEntry) => void }) {
   const [link, setLink] = useState("");
   const custom = (() => {

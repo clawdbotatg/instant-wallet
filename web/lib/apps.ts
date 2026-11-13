@@ -2,7 +2,7 @@ import { CHAINS } from "./chains";
 
 /**
  * The Apps list (docs/APP-STORE.md). Each entry is a Safe App at a URL, opened in our frame (lib/safeapps.ts),
- * except Swap, which is our own sheet. Ours (ENS, Morpho) live in github.com/clawdbotatg/instant-wallet-apps;
+ * except Swap and Revoke, our own sheets. Ours (ENS, Morpho) live in github.com/clawdbotatg/instant-wallet-apps;
  * the rest are Safe{Wallet}'s apps that let any site frame them AND accept us as their Safe (test before adding:
  * tools/apps-connect-probe.mjs). Add one: a line here.
  */
@@ -13,6 +13,7 @@ export const APPS_URL = process.env.NEXT_PUBLIC_APPS_URL || "https://instant-wal
 
 const ALL: AppEntry[] = [
   { id: "swap", name: "Swap", what: "Best price from Uniswap or LI.FI, any network", chains: CHAINS.map(c => c.id) },
+  { id: "revoke", name: "Revoke", what: "See and stop every app that can spend your coins", chains: CHAINS.map(c => c.id), icon: "/apps/revoke.svg" },
   { id: "earn", name: "Earn", what: "Best interest on USDC: Aave, Compound, Spark, Morpho", chains: [8453, 1], url: `${APPS_URL}/earn`, icon: "/apps/earn.svg" },
   { id: "borrow", name: "Borrow", what: "Borrow USDC, USDT or ETH: Aave, Compound, Morpho", chains: [8453, 1], url: `${APPS_URL}/borrow`, icon: "/apps/borrow.svg" },
   { id: "stake", name: "Stake ETH", what: "Earn on ETH: Lido, Coinbase, Rocket Pool", chains: [8453, 1], url: `${APPS_URL}/stake`, icon: "/apps/stake.svg" },

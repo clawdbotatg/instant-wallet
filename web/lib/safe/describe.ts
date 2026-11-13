@@ -48,6 +48,7 @@ export const UNISWAP = UNIVERSAL_ROUTERS;
 const MAX = 2n ** 160n - 1n; // Permit2's "any amount" is uint160; an ERC-20's is uint256 (anything this big counts)
 const guardAbi = parseAbi(["function setGuard(address guard)", "function setFallbackHandler(address handler)"]);
 const permit2 = parseAbi(["function approve(address token, address spender, uint160 amount, uint48 expiration)"]);
+const forAll = parseAbi(["function setApprovalForAll(address operator, bool approved)"]);
 // an address in a tx's words is the full one: <Words> draws it as <Who> (name, blockie). Never short hex.
 const addr = (a: string) => (/^0x[0-9a-fA-F]{40}$/.test(a) ? getAddress(a) : a);
 const who = (a: string) => (UNISWAP.some(u => eq(u, a)) ? "Uniswap" : eq(a, PERMIT2) ? "Permit2 (Uniswap's approvals)" : addr(a));
@@ -79,7 +80,14 @@ export function ours(chainId: number, c: Call): string | null {
     const p = dec(permit2, c.data);
     if (!p) return null;
     const [tok, sp, amt] = p.args as [Address, Address, bigint];
+    if (amt === 0n) return `Stop ${who(sp)} spending your ${coin(tok)}`;
     return `Let ${who(sp)} spend ${amt >= MAX ? `any amount of your ${coin(tok)}` : usdc && eq(tok, usdc) ? `up to ${formatUnits(amt, 6)} USDC` : `some of your ${coin(tok)}`}`;
+  }
+  if (sel === "0xa22cb465") {
+    const f = dec(forAll, c.data);
+    if (!f) return null;
+    const [op, on] = f.args as [Address, boolean];
+    return on ? `${WARN}Let ${who(op)} take any of your collectibles from ${addr(c.to)}` : `Stop ${who(op)} moving your collectibles from ${addr(c.to)}`;
   }
   return null;
 }

@@ -48,6 +48,10 @@ const RULES = [
   { re: /["`>][^"`<{]*( [Gg]uardians?\b|\b[Gg]uardians? )[^"`<{]*["`<]/, say: "'guardian' in words a user reads: say 'recovery address'", skip: ["components/safe/RecoverTool.tsx", "components/safe/SafeWelcome.tsx"] }, // code that reads getGuardians
   { re: /Execute it myself|your wallet pays the gas/, say: "said one way: '… from my wallet (I pay gas)'" },
   { re: /^\s*✓ (Executed|Funded)\b|Card written ✓/, say: "a tx that ran, said by hand: <ExecutedLine href> (and <DoneBar> on a finished screen)" },
+  { re: /^\s*[A-Z][^<>{}=;]* [Gg]uardians?\b/, say: "'guardian' in words a user reads: say 'recovery address'" },
+  { re: /\.toLocaleString\(\)/, say: "a date written its own way: when() from lib/format (or Activity's day)" },
+  { re: /<input className="grow"/, say: "a text box with no recessed box: wrap it in <div className=\"input\">" },
+  { re: /"Checking what it does…"|>\s*Checking what it does…/, say: "said one way: Checking…" },
   { re: /\.length\}\/\{/, say: "a count as x/y: say 'x of y'" },
   { re: /(btn|pill)[^>]*style=\{\{[^}]*\bheight: \d/, say: "a button with its own height: two heights only, 56 and 38" },
   { re: /inputMode="decimal"/, say: "an amount box by hand: use <AmountBox> (dollars first, switch to the coin)", skip: ["components/DropAdmin.tsx", "components/ClaimMaker.tsx"] }, // a drop's "dollars per claim" / "USDC on each": dollars only, no coin to switch to

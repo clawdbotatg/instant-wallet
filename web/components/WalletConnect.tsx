@@ -25,7 +25,7 @@ import {
   toPending,
   triage,
 } from "@/lib/walletconnect";
-import { Blockie, RemoveX, Sheet, Who, useToast } from "./bits";
+import { Blockie, Sheet, SiteRow, Who, useToast } from "./bits";
 import { ErrorLine } from "./safe/WedgieButton";
 import { WhatItDoes } from "./safe/WhatItDoes";
 import { Scanner } from "./Scanner";
@@ -304,12 +304,7 @@ function Manage({
         <div className="card stack" style={{ gap: 10 }}>
           <b>Connected</b>
           {sessions.map(s => (
-            <div key={s.topic} className="row">
-              <div className="grow">
-                <DappHead name={s.name} url={s.url} icon={s.icon} />
-              </div>
-              <RemoveX label="Disconnect" onClick={() => onDrop(s.topic)} />
-            </div>
+            <SiteRow key={s.topic} name={s.name} url={s.url} icon={s.icon} onDrop={() => onDrop(s.topic)} />
           ))}
         </div>
       )}

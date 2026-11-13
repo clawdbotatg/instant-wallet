@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { chainById, ownRpc, setOwnRpc } from "@/lib/chains";
 import { PROVER } from "@/lib/safe/light";
 import { canLight, lightOn, lightProver, setLight } from "@/lib/safe/sim";
+import { TimedBar } from "../bits";
 
 /** Settings → Your node: where this browser reads the picked network and sends its transactions (lib/chains.ts). */
 export function RpcSetting({ chainId, toast }: { chainId: number; toast: (m: string) => void }) {
@@ -45,11 +46,12 @@ export function RpcSetting({ chainId, toast }: { chainId: number; toast: (m: str
   return (
     <div className="stack" style={{ gap: 8 }}>
       <div className="row" style={{ gap: 8 }}>
-        <input className="grow" value={url} onChange={e => setUrl(e.target.value)} placeholder="Default RPC" inputMode="url" autoCapitalize="off" autoCorrect="off" />
+        <div className="input grow"><input value={url} onChange={e => setUrl(e.target.value)} placeholder="Default node" inputMode="url" autoCapitalize="off" autoCorrect="off" /></div>
         <button className="btn btn-sm" onClick={save} disabled={busy}>
           {busy ? "Checking…" : "Save"}
         </button>
       </div>
+      {busy && <TimedBar ms={8000} />}
       {canLight(chainId) && (
         <>
           <label className="row fine" style={{ gap: 8 }}>
@@ -59,7 +61,7 @@ export function RpcSetting({ chainId, toast }: { chainId: number; toast: (m: str
           {light && (
             <div className="stack" style={{ gap: 4 }}>
               <div className="row" style={{ gap: 8 }}>
-                <input className="grow" value={prover} onChange={e => setProver(e.target.value)} placeholder={PROVER[chainId]} inputMode="url" autoCapitalize="off" autoCorrect="off" />
+                <div className="input grow"><input value={prover} onChange={e => setProver(e.target.value)} placeholder={PROVER[chainId]} inputMode="url" autoCapitalize="off" autoCorrect="off" /></div>
                 <button className="btn btn-sm" onClick={() => (saveLight(true), toast(prover.trim() ? "Using your prover" : "Using Colibri's prover"))}>
                   Save
                 </button>

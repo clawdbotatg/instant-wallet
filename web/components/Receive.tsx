@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { type Address, parseUnits } from "viem";
+import { type Address, parseUnits, zeroAddress } from "viem";
 import { CHAINS } from "@/lib/chains";
 import { NAME_PARENT, labelIn, labelProblem } from "@/lib/names";
 import { bio } from "@/lib/passkey";
@@ -9,7 +9,7 @@ import { requestLink, requestUri } from "@/lib/parse";
 import { nativeUsd } from "@/lib/price";
 import { loadRequestLink, saveRequestLink } from "@/lib/store";
 import type { Account } from "@/lib/types";
-import { AmountBox, CopyIcon, Money, Net, PencilIcon, Qr, SwitchIcon, WhatFor, Who, copy, stageLabel } from "./bits";
+import { AmountBox, CopyIcon, Money, Net, PencilIcon, Qr, SwitchIcon, TokenIcon, WhatFor, Who, copy, stageLabel } from "./bits";
 import { ChainSelect } from "./safe/Pick";
 
 /**
@@ -139,6 +139,7 @@ export function Receive({
                 <span className="row" style={{ gap: 6 }}>
                   {tokens.map(t => (
                     <button key={t} className={`pill ${t === tok ? "on" : ""}`} onClick={() => (setToken(t), setAmount(""))}>
+                      <TokenIcon symbol={t === "ETH" ? chain.native.symbol : t} asset={t === "ETH" ? zeroAddress : (chain.usdc ?? zeroAddress)} chainId={chainId} size={20} />
                       {t === "ETH" ? chain.native.symbol : t}
                     </button>
                   ))}

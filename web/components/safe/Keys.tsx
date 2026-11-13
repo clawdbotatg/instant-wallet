@@ -728,7 +728,7 @@ export function Keys({
               Lose your signers? The DAO (dao.buidlguidl.eth) can replace them after {daoWait ?? 7} days. You can cancel before then.
             </p>
             <p className="fine">
-              Any one of your guardians can too, after 14 days.
+              Any one of your recovery addresses can too, after 14 days.
             </p>
             {mine.map(g => (
               <div className="keyrow" key={g} style={{ padding: 0 }}>

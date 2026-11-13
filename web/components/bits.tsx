@@ -521,6 +521,20 @@ export function DoneBar({ onDone, href }: { onDone: () => void; href?: string | 
   );
 }
 
+/** A connected site, the same row on Home and in the Connect sheet: its logo, its name (a link out, ↗), the red ✕. */
+export function SiteRow({ name, url, icon, onDrop }: { name: string; url: string; icon?: string; onDrop: () => void }) {
+  return (
+    <div className="asset">
+      <div className="logo">{icon ? <img src={icon} alt="" /> : (name || "?").slice(0, 1)}</div>
+      <a className="grow" href={url} target="_blank" rel="noopener noreferrer">
+        <div className="sym">{name || "A site"} ↗</div>
+        <div className="fine">{url.replace(/^https?:\/\//, "")}</div>
+      </a>
+      <RemoveX label="Disconnect" onClick={onDrop} />
+    </div>
+  );
+}
+
 /** A tx that ran, said in a card or a row: ✓ Executed, and the explorer icon on the right. The same line everywhere. */
 export function ExecutedLine({ href }: { href?: string | false | null }) {
   return (

@@ -58,7 +58,7 @@ export function NftGrid({ address }: { address: string }) {
     <div className="card nfts">
       {shown.length > 0 && grid(shown)}
       {hiddenOnes.length > 0 && (
-        <button className="nfts-link" onClick={() => setShowHidden(!showHidden)}>
+        <button className="hidden-link fine" onClick={() => setShowHidden(!showHidden)}>
           {showHidden ? "Close" : `${hiddenOnes.length} hidden`}
         </button>
       )}

@@ -5,6 +5,9 @@ export function usd(v: number | null | undefined): string {
   return v.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: v < 0.01 && v > 0 ? 4 : 2 });
 }
 
+/** A day and a time, the same wherever a deadline shows: "Nov 12, 3:04 PM" (Activity's day, plus the time). */
+export const when = (at: string | number | Date) => new Date(at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+
 /** Rough dollars, short: "$1.2K". */
 export const compactUsd = (v: number) => "$" + v.toLocaleString("en-US", { notation: "compact", maximumFractionDigits: 1 });
 

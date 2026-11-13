@@ -9,7 +9,7 @@ import { type Call, type Sig, abi, batch, execData, safeTxHash, signerAddress } 
 import { callsOf, relayFee } from "@/lib/safe/describe";
 import { unpackMultiSend } from "@/lib/safe/fee";
 import { connectHot, hotAvailable, hotSend, hotSign } from "@/lib/safe/hot";
-import { Shared, feeCall, getQuote, ownerSigners, ownersSend, usesWedgie, waitFor } from "@/lib/safe/send";
+import { type Prepared, Shared, feeCall, finishOwners, getQuote, ownerSigners, ownersSend, prepareOwners, usesWedgie, waitFor } from "@/lib/safe/send";
 import { signForSite } from "@/lib/safe/connect";
 import { type Waiting, allSignatures, checkSigs, deleteHash, dropTx, fromLink, openTx, readWaiting, safeAppTxLink, shareTx, sigHex, txLink } from "@/lib/safe/share";
 import { passkeySign } from "@/lib/safe/sign";
@@ -18,7 +18,7 @@ import { type ChainState, keyFromCode, loadAccount, loadSigners, readChain, wedg
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import { Net, BioSigner, Blockie, CopyLink, Eject, ExecutedLine, RemoveX, Who, Words, useToast, stageLabel } from "../bits";
 import { friendly } from "@/lib/friendly";
-import { Progress } from "./Progress";
+import { Progress, useSendProgress } from "./Progress";
 import { ErrorLine } from "./WedgieButton";
 import { WhatItDoes } from "./WhatItDoes";
 
@@ -55,6 +55,8 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
   const [missing, setMissing] = useState(false);
   const [removed, setRemoved] = useState(false);
   const [mine, setMine] = useState<ChainState | null>(null);
+  const [rej, setRej] = useState<Prepared | null>(null); // this wallet's own Reject, ready to sign (as on Home's card)
+  const bar = useSendProgress();
   const [ahead, setAhead] = useState<Waiting | null>(null); // the queued tx at the wallet's next number: the one blocking this one
   const [toast, setToast] = useToast();
 
@@ -313,7 +315,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
   if (!w || !chain)
     return (
       <div className="stack">
-        <h2>Loading…</h2>
+        <p className="fine">Loading…</p>
         {error && <ErrorLine text={error} />}
       </div>
     );
@@ -324,12 +326,32 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
   // a Reject is just the relay's fee at another one's number: nothing to reject in it
   const fees = callsOf(w.tx).map(c => relayFee(chainId, c));
   const isReject = fees.length > 0 && fees.every(Boolean);
-  // Reject (as on wedgie.dev): the fee alone at this number, so this one can never run. Its own page opens to sign.
+  // Reject (as on wedgie.dev): the fee alone at this number, so this one can never run.
+  // This browser's own wallet: the same two taps as Home's card (Reject, then Sign to reject), signed right here.
+  // Anyone else (a signer with only a link): the unsigned reject is made and its own page opens to sign.
   async function reject() {
     if (!w || !chain) return;
     setBusy("reject");
     setError(null);
     try {
+      const own = loadAccount();
+      if (own && eq(own.address, safe)) {
+        if (!rej) {
+          const st = await readChain(chainId, own);
+          return setRej(await prepareOwners({ account: own, state: st, calls: [], signers: ownerSigners(st, own), feeToken: fees.find(Boolean)?.token === "eth" ? "eth" : "usdc", label: `Reject: ${w.label ?? "transaction"}`, nonce: w.tx.nonce }));
+        }
+        try {
+          bar.watch(rej);
+          await finishOwners(rej);
+          await load();
+        } catch (e) {
+          if (!(e instanceof Shared)) throw e; // signed here; its page is open for the other signers
+        } finally {
+          bar.end();
+          setRej(null);
+        }
+        return;
+      }
       const q = await getQuote(chainId, chain.passkeys.length > 1 ? "exec-wedgie" : "exec");
       const t = batch([feeCall(q, fees.find(Boolean)?.token === "eth" ? "eth" : "usdc")], w.tx.nonce);
       const r: Waiting = { chainId, safe, tx: t, hash: safeTxHash(chainId, safe, t), sigs: [], label: `Reject: ${w.label ?? "transaction"}` };
@@ -422,7 +444,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
       {sent ? (
         <ExecutedLine href={explorerTx(chainId, sent)} />
       ) : done ? (
-        <p className="fine">This wallet already used number #{w.tx.nonce.toString()}: this one was executed or replaced.</p>
+        <p className="fine">This wallet already used #{w.tx.nonce.toString()}: this one was executed or replaced.</p>
       ) : enough && behind ? (
         <p className="fine">Signed. #{chain.nonce.toString()}{w.tx.nonce - chain.nonce > 1n ? ` (and the others before it)` : ""} has to execute or be rejected first.</p>
       ) : null}
@@ -432,7 +454,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
           {me && chain.owners.some(o => eq(o, me.burnerSigner)) && <RemoveX disabled={!!busy} busy={busy === "remove"} onClick={remove} />}
           {!isReject && (
             <button className="btn btn-sm" style={{ flex: "none" }} onClick={reject} disabled={!!busy}>
-              {busy === "reject" ? stageLabel("quote") : "Reject"}
+              {busy === "reject" ? stageLabel(rej ? (bar.stage ?? "signing") : "quote") : rej ? "Sign to reject" : "Reject"}
             </button>
           )}
           {/* where Execute goes, white (not green): an older tx runs first. To that one, or Home's list when it isn't in the queue */}
@@ -448,7 +470,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
           )}
         </div>
       )}
-      {!sent && <Progress stage={stage} chainId={chainId} hash={pending} />}
+      {!sent && <Progress stage={bar.stage ?? stage} chainId={chainId} hash={bar.hash ?? pending} />}
       {error && <ErrorLine text={error} />}
 
       <p className="fine row" style={{ gap: 16, justifyContent: "center", flexWrap: "wrap" }}>

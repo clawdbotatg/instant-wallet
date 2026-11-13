@@ -96,7 +96,7 @@ export function Join() {
             <>
               {mine && (
                 <button className="btn btn-green wide" onClick={() => answer("mine")} disabled={!!busy}>
-                  {busy === "mine" ? "Sending…" : "Use this phone's Instant Wallet key"}
+                  {busy === "mine" ? "Sending…" : "Use this device's Instant Wallet key"}
                 </button>
               )}
               <button className={`btn wide ${mine ? "btn-dark" : "btn-green"}`} onClick={() => answer("signin")} disabled={!!busy}>

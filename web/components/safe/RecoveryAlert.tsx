@@ -8,6 +8,7 @@ import { type Prepared, Shared, finishOwners, ownerSigners, prepareOwners } from
 import type { ChainState, RecoveryOn, SafeAccount } from "@/lib/safe/state";
 import { SAFE_SVC } from "@/lib/safe/share";
 import { Net, Eject, Who, stageLabel } from "../bits";
+import { when as when_ } from "@/lib/format";
 import { friendly } from "@/lib/friendly";
 import { ErrorLine } from "./WedgieButton";
 import { Progress, useSendProgress } from "./Progress";
@@ -76,13 +77,13 @@ export function RecoveryAlert({
     <div className="card alert">
       <b>{mine ? "Your recovery is running" : "Someone is recovering this wallet"}</b>
       <p className="fine">
-        On <Net chainId={state.chainId} />, on {when.toLocaleString()}, your keys get replaced by
+        On <Net chainId={state.chainId} />, on {when_(when)}, your keys get replaced by
         {r.newOwners.length > 1 ? ` any ${r.newThreshold} of these` : ""}:
       </p>
       {r.newOwners.map(o => (
         <Who key={o} address={o} chain={state.chainId} link={explorerAddress(state.chainId, o) ?? undefined} />
       ))}
-      <p className="fine">{mine ? "That's this phone." : "If that isn't you, cancel it now."}</p>
+      <p className="fine">{mine ? "That's this device." : "If that isn't you, cancel it now."}</p>
       {!mine && state.owners.some(o => o.toLowerCase() === account.burnerSigner.toLowerCase()) && (
         <button className="btn btn-red wide" onClick={ready ? cancel : prepare} disabled={busy}>
           {busy ? (ready ? stageLabel("sending") : stageLabel("quote")) : ready ? "Sign to cancel it" : "Cancel it"}

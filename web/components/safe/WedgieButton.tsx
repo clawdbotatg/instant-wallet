@@ -300,7 +300,7 @@ export function WedgiePanel({
               <p className="fine">
                 Don&apos;t have one?{" "}
                 <a href="https://wedgie.dev" target="_blank" rel="noreferrer">
-                  Get one at wedgie.dev
+                  Get one at wedgie.dev ↗
                 </a>
               </p>
             )}
@@ -326,7 +326,7 @@ export function WedgiePanel({
                 {installErr.msg}{" "}
                 {installErr.old && (
                   <a href="https://wedgie.dev/connect" target="_blank" rel="noreferrer">
-                    Open wedgie.dev
+                    Open wedgie.dev ↗
                   </a>
                 )}
               </p>

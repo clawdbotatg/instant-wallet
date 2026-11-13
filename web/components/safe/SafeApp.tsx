@@ -11,7 +11,7 @@ import { loadHidden, loadPortfolio, loadShown, saveHidden, savePortfolio, saveSh
 import { dropOtherBudgetsCalls } from "@/lib/safe/core";
 import { type Prepared, Shared, finishOwners, ownerSigners, prepareOwners } from "@/lib/safe/send";
 import { friendly } from "@/lib/friendly";
-import { AppsIcon, Blockie, Net, DepositIcon, GearIcon, SendIcon, SendScanIcon, Sheet, sheetOpen, TokenIcon, TrashIcon, CopyLink, RemoveX, Who, named, useName, useToast } from "../bits";
+import { AppsIcon, Blockie, Net, DepositIcon, GearIcon, SendIcon, SendScanIcon, Sheet, sheetOpen, TokenIcon, TrashIcon, CopyLink, SiteRow, Who, named, useName, useToast } from "../bits";
 import { Receive } from "../Receive";
 import { onSending, sendingNow } from "@/lib/safe/sending";
 import { Deposit } from "./Deposit";
@@ -504,7 +504,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
               <div key={`b${s.chainId}`} className="card alert">
                 <b>Turn off the old phone&apos;s daily limit</b>
                 <p className="fine">
-                  On <Net chainId={s.chainId} />, a key that isn&apos;t this phone can still spend the Instant Wallet's daily limit (a lost phone, after a recovery).
+                  On <Net chainId={s.chainId} />, a key that isn&apos;t this device can still spend the Instant Wallet's daily limit (a lost phone, after a recovery).
                 </p>
                 <button className="btn btn-red wide" onClick={() => dropOldBudget(s)}>
                   {dropReady?.opts.state.chainId === s.chainId ? "Sign to turn it off" : "Turn it off"}
@@ -554,14 +554,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
           <div className="card assets sites">
             <b className="sites-head">Connected</b>
             {sites.map(x => (
-              <div key={x.topic} className="asset">
-                <div className="logo">{x.icon ? <img src={x.icon} alt="" /> : (x.name || "?").slice(0, 1)}</div>
-                <a className="grow" href={x.url} target="_blank" rel="noopener noreferrer">
-                  <div className="sym">{x.name || "A site"} ↗</div>
-                  <div className="fine">{x.url.replace(/^https?:\/\//, "")}</div>
-                </a>
-                <RemoveX label="Disconnect" onClick={() => disconnect(x.topic).catch(() => {})} />
-              </div>
+              <SiteRow key={x.topic} name={x.name} url={x.url} icon={x.icon} onDrop={() => disconnect(x.topic).catch(() => {})} />
             ))}
           </div>
         )}

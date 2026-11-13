@@ -223,7 +223,7 @@ export function WhatItDoes({ chainId, safe, calls, tx, same, quiet, else: orElse
       {res?.light === "failed" && <Said text={`${WARN}Couldn't check the coins in this browser`} />}
       {res?.light === "failed" && res.why && <span className="fine" style={{ display: "block" }}>{res.why.split(": ").pop()}</span>}
       {!res ? (
-        <span className="fine">Checking what it does…</span>
+        <span className="fine">Checking…</span>
       ) : sim?.fails ? (
         <div className="stack" style={{ gap: 4 }}>
           {swapLines}

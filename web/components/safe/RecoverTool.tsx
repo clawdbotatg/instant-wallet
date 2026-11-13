@@ -6,6 +6,7 @@ import { CHAINS, chainById, explorerTx, publicClient } from "@/lib/chains";
 import { DAO, RECOVERY_7D, RECOVERY_DAYS, RECOVERY_MODULES, SAFE_FACTORY } from "@/lib/safe/config";
 import { abi, deploySafeCall, safeAddress } from "@/lib/safe/core";
 import { Net, AddressInput, Band, Who, Words, copy } from "../bits";
+import { when as when_ } from "@/lib/format";
 import { ErrorLine } from "./WedgieButton";
 import { ChainSelect } from "./Pick";
 import { friendly } from "@/lib/friendly";
@@ -112,7 +113,7 @@ export function RecoverTool() {
           {pending.map(m => (
             <span key={m.module}>
               {" "}
-              <Words text={`A recovery to ${m.newOwners.join(", ")} is pending until ${new Date(m.executeAfter).toLocaleString()}.`} chain={chainId} />
+              <Words text={`A recovery to ${m.newOwners.join(", ")} is pending until ${when_(m.executeAfter)}.`} chain={chainId} />
             </span>
           ))}
         </p>
@@ -157,7 +158,7 @@ export function RecoverTool() {
         {pending.length ? (
           pending.map(m => (
             <button key={m.module} className={`btn wide ${Date.now() >= m.executeAfter ? "btn-green" : ""}`} disabled={Date.now() < m.executeAfter || !finalizeData} onClick={() => finalizeData && run(m.module, finalizeData, "Finish")}>
-              {Date.now() >= m.executeAfter ? "Finish the recovery" : `Ready ${new Date(m.executeAfter).toLocaleString()}`}
+              {Date.now() >= m.executeAfter ? "Finish the recovery" : `Ready ${when_(m.executeAfter)}`}
             </button>
           ))
         ) : (

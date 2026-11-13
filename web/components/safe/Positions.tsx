@@ -118,7 +118,7 @@ export function PositionList({
     <div className="card assets">
       {shown.map(p => (
         <a key={p.id} className="asset" href={p.url} target="_blank" rel="noopener noreferrer">
-          <div className="logo">{p.icon ? <img src={p.icon} alt="" /> : p.protocol.slice(0, 2)}</div>
+          <div className="logo">{p.icon ? <img src={p.icon} alt="" /> : p.protocol.slice(0, 1)}</div>
           <div className="grow">
             <div className="sym">{p.name} ↗</div>
             <div className="fine">

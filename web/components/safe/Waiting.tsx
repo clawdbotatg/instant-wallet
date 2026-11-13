@@ -9,6 +9,7 @@ import {
   type Waiting,
   deleteHash,
   dropTx,
+  forgetLocal,
   openTx,
   safeAppTxLink,
   readWaiting,
@@ -78,7 +79,8 @@ export function WaitingCards({
     setRemoving(w.hash);
     setError(null);
     try {
-      await dropTx(w, await passkeySign(account.credentialId, account.burnerSigner, deleteHash(w)));
+      if (!w.sigs.length) forgetLocal(w); // in this browser only: nothing to sign
+      else await dropTx(w, await passkeySign(account.credentialId, account.burnerSigner, deleteHash(w)));
       setList((l) => l.filter((x) => x.w.hash !== w.hash));
     } catch (e: any) {
       setError(friendly(e));

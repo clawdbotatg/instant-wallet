@@ -93,6 +93,8 @@ export async function shareTx(w: Waiting): Promise<{ safe: boolean; queue: boole
   saveLocal(c, a, l);
   // Home's waiting card shows it now, before any network call (it only re-reads the queue every few minutes)
   if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("iw:txshared", { detail: { ...w, sigs: [...m.sigs], label: w.label ?? m.label } }));
+  // nothing signed yet: this browser only (Safe's service and our queue take a tx with a signature, never without)
+  if (!m.sigs.length) return { safe: false, queue: false };
   const toSafe = async () => {
     if (!SAFE_SVC[c]) throw new Error("not on Safe's service");
     const had = await fetch(svc(c, `multisig-transactions/${h}/`)).then(r => (r.ok ? r.json() : null)).catch(() => null);
@@ -165,6 +167,14 @@ export const deleteHash = (w: Waiting) =>
     primaryType: "DeleteRequest",
     message: { safeTxHash: w.hash, totp: BigInt(Math.floor(Date.now() / 3600_000)) },
   });
+
+/** A tx no one has signed lives only in this browser: off the list with no signature (nothing anywhere else to remove). */
+export function forgetLocal(w: Waiting) {
+  const l = loadLocal(w.chainId, w.safe);
+  delete l[w.hash.toLowerCase()];
+  saveLocal(w.chainId, w.safe, l);
+  window.dispatchEvent(new CustomEvent("iw:txdropped", { detail: w.hash.toLowerCase() }));
+}
 
 /** Off the queue, with an owner's signature of `deleteHash`: gone here and in this browser, hidden from Safe's service's
  * copy. No tx on chain: it could still run until another tx takes its number. */

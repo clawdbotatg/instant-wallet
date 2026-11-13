@@ -11,7 +11,7 @@ import { unpackMultiSend } from "@/lib/safe/fee";
 import { connectHot, hotAvailable, hotSend, hotSign } from "@/lib/safe/hot";
 import { type Prepared, Shared, feeCall, finishOwners, getQuote, ownerSigners, ownersSend, prepareOwners, usesWedgie, waitFor } from "@/lib/safe/send";
 import { signForSite } from "@/lib/safe/connect";
-import { type Waiting, allSignatures, checkSigs, deleteHash, dropTx, fromLink, openTx, readWaiting, safeAppTxLink, shareTx, sigHex, txLink } from "@/lib/safe/share";
+import { type Waiting, allSignatures, checkSigs, deleteHash, dropTx, forgetLocal, fromLink, openTx, readWaiting, safeAppTxLink, shareTx, sigHex, txLink } from "@/lib/safe/share";
 import { passkeySign } from "@/lib/safe/sign";
 import { startSending } from "@/lib/safe/sending";
 import { type ChainState, keyFromCode, loadAccount, loadSigners, readChain, wedgieHome, wedgieSigners } from "@/lib/safe/state";
@@ -267,7 +267,8 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
   const remove = run("remove", async () => {
     const me = loadAccount();
     if (!w || !me) return;
-    await dropTx(w, await passkeySign(me.credentialId, me.burnerSigner, deleteHash(w)));
+    if (!w.sigs.length) forgetLocal(w); // in this browser only: nothing to sign
+    else await dropTx(w, await passkeySign(me.credentialId, me.burnerSigner, deleteHash(w)));
     setRemoved(true);
   });
   const sendSelf = run("self", async () => {

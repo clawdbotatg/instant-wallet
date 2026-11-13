@@ -166,6 +166,27 @@ export async function requote(p: Prepared): Promise<Prepared> {
   return { opts: p.opts, t, h: safeTxHash(chainId, p.opts.account.address, t), fee: q };
 }
 
+/**
+ * A tx that goes to the queue (the keys signing here can't reach the threshold): on Home now, before anything is
+ * signed, kept in this browser with no signature. Any key signs it on its page: Face ID, the wedgie, MetaMask or
+ * Rainbow (Austin 11-12: the sheet only offered Face ID, MetaMask couldn't sign there, and closing it left nothing
+ * on Home to sign). Synchronous up to the save, so Face ID can still start straight from the tap after it.
+ * null: it doesn't go to the queue (enough keys here, or the wallet isn't on this network yet).
+ */
+export function keepUnsigned(p: Prepared): Waiting | null {
+  const { account: a, state: st, signers } = p.opts;
+  if (p.opts.self || !st.deployed) return null;
+  const here = signers.filter(s => {
+    const h = howSigns(a, st, s);
+    return h === "faceid" || h === "wallet" || (h === "wedgie" && (!!p.opts.wedgie || wedgieSupported()));
+  });
+  if (here.length >= st.threshold) return null;
+  const w: Waiting = { chainId: st.chainId, safe: a.address, tx: p.t, hash: p.h, sigs: [], label: p.opts.label };
+  shareTx(w).catch(() => {});
+  queued.set(`${st.chainId}:${a.address}`, p.t.nonce);
+  return w;
+}
+
 /** Sign (the burner first, straight from the tap) and relay. */
 export async function finishOwners(p: Prepared): Promise<Hash> {
   const { account: a, state: st, signers } = p.opts;
@@ -186,6 +207,8 @@ export async function finishOwners(p: Prepared): Promise<Hash> {
   }
   // the wedgie can't plug in here (a phone): sign the rest; it goes in the queue and the wedgie signs on its page
   const later = slots.length > 0 && !p.opts.wedgie && !wedgieSupported();
+  // going to the queue: on Home before the first signature, so a cancelled Face ID still leaves it there to sign
+  keepUnsigned(p);
   const sigs: Sig[] = [];
   let ownWedgie: Wedgie | null = null;
   try {

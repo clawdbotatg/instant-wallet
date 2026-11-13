@@ -10,7 +10,8 @@ import { CHAINS, chainById, explorerAddress, ETH, nativeSymbol, publicClient } f
 import { amount, short, feeText, usd } from "@/lib/format";
 import { DAO, FEE_ALLOWANCE, RECOVERY_14D, RECOVERY_60D, VERIFIERS } from "@/lib/safe/config";
 import { type Call, DEFAULT_BUDGET, abi, signerAddress, budgetCalls, deploySignerCall, feeAllowanceCalls, guardianListCalls, recoveryLayoutCalls, selfCall } from "@/lib/safe/core";
-import { type FeeToken, type Prepared, Shared, type Signer, finishOwners, getQuote, howSigns, ownerSigners, prepareOwners, signerLabel, usesWedgie } from "@/lib/safe/send";
+import { openTx } from "@/lib/safe/share";
+import { type FeeToken, type Prepared, Shared, type Signer, finishOwners, keepUnsigned, getQuote, howSigns, ownerSigners, prepareOwners, signerLabel, usesWedgie } from "@/lib/safe/send";
 import { type ChainState, type SafeAccount, type SignerInfo, daoDays, loadSigners, loadWalletName, passkeyHome, readChain, rememberHome, saveSigner, wedgieSigners, shownAs } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
@@ -158,7 +159,16 @@ export function Keys({
     setBusy(what);
     setErrorRaw(null);
     try {
-      setPending({ what, ...(await fn()) });
+      const r = await fn();
+      // it needs more signatures than this device has: no confirm here (it offered Face ID only). The tx is made
+      // now, on Home, and its page opens, where Face ID, the wedgie or a browser wallet each sign
+      const w = keepUnsigned(r.p);
+      if (w) {
+        await r.close?.();
+        openTx(w);
+        return;
+      }
+      setPending({ what, ...r });
     } catch (e: any) {
       setErrorRaw({ what, msg: friendly(e) });
     } finally {

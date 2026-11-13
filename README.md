@@ -26,7 +26,9 @@ Your passkey belongs to instantwallet.io. A page on local.instantwallet.io may u
 your own computer under that name. instantwallet.io always stays the real site; nothing here touches it.
 Mac, desktop Chrome or Safari. Being tested now. The plan and what doesn't work yet: `docs/LOCAL-MODE.md`.
 
-1. Install mkcert and trust its certificate (asks for your password):
+Run these in the Terminal app: steps 1 and 3 ask for your Mac password.
+
+1. Install mkcert and trust its certificate:
 
        brew install mkcert
        mkcert -install
@@ -36,7 +38,7 @@ Mac, desktop Chrome or Safari. Being tested now. The plan and what doesn't work 
        mkdir -p ~/.instantwallet-local && cd ~/.instantwallet-local
        mkcert local.instantwallet.io
 
-3. Point local.instantwallet.io at your computer (asks for your password). This only touches the local name:
+3. Point local.instantwallet.io at your computer. This only touches the local name:
 
        echo "127.0.0.1 local.instantwallet.io" | sudo tee -a /etc/hosts
        sudo dscacheutil -flushcache

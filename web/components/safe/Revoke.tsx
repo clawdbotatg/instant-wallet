@@ -33,7 +33,7 @@ type Row = {
 };
 
 const eq = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
-const UNCHECKED = "unchecked"; // found[]: a network with no way to list them (named once, gray, at the bottom)
+const UNCHECKED = "unchecked"; // found[]: a network with no way to list them: left out (Austin 11-13: not worth a line)
 const spenderLabel = (a: string) => (UNISWAP.some(u => eq(u, a)) ? "Uniswap" : eq(a, PERMIT2) ? "Permit2" : undefined);
 
 /**
@@ -232,19 +232,6 @@ export function Revoke({ account, assets, states, onDone }: { account: SafeAccou
           </div>
         );
       })}
-      {read === chains.length && chains.some(id => found[id] === UNCHECKED) && (
-        <p className="fine">
-          Not checked:{" "}
-          {chains
-            .filter(id => found[id] === UNCHECKED)
-            .map((id, i) => (
-              <span key={id}>
-                {i > 0 && ", "}
-                <Net chainId={id} />
-              </span>
-            ))}
-        </p>
-      )}
       {Object.values(rows).some(r => r?.stage === "done") && !Object.values(rows).some(r => r?.stage === "busy" || r?.stage === "preparing") && <DoneBar onDone={onDone} />}
     </div>
   );

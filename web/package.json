@@ -24,7 +24,7 @@
     "@walletconnect/core": "^2.25.0",
     "@walletconnect/utils": "^2.25.0",
     "blo": "^2.0.0",
-    "clear-signing-safe-kit": "github:clawdbotatg/clear-signing-safe-kit#f3791bc81a208e9e743c44cc8e35b776ef4ce20e",
+    "clear-signing-safe-kit": "github:clawdbotatg/clear-signing-safe-kit#ef41a2c343e54360de97e0b438ff973b51e3b0c8",
     "jspdf": "4.2.1",
     "next": "^15.5.27",
     "nodemailer": "^6.9.16",

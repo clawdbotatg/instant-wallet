@@ -5,6 +5,11 @@ even if our site, our servers or the domain are gone. Same app, same screens, sa
 
 ## TLDR
 
+- **Use local.instantwallet.io, not instantwallet.io.** A page may use its parent domain as the passkey's domain,
+  so the app strips `local.` (`web/lib/passkey.ts`) and signs with the instantwallet.io passkey. The real site
+  stays reachable. The steps: README, "Run it fully local". The hosts-line-on-instantwallet.io idea below is the
+  fallback.
+
 - A passkey only signs on the domain it was made for. The app uses the page's own hostname as the passkey's domain
   (`rpId = window.location.hostname`, `web/lib/passkey.ts:69`).
 - So: point instantwallet.io at your own computer (one line in the hosts file), give it a certificate your computer

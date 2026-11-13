@@ -22,22 +22,23 @@ Push to main deploys (Vercel, root `web/`). Before pushing a UI change: `node we
 
 ## Run it fully local (if instantwallet.io is gone)
 
-Your passkey only signs on instantwallet.io. So you run the app on your own computer under that name.
-Mac, desktop Chrome or Safari. Being tested now. The plan and what doesn't work yet: `docs/LOCAL-MODE.md`.
+Your passkey belongs to instantwallet.io. A page on local.instantwallet.io may use it too, so you run the app on
+your own computer under that name. The real site keeps working next to it. Mac, desktop Chrome or Safari. Being
+tested now. The plan and what doesn't work yet: `docs/LOCAL-MODE.md`.
 
 1. Install mkcert and trust its certificate (asks for your password):
 
        brew install mkcert
        mkcert -install
 
-2. Make a certificate for instantwallet.io:
+2. Make a certificate for local.instantwallet.io:
 
        mkdir -p ~/.instantwallet-local && cd ~/.instantwallet-local
-       mkcert instantwallet.io
+       mkcert local.instantwallet.io
 
-3. Point instantwallet.io at your computer (asks for your password):
+3. Point local.instantwallet.io at your computer (asks for your password). This only touches the local name:
 
-       echo "127.0.0.1 instantwallet.io" | sudo tee -a /etc/hosts
+       echo "127.0.0.1 local.instantwallet.io" | sudo tee -a /etc/hosts
        sudo dscacheutil -flushcache
 
 4. Build and run the app. Put your own free Alchemy key (dashboard.alchemy.com) in `web/.env.local` as
@@ -51,12 +52,11 @@ Mac, desktop Chrome or Safari. Being tested now. The plan and what doesn't work 
 5. In a second terminal, serve it on https:
 
        cd ~/.instantwallet-local
-       npx local-ssl-proxy --source 443 --target 3000 --cert instantwallet.io.pem --key instantwallet.io-key.pem
+       npx local-ssl-proxy --source 443 --target 3000 --cert local.instantwallet.io.pem --key local.instantwallet.io-key.pem
 
-6. Open https://instantwallet.io and sign in with your passkey.
+6. Open https://local.instantwallet.io and sign in with your passkey.
 
-To go back to the real site: delete the `instantwallet.io` line from `/etc/hosts`
-(`sudo sed -i '' '/instantwallet.io/d' /etc/hosts`), then `sudo dscacheutil -flushcache`.
+To remove it: delete the line from `/etc/hosts` (`sudo sed -i '' '/local.instantwallet.io/d' /etc/hosts`).
 
 mkcert's root certificate can vouch for any site on your computer. Its key never leaves your computer.
 

@@ -66,7 +66,9 @@ async function ceremony<T>(run: () => Promise<T>): Promise<T> {
   }
 }
 
-const rpId = () => window.location.hostname;
+// local.instantwallet.io (your own copy, docs/LOCAL-MODE.md) signs with the instantwallet.io passkey: a page may use
+// its parent domain as the passkey's domain. Same for local.xdai.io.
+const rpId = () => window.location.hostname.replace(/^local\./, "");
 const random32 = () => crypto.getRandomValues(new Uint8Array(32));
 
 export function credentialIdHash(credentialId: string): Hex {

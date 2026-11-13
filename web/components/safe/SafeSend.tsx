@@ -189,19 +189,13 @@ export function SafeSend({
   }
 
   const clip = () => navigator.clipboard?.readText().then(t => t.trim()).catch(() => "") ?? Promise.resolve("");
-  // the send form with the clipboard in To (a payment link or claim card works like a scan)
-  async function pasteAddress() {
+  // one Paste: it works out what the clipboard holds. A WalletConnect code connects, a payment link or claim card
+  // works like a scan, anything else (an address, a name) goes in To
+  async function paste() {
     const t = await clip();
-    setScanning(false);
     if (!t) return;
-    if (dropCode(t) || isClaimLink(t) || parse(t).kind === "pay") return onScan(t);
-    setToInput(t);
-  }
-  // the WalletConnect sheet with the clipboard in it: a valid code connects straight away
-  async function pasteWalletConnect() {
-    const t = await clip();
-    onDone();
-    openWalletConnect(t || undefined);
+    if (dropCode(t) || isClaimLink(t) || parse(t).kind !== "unknown") return onScan(t);
+    setToInput(addressIn(t));
   }
 
   useEffect(() => {
@@ -328,11 +322,8 @@ export function SafeSend({
           <button className="btn btn-green wide" disabled={!resolved} onClick={leaveScan}>
             {resolved ? <>Send to <Who flat address={resolved} chain={chainId} label={toName ?? undefined} /></> : "Send"}
           </button>
-          <button className="btn wide" onClick={pasteAddress}>
-            Paste address
-          </button>
-          <button className="btn wide" onClick={pasteWalletConnect}>
-            Paste WalletConnect
+          <button className="btn wide" onClick={paste}>
+            Paste
           </button>
         </>
       ) : (

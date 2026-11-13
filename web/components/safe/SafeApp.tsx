@@ -428,14 +428,16 @@ export function SafeApp({ link }: { link?: string } = {}) {
     if (dropping.current) return; // a second tap while it prepares or signs must not do it twice
     dropping.current = true;
     try {
-      if (!dropReady) {
+      // one card per network: a tx made ready on another network's card is not this card's (it signed that one)
+      const ready = dropReady?.opts.state.chainId === s.chainId ? dropReady : null;
+      if (!ready) {
         if (!s.rolesMembers) throw new Error("Couldn't read the budget's keys. Try again.");
         const calls = dropOtherBudgetsCalls(account!.address, s.rolesMembers, account!.burnerSigner);
         setDropReady(await prepareOwners({ account: account!, state: s, calls, signers: ownerSigners(s, account!), feeToken: feeTokenOn(s.chainId) }));
         return; // the next tap signs (Face ID must start straight from a tap)
       }
-      dropBar.watch(dropReady);
-      await finishOwners(dropReady);
+      dropBar.watch(ready);
+      await finishOwners(ready);
       setDropReady(null);
       setToast("The old phone's budget is off");
       refresh();
@@ -484,7 +486,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
                   On {chainById(s.chainId)?.name}, a key that isn&apos;t this phone can still spend the Instant wallet's daily budget (a lost phone, after a recovery).
                 </p>
                 <button className="btn btn-red wide" onClick={() => dropOldBudget(s)}>
-                  {dropReady ? "Sign to turn it off" : "Turn it off"}
+                  {dropReady?.opts.state.chainId === s.chainId ? "Sign to turn it off" : "Turn it off"}
                 </button>
                 {dropReady?.opts.state.chainId === s.chainId && <Progress stage={dropBar.stage} chainId={s.chainId} hash={dropBar.hash} />}
               </div>

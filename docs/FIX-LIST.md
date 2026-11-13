@@ -89,11 +89,10 @@ Suggested first: 1, 3, 5, 12, 20.
   `/api/safe/invite` POST (30 an hour), `/api/safe/queue` POST (120 an hour, before any chain read),
   `/api/safe/relay` POST (240 an hour, before its chain reads).
 
-- [ ] **10b. Left from 10.**
-  - `app/api/drop/admin/route.ts:61-93`: any admin can change or take back any drop (`d.admin` is never checked).
+- [x] **10b. Left from 10.**
+  - Done 11-13: only the wallet that made a drop can change it or take it back. Other admins see it, with no buttons.
   - Done 11-12: the open GET says the email is "On", not its first letters and domain. A signed change still
     answers with the masked address.
-  - Left: the drop admin one above (drops, low).
 
 - [x] **11. Public RPC when the Alchemy key is missing.**
   These pass `http(upstreamRpc(id))` unchecked, so viem falls back to the chain's public RPC: `app/api/ens`,
@@ -150,7 +149,7 @@ Suggested first: 1, 3, 5, 12, 20.
     button doesn't change color while it works, so the waiting tx's button and the wedgie's are right as they are.
   - Left: `Drop.tsx:118`, `Claim.tsx:385` (hand-written money) and `DropAdmin.tsx:162`: drops, low.
 
-- [ ] **16. USDC dust on one network stops the whole claim.**
+- [x] **16. USDC dust on one network stops the whole claim.** Done 11-13: skipped; the done screen says what stayed.
   `components/Claim.tsx:311-314`. `claimUsdc` throws inside the loop over networks, so later networks are never
   claimed. `claimEth` returns 0 for the same case. Fix: skip that network and say so.
 
@@ -162,7 +161,8 @@ Suggested first: 1, 3, 5, 12, 20.
   on the standalone page; a failed Sign in Keys or Limits clears the prepared change (its wedgie port is closed);
   an old keys read landing late no longer overwrites a newer one; `friendly()` lost the v3 "gas key" line (26).
 
-- [ ] **18b. Left from 18 (small).**
+- [x] **18b. Left from 18 (small).** Done 11-13: a failed PDF shows an error; Copy says Copied; Start / Finish /
+  Deploy are off while one runs; a card's coins are totalled one coin at a time.
   - `ClaimMaker.tsx:110-114`, `DropAdmin.tsx:340-344`: a PDF that fails does so silently.
   - `RecoverTool.tsx:143-149`: the copy button says nothing. `:75-88`: Start / Finish / Deploy stay live mid-run.
   - Done 11-12: `finishOwners` refuses a fee quote past its time, before anything is signed. The recovery alert and
@@ -203,7 +203,9 @@ Suggested first: 1, 3, 5, 12, 20.
   per waiting card (`WhatItDoes.tsx:136`) and `howSigns` / `loadSigners` per owner (`Keys.tsx:479-485`).
   Fix: skip `setPortfolio` when nothing changed; memo those.
 
-- [ ] **23. Polling that never stops or does too much.**
+- [x] **23. Polling that never stops or does too much.** Done 11-13 (drops): the admin reads all cards in one KV
+  call; codes are saved 100 a write; the claim page stops polling while it moves and after Done; the card maker
+  reads a claimed card once.
   - Drop admin: one KV read per card (up to 500) every 8 s per open tab (`app/api/drop/admin/route.ts:76-82`).
     Making a cards drop: up to 500 KV writes one by one (`lib/drops.ts:157-160`).
   - `Claim.tsx:227-245`: all 14 chains + portfolio every 5 s, also during the sweep and after Done.
@@ -212,7 +214,6 @@ Suggested first: 1, 3, 5, 12, 20.
   - Done 11-12: Swap's 20 s re-quote is quiet. The card and the button stay until the new price is in.
   - Done 11-12: Home reads the wallet's ENS name once (it shares `named` with the pill).
   - Done 11-12: `app/api/uni` keeps the claim files it has downloaded (8 at most).
-  - Left: the three drop ones above (low).
   - Done 11-10: `lib/safe/relayCore.ts` uses its last price (up to 10 min old) when the feed fails.
 
 - [x] **24. No timeouts, no size caps.**

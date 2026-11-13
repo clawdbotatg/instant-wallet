@@ -5,7 +5,7 @@ import { type Address, type Hex, encodeFunctionData } from "viem";
 import { CHAINS, chainById, explorerTx, publicClient } from "@/lib/chains";
 import { DAO, RECOVERY_7D, RECOVERY_DAYS, RECOVERY_MODULES, SAFE_FACTORY } from "@/lib/safe/config";
 import { abi, deploySafeCall, safeAddress } from "@/lib/safe/core";
-import { Net, AddressInput, Band, Who, Words, copy } from "../bits";
+import { Net, AddressInput, Band, Who, Words, copy, useToast } from "../bits";
 import { when as when_ } from "@/lib/format";
 import { ErrorLine } from "./WedgieButton";
 import { ChainSelect } from "./Pick";
@@ -41,6 +41,8 @@ export function RecoverTool() {
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
+  const [running, setRunning] = useState(false); // one at a time: Start, Finish and Deploy are off while one runs
+  const [toast, setToast] = useToast();
 
   useEffect(() => {
     if (!w) return setInfo(null);
@@ -74,6 +76,7 @@ export function RecoverTool() {
   async function run(to: Address, data: Hex, what: string) {
     setError(null);
     setMsg(`${what}: confirm in your wallet…`);
+    setRunning(true);
     try {
       const hash = await sendFromWallet(chainId, to, data);
       setMsg(`${what}: sent. ${explorerTx(chainId, hash) ?? hash}`);
@@ -83,6 +86,8 @@ export function RecoverTool() {
     } catch (e: any) {
       setMsg(null);
       setError(friendly(e));
+    } finally {
+      setRunning(false);
     }
   }
 
@@ -127,7 +132,7 @@ export function RecoverTool() {
           {original && w && safeAddress(original) !== w && <p className="err">That signer doesn&apos;t make this wallet.</p>}
           <button
             className="btn btn-green wide"
-            disabled={!w || !original || safeAddress(original) !== w}
+            disabled={running || !w || !original || safeAddress(original) !== w}
             onClick={() => original && run(SAFE_FACTORY, deploySafeCall(original).data, "Deploy")}
           >
             Deploy it from my wallet (I pay gas)
@@ -139,14 +144,14 @@ export function RecoverTool() {
         <b>1. Start the recovery</b>
         <AddressInput initial={q?.get("owner") ?? ""} onChange={setNewKey} placeholder="The owner's new key: 0x… or name.eth" chain={chainId} />
         {info?.mods.map((m, i) => (
-          <button key={m.module} className={`btn ${i === 0 && info.deployed && !due ? "btn-green" : ""} wide`} disabled={!startData || !info.deployed} onClick={() => startData && run(m.module, startData, "Start")}>
+          <button key={m.module} className={`btn ${i === 0 && info.deployed && !due ? "btn-green" : ""} wide`} disabled={running || !startData || !info.deployed} onClick={() => startData && run(m.module, startData, "Start")}>
             Start as {names(m.guardians, " or ")} ({RECOVERY_DAYS[m.module]} days)
           </button>
         ))}
         {startData && info?.mods.some(m => m.guardians.some(g => g.toLowerCase() === DAO.toLowerCase())) && (
           <button
             className="pill"
-            onClick={() => copy(`chain ${chainById(chainId)?.name} (${chainId})\nto ${info.mods.find(m => m.guardians.some(g => g.toLowerCase() === DAO.toLowerCase()))!.module}\nvalue 0\ndata ${startData}`)}
+            onClick={async () => setToast((await copy(`chain ${chainById(chainId)?.name} (${chainId})\nto ${info.mods.find(m => m.guardians.some(g => g.toLowerCase() === DAO.toLowerCase()))!.module}\nvalue 0\ndata ${startData}`)) ? "Copied" : "Couldn't copy")}
           >
             Copy as a Safe transaction (for the DAO)
           </button>
@@ -157,7 +162,7 @@ export function RecoverTool() {
         <b>2. Finish, after the wait</b>
         {pending.length ? (
           pending.map(m => (
-            <button key={m.module} className={`btn wide ${Date.now() >= m.executeAfter ? "btn-green" : ""}`} disabled={Date.now() < m.executeAfter || !finalizeData} onClick={() => finalizeData && run(m.module, finalizeData, "Finish")}>
+            <button key={m.module} className={`btn wide ${Date.now() >= m.executeAfter ? "btn-green" : ""}`} disabled={running || Date.now() < m.executeAfter || !finalizeData} onClick={() => finalizeData && run(m.module, finalizeData, "Finish")}>
               {Date.now() >= m.executeAfter ? "Finish the recovery" : `Ready ${when_(m.executeAfter)}`}
             </button>
           ))
@@ -169,6 +174,7 @@ export function RecoverTool() {
       </div>
       {msg && <p className="fine mono">{msg}</p>}
       {error && <ErrorLine text={error} />}
+      {toast && <div className="toast">{toast}</div>}
     </div>
   );
 }

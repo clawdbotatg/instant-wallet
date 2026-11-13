@@ -18,7 +18,7 @@ import {
   sessionWallet,
   takeBack,
   updateDrop,
-  usedCard,
+  usedCards,
   walletChallenge,
   walletLogin,
 } from "@/lib/drops";
@@ -33,11 +33,12 @@ export const maxDuration = 120; // take-back is two sends, each up to 25 s in li
  *   POST { op: "challenge" }                 → { message }  for a wallet login (atg.eth): sign it in any wallet
  *   POST { op: "login", wallet, message, signature } → { token }
  *   POST { op: "list", token }               → { drops: [{ ...drop, claimed, pot }], chains }
- *   POST { op: "get", token, id }            → { drop, claimed, pot: balances, codes: [{ code, used }], claims }
+ *   POST { op: "get", token, id }            → { drop, mine, claimed, pot: balances, codes: [{ code, used }], claims }
  *   POST { op: "create", token, drop }       → { drop }     NewDrop in lib/drops.ts
  *   POST { op: "set", token, id, paused?, ended?, minutes? } → { drop }
  *   POST { op: "price", token }              → { ethUsd }   Uniswap, Base
  *   POST { op: "takeback", token, id }       → { hashes }   everything left, to the logged-in wallet
+ * Any admin sees every drop; set and takeback are for the wallet that made it.
  */
 export async function POST(req: NextRequest) {
   const b = await req.json().catch(() => null);
@@ -63,34 +64,35 @@ export async function POST(req: NextRequest) {
       if (!d) throw new DropRefused("No such drop.", 404);
       return d;
     };
+    // any admin sees every drop; only the wallet that made one changes it or takes its money back
+    const mine = async () => {
+      const d = await one();
+      if (d.admin.toLowerCase() !== me.toLowerCase()) throw new DropRefused("Only the wallet that made this drop can change it.", 403);
+      return d;
+    };
     switch (b.op) {
       case "list": {
         const drops = await listDrops();
         return NextResponse.json({
           chains: DROP_CHAINS,
-          drops: await Promise.all(drops.map(async d => ({ ...d, claimed: await claimedCount(d.id), pot: potAddress(d.id) }))),
+          drops: await Promise.all(drops.map(async d => ({ ...d, mine: d.admin.toLowerCase() === me.toLowerCase(), claimed: await claimedCount(d.id), pot: potAddress(d.id) }))),
         });
       }
       case "get": {
         const d = await one();
         const codes = d.kind === "cards" ? await cardCodes(d.id) : [];
-        const [claimed, pot, log, used] = await Promise.all([
-          claimedCount(d.id),
-          potBalances(d),
-          claims(d.id),
-          Promise.all(codes.map(c => usedCard(c))),
-        ]);
-        return NextResponse.json({ drop: d, claimed, pot, claims: log, codes: codes.map((code, i) => ({ code, used: !!used[i] })) });
+        const [claimed, pot, log, used] = await Promise.all([claimedCount(d.id), potBalances(d), claims(d.id), usedCards(codes)]);
+        return NextResponse.json({ drop: d, mine: d.admin.toLowerCase() === me.toLowerCase(), claimed, pot, claims: log, codes: codes.map((code, i) => ({ code, used: used[i] })) });
       }
       case "create":
         return NextResponse.json({ drop: await createDrop(me, b.drop ?? {}) });
       case "set":
-        await one();
+        await mine();
         return NextResponse.json({ drop: await updateDrop(b.id, { paused: b.paused, ended: b.ended, minutes: b.minutes }) });
       case "price":
         return NextResponse.json({ ethUsd: await ethUsd(8453) });
       case "takeback":
-        return NextResponse.json({ hashes: await takeBack(await one(), me) });
+        return NextResponse.json({ hashes: await takeBack(await mine(), me) });
     }
     throw new DropRefused("unknown op");
   } catch (e: any) {

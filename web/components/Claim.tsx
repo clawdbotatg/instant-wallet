@@ -37,13 +37,14 @@ async function read(addr: Address): Promise<OnChain[]> {
   );
 }
 
-/** USDC: two signed transfers (all but the fee to `to`, the fee to the relay), the relay submits them. */
+/** USDC: two signed transfers (all but the fee to `to`, the fee to the relay), the relay submits them.
+ *  Less than the fee on this network: 0, it stays on the card (as claimEth does), and the other networks go on. */
 async function claimUsdc(key: Hex, chainId: number, balance: bigint, to: Address): Promise<bigint> {
   const c = CHAINS.find(x => x.id === chainId)!;
   const card = privateKeyToAccount(key);
   const q = await getQuote(chainId, "claim");
   const fee = BigInt(q.feeUsdc);
-  if (balance <= fee) throw new Error(`Only ${formatUnits(balance, 6)} USDC on ${c.name}: less than the network fee.`);
+  if (balance <= fee) return 0n;
   const pc = publicClient(chainId);
   const [name, version] = await Promise.all([
     pc.readContract({ address: c.usdc!, abi: usdc3009, functionName: "name" }),
@@ -201,6 +202,7 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
   const [busy, setBusy] = useState(false);
   const [sweeping, setSweeping] = useState(false); // past Face ID, the coins are moving: the progress bar runs
   const [done, setDone] = useState<number | null>(null); // the $ claimed
+  const [left, setLeft] = useState<{ chainId: number; usdc: bigint }[]>([]); // USDC under the fee: it stayed on the card
   const [error, setError] = useState<string | null>(null);
   const [xdai, setXdai] = useState(false); // xdai.io: an old Burner key or card becomes an Instant Wallet
 
@@ -222,8 +224,9 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
     setAccount(loadAccount());
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const over = done !== null;
   useEffect(() => {
-    if (!key) return;
+    if (!key || busy || over) return; // not while it's moving, not once it's done
     const addr = privateKeyToAccount(key).address;
     const load = () => {
       read(addr).then(setOnChain).catch(() => {});
@@ -244,7 +247,7 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
     load();
     const t = setInterval(() => document.hidden || load(), 5_000);
     return () => clearInterval(t);
-  }, [key]);
+  }, [key, busy, over]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // an old Burner key with nothing on it (once the token list is in too): straight on to the wallet
   const burnerEmpty =
@@ -310,8 +313,13 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
       for (const x of safesMovable) got += nativeValue(100, await sweepOldSafe(key, x.address, account.address));
       if (uni && !uniStuck) await claimUni(key, uni, account.address);
       const fresh = movable.length || nftsMovable.length || safesMovable.length || (uni && !uniStuck) ? await read(privateKeyToAccount(key).address) : onChain; // what gas left of the ETH
+      const dust: { chainId: number; usdc: bigint }[] = [];
       for (const c of fresh) {
-        if (c.usdc > 0n) got += Number(formatUnits(await claimUsdc(key, c.chainId, c.usdc, account.address), 6));
+        if (c.usdc > 0n) {
+          const moved = await claimUsdc(key, c.chainId, c.usdc, account.address);
+          if (moved === 0n) dust.push({ chainId: c.chainId, usdc: c.usdc }); // under the fee: skipped, the rest still moves
+          got += Number(formatUnits(moved, 6));
+        }
         if (c.eth > 0n) got += nativeValue(c.chainId, await claimEth(key, c.chainId, account.address));
       }
       if (burner && !stuck.length && !nftsStuck.length && !safesStuck.length && !uniStuck) retireBurnerKey(key); // still holding stuck tokens: the move screen comes back
@@ -319,6 +327,7 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
         try {
           sessionStorage.removeItem(STORE);
         } catch {}
+      setLeft(dust);
       setDone(got);
     } catch (e: any) {
       setError(friendly(e));
@@ -399,6 +408,11 @@ export function Claim({ burner }: { burner?: { key: Hex; onDone: () => void } } 
       <div className="app">
         <div className="welcome">
           {header}
+          {left.map(x => (
+            <p key={x.chainId} className="fine center">
+              {formatUnits(x.usdc, 6)} USDC on <Net chainId={x.chainId} /> stayed on the card: less than the network fee.
+            </p>
+          ))}
           {burner ? (
             <button className="btn btn-green wide" onClick={burner.onDone}>Open my wallet</button>
           ) : (

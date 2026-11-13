@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { type Address, type Hex, parseUnits } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { CHAINS } from "@/lib/chains";
@@ -34,12 +34,13 @@ function save(cards: Card[]) {
   } catch {}
 }
 const addrOf = (c: Card) => privateKeyToAccount(c.key).address;
-const holds = (b?: CardBalance) => !!b && (b.usdc > 0n || b.eth > 0n);
-const label = (b: CardBalance) => (b.usdc > 0n ? `$${fmtUsdc(b.usdc)}` : `${(Number(b.eth) / 1e18).toFixed(4)} ETH`);
+const holds = (b?: CardBalance) => !!b && (b.usdc > 0n || b.coins.length > 0);
+const label = (b: CardBalance) => (b.usdc > 0n ? `$${fmtUsdc(b.usdc)}` : b.coins.map(c => `${(Number(c.amount) / 1e18).toFixed(4)} ${c.coin}`).join(" + "));
 
 export function ClaimMaker() {
   const [cards, setCards] = useState<Card[] | null>(null);
   const [bal, setBal] = useState<Record<string, CardBalance>>({});
+  const balRef = useRef<Record<string, CardBalance>>({});
   const [toast, setToast] = useToast();
   const [nfc, setNfc] = useState(false);
   const [many, setMany] = useState<{ n: string; each: string } | null>(null);
@@ -55,8 +56,13 @@ export function ClaimMaker() {
   useEffect(() => {
     if (!cards?.length) return;
     const run = async () => {
-      const b = await cardBalances(cards.map(addrOf)).catch(() => null);
-      if (!b) return;
+      // a claimed card (it held money, now it's empty) is read once: a reload looks again
+      const seen = balRef.current;
+      const todo = cards.filter(c => !(c.funded && seen[addrOf(c)] && !holds(seen[addrOf(c)])));
+      if (!todo.length) return;
+      const got = await cardBalances(todo.map(addrOf)).catch(() => null);
+      if (!got) return;
+      const b = (balRef.current = { ...seen, ...got });
       setBal(b);
       // remember a card held money, so empty later = claimed (not "waiting for money")
       const newly = cards.filter(c => !c.funded && holds(b[addrOf(c)])).map(c => c.key);
@@ -110,7 +116,8 @@ export function ClaimMaker() {
   async function pdf(list: Card[]) {
     const ready = list.filter(c => stateOf(c) === "ready");
     if (!ready.length) return setToast("No ready cards yet");
-    await cardsPdf(ready.map(c => ({ url: claimUrl(window.location.origin, c.key), amount: label(bal[addrOf(c)]) })));
+    setError(null);
+    await cardsPdf(ready.map(c => ({ url: claimUrl(window.location.origin, c.key), amount: label(bal[addrOf(c)]) }))).catch(e => setError(`Couldn't make the PDF: ${e?.message || e}`));
   }
   async function fill(batch: string, list: Card[]) {
     const todo = list.filter(c => stateOf(c) === "empty");

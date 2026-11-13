@@ -111,6 +111,12 @@ export const usedCard = async (code: string): Promise<ClaimRecord | "pending" | 
   const v = await kv(["GET", `${P}u:${code}`]);
   return v === null ? null : v === "pending" ? "pending" : (JSON.parse(v) as ClaimRecord);
 };
+/** Which of these cards are used (or being claimed): one read, however many cards. */
+export const usedCards = async (codes: string[]): Promise<boolean[]> => {
+  const out: boolean[] = [];
+  for (let i = 0; i < codes.length; i += 250) out.push(...((await kv(["MGET", ...codes.slice(i, i + 250).map(c => `${P}u:${c}`)])) as (string | null)[]).map(v => v !== null));
+  return out;
+};
 export const walletClaimed = async (id: string, wallet: string) => (await kv(["GET", `${P}w:${id}:${wallet.toLowerCase()}`])) !== null;
 export const claims = async (id: string): Promise<ClaimRecord[]> => ((await kv(["LRANGE", `${P}log:${id}`, 0, -1])) as string[]).map(x => JSON.parse(x));
 
@@ -153,10 +159,11 @@ export async function createDrop(admin: Address, n: NewDrop): Promise<Drop> {
     if ((await kv(["SET", `${P}c:${code}`, d.id, "NX"])) !== "OK") throw new DropRefused(`The code ${code} is taken. Pick another.`);
     d.code = code;
   } else {
+    // 100 codes a write; a batch with a code that's taken (31^10 codes: about never) is drawn again
     const codes: string[] = [];
     while (codes.length < count) {
-      const c = newCode(10);
-      if ((await kv(["SET", `${P}c:${c}`, d.id, "NX"])) === "OK") codes.push(c);
+      const some = [...new Set(Array.from({ length: Math.min(100, count - codes.length) }, () => newCode(10)))];
+      if (Number(await kv(["MSETNX", ...some.flatMap(c => [`${P}c:${c}`, d.id])])) === 1) codes.push(...some);
     }
     for (let i = 0; i < codes.length; i += 100) await kv(["RPUSH", `${P}codes:${d.id}`, ...codes.slice(i, i + 100)]);
   }

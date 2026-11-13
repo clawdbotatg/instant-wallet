@@ -28,6 +28,7 @@ type Drop = {
 };
 type Detail = {
   drop: Drop;
+  mine: boolean; // this login made it: only then can it be changed or taken back
   claimed: number;
   pot: { address: Address; usdc: string; eth: string; feeUsdc: string; gasEth: string; ethUsd: number; each: string };
   codes: { code: string; used: boolean }[];
@@ -275,7 +276,8 @@ function DropCard({ id, toast, onClose }: { id: string; toast: (m: string) => vo
   async function pdf() {
     const unused = d!.codes.filter(c => !c.used);
     if (!unused.length) return toast("Every card is claimed");
-    await cardsPdf(unused.map(c => ({ url: dropUrl(origin, c.code), amount: dollars(drop) })));
+    setError(null);
+    await cardsPdf(unused.map(c => ({ url: dropUrl(origin, c.code), amount: dollars(drop) }))).catch(e => setError(`Couldn't make the PDF: ${e?.message || e}`));
   }
 
   return (
@@ -319,10 +321,10 @@ function DropCard({ id, toast, onClose }: { id: string; toast: (m: string) => vo
           <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
             <button className="btn btn-green" onClick={() => setPresent(true)}>Present</button>
             <CopyLink link={dropUrl(origin, drop.code!)} message="Link copied" label="Copy link" />
-            {[30, 60, 90].map(m => (
+            {d.mine && [30, 60, 90].map(m => (
               <button key={m} className="pill" onClick={() => act("time", "set", { minutes: m })} disabled={!!busy}>Close in {m} min</button>
             ))}
-            <button className="pill" onClick={() => act("time", "set", { minutes: 0 })} disabled={!!busy}>Never close</button>
+            {d.mine && <button className="pill" onClick={() => act("time", "set", { minutes: 0 })} disabled={!!busy}>Never close</button>}
           </div>
         </>
       )}
@@ -358,7 +360,8 @@ function DropCard({ id, toast, onClose }: { id: string; toast: (m: string) => vo
         </>
       )}
 
-      <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+      {!d.mine && <p className="fine">Made by another wallet: only it can change this drop or take the money back.</p>}
+      <div className="row" style={{ gap: 8, flexWrap: "wrap", display: d.mine ? undefined : "none" }}>
         {!drop.ended && (
           <button className="pill" onClick={() => act("pause", "set", { paused: !drop.paused })} disabled={!!busy}>
             {drop.paused ? "Resume" : "Pause"}

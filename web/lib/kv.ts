@@ -23,6 +23,17 @@ function memory(cmd: string[]): any {
       if (rest.includes("NX") && v !== undefined) return null;
       mem.set(k, { v: rest[0], until: rest.includes("EX") ? now + Number(rest[rest.indexOf("EX") + 1]) * 1000 : Infinity });
       return "OK";
+    case "MGET":
+      return cmd.slice(1).map(x => {
+        const e = mem.get(x);
+        return e && e.until > now ? e.v : null;
+      });
+    case "MSETNX": {
+      const kvs = cmd.slice(1);
+      for (let i = 0; i < kvs.length; i += 2) if ((mem.get(kvs[i])?.until ?? 0) > now) return 0;
+      for (let i = 0; i < kvs.length; i += 2) mem.set(kvs[i], { v: kvs[i + 1], until: Infinity });
+      return 1;
+    }
     case "DEL":
       return mem.delete(k) ? 1 : 0;
     case "INCR":

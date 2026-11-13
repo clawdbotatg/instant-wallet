@@ -22,7 +22,8 @@ const mc3 = parseAbi(["function getEthBalance(address) view returns (uint256)"])
 
 export const ETH_DUST = 50_000_000_000_000n; // 0.00005 ETH: less than it costs to move (the claim page leaves it)
 
-export type CardBalance = { usdc: bigint; eth: bigint; where: string };
+/** `coins`: the native coins on it, one total per coin (ETH on two networks is one ETH total; POL is its own). */
+export type CardBalance = { usdc: bigint; coins: { coin: string; amount: bigint }[]; where: string };
 
 /** Every card's USDC + ETH on every network: one multicall per network, however many cards. */
 export async function cardBalances(addrs: Address[]): Promise<Record<string, CardBalance>> {
@@ -51,7 +52,8 @@ export async function cardBalances(addrs: Address[]): Promise<Record<string, Car
     const where = rows
       .flatMap(p => [p.usdc > 0n && `${fmtUsdc(p.usdc)} USDC`, p.eth > 0n && `${(Number(p.eth) / 1e18).toFixed(5)} ${p.coin}`].filter(Boolean).map(x => `${x} on ${p.name}`))
       .join(", ");
-    out[a] = { usdc: rows.reduce((t, p) => t + p.usdc, 0n), eth: rows.reduce((t, p) => t + p.eth, 0n), where };
+    const coins = [...new Set(rows.filter(p => p.eth > 0n).map(p => p.coin))].map(coin => ({ coin, amount: rows.filter(p => p.coin === coin).reduce((t, p) => t + p.eth, 0n) }));
+    out[a] = { usdc: rows.reduce((t, p) => t + p.usdc, 0n), coins, where };
   });
   return out;
 }

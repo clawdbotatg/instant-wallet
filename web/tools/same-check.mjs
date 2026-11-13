@@ -20,7 +20,7 @@ const RULES = [
   { re: /"Sending( to the network)?…"/, say: "a tx on its way is 'Executing…', not 'Sending…'", skip: ["components/safe/Alerts.tsx", "components/safe/Join.tsx"] }, // a Telegram test; a key sent to the wallet's owner
   // every address is <Who> (Austin 11-11, twice). "// plain text:" on the line: a string no part can go in (the passkey's name in the phone)
   { re: /\bshort\((?!.*\/\/ plain text:)(?!.*from "@\/lib\/format")/, say: "a bare short address: use <Who> (flat: one line; or <Words> for one inside a sentence; a full address in an error's words)" },
-  { re: /<Blockie\b/, say: "a blockie placed by hand: use <Who>", skip: ["components/safe/SafeSend.tsx", "components/safe/Join.tsx", "components/safe/Keys.tsx", "components/safe/TxPage.tsx", "components/safe/WedgieButton.tsx"] },
+  { re: /<Blockie\b/, say: "a blockie placed by hand: use <Who>", skip: ["components/safe/Keys.tsx", "components/safe/TxPage.tsx", "components/safe/WedgieButton.tsx"] },
   { re: /\bmono\b[^>]*>\s*(new key )?\{(a|address|addr|resolved|to|owner|signer|safe|account\.\w+)\}/, say: "a bare full address: use <Who> (blockie, name)" },
   { re: /\.slice\(0, 6\)\}…/, say: "an address shortened by hand: use <Who>" },
   { re: /`\$\{(many \? )?`?\$\{n \+ 1\}\. /, say: "a tx step numbered by hand: its <SrcTag> mark goes there (kit MARKS)" },

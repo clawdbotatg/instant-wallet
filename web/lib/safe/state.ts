@@ -35,6 +35,9 @@ const GUARD_SLOT = keccak256(toHex("guard_manager.guard.address"));
 export const wedgieHome = (w: { x: Hex; y: Hex }): Address => signerAddress(w.x, w.y, 0x100n << 160n);
 /** The address to SHOW for an owner: a wedgie slot shows as the address on that wedgie's own screen (its blockie
  * must match the device), never its signer contract. Everything that draws an owner goes through this. */
+/** The address to SHOW for someone's passkey: the Instant Wallet it makes, the one they know (its blockie, its name),
+ * never its signer contract alone (Austin 11-12). Worked out from the key, never taken from what they send. */
+export const passkeyHome = (k: { x: Hex; y: Hex }): Address => safeAddress(signerAddress(k.x, k.y));
 export const shownAs = (owner: Address, st: Pick<ChainState, "wedgieHomes">): Address => st.wedgieHomes[owner.toLowerCase()] ?? owner;
 
 const KEY = "iws.account";
@@ -100,7 +103,7 @@ export function saveWalletName(address: Address, name: string | null) {
  * Signers this browser knows by name: people invited with their own passkey (components/safe/Join.tsx). A passkey
  * signer that's in here is someone else's Face ID, not the wedgie. Per wallet, this browser only.
  */
-export type SignerInfo = { name?: string; passkey?: boolean };
+export type SignerInfo = { name?: string; passkey?: boolean; wallet?: Address }; // wallet: their Instant Wallet (passkeyHome)
 export function loadSigners(safe: Address): Record<string, SignerInfo> {
   try {
     return JSON.parse(localStorage.getItem(`iws.signers.${safe.toLowerCase()}`) || "{}");

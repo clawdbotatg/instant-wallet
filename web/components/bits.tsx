@@ -94,15 +94,26 @@ export function useName(a?: string | null, chain?: number) {
  * An address, the same everywhere: its ENS avatar (else its blockie), its name over the short address. plain: the
  * blockie only, never an avatar (a wedgie: the picture must match its screen). label: a word over it instead of the
  * name (the name then sits beside the short address). flat: one line at the size of the words around it (a headline,
- * a button, under a QR code): the picture, then the name, else the short address.
+ * a button, under a QR code): the picture, then the name, else the short address. signer: someone else's passkey is
+ * shown as its Instant Wallet (`passkeyHome`); the signer contract that really signs is the small blockie on its corner.
  */
-export function Who({ address, chain, size = 22, plain, label, link, inline, flat }: { address: string; chain?: number; size?: number; plain?: boolean; label?: string; link?: string; inline?: boolean; flat?: boolean }) {
+export function Who({ address, chain, size = 22, plain, label, link, inline, flat, signer }: { address: string; chain?: number; size?: number; plain?: boolean; label?: string; link?: string; inline?: boolean; flat?: boolean; signer?: string }) {
   const { name, avatar } = useName(plain ? null : address, chain);
   const [bad, setBad] = useState(false);
-  const pic = avatar && !bad ? (
+  const face = avatar && !bad ? (
     <img className="blockie" src={avatar} width={size} height={size} alt="" style={{ objectFit: "cover" }} onError={() => setBad(true)} />
   ) : (
     <Blockie address={address} size={size} />
+  );
+  const pic = signer ? (
+    <span style={{ position: "relative", display: "inline-flex", flex: "none" }} title={`Signs as ${signer}`}>
+      {face}
+      <span style={{ position: "absolute", right: -5, bottom: -5 }}>
+        <Blockie address={signer} size={Math.max(12, Math.round(size * 0.5))} />
+      </span>
+    </span>
+  ) : (
+    face
   );
   const top = label ?? name;
   if (flat)

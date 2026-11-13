@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import type { Address, Hex } from "viem";
 import { createPasskey, bio } from "@/lib/passkey";
 import { signerAddress } from "@/lib/safe/core";
-import { loadAccount } from "@/lib/safe/state";
-import { Blockie, Who, stageLabel } from "../bits";
+import { loadAccount, passkeyHome } from "@/lib/safe/state";
+import { Who, stageLabel } from "../bits";
 import { ErrorLine } from "./WedgieButton";
 import { friendly } from "@/lib/friendly";
 import { signIn } from "./SafeWelcome";
@@ -22,7 +22,7 @@ export function Join() {
   const [name, setName] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<Address | null>(null);
+  const [done, setDone] = useState<{ wallet: Address; signer: Address } | null>(null);
   const mine = typeof window !== "undefined" ? loadAccount() : null;
 
   useEffect(() => {
@@ -51,7 +51,7 @@ export function Join() {
       const r = await fetch("/api/safe/invite", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ id, x, y, name: name.trim() || undefined }) });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j.error || `invite: ${r.status}`);
-      setDone(signerAddress(x, y));
+      setDone({ wallet: passkeyHome({ x, y }), signer: signerAddress(x, y) });
     } catch (e: any) {
       setError(friendly(e));
     } finally {
@@ -63,10 +63,15 @@ export function Join() {
     return (
       <div className="stack center">
         <h2>Sent</h2>
-        <Blockie address={done} size={64} />
+        {/* the wallet they know, not the signer contract (Austin 11-12) */}
+        <div className="row" style={{ justifyContent: "center" }}>
+          <Who address={done.wallet} size={56} />
+        </div>
         <p>
-          Your signer is <Who address={done} size={18} plain inline />. {inv?.from ?? "The wallet's owner"} adds it next. After that, you sign from the links they send
-          you, with this {bio()}.
+          {inv?.from ?? "The wallet's owner"} adds you next. After that, you sign from the links they send you, with this {bio()}.
+        </p>
+        <p className="fine">
+          You sign as <Who address={done.signer} size={14} plain inline />
         </p>
       </div>
     );

@@ -11,7 +11,7 @@ import { amount, short, feeText, usd } from "@/lib/format";
 import { DAO, FEE_ALLOWANCE, RECOVERY_14D, RECOVERY_60D, VERIFIERS } from "@/lib/safe/config";
 import { type Call, DEFAULT_BUDGET, abi, signerAddress, budgetCalls, deploySignerCall, feeAllowanceCalls, guardianListCalls, recoveryLayoutCalls, selfCall } from "@/lib/safe/core";
 import { type FeeToken, type Prepared, Shared, type Signer, finishOwners, getQuote, howSigns, ownerSigners, prepareOwners, signerLabel, usesWedgie } from "@/lib/safe/send";
-import { type ChainState, type SafeAccount, daoDays, loadSigners, loadWalletName, readChain, saveSigner, wedgieSigners, shownAs } from "@/lib/safe/state";
+import { type ChainState, type SafeAccount, type SignerInfo, daoDays, loadSigners, loadWalletName, passkeyHome, readChain, saveSigner, wedgieSigners, shownAs } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
 import { Net, AddressInput, BioIcon, BioSigner, Blockie, CopyAddress, CopyLink, PencilIcon, RemoveX, TimedBar, Who, copy, stageLabel } from "../bits";
@@ -263,6 +263,7 @@ export function Keys({
   // the edit is a draft: tap × to drop a signer, add any number, pick how many must sign; Save sends it all as
   // one transaction (Austin 10-28: remove someone and set the threshold together)
   type Add = { a: Address; key?: { x: Hex; y: Hex }; name?: string };
+  const known = (o: string) => loadSigners(account.address)[o.toLowerCase()] as SignerInfo | undefined; // a signer this browser added by invite
   const [drop, setDrop] = useState<string[]>([]); // lowercase
   const [adds, setAdds] = useState<Add[]>([]);
   const [need, setNeed] = useState<number | null>(null);
@@ -299,13 +300,13 @@ export function Keys({
       <span className="stack" style={{ gap: 4 }}>
         {gone.map(o => (
           <span key={o}>
-            Remove <Addr a={shownAs(o as Address, st!)} chainId={chainId} inline />
+            Remove {known(o)?.wallet ? <Addr a={known(o)!.wallet!} signer={o as Address} chainId={chainId} inline /> : <Addr a={shownAs(o as Address, st!)} chainId={chainId} inline />}
             {same(o as Address, account.burnerSigner) ? ` (this device's ${bio()})` : ""}
           </span>
         ))}
         {plus.map(x => (
           <span key={x.a}>
-            Add <Addr a={x.a} chainId={chainId} inline /> {x.name ?? ""}
+            Add {x.key ? <Addr a={passkeyHome(x.key)} signer={x.a} chainId={chainId} inline /> : <Addr a={x.a} chainId={chainId} inline />} {x.name ?? ""}
           </span>
         ))}
         <span>
@@ -341,7 +342,7 @@ export function Keys({
       },
       s => s.threshold === goal && gone.every(o => !s.owners.some(x => same(x, o as Address))) && plus.every(x => s.owners.some(o => same(o, x.a))),
       () => {
-        plus.filter(x => x.key).forEach(x => saveSigner(account.address, x.a, { name: x.name, passkey: true }));
+        plus.filter(x => x.key).forEach(x => saveSigner(account.address, x.a, { name: x.name, passkey: true, wallet: passkeyHome(x.key!) }));
         resetDraft();
       },
     );
@@ -485,10 +486,13 @@ export function Keys({
                   {/* a wedgie by the address on its own home screen */}
                   {howSigns(account, st, o) === "faceid" ? (
                     <BioSigner />
+                  ) : known(o)?.wallet ? (
+                    // someone else's passkey: their Instant Wallet, the signer contract on its corner
+                    <Addr a={known(o)!.wallet!} signer={o} name={known(o)!.name} chainId={chainId} />
                   ) : (
                     <Addr a={howSigns(account, st, o) === "wedgie" ? shownAs(o, st) : o} chainId={chainId} plain={howSigns(account, st, o) === "wedgie"} />
                   )}
-                  {howSigns(account, st, o) !== "faceid" && loadSigners(account.address)[o.toLowerCase()]?.name && <b>{loadSigners(account.address)[o.toLowerCase()].name}</b>}
+                  {howSigns(account, st, o) !== "faceid" && !known(o)?.wallet && known(o)?.name && <b>{known(o)!.name}</b>}
                   {howSigns(account, st, o) === "wedgie" && (
                     <button className="pill row" style={{ gap: 4 }} onClick={() => (setWedgieOpen(v => !v), setWedgieLook(null))} aria-expanded={wedgieOpen}>
                       <WedgieIcon size={26} />
@@ -518,8 +522,7 @@ export function Keys({
           {adds.map(x => (
             <div className="keyrow" key={x.a} style={{ padding: 0 }}>
               <span className="row" style={{ gap: 8 }}>
-                <Addr a={x.a} chainId={chainId} />
-                {x.name && <b>{x.name}</b>}
+                {x.key ? <Addr a={passkeyHome(x.key)} signer={x.a} name={x.name} chainId={chainId} /> : <Addr a={x.a} chainId={chainId} />}
                 <span className="fine">new</span>
               </span>
               <RemoveX onClick={() => setAdds(adds.filter(y => y !== x))} disabled={idle} label="Don't add" />
@@ -551,8 +554,7 @@ export function Keys({
                     <RemoveX onClick={() => dismiss(i.id)} label="Remove this invite" />
                     {who ? (
                       <span className="row" style={{ gap: 8 }}>
-                        <Addr a={who} chainId={chainId} />
-                        <b>{i.answer!.name ?? "Someone"}</b>
+                        <Addr a={passkeyHome(i.answer!)} signer={who} name={i.answer!.name} chainId={chainId} />
                         <button className="pill" onClick={() => stage({ a: who, key: { x: i.answer!.x, y: i.answer!.y }, name: i.answer!.name })} disabled={idle}>
                           Add
                         </button>
@@ -868,7 +870,7 @@ function Step({ title, done, children }: { title: React.ReactNode; done?: boolea
 }
 
 /** An address: blockie + short link (or its name) to the explorer (no chain chip: the chain is already picked above). inline: in a sentence */
-function Addr({ a, chainId, inline, name, plain }: { a: Address; chainId: number; inline?: boolean; name?: string; plain?: boolean }) {
+function Addr({ a, chainId, inline, name, plain, signer }: { a: Address; chainId: number; inline?: boolean; name?: string; plain?: boolean; signer?: Address }) {
   const url = explorerAddress(chainId, a);
-  return <Who address={a} chain={chainId} label={name} link={url ?? undefined} plain={plain} size={inline ? 18 : 22} inline={inline} />;
+  return <Who address={a} chain={chainId} label={name} link={url ?? undefined} plain={plain} size={inline ? 18 : 22} inline={inline} signer={signer} />;
 }

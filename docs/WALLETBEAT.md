@@ -11,6 +11,8 @@ This is a list of things we **could** do later. None of it is decided or schedul
   `lib/safe/raw.ts`.
 - **Sign-In with Ethereum** shown as a sign-in, red if the site or account doesn't match (ERC-4361).
 - **Recovery check:** every 90 days Home asks if you can still use your own recovery addresses. `RecoveryCheck`.
+- **Approvals screen** (another session, same day): Apps → Revoke shows and revokes ERC-20, collectible and Permit2
+  approvals. `components/safe/Revoke.tsx`. A real revoke hasn't been signed yet.
 
 ## Where we stand
 
@@ -18,7 +20,7 @@ Good: open source (MIT), clear signing with simulated coins, a hardware signer (
 addresses, your own node on every network, a standard Safe (opens in Safe{Wallet}), no analytics, no swap fee,
 EIP-5792 batches, ENS, one balance across 14 networks.
 
-Bad: no audit, no bug bounty, no private sends, no approvals screen, the DAO can replace your keys after 7 days by
+Bad: no audit, no bug bounty, no private sends, the DAO can replace your keys after 7 days by
 default, most sends need our relay, the passkey only works on instantwallet.io, our server sees IP and address
 together, no changelog or signed builds, only the wedgie as a direct hardware wallet, one address for every site,
 light client only on Ethereum and Gnosis and off by default.
@@ -37,7 +39,6 @@ light client only on Ethereum and Gnosis and off by default.
 
 ### Stage 1, things we can build
 
-- **Approvals screen:** see and revoke ERC-20 approvals (and NFTs for a full pass).
 - **Recovery without the DAO by default**, or an easy way to remove it. The DAO alone being able to replace the keys
   fails "no one can take your wallet".
 - **Private sends:** stealth addresses, Privacy Pools or Railgun. No listed wallet has this by default.

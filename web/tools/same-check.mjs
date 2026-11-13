@@ -96,6 +96,11 @@ for (const p of files) {
   if (/\/api\/names\?address/.test(src) && rel !== "components/safe/SafeApp.tsx") (bad++, console.log(`${rel}  a wallet's name read its own way: <Who> / useName decide it (its own ENS name first)`));
   if (/\/api\/ens\?name=/.test(src) && rel !== "components/safe/SafeApp.tsx" && !/NameMoved/.test(src)) (bad++, console.log(`${rel}  a name looked up with no <NameMoved>: say so when it points somewhere new`)); // SafeApp: ?watch, never paid
 }
+// a long list on Home shows a page of it (640px), then Show all (Austin 11-12: atg.eth's coins hid the positions)
+for (const p of files) {
+  const src = readFileSync(p, "utf8");
+  if (/"card (assets|nfts)\b/.test(src) && !/<Fold\b/.test(src)) (bad++, console.log(`${relative(root, p)}  a list card with no <Fold>: a page of it (640px), then Show all`));
+}
 // dark gray is the second choice (Austin 11-12): it sits beside a green, and Reject is never it.
 // <CopyLink>, Switch account and the invite link's copy are dark gray on their own.
 const DARK_OK = [SHARED, "components/Receive.tsx", "components/safe/Keys.tsx"];

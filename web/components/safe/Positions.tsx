@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { chainById } from "@/lib/chains";
 import { usd } from "@/lib/format";
 import type { Asset, Position } from "@/lib/types";
-import { Net } from "../bits";
+import { Fold, Net } from "../bits";
 
 const TYPE: Record<string, string> = { deposit: "Deposit", staked: "Staked", reward: "Reward", loan: "Loan", locked: "Locked" };
 
@@ -116,6 +116,7 @@ export function PositionList({
   if (!shown?.length) return null;
   return (
     <div className="card assets">
+      <Fold count={shown.length} rows>
       {shown.map(p => (
         <a key={p.id} className="asset" href={p.url} target="_blank" rel="noopener noreferrer">
           <div className="logo">{p.icon ? <img src={p.icon} alt="" /> : p.protocol.slice(0, 1)}</div>
@@ -130,6 +131,7 @@ export function PositionList({
           </div>
         </a>
       ))}
+      </Fold>
     </div>
   );
 }

@@ -11,7 +11,7 @@ import { loadHidden, loadPortfolio, loadShown, saveHidden, savePortfolio, saveSh
 import { dropOtherBudgetsCalls } from "@/lib/safe/core";
 import { type Prepared, Shared, finishOwners, ownerSigners, prepareOwners } from "@/lib/safe/send";
 import { friendly } from "@/lib/friendly";
-import { AppsIcon, Blockie, Net, DepositIcon, GearIcon, SendIcon, SendScanIcon, Sheet, sheetOpen, TokenIcon, TrashIcon, CopyLink, SiteRow, Who, named, useName, useToast } from "../bits";
+import { AppsIcon, Blockie, Net, DepositIcon, GearIcon, SendIcon, SendScanIcon, Fold, Sheet, sheetOpen, TokenIcon, TrashIcon, CopyLink, SiteRow, Who, named, useName, useToast } from "../bits";
 import { Receive } from "../Receive";
 import { onSending, sendingNow } from "@/lib/safe/sending";
 import { Deposit } from "./Deposit";
@@ -561,6 +561,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
 
         {(!portfolio || assets.length > 0 || hiddenAssets.length > 0) && <div className={portfolio && !fresh ? "card assets stale" : "card assets"}>
           {!portfolio && <div className="loading-bar row" />}
+          <Fold count={assets.length} rows>
           {assets.map(a => {
             const Row = isDust(a) ? "div" : "button";
             return (
@@ -588,6 +589,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
             </Row>
             );
           })}
+          </Fold>
           {hiddenAssets.length > 0 && (
             <button className="hidden-link fine" onClick={() => setShowHidden(!showHidden)}>
               {showHidden ? "Close" : `${hiddenAssets.length} hidden`}

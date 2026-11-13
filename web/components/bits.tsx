@@ -253,6 +253,38 @@ export function useSheetBack(back: (() => void) | null) {
  * the top, like an iOS sheet; mouse: drag the grab bar). A screen inside can make those go one step back
  * (useSheetBack).
  */
+/**
+ * A long list on Home (coins, positions, collectibles): about a page of it (640px, the biggest first), faded at
+ * the bottom, then "Show all N". A shorter list shows whole, no button (Austin 11-12: atg.eth's hundreds of coins
+ * pushed the positions a long scroll down). `rows`: the inner box lays its children out like `.assets`.
+ */
+export function Fold({ children, count, rows }: { children: React.ReactNode; count: number; rows?: boolean }) {
+  const MAX = 640;
+  const inner = useRef<HTMLDivElement>(null);
+  const [tall, setTall] = useState(false);
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    const el = inner.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setTall(el.scrollHeight > MAX + 60)); // a row or two over: just show them
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const folded = tall && !open;
+  return (
+    <>
+      <div className={folded ? "fold folded" : "fold"} style={folded ? { maxHeight: MAX } : undefined}>
+        <div ref={inner} className={rows ? "fold-rows" : undefined}>{children}</div>
+      </div>
+      {tall && (
+        <button className="hidden-link fine" onClick={() => setOpen(!open)}>
+          {open ? "Close" : `Show all ${count}`}
+        </button>
+      )}
+    </>
+  );
+}
+
 export function Sheet({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   const bgRef = useRef<HTMLDivElement>(null);

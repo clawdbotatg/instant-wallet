@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
 import { chainById } from "@/lib/chains";
 import { loadHiddenNfts, saveHiddenNfts } from "@/lib/store";
 import type { Nft } from "@/lib/types";
-import { Net, Sheet } from "../bits";
+import { Fold, Net, Sheet } from "../bits";
 
 /** The wallet's NFTs as a grid under the coins; tap one to see it big (a sheet). Hide works per collection. View only (no send yet). */
 export function NftGrid({ address }: { address: string }) {
@@ -56,7 +56,7 @@ export function NftGrid({ address }: { address: string }) {
   const isHidden = open && hidden.includes(keyOf(open));
   return (
     <div className="card nfts">
-      {shown.length > 0 && grid(shown)}
+      {shown.length > 0 && <Fold count={shown.length}>{grid(shown)}</Fold>}
       {hiddenOnes.length > 0 && (
         <button className="hidden-link fine" onClick={() => setShowHidden(!showHidden)}>
           {showHidden ? "Close" : `${hiddenOnes.length} hidden`}

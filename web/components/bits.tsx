@@ -261,6 +261,7 @@ export function useSheetBack(back: (() => void) | null) {
 export function Fold({ children, count, rows }: { children: React.ReactNode; count: number; rows?: boolean }) {
   const MAX = 640;
   const inner = useRef<HTMLDivElement>(null);
+  const outer = useRef<HTMLDivElement>(null);
   const [tall, setTall] = useState(false);
   const [open, setOpen] = useState(false);
   useEffect(() => {
@@ -273,11 +274,16 @@ export function Fold({ children, count, rows }: { children: React.ReactNode; cou
   const folded = tall && !open;
   return (
     <>
-      <div className={folded ? "fold folded" : "fold"} style={folded ? { maxHeight: MAX } : undefined}>
+      <div ref={outer} className={folded ? "fold folded" : "fold"} style={folded ? { maxHeight: MAX } : undefined}>
         <div ref={inner} className={rows ? "fold-rows" : undefined}>{children}</div>
       </div>
       {tall && (
-        <button className="hidden-link fine" onClick={() => setOpen(!open)}>
+        <button className="hidden-link fine" onClick={() => {
+          // Close, far down a long list: back up to its top, not wherever the shorter page lands
+          const top = outer.current?.getBoundingClientRect().top ?? 0;
+          if (open && top < 0) window.scrollBy({ top: top - 100 });
+          setOpen(!open);
+        }}>
           {open ? "Close" : `Show all ${count}`}
         </button>
       )}

@@ -18,6 +18,15 @@ export function relayer() {
   return a;
 }
 
+/**
+ * Drops' own key (DROP_RELAYER_PRIVATE_KEY), or null. With it, USDC drop claims go out from this address in their
+ * own line, so a crowd claiming doesn't slow the wallet's sends. Unset, or out of gas on a chain: the relay's key.
+ */
+export function dropRelayer() {
+  const pk = process.env.DROP_RELAYER_PRIVATE_KEY as Hex | undefined;
+  return pk ? privateKeyToAccount(pk) : null;
+}
+
 export function clients(chainId: number) {
   const info = chainById(chainId);
   const url = info && upstreamRpc(chainId);

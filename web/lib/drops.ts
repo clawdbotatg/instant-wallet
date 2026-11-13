@@ -1,7 +1,7 @@
 import "server-only";
 import { hkdf } from "@noble/hashes/hkdf.js";
 import { sha256 } from "@noble/hashes/sha2.js";
-import { type Address, type Hex, TransactionNotFoundError, TransactionReceiptNotFoundError, createPublicClient, encodeFunctionData, getAddress, http, keccak256, parseUnits, toHex } from "viem";
+import { type Address, type Hex, TransactionNotFoundError, TransactionReceiptNotFoundError, createPublicClient, createWalletClient, encodeFunctionData, getAddress, http, keccak256, parseUnits, toHex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { CHAINS, knownChain } from "./chains";
 import { AUTH_TYPES, type ClaimAuth, authCall, usdc3009 } from "./claim";
@@ -10,7 +10,7 @@ import { mustRpc } from "./rpcServer";
 import { MULTICALL3 } from "./safe/config";
 import { abi } from "./safe/core";
 import { GAS_BUDGET } from "./safe/fee";
-import { L1_ALLOWANCE, clients, nativeUsd, quote, tipFloor } from "./safe/relayCore";
+import { L1_ALLOWANCE, clients, dropRelayer, nativeUsd, quote, tipFloor } from "./safe/relayCore";
 import { NONCE_MEMORY, pickNonce, relaySend, withLock } from "./safe/relayGuard";
 
 /**
@@ -370,11 +370,16 @@ export const usdcFee = async (chainId: number) => BigInt((await quote(chainId, "
 /** How long a claim waits its turn to send. With the 45 s wait to land it stays well inside the routes' 120 s. */
 const CLAIM_WAIT = 25_000;
 
-/** USDC: the pot signs value → `to` and the fee → the relay; the relay submits both. "all" = everything but the fee. */
+/** USDC: the pot signs value → `to` and the fee → whoever submits (drops' own key, or the relay); that key submits both. "all" = everything but the fee. */
 export async function sendUsdc(chainId: number, key: Hex, to: Address, value: bigint | "all", opts?: { nonces?: [Hex, Hex]; onSend?: () => void }): Promise<Hex> {
-  const { info, pc, wc } = clients(chainId);
+  const { info, pc, wc: relay } = clients(chainId);
   const pot = privateKeyToAccount(key);
   const usdc = usdcOf(chainId);
+  // drops' own key sends it, in its own line (a crowd claiming doesn't slow the wallet's sends), while it has gas
+  // for about 20 claims on this chain; else the relay's key, as before
+  const own = dropRelayer();
+  const mine = !!own && (await pc.getBalance({ address: own.address }).catch(() => 0n)) > 20n * GAS_BUDGET.claim * (await pc.getGasPrice().catch(() => 0n)) + (chainId === 1 ? 0n : 20n * L1_ALLOWANCE);
+  const wc = mine ? createWalletClient({ chain: info.chain, transport: http(mustRpc(chainId)), account: own! }) : relay;
   const [q, bal] = await Promise.all([quote(chainId, "claim"), pc.readContract({ address: usdc, abi: abi.erc20, functionName: "balanceOf", args: [pot.address] }) as Promise<bigint>]);
   const fee = BigInt(q.feeUsdc);
   const v = value === "all" ? bal - fee : value;
@@ -426,6 +431,7 @@ export async function sendUsdc(chainId: number, key: Hex, to: Address, value: bi
       return wc.sendTransaction({ to: MULTICALL3, data, gas: (gas * 13n) / 10n, nonce, chain: info.chain, ...fees });
     },
     CLAIM_WAIT,
+    mine ? "drops" : undefined,
   );
   await landed(pc, hash).catch(async e => {
     // many claims at once each saw enough in the pot; the ones that ran it dry say so

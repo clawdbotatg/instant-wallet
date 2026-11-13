@@ -120,10 +120,11 @@ export const pickNonce = (pending: number, last: number | null) => (last !== nul
  * only: lag is a block or two. Remembered for long, a tx the network dropped leaves a gap, and every later send
  * on that chain waits behind it. After 10 s the next send takes the node's count, which fills the gap.
  * `count` and `send` come from the caller (its clients); a failed send is not remembered.
+ * `line`: another key's own line on that chain (drops' key), so it doesn't wait behind the relay's sends.
  */
-export function relaySend(chainId: number, who: Address, count: () => Promise<number>, send: (nonce: number) => Promise<Hex>, waitMs?: number): Promise<Hex> {
-  return withChainLock(
-    chainId,
+export function relaySend(chainId: number, who: Address, count: () => Promise<number>, send: (nonce: number) => Promise<Hex>, waitMs?: number, line?: string): Promise<Hex> {
+  return withLock(
+    line ? `lock:${chainId}:${line}` : `lock:${chainId}`,
     async () => {
       const k = `${P}nonce:${chainId}:${who.toLowerCase()}`;
       const [pending, last] = await Promise.all([

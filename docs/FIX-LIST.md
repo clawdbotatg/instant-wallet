@@ -53,8 +53,9 @@ Suggested first: 1, 3, 5, 12, 20.
   b. If the kv write of the nonce failed after an ETH claim went out, `claim()` released the code and it could be
      claimed again. Done: that write is best-effort.
   c. Dozens of claims at once got "The relay is busy" after 10 s. Done: a claim waits 25 s for its turn, and the
-     drop routes run 120 s, so a claim isn't killed mid-way. Not fixed: claims and normal sends still share one
-     lock per chain (the relay's nonce), so a big drop still slows sends on that chain.
+     drop routes run 120 s, so a claim isn't killed mid-way. Done 11-13: with
+     `DROP_RELAYER_PRIVATE_KEY` set (and funded), USDC claims go out from that key in their own line. Unset or out of
+     gas, they use the relay's key and share its line, as before.
 
 - [x] **6a. A claim killed mid-way holds its code for good.** Done 11-13: the hold has a time. After 150 s the
   next try checks the chain: paid = recorded, not paid again. Not paid = sent again in a way that can't pay twice

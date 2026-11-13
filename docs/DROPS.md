@@ -37,7 +37,10 @@ only pays a passkey wallet, so a code is worth nothing without making a wallet.
 
 - **Pot key:** each drop's key = HKDF(`DROP_SECRET`, drop id). Nothing stores a key. Lose `DROP_SECRET` = lose
   every pot's money: it's in Vercel (production, readable type) — keep a copy.
-- **USDC:** the pot signs two EIP-3009 transfers (amount → wallet, fee → relay); the relay submits them. The pot needs
+- **USDC:** the pot signs two EIP-3009 transfers (amount → wallet, fee → relay); the relay submits them. With
+  `DROP_RELAYER_PRIVATE_KEY` set, that key submits them and gets the fee, in its own line, so a crowd doesn't slow
+  the wallet's sends. It needs gas on the drop's network (`RELAYER=<its address> npx tsx tools/fund-relay.mts`);
+  with none, the relay's key is used. The pot needs
   no ETH.
 - **ETH:** the pot sends it and pays its own gas. One send at a time per pot. Amount = dollars ÷ the server's ETH
   price, the one the wallet's fees use (`nativeUsd` in `web/lib/safe/relayCore.ts`, kept a minute).

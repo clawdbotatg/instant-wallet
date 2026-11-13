@@ -34,6 +34,8 @@ const RULES = [
   { re: /<AddressInput[^>]*\bbare\b/, say: "<AddressInput> has no modes: every box takes a word alone" },
   // a network is its logo and its name, everywhere (Austin 11-12: Activity had the logo, a waiting tx didn't). An asset row is the one place without: its token icon has the badge
   { re: /(?<!\$)\{chainById\([^()]*\)\?\.name\b(?!.*\/\* (in the token icon|plain text:))|<ChainIcon\b.*\?\.name\b/, say: "a network's name drawn by hand: use <Net> (logo, then name)" },
+  // something new shows at once (Austin 11-12: Home re-read its waiting transactions every 5 minutes, for a limit that didn't apply)
+  { re: /setInterval\(.*,\s*(\d+\s*\*\s*60_?000|[4-9]\d_?000|\d{3,}_?000)\s*\)/, say: "a list re-read slower than every 30 s: something new shows within seconds" },
   { re: /inputMode="decimal"/, say: "an amount box by hand: use <AmountBox> (dollars first, switch to the coin)", skip: ["components/DropAdmin.tsx", "components/ClaimMaker.tsx"] }, // a drop's "dollars per claim" / "USDC on each": dollars only, no coin to switch to
 ];
 

@@ -51,6 +51,17 @@ only pays a passkey wallet, so a code is worth nothing without making a wallet.
   bound the loss. Cards can't be farmed.
 - **Storage:** Upstash Redis (`RELAY_KV_*`), keys `iws:drop:`. Layout in `web/lib/drops.ts`.
 
+## Before a big drop (not set up yet)
+
+USDC claims and the wallet's own sends go out from one key, one at a time per network. A big crowd drop makes
+normal sends on that network wait. Not done as of 11-13 (Austin: not now). Before a larger drop:
+
+1. Make a new key. Add it in Vercel as `DROP_RELAYER_PRIVATE_KEY`. Redeploy.
+2. Send it gas on the drop's network: `RELAYER=<its address> npx tsx tools/fund-relay.mts`.
+
+Then USDC claims go out from that key in their own line. The code is already live and falls back to the relay's
+key when the new key is unset or has no gas. It doesn't make the drop itself faster: claims still go one at a time.
+
 ## Env
 
 | var | what |

@@ -55,7 +55,8 @@ Suggested first: 1, 3, 5, 12, 20.
   c. Dozens of claims at once got "The relay is busy" after 10 s. Done: a claim waits 25 s for its turn, and the
      drop routes run 120 s, so a claim isn't killed mid-way. Done 11-13: with
      `DROP_RELAYER_PRIVATE_KEY` set (and funded), USDC claims go out from that key in their own line. Unset or out of
-     gas, they use the relay's key and share its line, as before.
+     gas, they use the relay's key and share its line, as before. The key is NOT set (Austin 11-13: not now): do it
+     before a larger drop, steps in `docs/DROPS.md`.
 
 - [x] **6a. A claim killed mid-way holds its code for good.** Done 11-13: the hold has a time. After 150 s the
   next try checks the chain: paid = recorded, not paid again. Not paid = sent again in a way that can't pay twice

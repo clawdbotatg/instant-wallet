@@ -53,7 +53,7 @@ Home shows "Waiting for signatures" from the merged queue, under the balance, wi
   signs or you share it from there (Austin, 10-28: "just gather their signature and take them to the queue";
   `signThenQueue`). A site (WalletConnect) still signs inline: it waits for the answer. Home: "Waiting for signatures" (our queue + this browser only: Safe's quota is shared).
 
-- Invites: Edit signers → Invite someone → a `/join#<id>` link (`components/safe/Join.tsx`, `/api/safe/invite`,
+- Invites: Edit signers → Copy an invite link (made and copied in the one tap) → a `/join#<id>` link (`components/safe/Join.tsx`, `/api/safe/invite`,
   7 days). The friend uses their passkey (or makes one); its public key comes back; "Add <name>" deploys their
   signer contract and adds it, per network. Named in this browser (`loadSigners`): an invited passkey shows as
   them, not the wedgie, and they sign from the link (`howSigns` → "friend"). On chain an invited passkey looks

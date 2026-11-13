@@ -246,13 +246,28 @@ export function Keys({
     return () => clearInterval(t);
   }, [waiting]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // makes the invite and copies its link in the one tap (it only made the row; the link had to be copied after)
   async function invite() {
     setErrorRaw(null);
-    try {
+    const made = (async () => {
       const r = await fetch("/api/safe/invite", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ safe: account.address, from: loadWalletName(account.address) ?? undefined }) });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || `invite: ${r.status}`);
       saveInvites([...invites, { id: j.id, at: Date.now() }]);
+      return `${location.origin}/join#${j.id}`;
+    })();
+    // Safari only lets a copy through while the tap is fresh: it gets the link as a promise, before the server answers
+    let copied = false;
+    try {
+      if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
+        await navigator.clipboard.write([new ClipboardItem({ "text/plain": made.then(l => new Blob([l], { type: "text/plain" })) })]);
+        copied = true;
+      }
+    } catch {}
+    try {
+      const link = await made;
+      if (!copied) copied = await copy(link);
+      toast(copied ? "Invite link copied. Send it to them." : "Invite made. Tap Copy link.");
     } catch (e: any) {
       setErrorRaw({ what: "invite", msg: friendly(e) });
     }
@@ -589,7 +604,7 @@ export function Keys({
               <p className="fine">
                 No address?{" "}
                 <a href="#" onClick={e => (e.preventDefault(), invite())}>
-                  Invite by link
+                  Copy an invite link
                 </a>
                 .
               </p>

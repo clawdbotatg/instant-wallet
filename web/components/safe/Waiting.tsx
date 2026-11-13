@@ -101,7 +101,11 @@ export function WaitingCards({
         .then((r) => live && setList(r.flat()))
         .catch(() => {});
     load();
-    const t = setInterval(load, 5 * 60_000);
+    // one made or signed on another device: here within seconds (Austin 11-12: this was every 5 minutes). Our own
+    // queue only (svc: false), so it costs Safe's quota nothing. And at once when the tab comes back.
+    const t = setInterval(() => document.hidden || load(), 10_000);
+    const back = () => document.hidden || load();
+    document.addEventListener("visibilitychange", back);
     // removed on its own page (TxPage): gone here too, no wait for the next load
     const dropped = (e: Event) => setList(l => l.filter(x => x.w.hash.toLowerCase() !== (e as CustomEvent<string>).detail));
     window.addEventListener("iw:txdropped", dropped);
@@ -121,6 +125,7 @@ export function WaitingCards({
       window.removeEventListener("iw:txshared", shared);
       live = false;
       clearInterval(t);
+      document.removeEventListener("visibilitychange", back);
       window.removeEventListener("iw:txdropped", dropped);
     };
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps

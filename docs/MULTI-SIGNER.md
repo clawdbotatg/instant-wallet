@@ -56,7 +56,11 @@ Home shows "Waiting for signatures" from the merged queue, under the balance, wi
 - Invites: Edit signers → Invite someone → a `/join#<id>` link (`components/safe/Join.tsx`, `/api/safe/invite`,
   7 days). The friend uses their passkey (or makes one); its public key comes back; "Add <name>" deploys their
   signer contract and adds it, per network. Named in this browser (`loadSigners`): an invited passkey shows as
-  them, not the wedgie, and they sign from the link (`howSigns` → "friend").
+  them, not the wedgie, and they sign from the link (`howSigns` → "friend"). On chain an invited passkey looks
+  exactly like a wedgie, so tapping Add asks for one Face ID first (`publishFriend`): the owner says "this key is a
+  person", `/api/safe/signers` keeps it, and the wallet's other devices read it (`syncFriends`, in `readChain`).
+  Never worked out from the chain: anyone can deploy the wallet a key makes, which would turn a real wedgie into
+  a "friend".
 
 ## Hard part
 

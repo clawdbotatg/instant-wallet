@@ -1,4 +1,4 @@
-import { type Address, type Hex, getAddress, keccak256, size, toBytes, toHex, zeroAddress } from "viem";
+import { type Address, type Hex, getAddress, isHex, keccak256, size, toBytes, toHex, zeroAddress } from "viem";
 import { CHAINS, codeOnce, publicClient } from "../chains";
 import { DAO, KEY_ETH, KEY_FEE_USDC, KEY_USDC, MULTICALL3, RECOVERY_14D, RECOVERY_60D, RECOVERY_7D, RECOVERY_DAYS, RECOVERY_MODULES } from "./config";
 import { abi, rolesAddress, safeAddress, signerAddress } from "./core";
@@ -138,6 +138,28 @@ export function saveSigner(safe: Address, signer: Address, info: SignerInfo) {
   } catch {}
 }
 
+// The invited signers an owner named on another device (app/api/safe/signers, signed with their Face ID): asked once
+// per page per wallet, then kept in this browser like one added here. A failed ask is tried again a minute later.
+const friendsAsked = new Map<string, Promise<void>>();
+export function syncFriends(safe: Address): Promise<void> {
+  const k = safe.toLowerCase();
+  let p = friendsAsked.get(k);
+  if (!p) {
+    p = fetch(`/api/safe/signers?safe=${safe}`)
+      .then(r => (r.ok ? r.json() : Promise.reject(new Error("friends"))))
+      .then(j => {
+        for (const f of Array.isArray(j?.friends) ? j.friends : []) {
+          if (!isHex(f?.x) || !isHex(f?.y) || f.x.length !== 66 || f.y.length !== 66) continue;
+          // the signer and the wallet are worked out from the key here, never taken from the answer
+          saveSigner(safe, rememberHome(f), { name: typeof f.name === "string" ? f.name.slice(0, 40) : undefined, passkey: true, wallet: passkeyHome(f) });
+        }
+      })
+      .catch(() => void setTimeout(() => friendsAsked.delete(k), 60_000));
+    friendsAsked.set(k, p);
+  }
+  return p;
+}
+
 export type Recovery = { newOwners: Address[]; newThreshold: number; executeAfter: number; approvals: number } | null;
 /** One enabled recovery module: who can recover, after how long, and its running request. */
 export type RecoveryOn = { module: Address; days: number; guardians: Address[] | null; request: Recovery };
@@ -275,7 +297,10 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
   const codes = await Promise.all(others.map(x => (slots.includes(x.toLowerCase()) ? (`0x${"00".repeat(PASSKEY_SIGNER_SIZE)}` as Hex) : codeOnce(chainId, x))));
   // (no catch there: a failed read once made a wedgie a browser wallet for a refresh: wrong level, wrong fee kind, "fee too low")
   const isPasskey = (i: number) => !!codes[i] && codes[i] !== "0x" && size(codes[i]!) === PASSKEY_SIGNER_SIZE;
-  const known = typeof window === "undefined" ? {} : loadSigners(safe);
+  // a passkey signer this browser doesn't know: another device may have invited them (else it reads as a wedgie)
+  const mine = () => (typeof window === "undefined" ? {} : loadSigners(safe));
+  if (typeof window !== "undefined" && others.some((x, i) => isPasskey(i) && !slots.includes(x.toLowerCase()) && !mine()[x.toLowerCase()]?.passkey)) await syncFriends(safe);
+  const known = mine();
   const friend = (x: Address) => !!known[x.toLowerCase()]?.passkey && !slots.includes(x.toLowerCase());
   const friends = others.filter((x, i) => isPasskey(i) && friend(x));
   const wedgieSlots = others.filter((x, i) => isPasskey(i) && !friend(x));

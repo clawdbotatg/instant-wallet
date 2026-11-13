@@ -19,6 +19,7 @@ import { Alerts } from "./Alerts";
 import { ChainSelect } from "./Pick";
 import { ChainLimit } from "./Limits";
 import { friendly } from "@/lib/friendly";
+import { publishFriend } from "@/lib/friends";
 import { ErrorLine, WedgieIcon, WedgiePanel } from "./WedgieButton";
 import { bio } from "@/lib/passkey";
 
@@ -266,6 +267,7 @@ export function Keys({
   const known = (o: string) => loadSigners(account.address)[o.toLowerCase()] as SignerInfo | undefined; // a signer this browser added by invite
   const [drop, setDrop] = useState<string[]>([]); // lowercase
   const [adds, setAdds] = useState<Add[]>([]);
+  const [telling, setTelling] = useState<string | null>(null); // the invite whose Add is waiting on Face ID
   const [need, setNeed] = useState<number | null>(null);
   const [inKey, setInKey] = useState(0); // remounts the address box after an add
   const resetDraft = () => {
@@ -555,8 +557,24 @@ export function Keys({
                     {who ? (
                       <span className="row" style={{ gap: 8 }}>
                         <Addr a={passkeyHome(i.answer!)} signer={who} name={i.answer!.name} chainId={chainId} />
-                        <button className="pill" onClick={() => stage({ a: who, key: { x: i.answer!.x, y: i.answer!.y }, name: i.answer!.name })} disabled={idle}>
-                          Add
+                        {/* one Face ID first: it tells this wallet's other devices they are a person, not a wedgie */}
+                        <button
+                          className="pill"
+                          disabled={idle || telling === i.id}
+                          onClick={async () => {
+                            setTelling(i.id);
+                            setErrorRaw(null);
+                            try {
+                              await publishFriend(account, i.answer!, i.answer!.name);
+                              stage({ a: who, key: { x: i.answer!.x, y: i.answer!.y }, name: i.answer!.name });
+                            } catch (e) {
+                              setErrorRaw({ what: "stage", msg: friendly(e) });
+                            } finally {
+                              setTelling(null);
+                            }
+                          }}
+                        >
+                          {telling === i.id ? stageLabel("signing") : "Add"}
                         </button>
                       </span>
                     ) : (

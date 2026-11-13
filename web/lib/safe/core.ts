@@ -10,6 +10,7 @@ import {
   keccak256,
   pad,
   parseAbi,
+  toBytes,
   toHex,
   zeroAddress,
 } from "viem";
@@ -123,6 +124,10 @@ export type Call = { to: Address; value: bigint; data: Hex };
 export type SafeTx = { to: Address; value: bigint; data: Hex; operation: Op; nonce: bigint };
 
 // ---------------------------------------------------------------- addresses
+
+/** What an owner's Face ID signs to say "this signer is a person I invited, not a wedgie" (app/api/safe/signers). */
+export const friendChallenge = (safe: Address, signer: Address, name: string, ts: number): Hex =>
+  keccak256(toBytes(`instant-wallet friend ${safe.toLowerCase()} ${signer.toLowerCase()} ${name} ${ts}`));
 
 /** The Safe passkey signer contract for a P-256 key + verifier setting: CREATE2, no RPC. */
 export function signerAddress(x: Hex | bigint, y: Hex | bigint, verifiers: bigint = VERIFIERS): Address {

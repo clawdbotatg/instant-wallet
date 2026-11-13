@@ -6,6 +6,10 @@ import type { SafeTxLike, SimAnswer } from "clear-signing-safe-kit";
  * its EVM on state the node PROVED (Merkle proofs against a block header the beacon chain's sync committee signed),
  * so the node can refuse to answer but can't lie about what the tx moves. Ethereum and Gnosis only: no other chain
  * of ours has a light client. Settings → your node → "Check it in this browser".
+ * Base: Helios (a16z) has an OP Stack light client, tried 11-13 and parked. Its public Base server
+ * (base.operationsolarstorm.org) answered 502, and our own build of its server joined 19 Base peers but got no signed
+ * block in 6 minutes. Speed would be fine: the proofs for one Safe tx on Base took 0.7 to 1.2 s from Alchemy.
+ * It also trusts Base's sequencer key, not Ethereum's validators.
  *
  * Reads go where the wallet's reads go (your node, else our proxy); block header proofs come from a Colibri prover
  * (theirs, or yours). VerifiedOnly: an answer that fails its proof throws, it never falls back to the plain answer.

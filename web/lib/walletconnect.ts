@@ -13,6 +13,7 @@ import {
   toHex,
   numberToHex,
 } from "viem";
+import { parseSiweMessage } from "viem/siwe";
 import { typedParts } from "./safe/raw";
 import { CHAINS, SENDABLE, publicClient } from "./chains";
 import { extRespond, isExt } from "./extension";
@@ -131,7 +132,17 @@ export type Dapp = { name: string; url: string; icon?: string };
 /** A request that needs the user: a batch of calls, or a message to sign. */
 export type Pending =
   | { kind: "calls"; id: number; topic: string; chainId: number; dapp: Dapp; calls: Call[]; method: string }
-  | { kind: "sign"; id: number; topic: string; chainId: number; dapp: Dapp; hash: Hex; preview: string; method: string; raw?: Hex; parts?: { domain: Hex; message: Hex } };
+  | { kind: "sign"; id: number; topic: string; chainId: number; dapp: Dapp; hash: Hex; preview: string; method: string; raw?: Hex; parts?: { domain: Hex; message: Hex }; siwe?: Siwe };
+
+/** A Sign-In with Ethereum message (ERC-4361), read from a personal_sign's text: shown as a sign-in, not as text. */
+export type Siwe = { domain: string; address: string; uri: string; chainId: number; statement?: string; expires?: string };
+
+export function siweOf(text: string | null): Siwe | undefined {
+  if (!text) return;
+  const m = parseSiweMessage(text);
+  if (!m.domain || !m.address || !m.uri || !m.version || !m.nonce || !m.chainId) return;
+  return { domain: m.domain, address: m.address, uri: m.uri, chainId: m.chainId, statement: m.statement, expires: m.expirationTime?.toISOString() };
+}
 
 const chainOf = (eip155: string) => Number(eip155.split(":")[1]);
 
@@ -220,7 +231,7 @@ export function toPending(topic: string, id: number, method: string, p: any[], c
       const msg = (isHex(p[0]) && p[0].length === 42 ? p[1] : p[0]) as Hex | string;
       const text = isHex(msg) ? tryUtf8(msg) : msg;
       const hash = hashMessage(isHex(msg) ? { raw: msg } : msg);
-      return { kind: "sign", id, topic, chainId, dapp, hash, preview: text ?? String(msg), method, raw: isHex(msg) ? msg : toHex(msg) };
+      return { kind: "sign", id, topic, chainId, dapp, hash, preview: text ?? String(msg), method, raw: isHex(msg) ? msg : toHex(msg), siwe: siweOf(text) };
     }
     case "eth_signTypedData":
     case "eth_signTypedData_v3":

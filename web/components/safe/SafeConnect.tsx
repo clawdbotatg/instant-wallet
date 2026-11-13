@@ -3,11 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { type Hash, formatUnits } from "viem";
 import { CHAINS, chainById, nativeSymbol } from "@/lib/chains";
-import { amount as fmtAmount, feeText } from "@/lib/format";
+import { amount as fmtAmount, feeText, when } from "@/lib/format";
 import { siteCalls, siteGas, signForSite } from "@/lib/safe/connect";
 import { type FeeToken, type Prepared, type Signer, type Stage, Shared, finishOwners, ownerSigners, prepareOwners, requote, signThenQueue, signerLabel, usesWedgie } from "@/lib/safe/send";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
-import { type Pending, remember, respond } from "@/lib/walletconnect";
+import { type Pending, type Siwe, remember, respond } from "@/lib/walletconnect";
 import { Net, Raw, Who, Words, stageLabel } from "../bits";
 import { messageRows } from "@/lib/safe/raw";
 import { ConnectLayer, DappHead, type Session } from "../WalletConnect";
@@ -214,6 +214,11 @@ function SafeRequest({
             <WhatItDoes chainId={pending.chainId} safe={account.address} calls={calls} signs={prepared?.t} />
           </div>
         )
+      ) : pending.siwe ? (
+        <>
+          <SignIn siwe={pending.siwe} site={pending.dapp.url} safe={account.address} />
+          <Raw rows={messageRows(pending.chainId, account.address, pending)} />
+        </>
       ) : (
         <>
           <h2>Sign this?</h2>
@@ -261,5 +266,28 @@ function SafeRequest({
         from <Who address={account.address} size={18} inline />
       </p>
     </div>
+  );
+}
+
+/**
+ * A Sign-In with Ethereum request (ERC-4361), shown as a sign-in: where to, the site's own line, when it ends.
+ * Red when it names another site than the one asking (a phishing page passing on a real site's sign-in), or another
+ * account than this wallet.
+ */
+function SignIn({ siwe, site, safe }: { siwe: Siwe; site: string; safe: string }) {
+  let host = "";
+  try {
+    host = site ? new URL(site).host.toLowerCase() : "";
+  } catch {}
+  const elsewhere = host && host !== siwe.domain.toLowerCase();
+  const other = siwe.address.toLowerCase() !== safe.toLowerCase();
+  return (
+    <>
+      <h2>Sign in to {siwe.domain}?</h2>
+      {elsewhere && <ErrorLine text={`This is a sign-in for ${siwe.domain}, but ${host} is asking.`} />}
+      {other && <ErrorLine text={`It names another account: ${siwe.address}`} />}
+      {siwe.statement && <p style={{ fontSize: 15 }}>“{siwe.statement}”</p>}
+      <p className="fine">Moves no money.{siwe.expires ? ` Ends ${when(siwe.expires)}.` : ""}</p>
+    </>
   );
 }

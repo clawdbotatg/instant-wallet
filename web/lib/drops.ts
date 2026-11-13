@@ -1,7 +1,7 @@
 import "server-only";
 import { hkdf } from "@noble/hashes/hkdf.js";
 import { sha256 } from "@noble/hashes/sha2.js";
-import { type Address, type Hex, createPublicClient, createWalletClient, encodeFunctionData, getAddress, http, parseUnits, toHex } from "viem";
+import { type Address, type Hex, TransactionNotFoundError, TransactionReceiptNotFoundError, createPublicClient, encodeFunctionData, getAddress, http, keccak256, parseUnits, toHex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { CHAINS, knownChain } from "./chains";
 import { AUTH_TYPES, type ClaimAuth, authCall, usdc3009 } from "./claim";
@@ -26,6 +26,7 @@ import { NONCE_MEMORY, pickNonce, relaySend, withLock } from "./safe/relayGuard"
  *   d:<id>        the drop (JSON)          list           every drop id
  *   c:<CODE>      its drop id              codes:<id>     a card drop's codes, in order
  *   u:<CODE>      a used card (JSON)       w:<id>:<addr>  a crowd claim, one per wallet
+ *                 (both: a ClaimRecord once paid, a Pending while a claim is on its way)
  *   n:<id>        claims so far            log:<id>       every claim (JSON)
  *   s:<token>     an admin's session       nonce:<chain>:<pot>  an ETH pot's last nonce
  */
@@ -48,7 +49,14 @@ export type Drop = {
   admin: Address;
   createdAt: number;
 };
-export type ClaimRecord = { code: string; wallet: Address; tx: Hex; at: number };
+export type ClaimRecord = { code: string; wallet: Address; tx?: Hex; at: number }; // no tx: found paid on a retry (USDC)
+/** A claim on its way. ETH: the pot nonce it took and every tx hash signed for it, saved before each is sent. */
+type Pending = { pending: number; wallet: Address; nonce?: number; hashes?: Hex[] };
+const pendingOf = (v: string | null): Pending | null => {
+  if (!v || v[0] !== "{") return null; // "pending" alone is an old one: no way to tell if it paid, so it stays held
+  const j = JSON.parse(v);
+  return typeof j.pending === "number" ? j : null;
+};
 
 export const DROP_CHAINS = [8453, 1].filter(id => CHAINS.some(c => c.id === id));
 export const decimals = (t: DropToken) => (t === "usdc" ? 6 : 18);
@@ -109,7 +117,7 @@ export const claimedCount = async (id: string) => Number((await kv(["GET", `${P}
 export const cardCodes = async (id: string): Promise<string[]> => kv(["LRANGE", `${P}codes:${id}`, 0, -1]);
 export const usedCard = async (code: string): Promise<ClaimRecord | "pending" | null> => {
   const v = await kv(["GET", `${P}u:${code}`]);
-  return v === null ? null : v === "pending" ? "pending" : (JSON.parse(v) as ClaimRecord);
+  return v === null ? null : v === "pending" || pendingOf(v) ? "pending" : (JSON.parse(v) as ClaimRecord);
 };
 /** Which of these cards are used (or being claimed): one read, however many cards. */
 export const usedCards = async (codes: string[]): Promise<boolean[]> => {
@@ -212,41 +220,121 @@ async function bump(key: string, ttl: number) {
   return Number(await kv(["INCR", P + key]));
 }
 
+/** A claim that hasn't finished after this long was killed (the routes run 120 s): the next try may take it over. */
+const STALE = () => (process.env.DROP_TEST && process.env.VERCEL_ENV !== "production" ? 2_000 : 150_000);
+
+/** A USDC claim's two EIP-3009 nonces come from its hold, so a second pay of the same claim reverts on chain. */
+const authNonces = (hold: string): [Hex, Hex] => [keccak256(toHex(`${hold}:pay`)), keccak256(toHex(`${hold}:fee`))];
+
+/** Did a claim that never finished pay? Its tx hash (USDC: true, the hash isn't known), or null. A failed read throws. */
+async function paid(d: Drop, hold: string, p: Pending): Promise<Hex | true | null> {
+  const { pc } = clients(d.chainId);
+  if (d.token === "usdc") {
+    const used = await pc.readContract({ address: usdcOf(d.chainId), abi: usdc3009, functionName: "authorizationState", args: [potAddress(d.id), authNonces(hold)[0]] });
+    return used ? true : null;
+  }
+  for (const hash of p.hashes ?? []) {
+    const tx = await pc.getTransaction({ hash }).catch(e => {
+      if (e instanceof TransactionNotFoundError) return null;
+      throw e;
+    });
+    if (!tx) continue;
+    const rc = await pc.getTransactionReceipt({ hash }).catch(e => {
+      if (e instanceof TransactionReceiptNotFoundError) return null; // known, not mined yet: it's on its way
+      throw e;
+    });
+    if (!rc || rc.status === "success") return hash;
+  }
+  return null;
+}
+
 /**
  * Pay one claim. The caller has checked the passkey. Reserve first (the card, or this wallet's crowd claim, and a
- * place under the cap), then send; a send that fails gives the reservation back, so a failure never burns a code
- * and a retry never pays twice.
+ * place under the cap), then send. A send that fails before anything went out gives the reservation back. One that
+ * may have gone out (or a claim killed mid-way) keeps it: the next try, 150 s on, checks the chain first, and
+ * pays only if the first one didn't and can't any more (USDC: the same nonces; ETH: the same pot nonce).
+ * `die` (tests only): stop like a killed function, just before or just after the send.
  */
-export async function claim(code: string, d: Drop, wallet: Address, ip: string): Promise<{ hash: Hex }> {
+export async function claim(code: string, d: Drop, wallet: Address, ip: string, die?: string): Promise<{ hash?: Hex }> {
   if ((await bump(`ip:${ip}`, 3600)) > 300) throw new DropRefused("Too many claims from here this hour.", 429);
   const why = closed(d, await claimedCount(d.id));
   if (why) throw new DropRefused(why, 410);
   const hold = d.kind === "cards" ? `${P}u:${code}` : `${P}w:${d.id}:${wallet.toLowerCase()}`;
-  if ((await kv(["SET", hold, "pending", "NX"])) !== "OK") {
-    if (d.kind === "crowd") throw new DropRefused("This wallet already claimed this one.", 409);
-    throw new DropRefused("This card was claimed already.", 410);
+  const again = d.kind === "crowd" ? new DropRefused("This wallet already claimed this one.", 409) : new DropRefused("This card was claimed already.", 410);
+  let now: Pending = { pending: Date.now(), wallet };
+  let old: Pending | null = null; // a claim that never finished, taken over
+  if ((await kv(["SET", hold, JSON.stringify(now), "NX"])) !== "OK") {
+    old = pendingOf(await kv(["GET", hold]));
+    if (!old) throw again;
+    const busy = new DropRefused("That claim is still on its way. Try again in a few minutes.", 409);
+    if (Date.now() - old.pending < STALE()) throw busy;
+    if ((await kv(["SET", `${hold}:retry`, 1, "NX", "EX", 150])) !== "OK") throw busy; // one retry at a time
+  } else {
+    const n = Number(await kv(["INCR", `${P}n:${d.id}`]));
+    if (d.kind === "crowd" && n > d.cap) {
+      await kv(["DEL", hold]);
+      await kv(["DECR", `${P}n:${d.id}`]);
+      throw new DropRefused("All gone: everyone already claimed this one.", 410);
+    }
   }
-  const n = Number(await kv(["INCR", `${P}n:${d.id}`]));
-  const release = async () => {
-    await kv(["DEL", hold]);
-    await kv(["DECR", `${P}n:${d.id}`]);
+  const done = async (rec: ClaimRecord) => {
+    await kv(["SET", hold, JSON.stringify(rec)]);
+    await kv(["RPUSH", `${P}log:${d.id}`, JSON.stringify(rec)]);
   };
-  if (d.kind === "crowd" && n > d.cap) {
-    await release();
-    throw new DropRefused("All gone: everyone already claimed this one.", 410);
-  }
-  let hash: Hex;
+  let sent = false; // true once a tx may be out: from then on the hold is kept
   try {
-    hash = d.token === "usdc" ? await sendUsdc(d.chainId, potKey(d.id), wallet, BigInt(d.amount)) : await sendEth(d.chainId, potKey(d.id), wallet, await weiOf(d));
-  } catch (e) {
-    await release();
-    throw e;
+    if (old) {
+      const was = await paid(d, hold, old);
+      if (was) {
+        await done({ code, wallet: old.wallet, ...(was === true ? {} : { tx: was }), at: old.pending });
+        if (old.wallet !== wallet) throw again;
+        return was === true ? {} : { hash: was };
+      }
+      now = { ...old, pending: Date.now(), wallet };
+      await kv(["SET", hold, JSON.stringify(now)]);
+    }
+    let hash: Hex;
+    if (d.token === "usdc") {
+      hash = await sendUsdc(d.chainId, potKey(d.id), wallet, BigInt(d.amount), {
+        nonces: authNonces(hold),
+        onSend: () => {
+          sent = true;
+          if (die === "before") throw new Killed();
+        },
+      });
+    } else {
+      hash = await sendEth(d.chainId, potKey(d.id), wallet, await weiOf(d), {
+        reuse: old?.nonce,
+        onSigned: async (h, nonce) => {
+          now = { ...now, nonce, hashes: [...(now.hashes ?? []), h] };
+          await kv(["SET", hold, JSON.stringify(now)]); // before the send: a killed claim's tx can be looked up
+          sent = true;
+          if (die === "before") throw new Killed();
+        },
+      });
+    }
+    if (die === "after") throw new Killed();
+    await done({ code, wallet, tx: hash, at: Date.now() });
+    return { hash };
+  } catch (e: any) {
+    if (e instanceof Killed) throw new Error("killed (test)");
+    if (e === again) throw e;
+    if (e?.reverted || (!sent && !old)) {
+      // it failed on chain, or nothing went out on a first try: the code is free again
+      await kv(["DEL", hold]);
+      await kv(["DECR", `${P}n:${d.id}`]);
+      throw e;
+    }
+    if (!sent) {
+      await kv(["SET", hold, JSON.stringify(old)]); // a take-over that sent nothing: the hold goes back as it was
+      throw e;
+    }
+    throw new DropRefused("That may have gone out. Try again in a few minutes.", 503);
+  } finally {
+    if (old) await kv(["DEL", `${hold}:retry`]).catch(() => {});
   }
-  const rec: ClaimRecord = { code, wallet, tx: hash, at: Date.now() };
-  await kv(["SET", hold, JSON.stringify(rec)]);
-  await kv(["RPUSH", `${P}log:${d.id}`, JSON.stringify(rec)]);
-  return { hash };
 }
+class Killed extends Error {}
 
 // ---------------------------------------------------------------- the ETH price
 
@@ -286,7 +374,7 @@ export const usdcFee = async (chainId: number) => BigInt((await quote(chainId, "
 const CLAIM_WAIT = 25_000;
 
 /** USDC: the pot signs value → `to` and the fee → the relay; the relay submits both. "all" = everything but the fee. */
-export async function sendUsdc(chainId: number, key: Hex, to: Address, value: bigint | "all"): Promise<Hex> {
+export async function sendUsdc(chainId: number, key: Hex, to: Address, value: bigint | "all", opts?: { nonces?: [Hex, Hex]; onSend?: () => void }): Promise<Hex> {
   const { info, pc, wc } = clients(chainId);
   const pot = privateKeyToAccount(key);
   const usdc = usdcOf(chainId);
@@ -300,8 +388,7 @@ export async function sendUsdc(chainId: number, key: Hex, to: Address, value: bi
     domains.set(chainId, (dom = { name, version }));
   }
   const validBefore = BigInt(Math.floor(Date.now() / 1000) + 3600);
-  const sign = async (dest: Address, amount: bigint): Promise<ClaimAuth> => {
-    const nonce = toHex(crypto.getRandomValues(new Uint8Array(32)));
+  const sign = async (dest: Address, amount: bigint, nonce: Hex = toHex(crypto.getRandomValues(new Uint8Array(32)))): Promise<ClaimAuth> => {
     const sig = await pot.signTypedData({
       domain: { name: dom.name, version: dom.version, chainId, verifyingContract: usdc },
       types: AUTH_TYPES,
@@ -320,7 +407,7 @@ export async function sendUsdc(chainId: number, key: Hex, to: Address, value: bi
       v: parseInt(sig.slice(130, 132), 16),
     };
   };
-  const auths = [await sign(to, v), await sign(wc.account.address, fee)];
+  const auths = [await sign(to, v, opts?.nonces?.[0]), await sign(wc.account.address, fee, opts?.nonces?.[1])];
   const data = encodeFunctionData({
     abi: abi.multicall3,
     functionName: "aggregate3",
@@ -337,27 +424,34 @@ export async function sendUsdc(chainId: number, key: Hex, to: Address, value: bi
     chainId,
     me,
     () => pc.getTransactionCount({ address: me, blockTag: "pending" }),
-    nonce => wc.sendTransaction({ to: MULTICALL3, data, gas: (gas * 13n) / 10n, nonce, chain: info.chain, ...fees }),
+    nonce => {
+      opts?.onSend?.();
+      return wc.sendTransaction({ to: MULTICALL3, data, gas: (gas * 13n) / 10n, nonce, chain: info.chain, ...fees });
+    },
     CLAIM_WAIT,
   );
   await landed(pc, hash).catch(async e => {
     // many claims at once each saw enough in the pot; the ones that ran it dry say so
     const now = (await pc.readContract({ address: usdc, abi: abi.erc20, functionName: "balanceOf", args: [pot.address] }).catch(() => 0n)) as bigint;
-    throw now < v + fee ? new DropRefused("The pot is empty. Ask whoever made this drop to top it up.", 410) : e;
+    throw now < v + fee ? Object.assign(new DropRefused("The pot is empty. Ask whoever made this drop to top it up.", 410), { reverted: true }) : e;
   });
   return hash;
 }
 
-/** ETH: the pot sends it and pays the gas. One send at a time per pot (its nonce). "all" = everything but the gas. */
-export async function sendEth(chainId: number, key: Hex, to: Address, value: bigint | "all"): Promise<Hex> {
-  const { info, pc } = clients(chainId);
+/**
+ * ETH: the pot sends it and pays the gas. One send at a time per pot (its nonce). "all" = everything but the gas.
+ * `onSigned` gets the tx's hash and nonce before it is sent (a throw there sends nothing). `reuse`: a nonce an
+ * earlier, unfinished send of the same claim took; while it's still open this send takes it too, so only one lands.
+ */
+export async function sendEth(chainId: number, key: Hex, to: Address, value: bigint | "all", opts?: { reuse?: number; onSigned?: (hash: Hex, nonce: number) => Promise<void> }): Promise<Hex> {
+  const { pc } = clients(chainId);
   const pot = privateKeyToAccount(key);
-  const wc = createWalletClient({ chain: info.chain, transport: http(mustRpc(chainId)), account: pot });
   const hash = await withLock(`pot:${chainId}:${pot.address}`, async () => {
-    const [f, bal, pending, last] = await Promise.all([
+    const [f, bal, pending, mined, last] = await Promise.all([
       tipped(pc, chainId, true),
       pc.getBalance({ address: pot.address }),
       pc.getTransactionCount({ address: pot.address, blockTag: "pending" }),
+      pc.getTransactionCount({ address: pot.address, blockTag: "latest" }),
       kv(["GET", `${P}nonce:${chainId}:${pot.address}`]),
     ]);
     // a Safe's receive() costs a little more than a plain address; an undeployed wallet is a plain address
@@ -366,8 +460,11 @@ export async function sendEth(chainId: number, key: Hex, to: Address, value: big
     const v = value === "all" ? bal - cost : value;
     if (v <= 0n || bal < v + cost) throw new DropRefused("The pot is empty. Ask whoever made this drop to top it up.", 410);
     // a load-balanced RPC can lag our own last send: never reuse a nonce (remembered 10 s only: see relaySend)
-    const nonce = pickNonce(pending, last === null ? null : Number(last));
-    const h = await wc.sendTransaction({ to, value: v, gas, nonce, chain: info.chain, maxFeePerGas: f.maxFeePerGas, maxPriorityFeePerGas: f.maxPriorityFeePerGas });
+    const nonce = opts?.reuse !== undefined && mined <= opts.reuse ? opts.reuse : pickNonce(pending, last === null ? null : Number(last));
+    const raw = await pot.signTransaction({ type: "eip1559", chainId, to, value: v, gas, nonce, maxFeePerGas: f.maxFeePerGas, maxPriorityFeePerGas: f.maxPriorityFeePerGas });
+    const h = keccak256(raw);
+    await opts?.onSigned?.(h, nonce);
+    await pc.sendRawTransaction({ serializedTransaction: raw });
     // it's sent: a failed write here must not throw, or claim() gives the code back and it pays twice
     await kv(["SET", `${P}nonce:${chainId}:${pot.address}`, nonce, "EX", NONCE_MEMORY]).catch(() => {});
     return h;
@@ -384,10 +481,10 @@ async function tipped(pc: ReturnType<typeof clients>["pc"], chainId: number, alw
   return { maxPriorityFeePerGas: tip, maxFeePerGas: f.maxFeePerGas - f.maxPriorityFeePerGas + tip };
 }
 
-/** Wait for it; a revert is a failed claim (the reservation goes back). A slow chain past the wait counts as sent. */
+/** Wait for it; a revert (marked `reverted`) is a failed claim: the reservation goes back. A slow chain past the wait counts as sent. */
 async function landed(pc: ReturnType<typeof clients>["pc"], hash: Hex) {
   const rc = await pc.waitForTransactionReceipt({ hash, timeout: 45_000 }).catch(() => null);
-  if (rc && rc.status !== "success") throw new Error("The transfer failed on chain. Try again.");
+  if (rc && rc.status !== "success") throw Object.assign(new Error("The transfer failed on chain. Try again."), { reverted: true });
 }
 
 export async function potBalances(d: Drop): Promise<{ address: Address; usdc: string; eth: string; feeUsdc: string; gasEth: string; ethUsd: number; each: string }> {

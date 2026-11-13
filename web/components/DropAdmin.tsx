@@ -32,7 +32,7 @@ type Detail = {
   claimed: number;
   pot: { address: Address; usdc: string; eth: string; feeUsdc: string; gasEth: string; ethUsd: number; each: string };
   codes: { code: string; used: boolean }[];
-  claims: { code: string; wallet: Address; tx: string; at: number }[];
+  claims: { code: string; wallet: Address; tx?: string; at: number }[]; // no tx: found paid on a retry
 };
 
 const dec = (t: Drop["token"]) => (t === "usdc" ? 6 : 18);
@@ -383,10 +383,10 @@ function DropCard({ id, toast, onClose }: { id: string; toast: (m: string) => vo
         <details>
           <summary className="fine">{d.claims.length} claims</summary>
           {[...d.claims].reverse().map(c => (
-            <div key={c.tx} className="row fine" style={{ justifyContent: "space-between", padding: "4px 0", gap: 8 }}>
+            <div key={`${c.code}${c.wallet}${c.at}`} className="row fine" style={{ justifyContent: "space-between", padding: "4px 0", gap: 8 }}>
               <Who address={c.wallet} chain={drop.chainId} size={18} inline />
               <span>{new Date(c.at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
-              {explorerTx(drop.chainId, c.tx) && <Eject href={explorerTx(drop.chainId, c.tx)!} />}
+              {c.tx && explorerTx(drop.chainId, c.tx) && <Eject href={explorerTx(drop.chainId, c.tx)!} />}
             </div>
           ))}
         </details>

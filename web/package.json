@@ -45,6 +45,6 @@
     "@walletconnect/sign-client": "^2.25.0",
     "playwright-core": "1.56",
     "tsx": "^4.23.15",
-    "typescript": "5.9"
+    "typescript": "5.8.2"
   }
 }

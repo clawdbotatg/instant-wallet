@@ -56,11 +56,11 @@ Suggested first: 1, 3, 5, 12, 20.
      drop routes run 120 s, so a claim isn't killed mid-way. Not fixed: claims and normal sends still share one
      lock per chain (the relay's nonce), so a big drop still slows sends on that chain.
 
-- [ ] **6a. A claim killed mid-way holds its code for good.** `lib/drops.ts` `claim`: the hold is
-  `SET "pending" NX` with no life and no log row. Much rarer now (routes run 120 s). A plain life on "pending"
-  risks a double pay. A safe way, to decide: USDC signs a nonce made from the code (a second pay reverts on
-  chain; `authorizationState` says if the first landed); ETH saves the pot nonce in the hold before sending and a
-  retry reuses it.
+- [x] **6a. A claim killed mid-way holds its code for good.** Done 11-13: the hold has a time. After 150 s the
+  next try checks the chain: paid = recorded, not paid again. Not paid = sent again in a way that can't pay twice
+  (USDC: the nonces come from the code; ETH: the tx hash is saved before the send and the retry takes the same
+  pot nonce). A send that may have gone out keeps the hold. Old plain "pending" holds stay held.
+  `tools/drop-check.mts` kills claims before and after the send.
 
 - [x] **7. `authorize` lets a replaced passkey back in when the RPC errors.**
   `lib/alerts.ts` `authorize`. A failed `getCode` reads as "not deployed"; if every chain the wallet lives on

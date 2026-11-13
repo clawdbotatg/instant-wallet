@@ -38,6 +38,25 @@ export const wedgieHome = (w: { x: Hex; y: Hex }): Address => signerAddress(w.x,
 /** The address to SHOW for someone's passkey: the Instant Wallet it makes, the one they know (its blockie, its name),
  * never its signer contract alone (Austin 11-12). Worked out from the key, never taken from what they send. */
 export const passkeyHome = (k: { x: Hex; y: Hex }): Address => safeAddress(signerAddress(k.x, k.y));
+// signer contract → the Instant Wallet its key makes, for every invited signer this browser has seen the key of.
+// A fact worked out from the key, so it is safe to keep: <Who> reads it and draws the wallet wherever the signer turns up.
+const HOMES = "iws.homes";
+export function homeOf(signer: string): Address | null {
+  try {
+    return JSON.parse(localStorage.getItem(HOMES) || "{}")[signer.toLowerCase()] ?? null;
+  } catch {
+    return null;
+  }
+}
+/** Remember an invited signer's wallet (from its key). Returns the signer contract's address. */
+export function rememberHome(k: { x: Hex; y: Hex }): Address {
+  const signer = signerAddress(k.x, k.y);
+  try {
+    const m = JSON.parse(localStorage.getItem(HOMES) || "{}");
+    if (!m[signer.toLowerCase()]) localStorage.setItem(HOMES, JSON.stringify({ ...m, [signer.toLowerCase()]: passkeyHome(k) }));
+  } catch {}
+  return signer;
+}
 export const shownAs = (owner: Address, st: Pick<ChainState, "wedgieHomes">): Address => st.wedgieHomes[owner.toLowerCase()] ?? owner;
 
 const KEY = "iws.account";

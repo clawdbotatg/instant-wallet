@@ -10,6 +10,7 @@ import { chainById } from "@/lib/chains";
 import { amount as fmtAmount, short, usd as fmtUsd, addressIn, nameIn } from "@/lib/format";
 import { movedFrom, nameTyped } from "@/lib/names";
 import { parse } from "@/lib/parse";
+import { homeOf } from "@/lib/safe/state";
 import { bio } from "@/lib/passkey";
 import { Scanner } from "./Scanner";
 
@@ -97,7 +98,13 @@ export function useName(a?: string | null, chain?: number) {
  * a button, under a QR code): the picture, then the name, else the short address. signer: someone else's passkey is
  * shown as its Instant Wallet (`passkeyHome`); the signer contract that really signs is the small blockie on its corner.
  */
-export function Who({ address, chain, size = 22, plain, label, link, inline, flat, signer }: { address: string; chain?: number; size?: number; plain?: boolean; label?: string; link?: string; inline?: boolean; flat?: boolean; signer?: string }) {
+export function Who({ address: given, chain, size = 22, plain, label, link, inline, flat, signer: givenSigner }: { address: string; chain?: number; size?: number; plain?: boolean; label?: string; link?: string; inline?: boolean; flat?: boolean; signer?: string }) {
+  // a passkey signer this browser knows the wallet of (an invited signer) is drawn as that wallet, wherever its
+  // address turns up: a row, a tx's words, the signing sheet. plain: the address itself, as given.
+  const [home, setHome] = useState<string | null>(null);
+  useEffect(() => setHome(plain || givenSigner ? null : homeOf(given)), [given, plain, givenSigner]);
+  const address = home ?? given;
+  const signer = givenSigner ?? (home ? given : undefined);
   const { name, avatar } = useName(plain ? null : address, chain);
   const [bad, setBad] = useState(false);
   const face = avatar && !bad ? (
@@ -124,7 +131,7 @@ export function Who({ address, chain, size = 22, plain, label, link, inline, fla
       </span>
     );
   const under = label && name && name !== label ? `${name} · ${short(address)}` : short(address);
-  const sub = link ? (
+  const sub = link && !home ? (
     <a className="mono fine" style={{ fontSize: 12 }} href={link} target="_blank" rel="noopener noreferrer">
       {under} ↗
     </a>
@@ -134,12 +141,18 @@ export function Who({ address, chain, size = 22, plain, label, link, inline, fla
     </span>
   );
   return (
-    <span className="row" style={inline ? { display: "inline-flex", gap: 6, minWidth: 0, verticalAlign: "middle" } : { gap: 8, minWidth: 0 }}>
+    <span className="row" style={inline ? { display: "inline-flex", gap: signer ? 9 : 6, minWidth: 0, verticalAlign: "middle" } : { gap: signer ? 11 : 8, minWidth: 0 }}>
       {pic}
-      {top ? (
+      {top || signer ? (
         <span className="stack" style={{ gap: 0, minWidth: 0 }}>
-          <span style={{ fontSize: 15, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis" }}>{top}</span>
+          {top && <span style={{ fontSize: 15, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis" }}>{top}</span>}
           {sub}
+          {/* the address that really signs, small: it is what a wedgie's screen and the chain show */}
+          {signer && (
+            <span className="mono fine" style={{ fontSize: 11 }}>
+              signs as {short(signer)}
+            </span>
+          )}
         </span>
       ) : (
         sub

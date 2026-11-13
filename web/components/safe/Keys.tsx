@@ -11,7 +11,7 @@ import { amount, short, feeText, usd } from "@/lib/format";
 import { DAO, FEE_ALLOWANCE, RECOVERY_14D, RECOVERY_60D, VERIFIERS } from "@/lib/safe/config";
 import { type Call, DEFAULT_BUDGET, abi, signerAddress, budgetCalls, deploySignerCall, feeAllowanceCalls, guardianListCalls, recoveryLayoutCalls, selfCall } from "@/lib/safe/core";
 import { type FeeToken, type Prepared, Shared, type Signer, finishOwners, getQuote, howSigns, ownerSigners, prepareOwners, signerLabel, usesWedgie } from "@/lib/safe/send";
-import { type ChainState, type SafeAccount, type SignerInfo, daoDays, loadSigners, loadWalletName, passkeyHome, readChain, saveSigner, wedgieSigners, shownAs } from "@/lib/safe/state";
+import { type ChainState, type SafeAccount, type SignerInfo, daoDays, loadSigners, loadWalletName, passkeyHome, readChain, rememberHome, saveSigner, wedgieSigners, shownAs } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
 import { Net, AddressInput, BioIcon, BioSigner, Blockie, CopyAddress, CopyLink, PencilIcon, RemoveX, TimedBar, Who, Words, copy, stageLabel } from "../bits";
@@ -547,7 +547,7 @@ export function Keys({
               />
               {error?.what === "stage" && <ErrorLine text={error.msg} />}
               {invites.map(i => {
-                const who = i.answer && signerAddress(i.answer.x, i.answer.y);
+                const who = i.answer && rememberHome(i.answer); // from here on <Who> draws this signer as their wallet, the signing sheet too
                 if (who && (st.owners.some(o => same(o, who)) || adds.some(x => same(x.a, who)))) return null;
                 return (
                   <div key={i.id} className="keyrow" style={{ padding: 0, justifyContent: "flex-start", gap: 8 }}>

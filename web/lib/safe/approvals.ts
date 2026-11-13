@@ -1,7 +1,9 @@
-import { type Address, type Hex, encodeFunctionData, getAddress, pad, parseAbi, toEventSelector, zeroAddress } from "viem";
+import { type Address, type Hex, decodeFunctionData, encodeFunctionData, getAddress, pad, parseAbi, toEventSelector, zeroAddress } from "viem";
 import { publicClient } from "../chains";
 import { MULTICALL3 } from "./config";
 import type { Call } from "./core";
+import { callsOf } from "./describe";
+import { SAFE_SVC } from "./share";
 
 /**
  * Who can spend this wallet's coins (the Revoke app). Found from the chain alone: every Approval log naming this
@@ -58,23 +60,62 @@ async function logs(chainId: number, owner: Address, topic0: Hex, address?: Addr
 
 const at = (t: Hex) => getAddress(`0x${t.slice(26)}`);
 
-/** Everything that can still spend from `owner` on this network, the biggest danger first (any amount). */
-export async function findApprovals(chainId: number, owner: Address): Promise<Approval[]> {
+type Pair = { kind: Approval["kind"]; token: Address; spender: Address };
+
+/** The (coin, spender) pairs ever approved, from the logs: one ask per kind over the whole history (Alchemy answers
+ * up to 10K logs at once). Throws on a network whose node caps a log ask at 10K blocks (Gnosis, Avalanche, …). */
+async function fromLogs(chainId: number, owner: Address): Promise<Pair[]> {
   const [a, f, pa, pp] = await Promise.all([
     logs(chainId, owner, T_APPROVAL),
     logs(chainId, owner, T_FOR_ALL),
     logs(chainId, owner, T_P2_APPROVAL, PERMIT2),
     logs(chainId, owner, T_P2_PERMIT, PERMIT2),
   ]);
-  const pairs = new Map<string, { kind: Approval["kind"]; token: Address; spender: Address }>();
-  const add = (kind: Approval["kind"], token: Address, spender: Address) => {
-    if (spender === zeroAddress) return;
-    pairs.set(`${kind}:${token}:${spender}`.toLowerCase(), { kind, token, spender });
-  };
+  const out: Pair[] = [];
   // an ERC-20's Approval has 3 topics; an ERC-721's has 4 (one token, cleared when it moves): skipped
-  for (const l of a) if (l.topics.length === 3) add("coin", getAddress(l.address), at(l.topics[2]));
-  for (const l of f) if (l.topics.length === 3) add("nft", getAddress(l.address), at(l.topics[2]));
-  for (const l of [...pa, ...pp]) if (l.topics.length === 4) add("permit2", at(l.topics[2]), at(l.topics[3]));
+  for (const l of a) if (l.topics.length === 3) out.push({ kind: "coin", token: getAddress(l.address), spender: at(l.topics[2]) });
+  for (const l of f) if (l.topics.length === 3) out.push({ kind: "nft", token: getAddress(l.address), spender: at(l.topics[2]) });
+  for (const l of [...pa, ...pp]) if (l.topics.length === 4) out.push({ kind: "permit2", token: at(l.topics[2]), spender: at(l.topics[3]) });
+  return out;
+}
+
+/** The same from the wallet's own executed transactions (Safe's service), where the logs can't be asked: every
+ * approve, setApprovalForAll and Permit2 approve in them, batches opened up. A Permit2 signature (no tx) isn't seen. */
+async function fromSafeTxs(chainId: number, owner: Address): Promise<Pair[]> {
+  if (!SAFE_SVC[chainId]) throw new Error("Can't list them on this network yet.");
+  const out: Pair[] = [];
+  let path: string | null = `safes/${owner}/multisig-transactions/?executed=true&limit=100`;
+  for (let page = 0; path && page < 3; page++) {
+    const r = await fetch(`/api/safe/svc?u=${encodeURIComponent(`${SAFE_SVC[chainId].key}/api/v1/${path}`)}`);
+    if (!r.ok) throw new Error("Safe's service didn't answer. Try again later.");
+    const j: any = await r.json();
+    for (const t of j.results ?? []) {
+      if (!t.data) continue;
+      for (const c of callsOf({ to: getAddress(t.to), value: BigInt(t.value ?? 0), data: t.data, operation: Number(t.operation) as 0 | 1 })) {
+        const sel = c.data.slice(0, 10).toLowerCase();
+        try {
+          if (sel === "0x095ea7b3") out.push({ kind: "coin", token: c.to, spender: decodeFunctionData({ abi, data: c.data }).args![0] as Address });
+          else if (sel === "0xa22cb465") out.push({ kind: "nft", token: c.to, spender: decodeFunctionData({ abi, data: c.data }).args![0] as Address });
+          else if (sel === "0x87517c45" && c.to.toLowerCase() === PERMIT2.toLowerCase()) {
+            const [token, spender] = decodeFunctionData({ abi: p2, data: c.data }).args as unknown as [Address, Address];
+            out.push({ kind: "permit2", token, spender });
+          }
+        } catch {}
+      }
+    }
+    path = j.next ? String(j.next).split("/api/v1/")[1] ?? null : null;
+  }
+  return out;
+}
+
+/** Everything that can still spend from `owner` on this network, the biggest danger first (any amount). */
+export async function findApprovals(chainId: number, owner: Address): Promise<Approval[]> {
+  const found = await fromLogs(chainId, owner).catch(e => {
+    if (/block range/i.test(String(e?.details ?? e?.message ?? e))) return fromSafeTxs(chainId, owner);
+    throw e;
+  });
+  const pairs = new Map<string, Pair>();
+  for (const p of found) if (p.spender !== zeroAddress) pairs.set(`${p.kind}:${p.token}:${p.spender}`.toLowerCase(), { ...p, token: getAddress(p.token), spender: getAddress(p.spender) });
   const list = [...pairs.entries()];
   if (!list.length) return [];
 

@@ -810,6 +810,16 @@ export function Keys({
       <button className="btn btn-green wide" onClick={() => onShare(chainId)}>
         Share crypto on <Net chainId={chainId} />
       </button>
+
+      {/* the whole wallet on your own computer, if this site is ever gone: README "Run it fully local" */}
+      <a
+        className="btn btn-dark wide"
+        href="https://github.com/clawdbotatg/instant-wallet#run-it-fully-local-if-instantwalletio-is-gone"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        Fork and run locally
+      </a>
     </div>
   );
 }

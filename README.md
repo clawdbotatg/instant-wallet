@@ -20,6 +20,46 @@ A wallet you make in seconds with Face ID. No seed phrase. Live at https://insta
 Put `ALCHEMY_API_KEY` in `web/.env.local`. The rest of the env: `web/README.md`.
 Push to main deploys (Vercel, root `web/`). Before pushing a UI change: `node web/tools/same-check.mjs`.
 
+## Run it fully local (if instantwallet.io is gone)
+
+Your passkey only signs on instantwallet.io. So you run the app on your own computer under that name.
+Mac, desktop Chrome or Safari. Being tested now. The plan and what doesn't work yet: `docs/LOCAL-MODE.md`.
+
+1. Install mkcert and trust its certificate (asks for your password):
+
+       brew install mkcert
+       mkcert -install
+
+2. Make a certificate for instantwallet.io:
+
+       mkdir -p ~/.instantwallet-local && cd ~/.instantwallet-local
+       mkcert instantwallet.io
+
+3. Point instantwallet.io at your computer (asks for your password):
+
+       echo "127.0.0.1 instantwallet.io" | sudo tee -a /etc/hosts
+       sudo dscacheutil -flushcache
+
+4. Build and run the app. Put your own free Alchemy key (dashboard.alchemy.com) in `web/.env.local` as
+   `ALCHEMY_API_KEY=...` first.
+
+       cd web
+       npm install
+       npm run build
+       npx next start -p 3000
+
+5. In a second terminal, serve it on https:
+
+       cd ~/.instantwallet-local
+       npx local-ssl-proxy --source 443 --target 3000 --cert instantwallet.io.pem --key instantwallet.io-key.pem
+
+6. Open https://instantwallet.io and sign in with your passkey.
+
+To go back to the real site: delete the `instantwallet.io` line from `/etc/hosts`
+(`sudo sed -i '' '/instantwallet.io/d' /etc/hosts`), then `sudo dscacheutil -flushcache`.
+
+mkcert's root certificate can vouch for any site on your computer. Its key never leaves your computer.
+
 ## Read
 
 - `EXPECTATIONS.md`: what the wallet must always do. Read it first.

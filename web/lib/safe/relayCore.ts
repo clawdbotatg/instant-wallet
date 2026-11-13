@@ -10,7 +10,7 @@ import { RELAY } from "@/lib/safe/describe";
 
 export function relayer() {
   const pk = process.env.RELAYER_PRIVATE_KEY as Hex | undefined;
-  if (!pk) throw new Error("No relay here. On your own computer: npm run relay-key (README, Run it fully local).");
+  if (!pk) throw new Error("No relay here: make yours in Settings → Your relay.");
   const a = privateKeyToAccount(pk);
   // the wallet (and the wedgie's fee rule) reads a payment to RELAY as the fee. A key for another address would
   // make every fee read as a plain send: stop here, not after people sign. (A fork or a test runs its own key.)

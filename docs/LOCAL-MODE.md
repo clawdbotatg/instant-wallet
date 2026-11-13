@@ -61,8 +61,8 @@ with a passkey made on the real site. If it does, everything below is plumbing.
    instead (`lib/kv.ts`: one JSON file, same commands).
 3. **A "Local" mark** in the app, so you know it's your copy. `/api/version` says `local: true`.
 4. **Hide what can't work locally**: Deposit, alerts, new inst.eth names, drops. Hidden, not broken.
-5. **Your own relay**: done as `npm run relay-key` (`web/tools/relay-key.mjs`): makes the key in `.env.local`, prints its
-   address and balances. Still to do: a "Fund your relay" line in the app.
+5. **Your own relay**: done. Settings → Your relay (only on a local copy, `components/safe/LocalRelay.tsx`,
+   `app/api/local/relay`), or `npm run relay-key`. Makes the key in `.env.local`, shows its address and balances.
 6. **Offline words**: bundle the descriptors in the build, so `/api/explain` doesn't need GitHub.
 7. **A doc for the day instantwallet.io is gone**: three commands, written for a normal person. Linked from the
    footer and the README.

@@ -52,15 +52,11 @@ newer (`brew install node`) and this repo:
        cd ~/instant-wallet/web
        echo "ALCHEMY_API_KEY=YOUR_KEY" > .env.local
        npm install
-       npm run relay-key
        npm run build
        npx next start -p 3000
 
    Leave it running.
 
-   `npm run relay-key` makes your own relay: a key saved in `.env.local` that pays the gas for your sends. It shows
-   the relay's address. Send it a little ETH on each network you use (Base: $1 is plenty, Ethereum: about $5). Each
-   send's fee goes back to it, so you only pay the gas. Run it again any time to see its balance.
 
 5. In a second terminal, serve it on https:
 
@@ -69,6 +65,11 @@ newer (`brew install node`) and this repo:
 
 6. Open https://local.instantwallet.io, tap "I already have one" and use your passkey. Your wallet opens.
 
+7. Make your relay: Settings, at the bottom, **Your relay** → **Make my relay**. It pays the gas for your sends (our
+   site's relay did that before). It shows its address: send it a little ETH on each network you use (Base: $1 is
+   plenty, Ethereum: about $5). Each send's fee goes back to it, so you only pay the gas. Its key is saved in
+   `web/.env.local` on your computer. (Or from the terminal: `npm run relay-key` in `web`.)
+
 If it doesn't work:
 
 - **"This site can't be reached"**: the hosts line is missing. Check with `cat /etc/hosts`; redo step 3.
@@ -76,7 +77,7 @@ If it doesn't work:
   Terminal app (it needs your password, and a box may pop up), then reload. Check it with
   `security verify-cert -c ~/.instantwallet-local/local.instantwallet.io.pem -p ssl -s local.instantwallet.io`:
   a line about "signed certificate timestamps" is fine; "not trusted" is not.
-- **"No relay here"** when you sign: run `npm run relay-key` in `web`, then restart step 4.
+- **"No relay here"** when you sign: do step 7. **"insufficient funds"**: your relay needs ETH on that network.
 - **Nothing loads**: steps 4 and 5 must both still be running, each in its own Terminal window.
 - **The passkey isn't offered**: use the browser where you made the wallet, or one with the same iCloud or Google
   passwords.

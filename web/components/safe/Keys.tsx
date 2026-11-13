@@ -2,6 +2,7 @@
 
 import { recoveryChecked } from "./RecoveryAlert";
 import { RpcSetting } from "./RpcSetting";
+import { LocalRelay } from "./LocalRelay";
 import { SimSetting } from "./SimSetting";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { type Address, type Hex, encodeFunctionData, formatUnits, zeroAddress } from "viem";
@@ -810,6 +811,8 @@ export function Keys({
       <button className="btn btn-green wide" onClick={() => onShare(chainId)}>
         Share crypto on <Net chainId={chainId} />
       </button>
+
+      <LocalRelay />
 
       {/* the whole wallet on your own computer, if this site is ever gone: README "Run it fully local" */}
       <a

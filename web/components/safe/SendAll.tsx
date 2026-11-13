@@ -23,7 +23,7 @@ import {
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { Net, AddressInput, Eject, Money, TokenIcon, stageLabel } from "../bits";
+import { Net, AddressInput, DoneBar, ExecutedLine, Money, TokenIcon, stageLabel } from "../bits";
 import { friendly } from "@/lib/friendly";
 import { Progress } from "./Progress";
 import { ErrorLine } from "./WedgieButton";
@@ -235,9 +235,7 @@ export function SendAll({
             {r.prepared?.opts.self && <span className="fine">No fee. Your browser wallet executes it and pays the gas.</span>}
             {r.error && <ErrorLine text={r.error} />}
             {r.stage === "done" ? (
-              <p className="fine row" style={{ gap: 8, justifyContent: "space-between" }}>
-                ✓ Executed {url && <Eject href={url} />}
-              </p>
+              <ExecutedLine href={url} />
             ) : (
               <button
                 className="btn btn-green wide"
@@ -261,9 +259,8 @@ export function SendAll({
           </div>
         );
       })}
-      <button className="btn wide" onClick={onDone}>
-        Done
-      </button>
+      {/* Done is for a finished screen: once something ran and nothing is still running */}
+      {Object.values(rows).some(r => r?.stage === "done") && !Object.values(rows).some(r => r?.stage === "busy" || r?.stage === "preparing") && <DoneBar onDone={onDone} />}
     </div>
   );
 }

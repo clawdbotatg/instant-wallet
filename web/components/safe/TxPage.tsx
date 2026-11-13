@@ -16,7 +16,7 @@ import { passkeySign } from "@/lib/safe/sign";
 import { startSending } from "@/lib/safe/sending";
 import { type ChainState, keyFromCode, loadAccount, loadSigners, readChain, wedgieHome, wedgieSigners } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
-import { Net, BioSigner, Blockie, CopyLink, Eject, RemoveX, Who, Words, useToast, stageLabel } from "../bits";
+import { Net, BioSigner, Blockie, CopyLink, Eject, ExecutedLine, RemoveX, Who, Words, useToast, stageLabel } from "../bits";
 import { friendly } from "@/lib/friendly";
 import { Progress } from "./Progress";
 import { ErrorLine } from "./WedgieButton";
@@ -420,9 +420,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
       </div>
 
       {sent ? (
-        <p className="row" style={{ gap: 8, justifyContent: "space-between" }}>
-          ✓ Executed {explorerTx(chainId, sent) && <Eject href={explorerTx(chainId, sent)!} />}
-        </p>
+        <ExecutedLine href={explorerTx(chainId, sent)} />
       ) : done ? (
         <p className="fine">This wallet already used number #{w.tx.nonce.toString()}: this one was executed or replaced.</p>
       ) : enough && behind ? (

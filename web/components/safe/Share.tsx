@@ -1,18 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { type Address, type Hex, formatUnits, parseUnits, zeroAddress } from "viem";
+import { type Address, type Hash, type Hex, formatUnits, parseUnits, zeroAddress } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
-import { chainById, publicClient } from "@/lib/chains";
+import { chainById, explorerTx, nativeSymbol, publicClient } from "@/lib/chains";
 import { claimUrl } from "@/lib/claim";
 import { cardsPdfBlob } from "@/lib/claimBatch";
-import { amount as fmtAmount, usd } from "@/lib/format";
+import { amount as fmtAmount, feeText, usd } from "@/lib/format";
 import { transfer } from "@/lib/safe/core";
-import { type FeeToken, type Stage, Shared, budgetSend, getQuote, ownersSend, plan, sendKind, usesWedgie } from "@/lib/safe/send";
+import { type FeeToken, type Stage, Shared, budgetSend, feeCall, getQuote, ownersSend, plan, sendKind, signerLabel, usesWedgie } from "@/lib/safe/send";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { Net, AmountBox, Qr, stageLabel } from "../bits";
+import { Net, AmountBox, DoneBar, ExecutedLine, Qr, Words, stageLabel } from "../bits";
+import { WhatItDoes } from "./WhatItDoes";
 import { ChainSelect, Select, assetOpt } from "./Pick";
 import { ErrorLine } from "./WedgieButton";
 import { Progress } from "./Progress";
@@ -58,6 +59,8 @@ export function Share({ account, states, assets, chainId: startChain, onDone }: 
   const [how, setHow] = useState<"qr" | "nfc">("qr");
   const [card, setCard] = useState<Card | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [hash, setHash] = useState<Hash>();
+  const [pre, setPre] = useState<Awaited<ReturnType<typeof prep>> | null>(null); // what Sign will run, shown before you sign (as Send does)
   const [nfc, setNfc] = useState(false);
   useEffect(() => setNfc(!!wedgieNfc()), []);
 
@@ -111,6 +114,16 @@ export function Share({ account, states, assets, chainId: startChain, onDone }: 
     if (usdcHeld < needUsdc) throw new Error(`Not enough USDC on ${net?.name} for this plus the fee.`);
     return { calls, p, q, feeToken };
   }
+
+  // the coins, the fee and who signs, before the tap that signs: the same card Send shows
+  useEffect(() => {
+    if (!card || (step !== "ready" && step !== "unfunded")) return;
+    let live = true;
+    setPre(null);
+    prep(card).then(x => live && setPre(x), () => {});
+    return () => void (live = false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [card, step]);
 
   async function next() {
     if (!asset || !base || base <= 0n) return;
@@ -175,8 +188,8 @@ export function Share({ account, states, assets, chainId: startChain, onDone }: 
       const { calls, p, q, feeToken } = await prep(c);
       const onStage = (s: Stage) => setStep(s);
       if (usesWedgie(account, st!, p.signers) && wedgieSupported()) wedgie = await Wedgie.connect(); // a computer: it signs here too
-      if (p.path === "budget") await budgetSend({ account, state: st!, calls, feeToken, quote: q, onStage });
-      else await ownersSend({ account, state: st!, calls, signers: p.signers, feeToken, wedgie, quote: q, onStage, label: `Share ${c.label}` });
+      if (p.path === "budget") setHash(await budgetSend({ account, state: st!, calls, feeToken, quote: q, onStage }));
+      else setHash(await ownersSend({ account, state: st!, calls, signers: p.signers, feeToken, wedgie, quote: q, onStage, label: `Share ${c.label}` }));
       setStep("done");
     } catch (e: any) {
       if (e instanceof Shared) return; // its page has the sheet now
@@ -226,22 +239,37 @@ export function Share({ account, states, assets, chainId: startChain, onDone }: 
             <p className="fine">Whoever has this QR can take the money. Printing is safer than a photo.</p>
           </>
         ) : (
-          <p>Card written ✓</p>
+          <p>✓ Card written</p>
         )}
         {step === "unfunded" && <p className="err">The money didn&apos;t send. {error}</p>}
         {funded ? (
           <>
-            <p style={{ color: "var(--mint-d)", fontWeight: 700 }}>✓ Funded. {card.label} is on the {how === "qr" ? "QR" : "card"}.</p>
-            <button className="btn wide" onClick={onDone}>
-              Done
-            </button>
+            <ExecutedLine />
+            <DoneBar onDone={onDone} href={hash && explorerTx(chainId, hash)} />
           </>
         ) : (
           <>
+            {pre && !funding && st && (
+              <div className="card" style={{ textAlign: "left", width: "100%" }}>
+                <WhatItDoes quiet chainId={chainId} safe={account.address} calls={[...pre.calls, feeCall(pre.q, pre.feeToken)]} />
+                <div className="line">
+                  <span>Network</span>
+                  <span><Net chainId={chainId} /></span>
+                </div>
+                <div className="line">
+                  <span>Fee</span>
+                  <span>{feeText(pre.q, pre.feeToken, nativeSymbol(chainId))}</span>
+                </div>
+                <div className="line">
+                  <span>Signed by</span>
+                  <span><Words text={signerLabel(account, st, pre.p.signers)} /></span>
+                </div>
+              </div>
+            )}
             <button className="btn btn-green wide" onClick={() => fund(card)} disabled={funding}>
               {funding ? stageLabel(step) : step === "unfunded" ? "Try again" : "Sign to fund it"}
             </button>
-            <Progress stage={step} chainId={chainId} />
+            <Progress stage={step} chainId={chainId} hash={hash} />
             {!funding && <p className="fine">The {how === "qr" ? "QR" : "card"} is empty until you fund it.</p>}
           </>
         )}

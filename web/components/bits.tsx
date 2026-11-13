@@ -508,6 +508,15 @@ export function DoneBar({ onDone, href }: { onDone: () => void; href?: string | 
   );
 }
 
+/** A tx that ran, said in a card or a row: ✓ Executed, and the explorer icon on the right. The same line everywhere. */
+export function ExecutedLine({ href }: { href?: string | false | null }) {
+  return (
+    <p className="row" style={{ gap: 8, justifyContent: "space-between" }}>
+      <b>✓ Executed</b> {href && <Eject href={href} />}
+    </p>
+  );
+}
+
 /**
  * Copy a link: dark gray (the other likely thing to do), never a pop-out. Alone it's a small icon button (a tx's link
  * for the other signers); with `label` a pill with the words. `message`: what the toast says once copied.

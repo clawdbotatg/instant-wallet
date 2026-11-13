@@ -309,7 +309,7 @@ Ethereum). Maps: ethereumtransitauthority.com `#/iw`, `#/iws`, `#/iwt`. Desktop 
   Fix: take it from `/api/price` or the relay quote.
   Done 11-12: `lib/price.ts` `ethUsd` reads `/api/price?chain=1`.
 
-- [ ] **35. Idle polling.**
+- [x] **35. Idle polling.**
   60 s on Home with nothing happening: 125 requests. `/api/portfolio` 23 times; `eth_getCode` of the wallet on all
   14 networks every 12 s (`SafeApp.tsx:198-199`); `alchemy_getAssetTransfers` on 11 networks. Every one carries the
   address and the IP to our server, and the address on to Alchemy.
@@ -317,7 +317,8 @@ Ethereum). Maps: ethereumtransitauthority.com `#/iw`, `#/iws`, `#/iwt`. Desktop 
   multicall for the networks that have it.
   Part done 11-12: left alone on Home for a minute, the balance is read every 10 s (was 3) and the keys once a
   minute (was 12 s); the first touch reads both at once. Receive, an open sheet or a send on its way stay quick.
-  Left: `getCode` once per network; one multicall.
+  Done 11-12: `getCode` is asked once per network (`codeOnce`); a network with no wallet yet is read 1 poll in 5;
+  the guard's slot is in the one multicall (Safe's `getStorageAt`), so a network is one request per poll.
 
 - [x] **36. The fee on a small USDC send on Ethereum is bigger than the send.**
   $0.40 of USDC cost about 0.51 USDC in fee (tx `0xf919d405…2ef8`). $0.50 with 1.03 USDC in the wallet showed

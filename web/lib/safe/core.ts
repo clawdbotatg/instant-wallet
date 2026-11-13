@@ -50,6 +50,7 @@ export const abi = {
     "function setup(address[] owners, uint256 threshold, address to, bytes data, address fallbackHandler, address paymentToken, uint256 payment, address paymentReceiver)",
     "function execTransaction(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address refundReceiver, bytes signatures) payable returns (bool)",
     "function nonce() view returns (uint256)",
+    "function getStorageAt(uint256 offset, uint256 length) view returns (bytes)",
     "function getOwners() view returns (address[])",
     "function getThreshold() view returns (uint256)",
     "function isModuleEnabled(address) view returns (bool)",

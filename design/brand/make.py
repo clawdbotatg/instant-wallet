@@ -1,10 +1,12 @@
 from PIL import Image
 import os
 from PIL import ImageChops
-UP='/Users/clawd/clawd-harness/.clawd-harness-uploads/'
-WALLET=UP+'paste-f99e1e9e-3C9694B1-3C6B-4812-8A3B-DF83B57934AF.jpg'
-DEVICE=UP+'paste-8433bd25-BBDFA22D-E2FC-4894-84AF-304E8A22139F.jpg'
-PUB='packages/nextjs/public/'; BR='design/brand/'
+# Cuts the brand files from Austin's renders. Run from the repo root: python3 design/brand/make.py [out folder]
+import sys
+BR='design/brand/'; PUB=sys.argv[1] if len(sys.argv)>1 else 'web/public/'
+WALLET=BR+'source-wallet.jpg'
+DEVICE=BR+'source-device.jpg'
+os.makedirs(PUB+'icons',exist_ok=True)
 def white_to_alpha(img, tol=246):
     """Background -> alpha via flood fill from the corners (so the white wallet body stays opaque);
     inside the flooded region alpha = 255-min(rgb) (exact un-composite over white) so soft shadows and
@@ -48,10 +50,9 @@ w=Image.open(WALLET); d=Image.open(DEVICE)
 wa=white_to_alpha(w); da=white_to_alpha(d)
 lockup=trim(wa,8); mark=trim(wa.crop((0,0,w.width,870)),8); word=trim(wa.crop((0,880,w.width,w.height)),8)
 device=trim(da.crop((0,0,d.width,830)),8); device_lockup=trim(da,8)
-fit(mark,1024).save(PUB+'mark.png'); fit(mark,160).save(PUB+'mark-160.png'); fit(lockup,1200).save(PUB+'logo.png'); fit(word,1200).save(PUB+'wordmark.png')
-fit(device,1024).save(PUB+'device.png')
+fit(mark,1024).save(PUB+'mark.png'); fit(mark,160).save(PUB+'mark-160.png')
 for n,im in [('wallet-lockup',lockup),('wallet-mark',mark),('wordmark',word),('device-mark',device),('device-lockup',device_lockup)]: im.save(BR+n+'.png')
 on_bg(mark,192,0.06).save(PUB+'icons/icon-192.png'); on_bg(mark,512,0.06).save(PUB+'icons/icon-512.png')
 on_bg(mark,180,0.08).save(PUB+'icons/apple-touch-icon.png')
 on_bg(mark,192,0.18).save(PUB+'icons/maskable-192.png'); on_bg(mark,512,0.18).save(PUB+'icons/maskable-512.png')
-for f in ['mark.png','logo.png','wordmark.png','device.png']: print(f, Image.open(PUB+f).size, os.path.getsize(PUB+f)//1024,'KB')
+for f in ['mark.png','mark-160.png']: print(f, Image.open(PUB+f).size, os.path.getsize(PUB+f)//1024,'KB')

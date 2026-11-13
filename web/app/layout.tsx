@@ -4,7 +4,7 @@ import { NetBar } from "@/components/NetBar";
 import { BRAND_SCRIPT } from "@/lib/brand";
 import "./globals.css";
 
-// Outfit: the wordmark's look (og.png, design/gen.py)
+// Outfit: the wordmark's look (og.png)
 const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" });
 const mono = DM_Mono({ subsets: ["latin"], weight: ["500"], variable: "--font-mono" });
 

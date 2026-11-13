@@ -192,10 +192,10 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
       level: 1,
     };
   const roles = rolesAddress(safe);
-  // everything in one call (Multicall3), not 16 calls per chain every 12 s. The guard's slot and Roles' code ride along.
+  // everything in one call (Multicall3), not 16 calls per chain every 12 s. The guard's slot is in it (last); Roles' code rides along.
   const PAGE = ["0x0000000000000000000000000000000000000001", 20n] as const;
   const c = (address: Address, ab: any, functionName: string, args: readonly unknown[] = []) => ({ address, abi: ab, functionName, args }) as any;
-  const [res, guardWord, rolesCode] = await Promise.all([
+  const [res, rolesCode] = await Promise.all([
     pc.multicall({
       multicallAddress: MULTICALL3,
       allowFailure: true,
@@ -211,9 +211,9 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
         c(roles, abi.roles, "allowances", [KEY_USDC]),
         c(roles, abi.roles, "allowances", [KEY_ETH]),
         c(roles, abi.roles, "allowances", [KEY_FEE_USDC]),
+        c(safe, abi.safe, "getStorageAt", [BigInt(GUARD_SLOT), 1n]),
       ],
     }) as Promise<{ status: "success" | "failure"; result?: any }[]>,
-    pc.getStorageAt({ address: safe, slot: GUARD_SLOT }).catch(() => undefined),
     codeOnce(chainId, roles).catch(() => undefined),
   ]);
   const opt = (k: number) => (res[k].status === "success" ? res[k].result : null); // a read that may fail: null
@@ -223,7 +223,8 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
     return res[k].result;
   };
   const [owners, threshold, nonce, rolesOn, mods] = [must(0), must(1), must(2), must(3), must(4)];
-  const guard = guardWord && BigInt(guardWord) ? getAddress(`0x${guardWord.slice(-40)}`) : null;
+  const guardWord = opt(res.length - 1) as Hex | null;
+  const guard = guardWord && size(guardWord) === 32 && BigInt(guardWord) ? getAddress(`0x${guardWord.slice(-40)}`) : null;
   const modules = (mods[0] as string[]).map(x => getAddress(x));
   // your own recovery address: the 14-day module once it's on, else the 7-day one
   const rm = modules.includes(RECOVERY_14D) ? RECOVERY_14D : RECOVERY_7D;

@@ -11,7 +11,7 @@ import { loadHidden, loadPortfolio, loadShown, saveHidden, savePortfolio, saveSh
 import { dropOtherBudgetsCalls } from "@/lib/safe/core";
 import { type Prepared, Shared, finishOwners, ownerSigners, prepareOwners } from "@/lib/safe/send";
 import { friendly } from "@/lib/friendly";
-import { AppsIcon, Blockie, Net, DepositIcon, GearIcon, SendIcon, SendScanIcon, Sheet, sheetOpen, TokenIcon, TrashIcon, CopyLink, Who, named, useName, useToast } from "../bits";
+import { AppsIcon, Blockie, Net, DepositIcon, GearIcon, SendIcon, SendScanIcon, Sheet, sheetOpen, TokenIcon, TrashIcon, CopyLink, RemoveX, Who, named, useName, useToast } from "../bits";
 import { Receive } from "../Receive";
 import { sendingNow } from "@/lib/safe/sending";
 import { Deposit } from "./Deposit";
@@ -539,9 +539,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
                   <div className="sym">{x.name || "A site"} ↗</div>
                   <div className="fine">{x.url.replace(/^https?:\/\//, "")}</div>
                 </a>
-                <button className="pill stop" onClick={() => disconnect(x.topic).catch(() => {})}>
-                  Disconnect
-                </button>
+                <RemoveX label="Disconnect" onClick={() => disconnect(x.topic).catch(() => {})} />
               </div>
             ))}
           </div>

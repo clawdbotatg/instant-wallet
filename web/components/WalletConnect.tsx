@@ -25,7 +25,7 @@ import {
   toPending,
   triage,
 } from "@/lib/walletconnect";
-import { Blockie, Sheet, Who, useToast } from "./bits";
+import { Blockie, RemoveX, Sheet, Who, useToast } from "./bits";
 import { ErrorLine } from "./safe/WedgieButton";
 import { WhatItDoes } from "./safe/WhatItDoes";
 import { Scanner } from "./Scanner";
@@ -308,9 +308,7 @@ function Manage({
               <div className="grow">
                 <DappHead name={s.name} url={s.url} icon={s.icon} />
               </div>
-              <button className="pill stop" onClick={() => onDrop(s.topic)}>
-                Disconnect
-              </button>
+              <RemoveX label="Disconnect" onClick={() => onDrop(s.topic)} />
             </div>
           ))}
         </div>

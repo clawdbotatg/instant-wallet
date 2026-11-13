@@ -17,7 +17,6 @@ import {
 import { type Quote, type SendKind } from "./fee";
 import { connectHot, hotAvailable, hotSend, hotSign } from "./hot";
 import { passkeySign, passkeySignRaw } from "./sign";
-import { short } from "../format";
 import { type ChainState, type SafeAccount, loadAccount, loadSigners, salt, wedgieSigners } from "./state";
 import { Wedgie, wedgieSupported } from "./wedgie";
 import { type Waiting, openTx, readWaiting, shareTx, sigHex } from "./share";
@@ -56,12 +55,12 @@ export const usesWedgie = (a: SafeAccount, st: ChainState, signers: Signer[]) =>
 const feeWedgie = (a: SafeAccount, st: ChainState, signers: Signer[]) =>
   usesWedgie(a, st, signers) || (signers.length < st.threshold && st.wedgieSlots.length > 0);
 
-/** Who signs, in words: "Face ID + Wedgie", "Face ID + 0x12ab…cdef". */
+/** Who signs, in words: "Face ID + Wedgie", "Face ID + 0x…" (the full address: draw it with <Words>, never bare). */
 export function signerLabel(a: SafeAccount, st: ChainState, signers: Signer[]): string {
   const out: string[] = [];
   for (const s of signers) {
     const h = howSigns(a, st, s);
-    const name = h === "faceid" ? bio() : h === "wedgie" ? "Wedgie" : (loadSigners(a.address)[s.toLowerCase()]?.name ?? short(s));
+    const name = h === "faceid" ? bio() : h === "wedgie" ? "Wedgie" : (loadSigners(a.address)[s.toLowerCase()]?.name ?? s);
     if (!out.includes(name)) out.push(name);
   }
   return out.join(" + ");

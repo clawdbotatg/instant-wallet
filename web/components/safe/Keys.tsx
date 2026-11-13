@@ -14,7 +14,7 @@ import { type FeeToken, type Prepared, Shared, type Signer, finishOwners, getQuo
 import { type ChainState, type SafeAccount, type SignerInfo, daoDays, loadSigners, loadWalletName, passkeyHome, readChain, saveSigner, wedgieSigners, shownAs } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { Net, AddressInput, BioIcon, BioSigner, Blockie, CopyAddress, CopyLink, PencilIcon, RemoveX, TimedBar, Who, copy, stageLabel } from "../bits";
+import { Net, AddressInput, BioIcon, BioSigner, Blockie, CopyAddress, CopyLink, PencilIcon, RemoveX, TimedBar, Who, Words, copy, stageLabel } from "../bits";
 import { Alerts } from "./Alerts";
 import { ChainSelect } from "./Pick";
 import { ChainLimit } from "./Limits";
@@ -435,7 +435,7 @@ export function Keys({
           <b>{pending.label}</b>
           <p className="fine">
             Fee {feeText(pending.p.fee, pending.p.opts.feeToken, nativeSymbol(pending.p.opts.state.chainId))}. Signed by{" "}
-            {signLabel(pending.p)}.
+            <Words text={signLabel(pending.p)} />.
           </p>
           <button className="btn btn-green wide" onClick={sign} disabled={!!busy}>
             {busy ? stageLabel("signing") : "Sign"}

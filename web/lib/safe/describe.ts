@@ -7,7 +7,6 @@ import { UNIVERSAL_ROUTERS } from "clear-signing-safe-kit";
 
 const eq = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 /** An address in the words: always the full one, so the page draws it with its blockie (<Words>, components/bits.tsx). */
-const short = (a: string) => { try { return getAddress(a); } catch { return a; } };
 const dec = (a: any, data: Hex) => {
   try {
     return decodeFunctionData({ abi: a, data }) as { functionName: string; args: any[] };
@@ -49,7 +48,9 @@ export const UNISWAP = UNIVERSAL_ROUTERS;
 const MAX = 2n ** 160n - 1n; // Permit2's "any amount" is uint160; an ERC-20's is uint256 (anything this big counts)
 const guardAbi = parseAbi(["function setGuard(address guard)", "function setFallbackHandler(address handler)"]);
 const permit2 = parseAbi(["function approve(address token, address spender, uint160 amount, uint48 expiration)"]);
-const who = (a: string) => (UNISWAP.some(u => eq(u, a)) ? "Uniswap" : eq(a, PERMIT2) ? "Permit2 (Uniswap's approvals)" : short(a));
+// an address in a tx's words is the full one: <Words> draws it as <Who> (name, blockie). Never short hex.
+const addr = (a: string) => (/^0x[0-9a-fA-F]{40}$/.test(a) ? getAddress(a) : a);
+const who = (a: string) => (UNISWAP.some(u => eq(u, a)) ? "Uniswap" : eq(a, PERMIT2) ? "Permit2 (Uniswap's approvals)" : addr(a));
 
 /** What this call pays the relay (its fee, checked to the byte): the token ("eth" = the coin, else its lowercase
  * address) and amount, or null. */
@@ -64,7 +65,7 @@ export function relayFee(chainId: number, c: Call): { token: string; amount: big
  * address can't pass as it), approvals, a Uniswap swap. null: anything else. */
 export function ours(chainId: number, c: Call): string | null {
   const usdc = chainById(chainId)?.usdc;
-  const coin = (t: string) => (usdc && eq(t, usdc) ? "USDC" : `token ${short(t)}`);
+  const coin = (t: string) => (usdc && eq(t, usdc) ? "USDC" : `token ${addr(t)}`);
   if (c.data === "0x") return eq(c.to, RELAY) ? `Network fee: ${formatUnits(c.value, 18)} ${nativeSymbol(chainId)}` : null;
   const sel = c.data.slice(0, 10).toLowerCase();
   const t = dec(abi.erc20, c.data);
@@ -92,13 +93,13 @@ export function describe(chainId: number, safe: Address, c: Call): string {
   const o = ours(chainId, c);
   if (o) return o;
   // the words with amounts come from the server (/api/explain, lib/safe/urWords.ts); this is the fallback
-  if (sel === "0x3593564c" || sel === "0x24856bc3") return UNISWAP.some(u => eq(u, c.to)) ? "Swap on Uniswap" : `Swap through ${short(c.to)}`;
-  if (d === "0x") return `Send ${formatUnits(c.value, 18)} ${sym} to ${short(c.to)}`;
+  if (sel === "0x3593564c" || sel === "0x24856bc3") return UNISWAP.some(u => eq(u, c.to)) ? "Swap on Uniswap" : `Swap through ${addr(c.to)}`;
+  if (d === "0x") return `Send ${formatUnits(c.value, 18)} ${sym} to ${addr(c.to)}`;
 
   const t = dec(abi.erc20, d);
   if (t?.functionName === "transfer") {
     const [to, amt] = t.args as [Address, bigint];
-    return usdc && eq(c.to, usdc) ? `Send ${formatUnits(amt, 6)} USDC to ${short(to)}` : `Send ${amt} of token ${short(c.to)} to ${short(to)}`;
+    return usdc && eq(c.to, usdc) ? `Send ${formatUnits(amt, 6)} USDC to ${addr(to)}` : `Send ${amt} of token ${addr(c.to)} to ${addr(to)}`;
   }
 
   if (eq(c.to, safe)) {
@@ -106,21 +107,21 @@ export function describe(chainId: number, safe: Address, c: Call): string {
     const a = s?.args ?? [];
     switch (s?.functionName) {
       case "addOwnerWithThreshold":
-        return `Add signer ${short(a[0])}, need ${a[1]} signatures`;
+        return `Add signer ${addr(a[0])}, need ${a[1]} signatures`;
       case "removeOwner":
-        return `Remove signer ${short(a[1])}, need ${a[2]} signatures`;
+        return `Remove signer ${addr(a[1])}, need ${a[2]} signatures`;
       case "changeThreshold":
         return `Need ${a[0]} signatures`;
       case "swapOwner":
-        return `Swap signer ${short(a[1])} for ${short(a[2])}`;
+        return `Swap signer ${addr(a[1])} for ${addr(a[2])}`;
       case "enableModule":
         if (eq(a[0], rolesAddress(safe))) return "Turn on the daily limit";
-        return RECOVERY_DAYS[getAddress(a[0])] ? `Turn on ${RECOVERY_DAYS[getAddress(a[0])]}-day recovery` : `Turn on module ${short(a[0])}`;
+        return RECOVERY_DAYS[getAddress(a[0])] ? `Turn on ${RECOVERY_DAYS[getAddress(a[0])]}-day recovery` : `Turn on module ${addr(a[0])}`;
       case "disableModule":
-        return RECOVERY_DAYS[getAddress(a[1])] ? `Turn off ${RECOVERY_DAYS[getAddress(a[1])]}-day recovery` : `Turn off module ${short(a[1])}`;
+        return RECOVERY_DAYS[getAddress(a[1])] ? `Turn off ${RECOVERY_DAYS[getAddress(a[1])]}-day recovery` : `Turn off module ${addr(a[1])}`;
     }
-    if (sel === "0xe19a9dd9") return `Set a guard (${short(dec(guardAbi, d)?.args[0] ?? "?")})`;
-    if (sel === "0xf08a0323") return `Set a fallback handler (${short(dec(guardAbi, d)?.args[0] ?? "?")})`;
+    if (sel === "0xe19a9dd9") return `Set a guard (${addr(dec(guardAbi, d)?.args[0] ?? "?")})`;
+    if (sel === "0xf08a0323") return `Set a fallback handler (${addr(dec(guardAbi, d)?.args[0] ?? "?")})`;
     return `${WARN}Change the wallet (${sel})`;
   }
 
@@ -134,11 +135,11 @@ export function describe(chainId: number, safe: Address, c: Call): string {
   if (RECOVERY_DAYS[getAddress(c.to)]) {
     const g = dec(abi.recovery, d);
     const days = RECOVERY_DAYS[getAddress(c.to)];
-    if (g?.functionName === "addGuardianWithThreshold") return `Add recovery address ${short(g.args[0])} (${days}-day wait)`;
-    if (g?.functionName === "revokeGuardianWithThreshold") return `Remove recovery address ${short(g.args[1])} (${days}-day wait)`;
+    if (g?.functionName === "addGuardianWithThreshold") return `Add recovery address ${addr(g.args[0])} (${days}-day wait)`;
+    if (g?.functionName === "revokeGuardianWithThreshold") return `Remove recovery address ${addr(g.args[1])} (${days}-day wait)`;
   }
 
-  return `Call ${short(c.to)} (${sel})${c.value ? ` with ${formatUnits(c.value, 18)} ${sym}` : ""}`;
+  return `Call ${addr(c.to)} (${sel})${c.value ? ` with ${formatUnits(c.value, 18)} ${sym}` : ""}`;
 }
 
 /**
@@ -148,7 +149,7 @@ export function describe(chainId: number, safe: Address, c: Call): string {
 function roles(c: Call, sym: string, usdc?: Address): string {
   const r = dec(abi.roles, c.data);
   const a = r?.args ?? [];
-  const what = (t: Address) => (usdc && eq(t, usdc) ? "USDC" : eq(t, MULTICALL3) ? `${sym} sends` : short(t));
+  const what = (t: Address) => (usdc && eq(t, usdc) ? "USDC" : eq(t, MULTICALL3) ? `${sym} sends` : addr(t));
   const ours = (role: Hex) => eq(role, ROLE_BURNER);
   switch (r?.functionName) {
     case "setAllowance": {
@@ -163,12 +164,12 @@ function roles(c: Call, sym: string, usdc?: Address): string {
     case "assignRoles": {
       const [mod, keys, on] = a as [Address, Hex[], boolean[]];
       if (keys.length !== 1 || on.length !== 1 || !ours(keys[0])) return `${WARN}Changes roles: can't read it`;
-      return on[0] ? `Let ${short(mod)} spend the daily limit` : `${WARN}Stop ${short(mod)} spending the daily limit`;
+      return on[0] ? `Let ${addr(mod)} spend the daily limit` : `${WARN}Stop ${addr(mod)} spending the daily limit`;
     }
     case "enableModule":
-      return `Turn on the daily limit for ${short(a[0])}`;
+      return `Turn on the daily limit for ${addr(a[0])}`;
     case "disableModule":
-      return `${WARN}Turn off the daily limit for ${short(a[1])}`;
+      return `${WARN}Turn off the daily limit for ${addr(a[1])}`;
     case "scopeTarget":
       if (!ours(a[0])) return `${WARN}Another role: can't read it`;
       return usdc && eq(a[1], usdc)  || eq(a[1], MULTICALL3) ? `Daily limit can spend ${what(a[1])}` : `${WARN}Daily limit can spend ${what(a[1])}`;
@@ -181,7 +182,7 @@ function roles(c: Call, sym: string, usdc?: Address): string {
     case "setTransactionUnwrapper":
       return eq(a[0], MULTISEND_CALL_ONLY) && eq(a[1], "0x8d80ff0a") && eq(a[2], MULTISEND_UNWRAPPER)
         ? "Daily limit works in batches"
-        : `${WARN}Daily limit reads batches with ${short(a[2])}`;
+        : `${WARN}Daily limit reads batches with ${addr(a[2])}`;
   }
   return `${WARN}Changes the daily limit: can't read it`;
 }
@@ -204,7 +205,7 @@ function rule([, target, sel, conds, opt]: [Hex, Address, Hex, readonly Cond[], 
       fee.compValue.length === 66
     ) {
       const to = `0x${fee.compValue.slice(26)}`;
-      return eq(to, RELAY) ? "Fees get their own limit" : `${WARN}Fees to ${short(to as Address)} get their own limit`;
+      return eq(to, RELAY) ? "Fees get their own limit" : `${WARN}Fees to ${addr(to as Address)} get their own limit`;
     }
     return null;
   }

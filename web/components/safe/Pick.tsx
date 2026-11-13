@@ -6,7 +6,7 @@ import { CHAINS, chainById } from "@/lib/chains";
 import { amount as fmtAmount, usd, addressIn } from "@/lib/format";
 import type { Signer, SignerOption } from "@/lib/safe/send";
 import type { Asset } from "@/lib/types";
-import { ChainIcon, TokenIcon } from "../bits";
+import { ChainIcon, TokenIcon, Words } from "../bits";
 import { bio } from "@/lib/passkey";
 
 /** A token you hold, as a select-box row: icon, symbol, and how much (in dollars too). */
@@ -201,7 +201,7 @@ export function SignerChoice({ options, value, onChange, disabled, note }: { opt
   if (options.length < 2)
     return (
       <span className="stack" style={{ gap: 2, justifyItems: "end" }}>
-        <span>{on?.label ?? (value.length === 1 ? bio() : "…")}</span>
+        <span>{on ? <Words text={on.label} /> : value.length === 1 ? bio() : "…"}</span>
         {later && <span className="fine">{later}</span>}
       </span>
     );
@@ -216,14 +216,14 @@ export function SignerChoice({ options, value, onChange, disabled, note }: { opt
             disabled={disabled || !o.ready}
             onClick={() => onChange(o.signers)}
           >
-            {o.label} <span className="fine">{o.signers.length} of {o.of}</span>
+            <Words text={o.label} /> <span className="fine">{o.signers.length} of {o.of}</span>
           </button>
         ))}
       </span>
       {later && <span className="fine">{later}</span>}
       {off.map(o => (
         <span key={o.signers.join("+")} className="fine">
-          {o.label}: {o.why}
+          <Words text={o.label} />: {o.why}
         </span>
       ))}
     </span>

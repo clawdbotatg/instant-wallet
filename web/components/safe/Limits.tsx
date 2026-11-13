@@ -10,7 +10,7 @@ import { type Prepared, Shared, finishOwners, getQuote, ownerSigners, prepareOwn
 import { type ChainState, type SafeAccount, readChain } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { AmountBox, Net, TimedBar, stageLabel } from "../bits";
+import { AmountBox, Net, TimedBar, Words, stageLabel } from "../bits";
 import { friendly } from "@/lib/friendly";
 import { ErrorLine } from "./WedgieButton";
 
@@ -117,7 +117,7 @@ export function ChainLimit({ account, st, assets, onRefresh, onPoll, toast, onCl
             {inUsd(ready.eth)}
           </b>
           <p className="fine">
-            Fee {fee}. Signed by {signerLabel(account, ready.p.opts.state, ready.p.opts.signers)}.
+            Fee {fee}. Signed by <Words text={signerLabel(account, ready.p.opts.state, ready.p.opts.signers)} />.
           </p>
           <button className="btn btn-green wide" onClick={sign} disabled={busy}>
             {busy ? stageLabel("signing") : "Sign"}

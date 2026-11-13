@@ -42,6 +42,7 @@ const RULES = [
   { re: /"\$" \+|`\$\$\{\(?[\w.]+\)?\.toFixed\(|const compactUsd/, say: "dollars written by hand: usd() or compactUsd() from lib/format" },
   { re: /"(Working|Getting ready|Cancelling|Signing)…"|`(Check )?\$\{bio\(\)\}…`/, say: "a button's busy words written by hand: stageLabel(\"quote\" | \"signing\" | \"sending\")", skip: [SHARED] },
   { re: /<p className="err">\{(error|err|refused)\}/, say: "an error drawn by hand: use <ErrorLine> (an address in it is drawn as <Who>)" },
+  { re: /^\s*Disconnect\s*$/, say: "a Disconnect word button: <RemoveX label=\"Disconnect\">, the red ✕ like every other row" },
   { re: /\.length\}\/\{/, say: "a count as x/y: say 'x of y'" },
   { re: /(btn|pill)[^>]*style=\{\{[^}]*\bheight: \d/, say: "a button with its own height: two heights only, 56 and 38" },
   { re: /inputMode="decimal"/, say: "an amount box by hand: use <AmountBox> (dollars first, switch to the coin)", skip: ["components/DropAdmin.tsx", "components/ClaimMaker.tsx"] }, // a drop's "dollars per claim" / "USDC on each": dollars only, no coin to switch to

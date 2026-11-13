@@ -8,7 +8,7 @@ import { siteCalls, siteGas, signForSite } from "@/lib/safe/connect";
 import { type FeeToken, type Prepared, type Signer, type Stage, Shared, finishOwners, ownerSigners, prepareOwners, requote, signThenQueue, signerLabel, usesWedgie } from "@/lib/safe/send";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { type Pending, remember, respond } from "@/lib/walletconnect";
-import { Net, Who, stageLabel } from "../bits";
+import { Net, Who, Words, stageLabel } from "../bits";
 import { ConnectLayer, DappHead, type Session } from "../WalletConnect";
 import { friendly } from "@/lib/friendly";
 import { Progress } from "./Progress";
@@ -236,7 +236,7 @@ function SafeRequest({
         <div className="line">
           <span>Signed by</span>
           <span className="stack" style={{ gap: 2, justifyItems: "end" }}>
-            <span>{st ? signerLabel(account, st, signers) : bio()}</span>
+            <span>{st ? <Words text={signerLabel(account, st, signers)} /> : bio()}</span>
             {queue && <span className="fine">then the others, on the next screen</span>}
           </span>
         </div>

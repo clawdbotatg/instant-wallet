@@ -3,6 +3,7 @@
 import { recoveryChecked } from "./RecoveryAlert";
 import { RpcSetting } from "./RpcSetting";
 import { LocalRelay } from "./LocalRelay";
+import { LocalOff } from "./LocalOff";
 import { useFeatures } from "@/lib/features";
 import { SimSetting } from "./SimSetting";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
@@ -817,6 +818,7 @@ export function Keys({
       </button>
 
       <LocalRelay />
+      <LocalOff />
 
       {/* the whole wallet on your own computer, if this site is ever gone: README "Run it fully local" */}
       <a

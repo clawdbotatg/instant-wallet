@@ -243,6 +243,10 @@ export function SafeWelcome({ onReady, initialConfirm }: { onReady: (a: SafeAcco
         <p className="fine">
           Passkey signer · DIY hardware wallet · Powered by Safe
         </p>
+        {/* if this site is ever gone, your passkey still opens your wallet on a copy you run yourself */}
+        <a className="fine" href="https://github.com/clawdbotatg/instant-wallet#run-it-fully-local-if-instantwalletio-is-gone" target="_blank" rel="noopener noreferrer">
+          Run it on your own computer
+        </a>
       </div>
     </div>
   );

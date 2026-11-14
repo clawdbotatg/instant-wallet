@@ -13,5 +13,7 @@ export async function GET() {
     deposit: !!process.env.CDP_API_KEY_ID && !!process.env.CDP_API_KEY_SECRET,
     alerts: c.email || c.telegram || c.push,
     names: !!process.env.NAME_SIGNER_KEY,
+    positions: !!process.env.ZERION_API_KEY,
+    safeService: !!process.env.SAFE_API_KEY,
   });
 }

@@ -48,6 +48,14 @@ https://local.instantwallet.io. Leave the Terminal window open; Ctrl+C stops it.
 
 More nodes: add `RPC_URL_<chainId>=<url>` lines to `web/.env.local` (`RPC_URL_8453` for Base) and run it again.
 
+Optional free keys, same file. Settings → **Off on this copy** lists the ones you're missing:
+
+- Deposit with Coinbase: `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET` (portal.cdp.coinbase.com)
+- Earn and borrow positions: `ZERION_API_KEY` (developers.zerion.io)
+- Shared transactions in Safe{Wallet} too: `SAFE_API_KEY` (developer.safe.global). Without it they still work here.
+
+New names (alice.inst.eth) need instantwallet.io.
+
 If it doesn't work:
 
 - **"This site can't be reached"**: the hosts line is missing (`cat /etc/hosts`), or the script isn't running.

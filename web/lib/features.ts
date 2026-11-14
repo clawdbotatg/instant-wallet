@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 
 /** What this server can run (app/api/features). Everything is on until it answers: our site has it all. */
-export type Features = { deposit: boolean; alerts: boolean; names: boolean };
-const ALL: Features = { deposit: true, alerts: true, names: true };
+export type Features = { deposit: boolean; alerts: boolean; names: boolean; positions: boolean; safeService: boolean };
+const ALL: Features = { deposit: true, alerts: true, names: true, positions: true, safeService: true };
 let asked: Promise<Features> | null = null;
 
 export function useFeatures(): Features {

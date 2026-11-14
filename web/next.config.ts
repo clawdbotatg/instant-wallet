@@ -12,7 +12,12 @@ const config: NextConfig = {
   // (Coinbase Onramp's security requirements).
   async headers() {
     // (/api/safe/queue sets its own: wedgie.dev/safe shares that queue)
-    return [{ source: "/:path((?!api/safe/queue).*)", headers: [{ key: "Access-Control-Allow-Origin", value: "https://instantwallet.io" }] }];
+    return [
+      { source: "/:path((?!api/safe/queue).*)", headers: [{ key: "Access-Control-Allow-Origin", value: "https://instantwallet.io" }] },
+      // No site may put the wallet in a frame (audit 11-13): a page could frame /tx/<chain>/<safe>#<tx> with a
+      // decoy over Sign, and one Face ID signed it. The wallet frames its apps; nothing frames the wallet.
+      { source: "/:path*", headers: [{ key: "Content-Security-Policy", value: "frame-ancestors 'none'" }, { key: "X-Frame-Options", value: "DENY" }] },
+    ];
   },
   // the Safe build moved from /safe to / (2026-10-06)
   async redirects() {

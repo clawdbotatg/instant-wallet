@@ -24,6 +24,7 @@ Names only. Values live in Vercel and in `web/.env.local` (gitignored).
 | `RELAYER_PRIVATE_KEY` | the relay's key (pays gas, gets the fee) |
 | `RELAY_KV_URL`, `RELAY_KV_TOKEN` | Upstash: relay limits, alerts, drops, the shared tx queue |
 | `NEXT_PUBLIC_CHAINS` | optional. All 14 by default; `8453,1` for a few; `31337` for a local anvil |
+| `KV_FILE` | optional: without Upstash, keep the store in this JSON file (run-local.sh) |
 | `RPC_URL_<chainId>` | optional: your own node for that network (`RPC_URL_1=http://127.0.0.1:8545`); first choice over everything below |
 | `BASE_RPC_URL`, `MAINNET_RPC_URL`, `LOCAL_RPC_URL` | optional: another RPC for that chain (a fork, in tests) |
 | `SAFE_API_KEY` | Safe's transaction service (shared transactions) |

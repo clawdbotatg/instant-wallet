@@ -2,12 +2,44 @@ import "server-only";
 
 /**
  * Upstash Redis (RELAY_KV_URL / RELAY_KV_TOKEN): the one store. Alerts, the relay, drops, names and limits all use it. Without it (local dev, a fork
- * test) one in-memory store shared by every route; production refuses to run without it.
+ * test) one in-memory store shared by every route, kept in KV_FILE if set; production refuses to run without it.
  */
 
 const URL_ = process.env.RELAY_KV_URL;
 const TOKEN = process.env.RELAY_KV_TOKEN;
 const mem: Map<string, { v: any; until: number }> = ((globalThis as any).__iwsKv ??= new Map());
+
+// KV_FILE: the in-memory store kept in a JSON file, so it survives a restart (a copy run with run-local.sh: the
+// shared tx queue, names, limits). Read once at start, written a moment after each change.
+const FILE = process.env.KV_FILE;
+if (FILE && !(globalThis as any).__iwsKvLoaded) {
+  (globalThis as any).__iwsKvLoaded = true;
+  try {
+    const { existsSync, readFileSync } = require("node:fs") as typeof import("node:fs");
+    if (existsSync(FILE)) for (const [k, e] of Object.entries(JSON.parse(readFileSync(FILE, "utf8")) as Record<string, { v: any; until: number | null }>))
+      mem.set(k, { v: e.v, until: e.until ?? Infinity });
+  } catch (e) {
+    console.error("kv: couldn't read", FILE, e);
+  }
+}
+let saving: ReturnType<typeof setTimeout> | null = null;
+function save() {
+  if (!FILE || saving) return;
+  saving = setTimeout(() => {
+    saving = null;
+    try {
+      const { renameSync, writeFileSync } = require("node:fs") as typeof import("node:fs");
+      const now = Date.now();
+      const out: Record<string, { v: any; until: number | null }> = {};
+      for (const [k, e] of mem) if (e.until > now) out[k] = { v: e.v, until: e.until === Infinity ? null : e.until };
+      writeFileSync(`${FILE}.tmp`, JSON.stringify(out));
+      renameSync(`${FILE}.tmp`, FILE);
+    } catch (e) {
+      console.error("kv: couldn't write", FILE, e);
+    }
+  }, 500);
+}
+const READS = new Set(["GET", "MGET", "SMEMBERS", "LRANGE"]);
 
 function memory(cmd: string[]): any {
   const [op, k, ...rest] = cmd;
@@ -72,7 +104,9 @@ export async function kv(cmd: (string | number)[]): Promise<any> {
   const c = cmd.map(String);
   if (!URL_ || !TOKEN) {
     if (process.env.VERCEL_ENV === "production") throw new Error("storage not configured");
-    return memory(c);
+    const out = memory(c);
+    if (!READS.has(c[0])) save();
+    return out;
   }
   const r = await fetch(URL_, {
     method: "POST",

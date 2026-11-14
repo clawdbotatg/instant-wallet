@@ -41,6 +41,7 @@ import { claimName } from "@/lib/nameClaim";
 import { labelIn, ourLabel } from "@/lib/names";
 import { disconnect } from "@/lib/walletconnect";
 import type { Session } from "../WalletConnect";
+import { isLocal } from "@/lib/local";
 
 const WATCH = "watch"; // credentialId of a ?watch= view
 
@@ -52,6 +53,9 @@ type View = { kind: "home" } | { kind: "send"; asset?: Asset; scanned?: string }
 /** Instant Wallet on a Safe: a big balance, Deposit / Apps, the connected sites above the coins, the address pill opens Receive, settings bottom left (signatures needed / signers; the wedgie lives in there), a send button on each asset, a green send button that opens on the scanner (addresses, claim cards, WalletConnect QRs). */
 export function SafeApp({ link }: { link?: string } = {}) {
   const [account, setAccountState] = useState<SafeAccount | null | undefined>(undefined);
+  // a copy on your own computer (run-local.sh): said at the top, so it's never mistaken for our site
+  const [local, setLocal] = useState(false);
+  useEffect(() => setLocal(isLocal()), []);
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
   const [fresh, setFresh] = useState(false); // false while portfolio is last open's, saved
   const [states, setStates] = useState<ChainState[]>([]);
@@ -487,6 +491,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
     <>
       <div className="app">
         {account.credentialId === WATCH && <div className="fine" style={{ textAlign: "center" }}>View only</div>}
+        {local && <div className="fine" style={{ textAlign: "center" }}>Local copy, running on this computer</div>}
         <div className="top">
           <div className="brand">
             <img src="/mark-160.png" alt="" height={30} />

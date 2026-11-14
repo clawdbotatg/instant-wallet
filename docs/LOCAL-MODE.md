@@ -56,9 +56,9 @@ with a passkey made on the real site. If it does, everything below is plumbing.
 
 1. **The script**: done, `./run-local.sh` at the repo root (installs mkcert, certificate, hosts line, asks for an
    Alchemy key and your own node, builds, runs on 443; `--remove` takes the hosts line out).
-2. **`LOCAL=1`**: the server knows it's local. Production refuses to run without Upstash today; local uses a file store
-   instead (`lib/kv.ts`: one JSON file, same commands).
-3. **A "Local" mark** in the app, so you know it's your copy. `/api/version` says `local: true`.
+2. **The store in a file**: done. `KV_FILE` (`lib/kv.ts`) keeps the in-memory store in `~/.instantwallet-local/store.json`;
+   `run-local.sh` sets it.
+3. **A "Local" mark**: done. "Local copy, running on this computer" at the top of the wallet (`lib/local.ts`).
 4. **Hide what can't work locally**: Deposit, alerts, new inst.eth names, drops. Hidden, not broken.
 5. **Your own relay**: done. Settings → Your relay (only on a local copy, `components/safe/LocalRelay.tsx`,
    `app/api/local/relay`), or `npm run relay-key`. Makes the key in `.env.local`, shows its address and balances.

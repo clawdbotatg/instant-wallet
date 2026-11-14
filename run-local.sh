@@ -79,7 +79,8 @@ say "Building (a few minutes the first time)"
 
 # 6. run: the app on $PORT, https on 443 in front of it
 say "Starting"
-(cd web && exec npx next start -p "$PORT") &
+# the store (shared tx queue, names, limits) in a file, so a restart keeps it
+(cd web && KV_FILE="$DIR/store.json" exec npx next start -p "$PORT") &
 APP=$!
 npx -y local-ssl-proxy@2.0.5 --source 443 --target "$PORT" --cert "$DIR/$NAME.pem" --key "$DIR/$NAME-key.pem" >/dev/null 2>&1 &
 PROXY=$!

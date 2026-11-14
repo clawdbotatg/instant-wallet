@@ -34,7 +34,8 @@ You need a Mac with Homebrew (brew.sh). In the Terminal app:
 The first time it asks for your Mac password twice (to trust its own certificate, and to point
 local.instantwallet.io at this computer) and for a free Alchemy key (dashboard.alchemy.com: sign in, create an app,
 copy its API key). If you run your own Ethereum node, paste its URL when it asks (it finds one on port 8545 by
-itself); the app then reads and sends through your node instead of Alchemy. Then it builds and opens
+itself); the app then reads and sends through your node instead of Alchemy. It copies the transaction words (the EF
+clear-signing registry and ours) to your computer, and updates them each run. Then it builds and opens
 https://local.instantwallet.io. Leave the Terminal window open; Ctrl+C stops it. Next time: `./run-local.sh` again.
 
 1. Tap "I already have one" and use your passkey. Your wallet opens.

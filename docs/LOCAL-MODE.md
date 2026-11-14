@@ -30,7 +30,7 @@ with a passkey made on the real site. If it does, everything below is plumbing.
 | The relay pays gas (`RELAYER_PRIVATE_KEY`) and takes a fee in the same tx | Your own relay key, funded by you. The fee goes to the relay's own address (`relayCore.ts`), so you pay yourself back: you only pay gas. Or skip it: "Execute from my wallet (I pay gas)" |
 | The store: Upstash (`RELAY_KV_*`): tx queue, names, rate limits | A file on disk. Today it falls back to memory (`lib/kv.ts`), which is lost on restart |
 | The simulator, sim.wedgie.dev | clear-sim on your computer (open source), set in Settings → Simulator. Or the light client on Ethereum and Gnosis |
-| Words for a tx: `/api/explain` (EF registry + clear-descriptors from GitHub) | Same route, runs locally. Bundle a copy of the descriptors so it works offline |
+| Words for a tx: `/api/explain` (EF registry + clear-descriptors from GitHub) | Same route, runs locally, from your own clones of the two repos |
 | Swaps: Uniswap on chain + LI.FI (`LIFI_API_KEY`) | Uniswap works with any node. LI.FI works without our key, with lower limits |
 | DeFi positions: Zerion (`ZERION_API_KEY`) | Your own key, or hidden |
 | Safe Transaction Service (other signers' signatures) | Public, works as is. `SAFE_API_KEY` optional |
@@ -63,8 +63,10 @@ with a passkey made on the real site. If it does, everything below is plumbing.
    Deposit opens Receive; no alert keys → no Recovery alerts box; no `NAME_SIGNER_KEY` → no name pencil. Drops: not done.
 5. **Your own relay**: done. Settings → Your relay (only on a local copy, `components/safe/LocalRelay.tsx`,
    `app/api/local/relay`), or `npm run relay-key`. Makes the key in `.env.local`, shows its address and balances.
-6. **Offline words**: not done. The words come from GitHub (EF registry, clear-descriptors) and wedgie.dev, through
-   clear-signing-safe-kit and Sourcify's package. Bundling means changing both. They don't depend on instantwallet.io.
+6. **Offline words**: done. run-local.sh clones the EF registry and clear-descriptors into ~/.instantwallet-local
+   (updated each run when online); `CLEAR_REGISTRY_DIR` / `CLEAR_OURS_DIR` make /api/explain read them
+   (clear-signing-safe-kit 0.4.15 `explainFrom`). Offline, "checked" marks (wedgie.dev) show as plain EF. Not done: the
+   wedgie's own words (`clear.ts`, wedgie.dev/clear/).
 7. **A doc for the day instantwallet.io is gone**: three commands, written for a normal person. Linked from the
    footer and the README.
 

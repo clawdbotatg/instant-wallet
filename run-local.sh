@@ -27,6 +27,7 @@ command -v brew >/dev/null || { echo "Install Homebrew first: https://brew.sh, t
 command -v node >/dev/null || { say "Installing Node"; brew install node; }
 [ "$(node -p 'process.versions.node.split(".")[0]')" -ge 20 ] || { echo "Node 20 or newer needed: brew upgrade node"; exit 1; }
 command -v mkcert >/dev/null || { say "Installing mkcert"; brew install mkcert; }
+command -v git >/dev/null || { say "Installing git"; brew install git; }
 
 # 2. a certificate this Mac trusts, for local.instantwallet.io
 say "Trusting your own certificate (may ask for your Mac password)"
@@ -70,6 +71,19 @@ if ! grep -q '^RPC_URL_' "$ENV" 2>/dev/null && [ -t 0 ]; then
   fi
 fi
 
+# 4c. the transaction words (clear signing): your own copies of the EF registry and ours, updated each run when online
+say "Getting the transaction words (clear signing)"
+for r in ethereum/clear-signing-erc7730-registry clawdbotatg/clear-descriptors; do
+  d="$DIR/${r#*/}"
+  if [ -d "$d" ]; then
+    (git -C "$d" fetch -q --depth 1 origin HEAD && git -C "$d" reset -q --soft FETCH_HEAD) || echo "Couldn't update ${r#*/} (offline?); using the copy you have."
+  else
+    git clone -q --depth 1 --no-checkout "https://github.com/$r.git" "$d" || echo "Couldn't get ${r#*/}; the words come from GitHub instead."
+  fi
+done
+CLEAR=""
+[ -d "$DIR/clear-signing-erc7730-registry" ] && [ -d "$DIR/clear-descriptors" ] && CLEAR="CLEAR_REGISTRY_DIR=$DIR/clear-signing-erc7730-registry CLEAR_OURS_DIR=$DIR/clear-descriptors"
+
 # 5. build
 for p in "$PORT" 443; do
   if lsof -iTCP:"$p" -sTCP:LISTEN >/dev/null 2>&1; then echo "Port $p is in use. Stop what's on it (or IW_PORT=3001 ./run-local.sh)."; exit 1; fi
@@ -80,7 +94,7 @@ say "Building (a few minutes the first time)"
 # 6. run: the app on $PORT, https on 443 in front of it
 say "Starting"
 # the store (shared tx queue, names, limits) in a file, so a restart keeps it
-(cd web && KV_FILE="$DIR/store.json" exec npx next start -p "$PORT") &
+(cd web && exec env KV_FILE="$DIR/store.json" $CLEAR npx next start -p "$PORT") &
 APP=$!
 npx -y local-ssl-proxy@2.0.5 --source 443 --target "$PORT" --cert "$DIR/$NAME.pem" --key "$DIR/$NAME-key.pem" >/dev/null 2>&1 &
 PROXY=$!

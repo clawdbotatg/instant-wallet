@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import { type Address, type Hex, decodeFunctionResult, erc20Abi } from "viem";
 import { WARN, describe } from "@/lib/safe/describe";
-import { explainer } from "clear-signing-safe-kit/explain";
+import { explainFrom, explainer } from "clear-signing-safe-kit/explain";
 import { CHAINS, knownChain } from "@/lib/chains";
 import { rpc } from "@/lib/rpcServer";
 import { nativeUsd } from "@/lib/safe/relayCore";
@@ -20,6 +20,9 @@ const ADDR = /^0x[0-9a-fA-F]{40}$/;
 const HEX = /^0x[0-9a-fA-F]*$/;
 const MAX_CALLS = 20;
 const MAX_DATA = 40_000;
+
+// your own clones of the two repos (run-local.sh makes them): the words come from them, not GitHub
+if (process.env.CLEAR_REGISTRY_DIR && process.env.CLEAR_OURS_DIR) explainFrom({ registry: process.env.CLEAR_REGISTRY_DIR, ours: process.env.CLEAR_OURS_DIR });
 
 const explain = explainer({
   token: async (chain, a) => {

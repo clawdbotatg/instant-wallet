@@ -3,6 +3,7 @@
 import { recoveryChecked } from "./RecoveryAlert";
 import { RpcSetting } from "./RpcSetting";
 import { LocalRelay } from "./LocalRelay";
+import { useFeatures } from "@/lib/features";
 import { SimSetting } from "./SimSetting";
 import { ProvenSetting } from "./ProvenSetting";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
@@ -60,6 +61,7 @@ export function Keys({
 }) {
 
   const [chainId, setChainIdRaw] = useState(CHAINS[0].id);
+  const features = useFeatures(); // no alert keys on this server (a copy on your own computer): no alerts box
   // default network = where the money is (most USD), until you pick one yourself
   const picked = useRef(false);
   const setChainId = (id: number) => {
@@ -782,9 +784,11 @@ export function Keys({
         )}
       </div>
 
-      <Step title="Recovery alerts" key="alerts">
-        <Alerts account={account} toast={toast} />
-      </Step>
+      {features.alerts && (
+        <Step title="Recovery alerts" key="alerts">
+          <Alerts account={account} toast={toast} />
+        </Step>
+      )}
 
       <Step title={<>Your node on <Net chainId={chainId} /></>} key={`rpc${chainId}`}>
         <RpcSetting chainId={chainId} toast={toast} />

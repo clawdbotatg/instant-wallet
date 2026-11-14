@@ -43,8 +43,8 @@ with a passkey made on the real site. If it does, everything below is plumbing.
 
 - **Desktop browser (Chrome, Safari, Firefox):** works with the test above. Passkeys synced by iCloud or Google
   are the same passkeys, so a wallet made on the phone signs on the Mac.
-- **Browser extension:** it forwards every request to the open instantwallet.io tab. It needs to also accept a
-  local.instantwallet.io tab. Not done.
+- **Browser extension:** 0.1.11 accepts a local.instantwallet.io tab too; the tab that last opened gets the
+  requests.
 - **Phone browser:** needs two things a phone doesn't do easily: local.instantwallet.io must point at your computer (a DNS
   override on your router or a small DNS server), and the phone must trust the mkcert root (install it as a profile,
   then turn trust on). Possible, fiddly. Later.
@@ -59,10 +59,12 @@ with a passkey made on the real site. If it does, everything below is plumbing.
 2. **The store in a file**: done. `KV_FILE` (`lib/kv.ts`) keeps the in-memory store in `~/.instantwallet-local/store.json`;
    `run-local.sh` sets it.
 3. **A "Local" mark**: done. "Local copy, running on this computer" at the top of the wallet (`lib/local.ts`).
-4. **Hide what can't work locally**: Deposit, alerts, new inst.eth names, drops. Hidden, not broken.
+4. **Hide what can't work locally**: done, by keys, not by name (`/api/features`, `lib/features.ts`): no Coinbase keys →
+   Deposit opens Receive; no alert keys → no Recovery alerts box; no `NAME_SIGNER_KEY` → no name pencil. Drops: not done.
 5. **Your own relay**: done. Settings → Your relay (only on a local copy, `components/safe/LocalRelay.tsx`,
    `app/api/local/relay`), or `npm run relay-key`. Makes the key in `.env.local`, shows its address and balances.
-6. **Offline words**: bundle the descriptors in the build, so `/api/explain` doesn't need GitHub.
+6. **Offline words**: not done. The words come from GitHub (EF registry, clear-descriptors) and wedgie.dev, through
+   clear-signing-safe-kit and Sourcify's package. Bundling means changing both. They don't depend on instantwallet.io.
 7. **A doc for the day instantwallet.io is gone**: three commands, written for a normal person. Linked from the
    footer and the README.
 

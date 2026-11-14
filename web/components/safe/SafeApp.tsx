@@ -42,6 +42,7 @@ import { labelIn, ourLabel } from "@/lib/names";
 import { disconnect } from "@/lib/walletconnect";
 import type { Session } from "../WalletConnect";
 import { isLocal } from "@/lib/local";
+import { useFeatures } from "@/lib/features";
 
 const WATCH = "watch"; // credentialId of a ?watch= view
 
@@ -56,6 +57,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
   // a copy on your own computer (run-local.sh): said at the top, so it's never mistaken for our site
   const [local, setLocal] = useState(false);
   useEffect(() => setLocal(isLocal()), []);
+  const features = useFeatures(); // a part this server has no key for is hidden, not broken
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
   const [fresh, setFresh] = useState(false); // false while portfolio is last open's, saved
   const [states, setStates] = useState<ChainState[]>([]);
@@ -556,7 +558,8 @@ export function SafeApp({ link }: { link?: string } = {}) {
             )}
           </div>
           <div className="actions">
-            <button className="btn" onClick={() => setView({ kind: "deposit" })}>
+            {/* no Coinbase keys here (a copy on your own computer): Deposit is sending crypto in */}
+            <button className="btn" onClick={() => setView({ kind: features.deposit ? "deposit" : "receive" })}>
               <DepositIcon /> Deposit
             </button>
             <button className="btn" onClick={() => setView({ kind: "apps" })}>
@@ -668,7 +671,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
               onSeen={() => setGot([])}
               name={title ?? (ens === undefined ? "…" : null)}
               start={instName ? (ourLabel(instName) ?? "") : labelIn(customName ?? "").replace(/^-+|-+$/g, "").slice(0, 32)}
-              onClaim={account.credentialId === WATCH || ownEns ? undefined : claim}
+              onClaim={account.credentialId === WATCH || ownEns || !features.names ? undefined : claim}
               onSwitch={anotherPasskey}
               onSignOut={() => {
                 setAccount(null);

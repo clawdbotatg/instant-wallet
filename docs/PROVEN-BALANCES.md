@@ -93,9 +93,7 @@ takes more than about 10 s on a phone, prove fewer per call, biggest first.
 
 ## Decisions for Austin
 
-1. **Networks that can't be checked.** Recommended: one rule, full means proven, so Base's coins stay faded for
-   good and a tap says why. The other way (Base left full, with a small "not checked" label) makes full mean two
-   things.
+1. **Networks that can't be checked.** Decided 11-14: drawn as always, never faded.
 2. **Positions and collectibles.** They come from Zerion and can't be proven this way. Recommended: leave them as
    they are in this build, and say so in CROPS.
 3. **The total.** It mixes proven and unproven coins and an unproven price. Recommended: never faded.

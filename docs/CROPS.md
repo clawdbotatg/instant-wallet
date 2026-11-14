@@ -190,7 +190,7 @@ the guesses below with what it finds.
 - **Now:** on Ethereum and Gnosis the browser can run the tx itself on proven state (Colibri, `lib/safe/light.ts`).
   A failed proof shows red, never the unchecked answer. It's off by default.
   Home's coin balances there can be proven too (Settings → Your node, off by default, `lib/safe/proven.ts`): faded
-  until proven, red with the chain's number when our server's is wrong. Other networks stay faded. The token list,
+  until proven, red with the chain's number when our server's is wrong. Other networks are drawn as always. The token list,
   prices, positions and history are taken on trust. Header proofs come from one prover (Colibri's).
 - **Should:** balances and allowances proven too. On by default where it works. A clear mark on every network
   that can't be checked.

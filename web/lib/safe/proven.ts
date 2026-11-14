@@ -141,7 +141,8 @@ export function stateOf(t: Table, a: { chainId: number; asset: string }): Proven
 // ---- in the page ----
 
 /** Settings → Your node, on a network with a light client: prove its balances in this browser. Off by default, per
- * network. No network given: is any on (then full means proven, and every other network's coins stay faded). */
+ * network. No network given: is any on. A network that isn't being proven (its switch off, or no light client:
+ * Base) is drawn as always, never faded (Austin 11-14). */
 const KEY = "iws.proven";
 function ons(): number[] {
   try {
@@ -304,7 +305,7 @@ export function useProven(assets: readonly Shown[] | null | undefined, address: 
   return useMemo(
     () => ({
       on,
-      state: (a: { chainId: number; asset: string }): ProvenState | null => (on ? stateOf(t, a) : null),
+      state: (a: { chainId: number; asset: string }): ProvenState | null => (on && provenOn(a.chainId) ? stateOf(t, a) : null), // a network that isn't being proven is drawn as always
       proven: (a: { chainId: number; asset: string }): bigint | null | undefined => {
         const r = t[provenKey(a.chainId, a.asset)];
         return on && r?.state === "wrong" ? r.proven : undefined;

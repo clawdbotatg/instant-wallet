@@ -24,7 +24,7 @@ What Instant Wallet must always do. If a change breaks one, it doesn't ship. In 
   unchecked answer, never the simulator instead.
 - Balances on Ethereum and Gnosis are proven in this browser when the setting is on (Settings → Your node). A coin's
   numbers are faded until proven, and red, with the proven number, when our server says otherwise: a red ! by
-  them opens both numbers. Other networks stay faded. The total never fades, and counts a red coin at its proven number.
+  them opens both numbers. A network that isn't being proven (Base) is drawn as always. The total never fades, and counts a red coin at its proven number.
 - Reads and transactions go to your own node on any network where you set one (Settings → Your node). Never a
   fallback to ours.
 - Anything that could take everything says so in red, first: a delegatecall that isn't a plain batch, a

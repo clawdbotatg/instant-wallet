@@ -6,7 +6,7 @@ import { amount, feeWords, short, usd } from "@/lib/format";
 import { Money, Raw, WhatFor, Who, Words } from "../bits";
 import { txRows } from "@/lib/safe/raw";
 import { WARN, describe, ours, relayFee } from "@/lib/safe/describe";
-import { type Line, type Src, type Told, intents, srcOf } from "@/lib/safe/intents";
+import { type Line, type Src, type Told, heardAll, intents, srcOf } from "@/lib/safe/intents";
 export { type Line, type Src, intents };
 import type { Call } from "@/lib/safe/core";
 import { type Sim, asSafeTx, lightOn, moves, simulate } from "@/lib/safe/sim";
@@ -42,7 +42,7 @@ export function explainCalls(chainId: number, safe: Address, calls: Call[]): Pro
   if (!said.has(body)) {
     const p: Promise<Told[] | null> = fetch("/api/explain", { method: "POST", headers: { "content-type": "application/json" }, body })
       .then(r => (r.ok ? r.json() : null))
-      .then(j => (Array.isArray(j?.calls) ? (j.calls as Told[]) : null))
+      .then(j => (Array.isArray(j?.calls) ? heardAll(chainId, safe, calls, j.calls as Told[]) : null))
       .catch(() => null);
     said.set(body, p);
     p.then(v => v === null && said.get(body) === p && said.delete(body));

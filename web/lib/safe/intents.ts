@@ -1,7 +1,8 @@
 import { type Address, getAddress } from "viem";
 import type { Mark } from "clear-signing-safe-kit";
-import type { Call } from "./core";
+import { type Call, rolesAddress } from "./core";
 import { WARN, describe, ours } from "./describe";
+import { isSwapTarget } from "./swap";
 
 /** Who a plain send pays (the chain's coin, or a token transfer), so its headline can say so. */
 function sentTo(c: Call): string | undefined {
@@ -27,6 +28,28 @@ function approval(c: Call): { key: string; amount: bigint } | null {
 }
 
 /**
+ * The server's words for one call (/api/explain), or null where the wallet's own reading must stand (audit 11-13):
+ * a call on the wallet itself or its daily-limit module (add a signer, turn on a module: a server that lied could
+ * call it "Claim your reward"), and any call the wallet's own reading warns about. A swap card (amounts in place of
+ * the step) only for a call to a swap router: for anything else the server's words stay, its amounts go.
+ */
+export function heard(chainId: number, safe: Address, c: Call, t: Told | undefined): Told {
+  if (!t) return null;
+  const to = c.to.toLowerCase();
+  if (to === safe.toLowerCase() || to === rolesAddress(safe).toLowerCase()) return null;
+  if (describe(chainId, safe, c).startsWith(WARN)) return null;
+  if (t.swap && !isSwapTarget(c.to)) {
+    if (ours(chainId, c) || !describe(chainId, safe, c).startsWith("Call ")) return null; // the wallet can read it itself
+    const { swap: _, ...rest } = t;
+    return rest;
+  }
+  return t;
+}
+/** The same for a whole answer, call by call. */
+export const heardAll = (chainId: number, safe: Address, calls: Call[], told: Told[] | null): Told[] | null =>
+  told && calls.map((c, i) => heard(chainId, safe, c, told[i]));
+
+/**
  * What a tx is for, one line per step: clear signing's intent and who it's with ("Deposit · Steakhouse Financial"),
  * else ours / describe.ts. Never the relay's fee. brief (headlines: Activity, signing): each step is the descriptor's
  * short intent (its full sentence can carry every address in the call), and who it's with is said once per run of steps.
@@ -46,7 +69,7 @@ export function intents(chainId: number, safe: Address, calls: Call[], told: Tol
   const lines = calls.flatMap((c, i) => {
     const mine = ours(chainId, c);
     if (mine?.startsWith("Network fee")) return [];
-    const t = mine ? null : told?.[i];
+    const t = mine ? null : heard(chainId, safe, c, told?.[i]);
     const said = mine ?? (t ? ((brief && t.short) || t.what) : describe(chainId, safe, c));
     // a send always says who to (Austin 11-11: Activity said "Send" and never where); <Words> draws it as <Who>
     const to = mine ? undefined : sentTo(c);

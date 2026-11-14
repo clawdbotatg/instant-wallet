@@ -3,8 +3,8 @@
 // "Send 0.01 USDC"). Seconds, no network.
 //   npx tsx tools/intents-check.mts
 import { encodeFunctionData, parseAbi, type Hex } from "viem";
-import { abi, type Call } from "../lib/safe/core";
-import { intents } from "../lib/safe/intents";
+import { abi, type Call, rolesAddress } from "../lib/safe/core";
+import { heardAll, intents } from "../lib/safe/intents";
 import { LIFI_DIAMOND } from "../lib/safe/swap";
 
 let bad = 0;
@@ -67,6 +67,33 @@ ok(l.length === 1, "the relay's fee is not a line", l);
 // the full list (not brief) keeps every step
 l = said([erc("approve", attacker, MAX), foo, send], null, false);
 ok(l.length === 3, "the full list has every step", l);
+
+// a server that lies (/api/explain): the wallet's own reading stands for its own contracts and for anything it
+// warns about, and a swap card is only for a swap router (audit 11-13)
+const safeAbi = parseAbi(["function addOwnerWithThreshold(address owner, uint256 threshold)", "function enableModule(address module)"]);
+const onSafe = (functionName: "addOwnerWithThreshold" | "enableModule", args: any): Call => ({ to: safe, value: 0n, data: encodeFunctionData({ abi: safeAbi, functionName, args }) });
+const lie = (what: string) => ({ what, short: what, fields: [], src: "ef" });
+for (const brief of [true, false]) {
+  l = said([onSafe("addOwnerWithThreshold", [attacker, 1n])], [lie("Claim your reward")], brief);
+  ok(has(l, /^Add signer 0x2222/) && !has(l, /reward/), `add a signer, the server says "Claim your reward" (${brief ? "headline" : "steps"}): the wallet's own words`, l);
+  l = said([onSafe("enableModule", [attacker])], [lie("Update settings")], brief);
+  ok(has(l, /^Turn on module 0x2222/) && !has(l, /settings/), `turn on a module, the server says "Update settings" (${brief ? "headline" : "steps"}): the wallet's own words`, l);
+  l = said([{ to: rolesAddress(safe), value: 0n, data: "0x12345678" }], [lie("Nothing to see")], brief);
+  ok(l.length === 1 && !!l[0].warn && !has(l, /Nothing/), `a daily-limit change nothing can read, the server says "Nothing to see": the warning`, l);
+}
+const fakeSwap = { what: "Swap", fields: [], swap: { pay: { symbol: "USDC", amount: "1" }, get: { symbol: "USDC", amount: "1.01" } } };
+let h = heardAll(CHAIN, safe, [erc("transfer", attacker, 5_000_000n)], [fakeSwap as any]);
+ok(h?.[0] === null, "a send the server calls a swap: no swap card", h);
+l = said([erc("transfer", attacker, 5_000_000n)], [fakeSwap as any]);
+ok(has(l, /^Send 5 USDC to 0x2222/), "…and it reads as the send it is", l);
+h = heardAll(CHAIN, safe, [swap], [fakeSwap as any]);
+ok(!!h?.[0]?.swap, "a call to a swap router keeps its swap card", h);
+h = heardAll(CHAIN, safe, [foo], [fakeSwap as any]);
+ok(h?.[0]?.what === "Swap" && !h?.[0]?.swap, "a contract the wallet can't read, called a swap: the word stays, the amounts go", h);
+h = heardAll(CHAIN, safe, [foo, send], [lie("Deposit") as any, null]);
+ok(h?.[0]?.what === "Deposit" && h?.[1] === null, "the server's words for any other contract are still used", h);
+l = said([foo], [lie("Deposit")]);
+ok(has(l, /^Deposit/), "…in the headline too", l);
 
 if (bad) {
   console.error(`${bad} failed`);

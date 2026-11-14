@@ -11,6 +11,7 @@ import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { POPULAR, type SwapRoute, type Token, swapCalls } from "@/lib/safe/swap";
 import { uniswapRoute } from "@/lib/safe/uniswap";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
+import { hotAvailable } from "@/lib/safe/hot";
 import type { Asset } from "@/lib/types";
 import { Net, AmountBox, DoneBar, Eject, Money, Proven, TimedBar, TokenIcon, Who, stageLabel } from "../bits";
 import { ChainSelect, type Opt, Select, SignerChoice, assetOpt } from "./Pick";
@@ -302,8 +303,12 @@ export function SafeSwap({
     setAmountIn(bal > 0n ? formatUnits(bal, from.decimals) : "0");
   }
 
-  async function swap() {
-    if (!route || !st || !fee) return;
+  // your own browser wallet (MetaMask...) sends it and pays the gas: no relay, no fee
+  const [canSelf, setCanSelf] = useState(false);
+  useEffect(() => setCanSelf(hotAvailable()), [stage]);
+
+  async function swap(self = false) {
+    if (!route || !st || (!fee && !self)) return;
     if (route.until < Date.now()) return setTick(n => n + 1); // a stale price: get a fresh one first
     setError(null);
     let wedgie: Wedgie | null = null;
@@ -320,8 +325,9 @@ export function SafeSwap({
         signers,
         feeToken,
         wedgie,
-        quote: fee,
+        quote: fee ?? undefined,
         swapGas: BigInt(route.gas),
+        self,
         onStage,
       });
       setHash(h);
@@ -538,9 +544,14 @@ export function SafeSwap({
       {needsComputer && <p className="err">Swaps on this wallet need a key that isn&apos;t here: open Instant Wallet on your computer.</p>}
       {feeShort && <p className="err">Not enough {feeToken === "usdc" ? "USDC" : nativeSymbol(chainId)} on <Net chainId={chainId} /> for this plus the fee.</p>}
       {error && <ErrorLine text={error} />}
-      <button className="btn btn-green wide go-swap" onClick={swap} disabled={busy || !ready}>
+      <button className="btn btn-green wide go-swap" onClick={() => swap()} disabled={busy || !ready}>
         {busy ? stageLabel(stage) : "Sign to swap"}
       </button>
+      {!busy && canSelf && st?.deployed && route && !needsComputer && !quoting && (
+        <button className="btn btn-dark wide" onClick={() => swap(true)}>
+          Execute from my wallet (no fee, I pay gas)
+        </button>
+      )}
       <Progress stage={stage} chainId={chainId} hash={hash} />
     </div>
   );

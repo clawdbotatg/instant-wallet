@@ -16,6 +16,7 @@ import { friendly } from "@/lib/friendly";
 import { Progress } from "./Progress";
 import { ErrorLine } from "./WedgieButton";
 import { WhatItDoes } from "./WhatItDoes";
+import { hotAvailable } from "@/lib/safe/hot";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import { bio } from "@/lib/passkey";
 
@@ -86,6 +87,7 @@ function SafeRequest({
   const [hash, setHash] = useState<Hash | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [prepared, setPrepared] = useState<Prepared | null>(null);
+  const [mine, setMine] = useState<Prepared | null>(null); // no fee: your browser wallet sends it
   const [tick, setTick] = useState(0);
   const quoteFailed = useRef(false); // the error on screen is a failed fee quote (cleared when the next one lands)
   // no choosing who signs (Austin, 10-29): a transaction is Face ID, then its page, where any other signer adds theirs
@@ -111,6 +113,12 @@ function SafeRequest({
     let live = true;
     let again: ReturnType<typeof setTimeout> | undefined;
     setPrepared(null);
+    setMine(null);
+    // the same tx without the fee, for your own browser wallet to send (one signer here, a browser wallet to send it)
+    if (!queue && hotAvailable())
+      prepareOwners({ account, state: st, calls: calls!, signers, feeToken, label: pending.dapp.name, self: true })
+        .then(p => live && setMine(p))
+        .catch(() => {});
     (async () => {
       const dappGas = await siteGas(st.chainId, account.address, calls!);
       const p = await prepareOwners({ account, state: st, calls: calls!, signers, feeToken, dappGas, label: pending.dapp.name });
@@ -147,19 +155,20 @@ function SafeRequest({
     return () => clearInterval(t);
   }, [!!prepared, busy]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function go() {
+  async function go(self = false) {
     if (!st) return;
     setError(null);
     quoteFailed.current = false;
     let w: Wedgie | null = null;
+    const use = self ? mine : prepared;
     try {
-      if (pending.kind === "calls" && !prepared) return;
-      if (pending.kind === "calls" && prepared!.fee.until < Date.now() + 30_000) return setTick(t => t + 1); // stale quote: a fresh one, then tap again
+      if (pending.kind === "calls" && !use) return;
+      if (pending.kind === "calls" && !self && use!.fee.until < Date.now() + 30_000) return setTick(t => t + 1); // stale quote: a fresh one, then tap again
       // the wedgie first, while it's still the tap: Chrome's port prompt needs one, and Face ID used it up
       // (10-27: "Must be handling a user gesture" on a Uniswap swap from the extension)
       if (st && usesWedgie(account, st, signers) && wedgieSupported() && (pending.kind === "calls" || pending.raw)) w = await Wedgie.connect();
       if (pending.kind === "calls") {
-        if (!prepared) return;
+        if (!use) return;
         // answer the site the moment the relay has the hash, as any wallet does: the site watches the chain itself
         // (10-10: answering only after the receipt left Uniswap on "Confirm in wallet" for the whole wait)
         let answered: Promise<void> | null = null;
@@ -170,10 +179,10 @@ function SafeRequest({
         let hash: Hash;
         try {
           hash = await finishOwners({
-            ...prepared,
+            ...use,
             opts: {
-              ...prepared.opts,
-              wedgie: w ?? prepared.opts.wedgie,
+              ...use!.opts,
+              wedgie: w ?? use!.opts.wedgie,
               onStage: (s, h) => {
                 setStage(s);
                 if (h) setHash(h);
@@ -262,8 +271,13 @@ function SafeRequest({
       {refused && <ErrorLine text={refused} />}
       {error && <ErrorLine text={error} />}
       {!refused && (
-        <button className="btn btn-green wide" disabled={busy || !ready} onClick={go}>
+        <button className="btn btn-green wide" disabled={busy || !ready} onClick={() => go()}>
           {busy ? stageLabel(stage) : pending.kind === "calls" ? (prepared ? "Sign" : "Getting the fee…") : "Sign"}
+        </button>
+      )}
+      {!refused && !busy && pending.kind === "calls" && mine && (
+        <button className="btn btn-dark wide" onClick={() => go(true)}>
+          Execute from my wallet (no fee, I pay gas)
         </button>
       )}
       <Progress stage={stage} chainId={pending.chainId} hash={hash} />

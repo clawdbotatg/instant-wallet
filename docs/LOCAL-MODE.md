@@ -65,8 +65,9 @@ with a passkey made on the real site. If it does, everything below is plumbing.
    `app/api/local/relay`), or `npm run relay-key`. Makes the key in `.env.local`, shows its address and balances.
 6. **Offline words**: done. run-local.sh clones the EF registry and clear-descriptors into ~/.instantwallet-local
    (updated each run when online); `CLEAR_REGISTRY_DIR` / `CLEAR_OURS_DIR` make /api/explain read them
-   (clear-signing-safe-kit 0.4.15 `explainFrom`). Offline, "checked" marks (wedgie.dev) show as plain EF. Not done: the
-   wedgie's own words (`clear.ts`, wedgie.dev/clear/).
+   (clear-signing-safe-kit 0.4.15 `explainFrom`). Offline, "checked" marks (wedgie.dev) show as plain EF. The wedgie's own
+   words too: run-local.sh copies wedgie-dev's public/clear (sparse clone), `WEDGIE_CLEAR_DIR`, served at /clear/
+   (app/clear, local only; falls back to wedgie.dev), and the page reads them there (lib/safe/wedgie.ts clearFrom).
 7. **A doc for the day instantwallet.io is gone**: three commands, written for a normal person. Linked from the
    footer and the README.
 

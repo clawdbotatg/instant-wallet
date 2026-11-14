@@ -83,6 +83,17 @@ for r in ethereum/clear-signing-erc7730-registry clawdbotatg/clear-descriptors; 
 done
 CLEAR=""
 [ -d "$DIR/clear-signing-erc7730-registry" ] && [ -d "$DIR/clear-descriptors" ] && CLEAR="CLEAR_REGISTRY_DIR=$DIR/clear-signing-erc7730-registry CLEAR_OURS_DIR=$DIR/clear-descriptors"
+# and what a wedgie shows when it signs: wedgie.dev/clear, only that folder of wedgie-dev (about 300 MB the first time)
+W="$DIR/wedgie-clear"
+if [ -d "$W" ]; then
+  git -C "$W" pull -q --depth 1 --rebase=false 2>/dev/null || echo "Couldn't update the wedgie's words (offline?); using the copy you have."
+else
+  say "Getting the wedgie's words (about 300 MB, once)"
+  { git clone -q --depth 1 --filter=blob:none --no-checkout https://github.com/clawdbotatg/wedgie-dev.git "$W" &&
+    git -C "$W" sparse-checkout set --no-cone '/public/clear/' '!/public/clear/screens/' &&
+    git -C "$W" checkout -q; } || { rm -rf "$W"; echo "Couldn't get them; a wedgie reads them from wedgie.dev instead."; }
+fi
+[ -d "$W/public/clear" ] && CLEAR="$CLEAR WEDGIE_CLEAR_DIR=$W/public/clear"
 
 # 5. build
 for p in "$PORT" 443; do

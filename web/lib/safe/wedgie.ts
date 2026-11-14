@@ -1,7 +1,11 @@
 import { type Address, type Hex, getAddress } from "viem";
-import { wedgieSign } from "clear-signing-safe-kit";
+import { clearFrom, wedgieSign } from "clear-signing-safe-kit";
 import { type SafeTx, type Sig, encodeWebAuthn } from "./core";
 import { wedgieSim } from "./sim";
+import { isLocal } from "../local";
+
+// a copy on your own computer: the wedgie's words from this server (app/clear: your own copy of wedgie.dev/clear)
+if (isLocal()) clearFrom("/clear/");
 
 /**
  * The wedgie over Web Serial (Chrome / Edge on a computer), running the Safe signer app (clawdbotatg/wedgie-safe).

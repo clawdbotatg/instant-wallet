@@ -4,7 +4,7 @@ Home shows each balance at once, as today. A light client (Colibri) proves it in
 faded until its proof lands, then full. A proof that contradicts the number turns the row red. Ethereum and Gnosis.
 This is `docs/CROPS.md` §6 "Read" and "Indexing", done without slowing Home.
 
-Built 11-13, steps 1 to 4, behind Settings → Balances (off by default): `<Proven>` in `components/bits.tsx`,
+Built 11-13, steps 1 to 4, behind Settings → Your node (off by default): `<Proven>` in `components/bits.tsx`,
 `tools/proven-e2e.mjs` in a browser. Step 0 measured on a laptop only (`tools/proven-measure.mts`), not yet on a phone.
 
 ## What exists
@@ -65,8 +65,8 @@ takes more than about 10 s on a phone, prove fewer per call, biggest first.
 
 ### 2. The fade on Home (half a day)
 
-- One shared part in `components/bits.tsx`, `<Proven>`, wraps a coin's two numbers. Faded is one CSS value: 90%
-  (Austin 11-13). Only the numbers fade, not the logo or name.
+- One shared part in `components/bits.tsx`, `<Proven>`, wraps a coin's two numbers. Faded is one CSS value: 60%
+  (90% could not be seen on a phone, 11-13). Only the numbers fade, not the logo or name.
 - Check it doesn't fight `card assets stale` (the whole card already dims while Home shows a saved portfolio).
 - Ship behind a switch that is off, look at it live on a phone, then turn it on for everyone.
 

@@ -543,7 +543,7 @@ export function AmountBox({
  * A coin's balance (EXPECTATIONS #1, #2; lib/safe/proven.ts), wherever one is drawn: Home's rows, the coin pickers,
  * "You have", Send everything. Faded until this browser has proven it (full means proven: a network with no light
  * client stays faded), full once proven, red when the chain says another number, and then `children` gets the coin
- * with the PROVEN number in it (a coin the server made up: 0). Settings → Balances off: drawn exactly as before.
+ * with the PROVEN number in it (a coin the server made up: 0). Settings → Your node off: drawn exactly as before.
  * Only the numbers: `children` draws them from the coin it's handed. `as`: its element (a div in a row of divs).
  * `keep`: the number is what a transaction moves (Send everything), so it's never swapped, only faded or red.
  */

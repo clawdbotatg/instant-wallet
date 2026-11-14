@@ -5,7 +5,6 @@ import { RpcSetting } from "./RpcSetting";
 import { LocalRelay } from "./LocalRelay";
 import { useFeatures } from "@/lib/features";
 import { SimSetting } from "./SimSetting";
-import { ProvenSetting } from "./ProvenSetting";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { type Address, type Hex, encodeFunctionData, formatUnits, zeroAddress } from "viem";
 import { brainKey, isXdai, oldBurnerKey } from "@/lib/brand";
@@ -792,10 +791,6 @@ export function Keys({
 
       <Step title={<>Your node on <Net chainId={chainId} /></>} key={`rpc${chainId}`}>
         <RpcSetting chainId={chainId} toast={toast} />
-      </Step>
-
-      <Step title="Balances" key="proven">
-        <ProvenSetting />
       </Step>
 
       <Step title="Simulator" key="sim">

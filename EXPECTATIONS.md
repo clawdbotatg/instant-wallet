@@ -22,7 +22,7 @@ What Instant Wallet must always do. If a change breaks one, it doesn't ship. In 
 - On Ethereum and Gnosis you can have this browser work the coins out itself (a light client: the node proves
   every answer). It says "Checked in this browser". If it can't prove an answer it says so in red: never the
   unchecked answer, never the simulator instead.
-- Balances on Ethereum and Gnosis are proven in this browser when the setting is on (Settings → Balances). A coin's
+- Balances on Ethereum and Gnosis are proven in this browser when the setting is on (Settings → Your node). A coin's
   numbers are faded until proven, and red, with the proven number, when our server says otherwise: a red ! by
   them opens both numbers. Other networks stay faded. The total never fades, and counts a red coin at its proven number.
 - Reads and transactions go to your own node on any network where you set one (Settings → Your node). Never a
@@ -54,7 +54,7 @@ Where it lives: `WhatItDoes`, `<Money>`, `<Proven>`, clear-signing-safe-kit (`da
 
 | Thing | Always | Never |
 |---|---|---|
-| A coin's balance (Home's rows, the coin pickers, You have, Send everything) | `<Proven>`: faded until this browser proves it, red with the proven number and `<ProvenMark>` (the !) when the server's is wrong, as before when Settings → Balances is off (11-13) | the numbers drawn bare from the server's answer |
+| A coin's balance (Home's rows, the coin pickers, You have, Send everything) | `<Proven>`: faded until this browser proves it, red with the proven number and `<ProvenMark>` (the !) when the server's is wrong, as before when Settings → Your node is off (11-13) | the numbers drawn bare from the server's answer |
 | Money moving | `<Money>`: out red −, in green +, dollars after in gray | a hand-written + or − |
 | Leaving the wallet (explorer, Safe{Wallet}, a tx's page) | `<Eject>`: white pill (the height of every pill), new window, on the right. A block explorer is the bare icon, top right, never the word (11-12). Other places say their name (Safe ↗). A whole row that leaves (a position, a connected site) says ↗ after its name. On a finished screen `<DoneBar>`: Done, and the icon in the sheet's top right | a button that says Explorer, a hand-rolled pill link, a pill stretched across the page |
 | A link to give someone (a tx for the other signers, an invite, a claim, a drop) | `<CopyLink>`: dark gray, copies. We always say Copy, never Share (11-12). The link itself is never printed | a Share button, the phone's share sheet for a link, the link written out, a pop-out |

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { chainById, ownRpc, setOwnRpc } from "@/lib/chains";
 import { PROVER } from "@/lib/safe/light";
 import { canLight, lightOn, lightProver, setLight } from "@/lib/safe/sim";
+import { provenOn, setProven } from "@/lib/safe/proven";
 import { TimedBar } from "../bits";
 
 /** Settings → Your node: where this browser reads the picked network and sends its transactions (lib/chains.ts). */
@@ -13,9 +14,11 @@ export function RpcSetting({ chainId, toast }: { chainId: number; toast: (m: str
   const [busy, setBusy] = useState(false);
   const [light, setLightOn] = useState(false);
   const [prover, setProver] = useState("");
+  const [proven, setProvenOn] = useState(false);
   useEffect(() => {
     setUrl(ownRpc(chainId) ?? "");
     setLightOn(lightOn(chainId));
+    setProvenOn(provenOn(chainId));
     setProver(canLight(chainId) && lightProver(chainId) !== PROVER[chainId] ? lightProver(chainId) : "");
   }, [chainId]);
   const saveLight = (on: boolean, p = prover) => (setLight(chainId, on, p), setLightOn(on));
@@ -54,6 +57,10 @@ export function RpcSetting({ chainId, toast }: { chainId: number; toast: (m: str
       {busy && <TimedBar ms={8000} />}
       {canLight(chainId) && (
         <>
+          <label className="row fine" style={{ gap: 8 }}>
+            <input type="checkbox" checked={proven} onChange={e => (setProven(chainId, e.target.checked), setProvenOn(e.target.checked))} />
+            Prove balances
+          </label>
           <label className="row fine" style={{ gap: 8 }}>
             <input type="checkbox" checked={light} onChange={e => saveLight(e.target.checked)} />
             Run a light client

@@ -140,19 +140,23 @@ export function stateOf(t: Table, a: { chainId: number; asset: string }): Proven
 
 // ---- in the page ----
 
-/** Settings: prove Home's balances in this browser. Off by default until it's been looked at on a phone. */
+/** Settings → Your node, on a network with a light client: prove its balances in this browser. Off by default, per
+ * network. No network given: is any on (then full means proven, and every other network's coins stay faded). */
 const KEY = "iws.proven";
-export function provenOn(): boolean {
+function ons(): number[] {
   try {
-    return localStorage.getItem(KEY) === "on";
+    const v = localStorage.getItem(KEY);
+    if (v === "on") return LIGHT_CHAINS; // the first switch was one for both
+    return (JSON.parse(v || "[]") as number[]).filter(canProve);
   } catch {
-    return false;
+    return [];
   }
 }
-export function setProven(on: boolean) {
+export const provenOn = (chainId?: number): boolean => (chainId === undefined ? ons().length > 0 : ons().includes(chainId));
+export function setProven(chainId: number, on: boolean) {
+  const all = ons().filter(c => c !== chainId);
   try {
-    if (on) localStorage.setItem(KEY, "on");
-    else localStorage.removeItem(KEY);
+    localStorage.setItem(KEY, JSON.stringify(on ? [...all, chainId] : all));
   } catch {}
   reset(wallet);
 }
@@ -213,7 +217,7 @@ const hidden = () => typeof document !== "undefined" && document.hidden;
 function plan(chainId: number) {
   clearTimeout(timers.get(chainId));
   timers.delete(chainId);
-  if (!provenOn() || hidden() || busy.has(chainId) || !Object.values(table).some(r => r.chainId === chainId)) return;
+  if (!provenOn(chainId) || hidden() || busy.has(chainId) || !Object.values(table).some(r => r.chainId === chainId)) return;
   const soon = notBefore.get(chainId) ?? 0;
   const at = pick(table, chainId, false).length ? soon : Math.max(soon, (rechecked.get(chainId) ?? 0) + recheckMs());
   timers.set(chainId, setTimeout(() => void round(chainId), Math.max(0, at - Date.now())));
@@ -223,7 +227,7 @@ function plan(chainId: number) {
 async function round(chainId: number) {
   timers.delete(chainId);
   const w = wallet;
-  if (!w || !provenOn() || hidden() || busy.has(chainId)) return;
+  if (!w || !provenOn(chainId) || hidden() || busy.has(chainId)) return;
   const recheck = Date.now() - (rechecked.get(chainId) ?? 0) >= recheckMs();
   const coins = pick(table, chainId, recheck);
   if (!coins.length) return;
@@ -277,6 +281,7 @@ export function see(address: Address, assets: readonly Shown[], late?: readonly 
   apply({ kind: "seen", at: Date.now(), assets: [...assets], late: late ? [...late] : undefined });
   LIGHT_CHAINS.forEach(c => busy.has(c) || plan(c));
 }
+const anyOn = () => provenOn();
 export const provenTable = () => table;
 export const onProven = (f: () => void) => (subs.add(f), () => void subs.delete(f));
 const EMPTY: Table = {};
@@ -291,7 +296,7 @@ const EMPTY: Table = {};
  * on every answer (calling both is fine: a read seen twice counts once).
  */
 export function useProven(assets: readonly Shown[] | null | undefined, address: Address | undefined, late?: readonly number[]) {
-  const on = useSyncExternalStore(onProven, provenOn, () => false);
+  const on = useSyncExternalStore(onProven, anyOn, () => false);
   const t = useSyncExternalStore(onProven, provenTable, () => EMPTY);
   useEffect(() => {
     if (on && address && assets) see(address, assets, late);

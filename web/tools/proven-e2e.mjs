@@ -2,7 +2,7 @@
 // Home for a public wallet, view only, its /api/portfolio answer caught in the browser so the test is "the server".
 // The proofs are real: this browser's light client, through the dev server's /api/rpc, against the Colibri prover.
 //   1. switch off: no fade anywhere (drawn as before)
-//   2. switch on (Settings → Balances), before any proof: Ethereum and Gnosis rows faded
+//   2. switch on (Settings → Your node), before any proof: Ethereum and Gnosis rows faded
 //   3. proofs landed: honest rows full, a Base row still faded
 //   4. a wrong amount and a made-up coin in the answer: red, with the proven number
 //   5. the total at the top is never faded
@@ -114,17 +114,22 @@ await shot(1, "switch-off");
 await page.evaluate(() => window.__proven?.settle(5_000)); // a dev server only: a disagreement may count 5 s after a number shows, not 2 min
 ok(await page.evaluate(() => typeof window.__proven?.settle === "function"), "dev server has the settle hook");
 await page.getByRole("button", { name: "Settings" }).click();
-const box = page.getByLabel(/in this browser/);
+// Settings opens on the network with the most money (Base, for this wallet): it has no such switch
+ok((await page.getByLabel("Prove balances").count()) === 0, "Settings on Base: no switch (no light client there)");
+await page.locator(".pill.select", { hasText: "Base" }).first().click();
+await page.locator(".picker.drop button", { hasText: "Ethereum" }).first().click();
+const box = page.getByLabel("Prove balances");
 await box.scrollIntoViewIfNeeded();
 await box.check();
-ok(await page.evaluate(() => localStorage.getItem("iws.proven") === "on"), "Settings → Balances: the switch turns it on");
-await page.locator(".card.step", { hasText: "in this browser" }).screenshot({ path: `${OUT}/0-settings.png` });
+ok(await page.evaluate(() => localStorage.getItem("iws.proven") === "[1]"), "Settings → Your node on Ethereum: the switch turns it on there");
+await page.evaluate(() => localStorage.setItem("iws.proven", "[1,100]")); // and Gnosis (its own switch, in its own section)
+await page.locator(".card.step", { hasText: "Prove balances" }).screenshot({ path: `${OUT}/0-settings.png` });
 console.log(`  shot ${OUT}/0-settings.png`);
 await page.keyboard.press("Escape");
 await page.waitForTimeout(900); // the fade's transition
 r = await rows();
 const mine = r.filter(x => NETS.includes(x.net));
-ok(mine.length > 0 && mine.every(x => /\bproven faded\b/.test(x.cls) && Math.abs(x.opacity - 0.9) < 0.01), `2 before proofs: all ${mine.length} Ethereum/Gnosis rows faded (0.9)`);
+ok(mine.length > 0 && mine.every(x => /\bproven faded\b/.test(x.cls) && Math.abs(x.opacity - 0.6) < 0.01), `2 before proofs: all ${mine.length} Ethereum/Gnosis rows faded (0.6)`);
 ok(r.filter(x => !NETS.includes(x.net)).every(x => /\bfaded\b/.test(x.cls)), "2 before proofs: the other networks' rows faded too");
 await totalFull("2");
 await shot(2, "on-before-proofs");
@@ -143,7 +148,7 @@ log(`proven: ${proven.map(x => `${x.sym}/${x.net}`).join(", ")}`);
 ok(!!full, `3 after proofs: every Ethereum/Gnosis row full (${proven.length} rows)`);
 ok(proven.every(x => x.opacity === 1), "3 after proofs: full is opacity 1");
 const base = r.filter(x => x.net === "Base");
-ok(base.length > 0 && base.every(x => /\bfaded\b/.test(x.cls) && Math.abs(x.opacity - 0.9) < 0.01), `3 after proofs: the ${base.length} Base rows still faded (no light client)`);
+ok(base.length > 0 && base.every(x => /\bfaded\b/.test(x.cls) && Math.abs(x.opacity - 0.6) < 0.01), `3 after proofs: the ${base.length} Base rows still faded (no light client)`);
 await totalFull("3");
 const total0 = Number((await total()).text.replace(/[^\d.]/g, ""));
 await shot(3, "proven");

@@ -37,7 +37,7 @@ globalThis.fetch = (async (input: any, init?: any) => {
 
 // the page's localStorage, for `store`: the switch on, and Alchemy set as "your own node" (Settings → Your node), so
 // lib/safe/proven.ts reads where a page with its own node would (never our /api/rpc, which needs a page origin)
-const mem = new Map<string, string>([["iws.proven", "on"], ["iws.rpc", JSON.stringify(NODE)]]);
+const mem = new Map<string, string>([["iws.proven", "[1,100]"], ["iws.rpc", JSON.stringify(NODE)]]);
 Object.defineProperty(globalThis, "localStorage", { value: { getItem: (k: string) => mem.get(k) ?? null, setItem: (k: string, v: string) => mem.set(k, v), removeItem: (k: string) => mem.delete(k) } });
 
 // Colibri in Node keeps what it learns (the sync committee, contract code) as files in the working directory. A new

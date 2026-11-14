@@ -69,6 +69,9 @@ If it doesn't work:
 - **The passkey isn't offered**: use the browser where you made the wallet, or one with the same iCloud or Google
   passwords.
 
+To test it without real money: `cd web && node tools/local-e2e.mjs` (a Base fork: makes a wallet, sends through a
+relay and from a browser wallet).
+
 To remove it: `./run-local.sh --remove` takes local.instantwallet.io out of `/etc/hosts`.
 
 mkcert's root certificate can vouch for any site on your computer. Its key never leaves your computer.

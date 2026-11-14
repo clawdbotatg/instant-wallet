@@ -67,6 +67,7 @@ still sign (`hotOf`, the `"hot"` signer in `lib/safe/send.ts`).
 | Full UI journey, fork (virtual passkey, fake MetaMask, fake wedgie) | `tools/safe-e2e.mjs` (setup in its header) | 27/27 on Base and on Ethereum forks |
 | Relay defences, fork | `tools/safe-relay-check.mts` | 10/10 on both forks and against the live relay (Base) |
 | WalletConnect, fork (scan a site's QR, 6492/1271 signatures, a 2-call batch, a call into the wallet refused) | `tools/safe-wc-e2e.mjs` | 12/12 on Base |
+| The local copy (run-local.sh): passkey for instantwallet.io from local.instantwallet.io, a send through your own relay, one from your browser wallet, words, store | `cd web && node tools/local-e2e.mjs` (Base fork; header) | 15/15 (11-14) |
 | Live first send through the live relay (raw P-256 key) | `tools/safe-live.mts` | passed on Base and Ethereum mainnet |
 
 ## Not built yet

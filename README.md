@@ -38,6 +38,9 @@ itself); the app then reads and sends through your node instead of Alchemy. It c
 clear-signing registry, ours, and what a wedgie shows: about 300 MB) to your computer, and updates them each run. Then it builds and opens
 https://local.instantwallet.io. Leave the Terminal window open; Ctrl+C stops it. Next time: `./run-local.sh` again.
 
+To keep it running without a Terminal window, and start it every time you log in: `./run-local.sh --install`
+(`--uninstall` stops that; its log is `~/.instantwallet-local/run.log`).
+
 1. Tap "I already have one" and use your passkey. Your wallet opens.
 2. To send, pay the gas one of two ways:
    - **Your relay:** Settings, at the bottom, **Your relay** → **Make my relay**. Send it a little ETH on each

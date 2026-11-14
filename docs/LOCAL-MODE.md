@@ -55,7 +55,8 @@ with a passkey made on the real site. If it does, everything below is plumbing.
 ## What to build
 
 1. **The script**: done, `./run-local.sh` at the repo root (installs mkcert, certificate, hosts line, asks for an
-   Alchemy key and your own node, builds, runs on 443; `--remove` takes the hosts line out).
+   Alchemy key and your own node, builds, runs on 443; `--remove` takes the hosts line out). `--install` keeps it running and starts it at login
+   (LaunchAgent io.instantwallet.local); a run with nothing changed skips the build. Tested by `web/tools/local-e2e.mjs`.
 2. **The store in a file**: done. `KV_FILE` (`lib/kv.ts`) keeps the in-memory store in `~/.instantwallet-local/store.json`;
    `run-local.sh` sets it.
 3. **A "Local" mark**: done. "Local copy, running on this computer" at the top of the wallet (`lib/local.ts`).

@@ -3,7 +3,8 @@
 # instantwallet.io itself is never touched: only the name local.instantwallet.io points at this computer.
 #
 #   ./run-local.sh            set up what's missing, build, run. Ctrl+C stops it.
-#   ./run-local.sh --remove   take local.instantwallet.io out of /etc/hosts
+#   ./run-local.sh --install  keep it running in the background, and start it at login (--uninstall: stop that)
+#   ./run-local.sh --remove   take local.instantwallet.io out of /etc/hosts (and --uninstall)
 #
 # The first run asks for your Mac password twice (the certificate, the hosts line) and for an Alchemy key.
 set -euo pipefail
@@ -16,7 +17,47 @@ PORT="${IW_PORT:-3000}"
 
 say() { printf '\n\033[1m%s\033[0m\n' "$*"; }
 
+# --install: start it now and every time you log in, in the background (a LaunchAgent). Its log: ~/.instantwallet-local/run.log
+LABEL=io.instantwallet.local
+PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
+uninstall() { launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true; rm -f "$PLIST"; }
+if [ "${1:-}" = "--install" ]; then
+  grep -q '^ALCHEMY_API_KEY=.' "$ENV" 2>/dev/null && [ -f "$DIR/$NAME.pem" ] || { echo "Run ./run-local.sh once first (it asks for your password and your Alchemy key)."; exit 1; }
+  uninstall
+  mkdir -p "$HOME/Library/LaunchAgents"
+  cat > "$PLIST" <<PL
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>$LABEL</string>
+  <key>ProgramArguments</key><array><string>$PWD/run-local.sh</string></array>
+  <key>EnvironmentVariables</key><dict>
+    <key>NO_OPEN</key><string>1</string>
+    <key>PATH</key><string>$(dirname "$(command -v node)"):/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>ThrottleInterval</key><integer>30</integer>
+  <key>StandardOutPath</key><string>$DIR/run.log</string>
+  <key>StandardErrorPath</key><string>$DIR/run.log</string>
+</dict></plist>
+PL
+  # the copy in this window, if any, makes way
+  pkill -f "next start -p $PORT" 2>/dev/null || true
+  pkill -f "local-ssl-proxy@2.0.5 --source 443" 2>/dev/null || true
+  launchctl bootstrap "gui/$(id -u)" "$PLIST"
+  echo "Installed. It starts now (a few minutes the first time) and every time you log in: https://$NAME"
+  echo "Log: $DIR/run.log. Stop it for good: ./run-local.sh --uninstall"
+  exit 0
+fi
+if [ "${1:-}" = "--uninstall" ]; then
+  uninstall
+  echo "It won't start at login any more, and it's stopped."
+  exit 0
+fi
+
 if [ "${1:-}" = "--remove" ]; then
+  uninstall
   sudo sed -i '' "/$NAME/d" /etc/hosts && sudo dscacheutil -flushcache
   echo "Removed $NAME from /etc/hosts."
   exit 0
@@ -86,7 +127,7 @@ CLEAR=""
 # and what a wedgie shows when it signs: wedgie.dev/clear, only that folder of wedgie-dev (about 300 MB the first time)
 W="$DIR/wedgie-clear"
 if [ -d "$W" ]; then
-  git -C "$W" pull -q --depth 1 --rebase=false 2>/dev/null || echo "Couldn't update the wedgie's words (offline?); using the copy you have."
+  (git -C "$W" fetch -q --depth 1 origin HEAD && git -C "$W" reset -q --hard FETCH_HEAD) 2>/dev/null || echo "Couldn't update the wedgie's words (offline?); using the copy you have."
 else
   say "Getting the wedgie's words (about 300 MB, once)"
   { git clone -q --depth 1 --filter=blob:none --no-checkout https://github.com/clawdbotatg/wedgie-dev.git "$W" &&
@@ -99,8 +140,15 @@ fi
 for p in "$PORT" 443; do
   if lsof -iTCP:"$p" -sTCP:LISTEN >/dev/null 2>&1; then echo "Port $p is in use. Stop what's on it (or IW_PORT=3001 ./run-local.sh)."; exit 1; fi
 done
-say "Building (a few minutes the first time)"
-(cd web && npm install --no-audit --no-fund && npm run build)
+# build only when the code changed since the last build (git's commit and any edits)
+STAMP="$(git rev-parse HEAD 2>/dev/null)-$(git status --porcelain -- web 2>/dev/null | shasum | cut -c1-12)"
+if [ -f web/.next/BUILD_ID ] && [ "$(cat "$DIR/built" 2>/dev/null)" = "$STAMP" ]; then
+  say "Already built"
+else
+  say "Building (a few minutes the first time)"
+  (cd web && npm install --no-audit --no-fund && npm run build)
+  echo "$STAMP" > "$DIR/built"
+fi
 
 # 6. run: the app on $PORT, https on 443 in front of it
 say "Starting"

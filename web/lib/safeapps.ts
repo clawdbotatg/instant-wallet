@@ -15,7 +15,7 @@ import type { ChainState } from "./safe/state";
  * for, and getTxBySafeTxHash hands the same hash back as txHash (safe-apps-provider looks the receipt up by it).
  */
 
-export type AppRequest = { topic: string; method: string; params: unknown[]; chainId: number; dapp: { name: string; url: string; icon?: string } };
+export type AppRequest = { topic: string; method: string; params: unknown[]; chainId: number; dapp: { name: string; url: string; icon?: string; origin?: string; sure?: "yes" | "no" | "unknown" } };
 
 const VERSION = "9.1.0";
 const listeners = new Set<(r: AppRequest) => void>();
@@ -66,7 +66,7 @@ export function hostApp(
     const ask = (m: string, p: unknown[]) => {
       const topic = `app:${++rid}`;
       open.set(topic, { win, origin, id, method });
-      listeners.forEach(l => l({ topic, method: m, params: p, chainId, dapp: { name: app.name, url: origin, icon: app.icon } }));
+      listeners.forEach(l => l({ topic, method: m, params: p, chainId, dapp: { name: app.name, url: origin, icon: app.icon, origin, sure: "yes" } }));
     };
     try {
       switch (method) {

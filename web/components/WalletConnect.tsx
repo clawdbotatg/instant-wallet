@@ -142,7 +142,7 @@ export function ConnectLayer({
     return serveExtension(address, ids, r => {
       const topic = `ext:${r.rid}`;
       try {
-        const dapp = { name: new URL(r.origin).host, url: r.origin, icon: r.icon };
+        const dapp = { name: new URL(r.origin).host, url: r.origin, icon: r.icon, origin: r.origin, sure: "yes" as const }; // the extension reads the tab's real origin
         const p = toPending(topic, 0, r.method, r.params as any[], r.chainId, dapp, ids);
         if (!p) throw Object.assign(new Error(`${r.method} is not supported`), { code: 4200 });
         setQueue(q => [...q, p]);

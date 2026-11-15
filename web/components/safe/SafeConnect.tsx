@@ -8,6 +8,7 @@ import { siteCalls, siteGas, signForSite } from "@/lib/safe/connect";
 import { type FeeToken, type Prepared, type Signer, type Stage, Shared, finishOwners, ownerSigners, prepareOwners, requote, signThenQueue, signerLabel, usesWedgie } from "@/lib/safe/send";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { type Pending, type Siwe, remember, respond } from "@/lib/walletconnect";
+import { signInCheck } from "@/lib/signin";
 import { Net, Raw, Who, Words, stageLabel } from "../bits";
 import { messageRows } from "@/lib/safe/raw";
 import type { TypedCard } from "@/lib/safe/typed";
@@ -226,7 +227,7 @@ function SafeRequest({
         )
       ) : pending.siwe ? (
         <>
-          <SignIn siwe={pending.siwe} site={pending.dapp.url} safe={account.address} />
+          <SignIn siwe={pending.siwe} dapp={pending.dapp} safe={account.address} text={pending.preview} />
           <Raw rows={messageRows(pending.chainId, account.address, pending)} />
         </>
       ) : pending.typed ? (
@@ -339,20 +340,21 @@ function Typed({ typed, chainId, children }: { typed: TypedCard; chainId: number
  * Red when it names another site than the one asking (a phishing page passing on a real site's sign-in), or another
  * account than this wallet.
  */
-function SignIn({ siwe, site, safe }: { siwe: Siwe; site: string; safe: string }) {
-  let host = "";
-  try {
-    host = site ? new URL(site).host.toLowerCase() : "";
-  } catch {}
-  const elsewhere = host && host !== siwe.domain.toLowerCase();
-  const other = siwe.address.toLowerCase() !== safe.toLowerCase();
+function SignIn({ siwe, dapp, safe, text }: { siwe: Siwe; dapp: Pending["dapp"]; safe: string; text: string }) {
+  const { red, note } = signInCheck(siwe, dapp, safe);
   return (
     <>
       <h2>Sign in to {siwe.domain}?</h2>
-      {elsewhere && <ErrorLine text={`This is a sign-in for ${siwe.domain}, but ${host} is asking.`} />}
-      {other && <ErrorLine text={`It names another account: ${siwe.address}`} />}
+      {red.map(r => (
+        <ErrorLine key={r} text={r} />
+      ))}
       {siwe.statement && <p style={{ fontSize: 15 }}>“{siwe.statement}”</p>}
       <p className="fine">Moves no money.{siwe.expires ? ` Ends ${when(siwe.expires)}.` : ""}</p>
+      {note && <p className="fine">{note}</p>}
+      <details className="fine">
+        <summary>The full message</summary>
+        <pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere", margin: "6px 0 0" }}>{text}</pre>
+      </details>
     </>
   );
 }

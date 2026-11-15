@@ -128,7 +128,9 @@ export async function disconnect(topic: string) {
 
 // ---------------------------------------------------------------- requests
 
-export type Dapp = { name: string; url: string; icon?: string };
+/** `url` is the site's own word. `origin` + `sure`: who it really is, from something that knows (WalletConnect's
+ * Verify, the extension's tab, a Safe App's frame); "unknown" or missing = nothing checked it. */
+export type Dapp = { name: string; url: string; icon?: string; origin?: string; sure?: "yes" | "no" | "unknown" };
 
 /** A request that needs the user: a batch of calls, or a message to sign. */
 export type Pending =
@@ -187,7 +189,10 @@ export async function triage(e: WalletKitTypes.SessionRequest, chainIds = WC_CHA
   const { topic, id } = e;
   const { method, params } = e.params.request;
   const chainId = chainOf(e.params.chainId);
-  const dapp = dappOf(k, topic);
+  // who asks, by WalletConnect's own check of the page's origin (its Verify API), not by the site's word (audit 11-13)
+  const v = e.verifyContext?.verified;
+  const sure = v?.isScam || v?.validation === "INVALID" ? "no" : v?.validation === "VALID" && v.origin ? "yes" : "unknown";
+  const dapp: Dapp = { ...dappOf(k, topic), sure, ...(sure === "yes" ? { origin: v!.origin } : {}) };
   const p = params as any[];
 
   switch (method) {

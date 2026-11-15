@@ -1,6 +1,7 @@
 import { type Address, type Hex, getAddress, hashTypedData, isAddress, slice, zeroAddress } from "viem";
 import { publicClient } from "../chains";
 import { type SafeTx, type Sig, abi, encodeSignatures, safeTxHash } from "./core";
+import { callsOf, describe } from "./describe";
 
 /**
  * A Safe transaction other signers can see and sign (docs/MULTI-SIGNER.md), kept the way wedgie.dev/safe keeps it:
@@ -241,6 +242,17 @@ export async function checkSigs(w: Waiting): Promise<Waiting["sigs"]> {
   return w.sigs.filter((_, i) => ok[i]);
 }
 
+/**
+ * A tx's headline: this wallet's own words for a tx it made here (`label`, kept in this browser only), else read from
+ * the tx itself. Never text a link or a site brought (audit 11-13: a link titled "Refund: +500 USDC" for a drain, a
+ * site named "Instant Wallet update").
+ */
+export function headline(w: Pick<Waiting, "chainId" | "safe" | "tx" | "label">): string {
+  if (w.label) return w.label;
+  const calls = callsOf(w.tx);
+  return calls.length === 1 ? describe(w.chainId, w.safe, calls[0]) : `${calls.length} actions, #${w.tx.nonce}`;
+}
+
 /** Show a transaction's page: inside the wallet when it's open (SafeApp listens and takes it), else go to its link. */
 export function openTx(w: Waiting) {
   const link = txLink(w);
@@ -251,7 +263,8 @@ export function openTx(w: Waiting) {
 /** The link: /tx/<chain>/<safe>#<tx and signatures>. Opened anywhere, it brings the tx with it. */
 export function txLink(w: Waiting): string {
   // btoa throws on anything past Latin-1, and labels have "…" in them (short()): write those as \uXXXX, JSON.parse reads them back
-  const json = JSON.stringify({ t: wire(w.tx), s: w.sigs.map(s => [s.owner, s.signature]), l: w.label });
+  // no label in a link: whoever opens it reads the headline from the tx (headline()), never from words the link brought
+  const json = JSON.stringify({ t: wire(w.tx), s: w.sigs.map(s => [s.owner, s.signature]) });
   const code = btoa(json.replace(/[\u0080-\uffff]/g, c => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0")))
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
@@ -267,7 +280,7 @@ export function fromLink(chainId: number, safe: Address, code: string): Waiting 
     const sigs = (j.s || [])
       .filter((x: any) => Array.isArray(x) && isAddress(x[0]) && /^0x[0-9a-fA-F]+$/.test(x[1]))
       .map((x: any) => ({ owner: getAddress(x[0]), signature: x[1] as Hex }));
-    return { chainId, safe, tx, hash: safeTxHash(chainId, safe, tx), sigs, label: typeof j.l === "string" ? j.l.slice(0, 200) : undefined };
+    return { chainId, safe, tx, hash: safeTxHash(chainId, safe, tx), sigs }; // a link's own title (`l`, older links) is never read
   } catch {
     return null;
   }

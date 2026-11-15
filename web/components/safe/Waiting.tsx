@@ -16,6 +16,7 @@ import {
   safeAppTxLink,
   readWaiting,
   txLink,
+  headline,
 } from "@/lib/safe/share";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { ErrorLine } from "./WedgieButton";
@@ -181,7 +182,7 @@ export function WaitingCards({
             <div className="recess stack" style={{ gap: 6 }}>
               <div className="row" style={{ justifyContent: "space-between", gap: 8 }}>
                 <span className="fine">
-                  <Words text={w.label ?? `Transaction #${w.tx.nonce}`} chain={w.chainId} /> · <Net chainId={w.chainId} />
+                  <Words text={headline(w)} chain={w.chainId} /> · <Net chainId={w.chainId} />
                 </span>
                 <span className="row" style={{ gap: 6 }}>
                   {app && (

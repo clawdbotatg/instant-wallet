@@ -116,12 +116,12 @@ function SafeRequest({
     setMine(null);
     // the same tx without the fee, for your own browser wallet to send (one signer here, a browser wallet to send it)
     if (!queue && hotAvailable())
-      prepareOwners({ account, state: st, calls: calls!, signers, feeToken, label: pending.dapp.name, self: true })
+      prepareOwners({ account, state: st, calls: calls!, signers, feeToken, self: true })
         .then(p => live && setMine(p))
         .catch(() => {});
     (async () => {
       const dappGas = await siteGas(st.chainId, account.address, calls!);
-      const p = await prepareOwners({ account, state: st, calls: calls!, signers, feeToken, dappGas, label: pending.dapp.name });
+      const p = await prepareOwners({ account, state: st, calls: calls!, signers, feeToken, dappGas });
       if (!live) return;
       setPrepared(p);
       if (quoteFailed.current) setError(null);

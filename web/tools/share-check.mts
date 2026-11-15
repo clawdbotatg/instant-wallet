@@ -68,6 +68,25 @@ ok(!!back && back.hash === safeTxHash(CHAIN, safe, send) && back.tx.data === sen
 const plainSend = fromLink(CHAIN, safe, code({ to: friend, value: "1000", operation: 0, nonce: "0" }));
 ok(!!plainSend && plainSend.tx.data === "0x" && plainSend.tx.value === 1000n, "link: a plain coin send with no data still reads");
 
+// A tx's headline is never text from a link or a site (audit 11-13, WEB-4): a link titled "Refund: +500 USDC" for
+// a drain. A link carries no label; the headline is read from the tx itself.
+const share = await import("../lib/safe/share");
+const drain4: SafeTx = { to: usdc, value: 0n, data: erc("transfer", attacker, 500_000_000n), operation: 0, nonce: 5n };
+const lie = Buffer.from(JSON.stringify({ t: wire(drain4), s: [], l: "Refund: +500 USDC" })).toString("base64");
+const got4 = fromLink(CHAIN, safe, lie);
+ok(!!got4 && got4.label === undefined, `link: its own title for the tx is dropped (${got4?.label ?? "none"})`);
+ok(!link.includes(Buffer.from('"l":').toString("base64").slice(0, 4)) && !JSON.parse(atob(link.split("#")[1].replace(/-/g, "+").replace(/_/g, "/"))).l, "link: the app's own link carries no title either");
+const head = (share as any).headline?.(got4!) ?? "(no headline())";
+ok(/Send 500 USDC to/.test(head) && head.toLowerCase().includes(attacker.slice(0, 6)), `the headline is read from the tx: ${head}`);
+ok((share as any).headline?.({ ...got4!, label: "Send 500 USDC to mom" }) === "Send 500 USDC to mom", "the wallet's own words for a tx it made here are kept");
+const { readFileSync } = await import("node:fs");
+const sc = readFileSync(new URL("../components/safe/SafeConnect.tsx", import.meta.url), "utf8");
+ok(!/label:\s*pending\.dapp\.name/.test(sc), "a site's name for itself is never a tx's headline (SafeConnect)");
+for (const f of ["TxPage", "Waiting"]) {
+  const src = readFileSync(new URL(`../components/safe/${f}.tsx`, import.meta.url), "utf8");
+  ok(!/w\.label \?\? `Transaction #/.test(src) && /headline\(w\)/.test(src), `${f}: the headline comes from headline()`);
+}
+
 if (bad) {
   console.error(`${bad} failed`);
   process.exit(1);

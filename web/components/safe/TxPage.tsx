@@ -11,7 +11,7 @@ import { unpackMultiSend } from "@/lib/safe/fee";
 import { connectHot, hotAvailable, hotHas, hotSend, hotSign } from "@/lib/safe/hot";
 import { type Prepared, Shared, feeCall, finishOwners, getQuote, ownerSigners, ownersSend, prepareOwners, usesWedgie, waitFor } from "@/lib/safe/send";
 import { signForSite } from "@/lib/safe/connect";
-import { type Waiting, allSignatures, checkSigs, deleteHash, dropTx, forgetLocal, fromLink, openTx, readWaiting, safeAppTxLink, shareTx, sigHex, txLink } from "@/lib/safe/share";
+import { type Waiting, allSignatures, checkSigs, deleteHash, dropTx, forgetLocal, fromLink, headline, openTx, readWaiting, safeAppTxLink, shareTx, sigHex, txLink } from "@/lib/safe/share";
 import { passkeySign } from "@/lib/safe/sign";
 import { startSending } from "@/lib/safe/sending";
 import { executeWaiting, sentOut } from "@/lib/safe/execute";
@@ -395,7 +395,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
         </a>
       )}
       <div className="row" style={{ justifyContent: "space-between", gap: 8 }}>
-        <h2><Words text={w.label ?? `Transaction #${w.tx.nonce}`} chain={w.chainId} /></h2>
+        <h2><Words text={headline(w)} chain={w.chainId} /></h2>
         <span className="row" style={{ gap: 6 }}>
           {app && (
             <Eject href={app} title="Open in Safe{Wallet}">

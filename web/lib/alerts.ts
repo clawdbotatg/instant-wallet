@@ -1,4 +1,5 @@
 import "server-only";
+import { keyAndSig } from "./sigShape";
 import { p256 } from "@noble/curves/nist.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import nodemailer from "nodemailer";
@@ -90,6 +91,7 @@ export type Signed = { qx: Hex; qy: Hex; authenticatorData: Hex; clientDataField
 export async function authorize(wallet: Address, change: string, s: Signed, host: string, scope = "alerts"): Promise<string | null> {
   if (!s || !Number.isFinite(s.ts) || Math.abs(Date.now() - s.ts) > 5 * 60_000) return "That took too long. Try again.";
   if (![s.qx, s.qy, s.authenticatorData, s.r, s.s].every(v => typeof v === "string" && /^0x[0-9a-fA-F]*$/.test(v)) || typeof s.clientDataFields !== "string") return "Bad signature.";
+  if (!keyAndSig(s)) return "Bad signature."; // exactly 32 bytes each: r and s cut at another place were a "new" signature
   const digest = changeDigest(wallet, change, s.ts, scope);
   const json = `{"type":"webauthn.get","challenge":"${bytesToBase64url(hexToBytes(digest))}",${s.clientDataFields}}`;
   // signed on this site, and the device checked who it was (Face ID, a PIN): the same three checks as the onramp.

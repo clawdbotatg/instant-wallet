@@ -1,4 +1,5 @@
 import "server-only";
+import { keyAndSig } from "./sigShape";
 import { p256 } from "@noble/curves/nist.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { type Address, type Hex, createPublicClient, getAddress, http, isAddress, isHex } from "viem";
@@ -21,6 +22,7 @@ export async function passkeyOwner(req: Request, b: any, use: string, want: (add
   const bad = (error: string, status = 400) => ({ error, status });
   const ts = Number(b?.ts);
   if (!b || ![b.qx, b.qy, b.r, b.s, b.authenticatorData].every(v => isHex(v)) || typeof b.clientDataJSON !== "string") return bad("Passkey signature required", 401);
+  if (!keyAndSig(b)) return bad("Passkey signature required", 401); // exactly 32 bytes each (see lib/sigShape.ts)
   if (!isAddress(b.address || "")) return bad("address?");
   if (!Number.isFinite(ts) || Math.abs(Date.now() / 1000 - ts) > MAX_AGE_S) return bad("Signature expired. Try again.");
   const address = getAddress(b.address);

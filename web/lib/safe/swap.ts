@@ -279,29 +279,6 @@ const isApprove = (c: Call) => c.value === 0n && size(c.data) === 68 && sel(c.da
 /** An exact approval to a swap router (whether it's reset is checkSwap's job). */
 export const approvesRouter = (c: Call) => isApprove(c) && isSwapTarget(("0x" + c.data.slice(34, 74)) as Address);
 
-/**
- * The relay's view of a swap batch: every swap call goes to a known router and names this Safe as the receiver
- * (its address is in the calldata), and every approval is to a router and set back to 0 before the batch ends.
- * Throws a plain-English reason, else returns whether the batch is a swap at all. (Any other call is checkCalls'.)
- */
-export function checkSwap(safe: Address, calls: Call[]): boolean {
-  const me = safe.slice(2).toLowerCase();
-  let swap = false;
-  const open = new Map<string, bigint>();
-  for (const c of calls) {
-    if (isSwapTarget(c.to)) {
-      if (!c.data.toLowerCase().includes(me)) throw new Error("that swap doesn't pay this wallet");
-      swap = true;
-    } else if (approvesRouter(c)) {
-      const d = decodeFunctionData({ abi: abi.erc20, data: c.data });
-      const [spender, amount] = d.args as [Address, bigint];
-      open.set(`${c.to.toLowerCase()}:${spender.toLowerCase()}`, amount);
-    }
-  }
-  if ([...open.values()].some(v => v !== 0n)) throw new Error("an approval would outlive the swap");
-  return swap;
-}
-
 /** SwapRouter02 + QuoterV2, only what we call. */
 export const uniAbi = parseAbi([
   "function quoteExactInput(bytes path, uint256 amountIn) returns (uint256 amountOut, uint160[] sqrtPriceX96AfterList, uint32[] initializedTicksCrossedList, uint256 gasEstimate)",
@@ -313,3 +290,79 @@ export const uniAbi = parseAbi([
 
 /** SwapRouter02's "the router itself" recipient: the swap lands there, then unwrapWETH9 sends ETH to the Safe. */
 export const ADDRESS_THIS: Address = "0x0000000000000000000000000000000000000002";
+
+/** LI.FI's swap functions (GenericSwapFacet and its V3): each names who gets the coins. */
+const LIFI_SWAP = "(address callTo, address approveTo, address sendingAssetId, address receivingAssetId, uint256 fromAmount, bytes callData, bool requiresDeposit)";
+const lifiSwapAbi = parseAbi(
+  ["swapTokensSingleV3ERC20ToERC20", "swapTokensSingleV3ERC20ToNative", "swapTokensSingleV3NativeToERC20", "swapTokensMultipleV3ERC20ToERC20", "swapTokensMultipleV3ERC20ToNative", "swapTokensMultipleV3NativeToERC20", "swapTokensGeneric"].map(
+    n => `function ${n}(bytes32 id, string integrator, string referrer, address receiver, uint256 minOut, ${LIFI_SWAP}${n.includes("Single") ? "" : "[]"} swaps) payable`,
+  ),
+);
+const word = (d: string, i: number) => d.slice(i * 64, i * 64 + 64);
+const isAddr = (w: string) => w.length === 64 && /^0{24}/.test(w);
+const isBool = (w: string) => /^0{63}[01]$/.test(w);
+
+/**
+ * Who a swap call pays, read from the call itself: its receiver fields, lowercase. null: a call this can't read.
+ * LI.FI: a swap function's `receiver`, or a bridge's BridgeData (every bridge facet's first argument:
+ * transactionId, bridge, integrator, referrer, sendingAssetId, receiver, minAmount, destinationChainId, two flags).
+ * Uniswap's SwapRouter02: exactInput's recipient and unwrapWETH9's, inside its multicall.
+ */
+export function swapReceivers(c: Call): string[] | null {
+  const to = c.to.toLowerCase();
+  try {
+    if (to === LIFI_DIAMOND.toLowerCase()) {
+      try {
+        return [(decodeFunctionData({ abi: lifiSwapAbi, data: c.data }).args![3] as Address).toLowerCase()];
+      } catch {}
+      const d = c.data.slice(10);
+      const at = Number(BigInt("0x" + word(d, 0))) / 32;
+      if (!Number.isInteger(at) || at < 1 || at > 12) return null;
+      const t = d.slice(at * 64);
+      // its shape, exactly: two strings' offsets, three addresses, a chain id that is one, two flags
+      if (t.length < 10 * 64 || BigInt("0x" + word(t, 1)) !== 320n || ![3, 4, 5].every(i => isAddr(word(t, i))) || BigInt("0x" + word(t, 7)) > 1n << 64n || !isBool(word(t, 8)) || !isBool(word(t, 9))) return null;
+      return ["0x" + word(t, 5).slice(24).toLowerCase()];
+    }
+    const m = decodeFunctionData({ abi: uniAbi, data: c.data });
+    const inner = m.functionName === "multicall" ? (m.args![1] as Hex[]).map(x => decodeFunctionData({ abi: uniAbi, data: x })) : [m];
+    const out: string[] = [];
+    for (const f of inner) {
+      if (f.functionName === "exactInput") out.push((f.args![0] as { recipient: Address }).recipient.toLowerCase());
+      else if (f.functionName === "unwrapWETH9") out.push((f.args![1] as Address).toLowerCase());
+      else return null;
+    }
+    // the router keeps it (ADDRESS_THIS) only on its way out as ETH: then an unwrap must send it on
+    const kept = out.filter(a => a === ADDRESS_THIS.toLowerCase()).length;
+    if (kept && !inner.some(f => f.functionName === "unwrapWETH9")) return []; // read, and it pays nobody
+    return out.filter(a => a !== ADDRESS_THIS.toLowerCase());
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The relay's view of a swap batch: every swap call goes to a known router and pays this Safe, and every approval is
+ * to a router and set back to 0 before the batch ends. "Pays this Safe" is read from the call's own receiver field
+ * (audit 11-13: it was "the Safe's address is somewhere in the calldata", which a swap paying someone else passes by
+ * naming the Safe in any unused field). A call this can't read still gets that old test, no more.
+ * Throws a plain-English reason, else returns whether the batch is a swap at all. (Any other call is checkCalls'.)
+ */
+export function checkSwap(safe: Address, calls: Call[]): boolean {
+  const me = safe.slice(2).toLowerCase();
+  let swap = false;
+  const open = new Map<string, bigint>();
+  for (const c of calls) {
+    if (isSwapTarget(c.to)) {
+      const who = swapReceivers(c);
+      if (who ? !who.length || who.some(a => a !== safe.toLowerCase()) : !c.data.toLowerCase().includes(me)) throw new Error("that swap doesn't pay this wallet");
+      swap = true;
+    } else if (approvesRouter(c)) {
+      const d = decodeFunctionData({ abi: abi.erc20, data: c.data });
+      const [spender, amount] = d.args as [Address, bigint];
+      open.set(`${c.to.toLowerCase()}:${spender.toLowerCase()}`, amount);
+    }
+  }
+  if ([...open.values()].some(v => v !== 0n)) throw new Error("an approval would outlive the swap");
+  return swap;
+}
+

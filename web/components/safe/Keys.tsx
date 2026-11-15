@@ -454,6 +454,7 @@ export function Keys({
         const note = (
           <>
             Its address is <Who address={wedgieHome(key)} chain={st.chainId} size={18} inline />. It must be the one on the wedgie&apos;s own screen. If it isn&apos;t, cancel.
+            <span className="fine"> Below, its signer on this wallet shows as <Who address={w1} chain={st.chainId} size={16} inline />.</span>
           </>
         );
         return { label: "Add your wedgie as a signer", note, p, after: () => onAccount({ ...account, wedgie: key }), settled: s => s.hasWedgie, close: () => w.close() };
@@ -475,7 +476,7 @@ export function Keys({
         <div className="stack" style={{ gap: 8 }} ref={confirmRef}>
           <b>{pending.label}</b>
           {pending.note && <p>{pending.note}</p>}
-          <div className="recess stack" style={{ gap: 6 }}>
+          <div className="recess stack" style={{ gap: 6, overflowWrap: "anywhere", minWidth: 0 }}>
             <WhatItDoes chainId={pending.p.opts.state.chainId} safe={account.address} calls={callsOf(pending.p.t)} signs={pending.p.t} />
           </div>
           <p className="fine">

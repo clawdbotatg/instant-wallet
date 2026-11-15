@@ -48,7 +48,12 @@ and instantwallet.io moves onto them (in place of Alchemy and Zerion) once they'
 
 Built: /portfolio (well-known + seen tokens, live balances, Uniswap v3 prices), /transfers, /status; the wallet
 uses it per network (`INDEXER_URL`), run-local.sh starts it when you give a node. Same 54 coins and balances as
-Alchemy on a test wallet. Next: Activity rows, NFTs, Chainlink, v4 pools.
+Alchemy on a test wallet.
+
+Test suite first (iw-indexer `test/wallets.json`: 92 wallets, well-known people + active traders on Ethereum, Base,
+Arbitrum, Optimism; `test/suite.ts` compares each with Alchemy). Every new piece is checked on all of them. Then, in
+order: **Activity**, **NFTs**, **prices on networks without Uniswap v3** (Gnosis, Sonic, HyperEVM, Plasma,
+Robinhood), then v4 pools and Chainlink. The positions service gets the same suite (vs Zerion).
 
 One process, one SQLite file, reads only your node. It watches the wallets you open (the app tells it, the same
 way the app tells the relay today), per chain.

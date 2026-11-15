@@ -1,3 +1,4 @@
+import { tooMany, tooManyOf } from "@/lib/limit";
 import { NextRequest, NextResponse } from "next/server";
 import { getAddress, isAddress } from "viem";
 import { type Contacts, type Signed, authorize, channels, getContacts, masked, changeContacts, notify, pushHost, stash } from "@/lib/alerts";
@@ -23,6 +24,8 @@ const EMAIL = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/;
 export async function POST(req: NextRequest) {
   const b = await req.json().catch(() => null);
   if (!b || !isAddress(b.wallet) || typeof b.change !== "string" || b.change.length > 4000 || !b.sig) return NextResponse.json({ error: "bad request" }, { status: 400 });
+  // signing in here is free (any never-used wallet's own key), so the caller is limited first (audit 11-13)
+  if (await tooMany(req, "alerts", 30, 3600)) return NextResponse.json({ error: "Too many. Try again later." }, { status: 429 });
   const wallet = getAddress(b.wallet);
   const bad = await authorize(wallet, b.change, b.sig as Signed, req.headers.get("host") || "");
   if (bad) return NextResponse.json({ error: bad }, { status: 403 });
@@ -38,6 +41,8 @@ export async function POST(req: NextRequest) {
       const email = String(ch.email ?? "").trim().toLowerCase();
       if (!EMAIL.test(email)) return NextResponse.json({ error: "That email doesn't look right." }, { status: 400 });
       if (!channels().email) return NextResponse.json({ error: "Email alerts aren't set up on this server yet." }, { status: 503 });
+      // one address gets a few mails a day from here, whoever asks: this route can't be used to mail-bomb someone
+      if (await tooManyOf("alertmail", email, 5, 86400)) return NextResponse.json({ error: "That address got enough mail from us today. Try tomorrow." }, { status: 429 });
       if (old.email && old.email !== email) await removed(`The alert email was changed to ${email}`);
       edit = c => void (c.email = email);
       break;

@@ -16,9 +16,11 @@ import { DAO, FEE_ALLOWANCE, RECOVERY_14D, RECOVERY_60D, VERIFIERS } from "@/lib
 import { type Call, DEFAULT_BUDGET, abi, signerAddress, budgetCalls, deploySignerCall, feeAllowanceCalls, guardianListCalls, recoveryLayoutCalls, selfCall } from "@/lib/safe/core";
 import { openTx } from "@/lib/safe/share";
 import { type FeeToken, type Prepared, Shared, type Signer, finishOwners, keepUnsigned, getQuote, howSigns, ownerSigners, prepareOwners, signerLabel, usesWedgie } from "@/lib/safe/send";
-import { type ChainState, type SafeAccount, type SignerInfo, daoDays, loadSigners, loadWalletName, passkeyHome, readChain, rememberHome, saveSigner, wedgieSigners, shownAs } from "@/lib/safe/state";
+import { type ChainState, type SafeAccount, type SignerInfo, daoDays, loadSigners, loadWalletName, passkeyHome, readChain, rememberHome, saveSigner, wedgieHome, wedgieSigners, shownAs } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
+import { WhatItDoes } from "./WhatItDoes";
+import { callsOf } from "@/lib/safe/describe";
 import { Net, AddressInput, BioIcon, BioSigner, Blockie, CopyAddress, CopyLink, PencilIcon, RemoveX, TimedBar, Who, Words, copy, stageLabel } from "../bits";
 import { Alerts } from "./Alerts";
 import { ChainSelect } from "./Pick";
@@ -125,7 +127,7 @@ export function Keys({
   // two taps: the first gets everything ready (MetaMask / the wedgie connect, the fee, the nonce); the second signs.
   // Face ID has to start straight from a tap: after a MetaMask popup or a network call, Safari and Chrome refuse it.
   // The confirm replaces the step's own button, in place.
-  type Ready = { label: ReactNode; p: Prepared; after?: () => void; close?: () => Promise<void>; settled?: (s: ChainState) => boolean };
+  type Ready = { label: ReactNode; note?: ReactNode; p: Prepared; after?: () => void; close?: () => Promise<void>; settled?: (s: ChainState) => boolean };
   const [pending, setPending] = useState<({ what: string } & Ready) | null>(null);
   // the confirm can land below the fold (Austin: you couldn't tell there was a Yes to tap): scroll it to the middle
   const confirmRef = useRef<HTMLDivElement>(null);
@@ -447,7 +449,14 @@ export function Keys({
           safeCall("addOwnerWithThreshold", [w1, BigInt(need)]),
         ];
         const p = await prepareOwners({ account, state: st, calls, signers: ownerSigners(st, account), feeToken, setup: true, wedgie: w });
-        return { label: "Add your wedgie as a signer", p, after: () => onAccount({ ...account, wedgie: key }), settled: s => s.hasWedgie, close: () => w.close() };
+        // its key comes from whatever answered on USB (or the drive): show the address that key makes, to hold against the
+        // wedgie's own screen, before anything is signed (audit 11-13: a fake device's key would spend alone at 1 of 2)
+        const note = (
+          <>
+            Its address is <Who address={wedgieHome(key)} chain={st.chainId} size={18} inline />. It must be the one on the wedgie&apos;s own screen. If it isn&apos;t, cancel.
+          </>
+        );
+        return { label: "Add your wedgie as a signer", note, p, after: () => onAccount({ ...account, wedgie: key }), settled: s => s.hasWedgie, close: () => w.close() };
       } catch (e) {
         await w.close();
         throw e;
@@ -465,6 +474,10 @@ export function Keys({
       ) : pending?.what === what ? (
         <div className="stack" style={{ gap: 8 }} ref={confirmRef}>
           <b>{pending.label}</b>
+          {pending.note && <p>{pending.note}</p>}
+          <div className="recess stack" style={{ gap: 6 }}>
+            <WhatItDoes chainId={pending.p.opts.state.chainId} safe={account.address} calls={callsOf(pending.p.t)} signs={pending.p.t} />
+          </div>
           <p className="fine">
             Fee {feeText(pending.p.fee, pending.p.opts.feeToken, nativeSymbol(pending.p.opts.state.chainId))}. Signed by{" "}
             <Words text={signLabel(pending.p)} />.

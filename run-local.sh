@@ -9,6 +9,7 @@
 # The first run asks for your Mac password twice (the certificate, the hosts line) and for an Alchemy key.
 set -euo pipefail
 cd "$(dirname "$0")"
+ROOT="$PWD"
 
 NAME=local.instantwallet.io
 DIR="$HOME/.instantwallet-local"
@@ -136,6 +137,24 @@ else
 fi
 [ -d "$W/public/clear" ] && CLEAR="$CLEAR WEDGIE_CLEAR_DIR=$W/public/clear"
 
+# 4d. your own indexer (github.com/clawdbotatg/iw-indexer): coins and prices from your node, not Alchemy, on the
+# networks you gave a node for (RPC_URL_<chainId>). Needs Node 22.18+.
+IXDIR="$DIR/iw-indexer"
+IX=""
+if grep -q '^RPC_URL_' "$ENV" 2>/dev/null; then
+  if node -e 'const [a,b]=process.versions.node.split(".").map(Number);process.exit(a>22||(a===22&&b>=18)?0:1)'; then
+    if [ -d "$IXDIR" ]; then
+      (git -C "$IXDIR" fetch -q --depth 1 origin HEAD && git -C "$IXDIR" reset -q --hard FETCH_HEAD) 2>/dev/null || echo "Couldn't update the indexer (offline?); using the copy you have."
+    else
+      say "Getting your indexer"
+      git clone -q --depth 1 https://github.com/clawdbotatg/iw-indexer.git "$IXDIR" || echo "Couldn't get the indexer; coins come from Alchemy."
+    fi
+    [ -f "$IXDIR/package.json" ] && (cd "$IXDIR" && npm install -s --omit=dev --no-audit --no-fund) && IX=1
+  else
+    echo "Your indexer needs Node 22.18 or newer (brew upgrade node); coins come from Alchemy for now."
+  fi
+fi
+
 # 5. build
 for p in "$PORT" 443; do
   if lsof -iTCP:"$p" -sTCP:LISTEN >/dev/null 2>&1; then echo "Port $p is in use. Stop what's on it (or IW_PORT=3001 ./run-local.sh)."; exit 1; fi
@@ -153,11 +172,16 @@ fi
 # 6. run: the app on $PORT, https on 443 in front of it
 say "Starting"
 # the store (shared tx queue, names, limits) in a file, so a restart keeps it
-(cd web && exec env KV_FILE="$DIR/store.json" $CLEAR npx next start -p "$PORT") &
+(cd web && exec env KV_FILE="$DIR/store.json" $CLEAR ${IX:+INDEXER_URL=http://127.0.0.1:4100} npx next start -p "$PORT") &
 APP=$!
+IXP=""
+if [ -n "$IX" ]; then
+  (cd "$IXDIR" && exec env $(grep '^RPC_URL_' "$ROOT/$ENV" | xargs) DB="$DIR/indexer.db" INDEXER_PORT=4100 node src/main.ts) >"$DIR/indexer.log" 2>&1 &
+  IXP=$!
+fi
 npx -y local-ssl-proxy@2.0.5 --source 443 --target "$PORT" --cert "$DIR/$NAME.pem" --key "$DIR/$NAME-key.pem" >/dev/null 2>&1 &
 PROXY=$!
-trap 'kill $APP $PROXY 2>/dev/null; echo; echo "Stopped."' EXIT INT TERM
+trap 'kill $APP $PROXY $IXP 2>/dev/null; echo; echo "Stopped."' EXIT INT TERM
 
 for _ in $(seq 1 60); do curl -sf "http://127.0.0.1:$PORT/api/version" >/dev/null && break; sleep 1; done
 say "Running at https://$NAME   (Ctrl+C to stop)"

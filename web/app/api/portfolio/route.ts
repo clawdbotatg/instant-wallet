@@ -17,7 +17,8 @@ export const dynamic = "force-dynamic";
  * `GET /api/portfolio?address=0x…` — the native coin + every ERC-20 with a balance, on every enabled chain, with USD.
  * Alchemy token balances + metadata + Prices API; DexScreener fills the long tail Alchemy has no logo
  * or price for (most small Base tokens). Local: ETH + LOCAL_TOKENS / NEXT_PUBLIC_LOCAL_TOKENS (also on a
- * fork of a real chain when LOCAL_TOKENS_ONLY is set, since Alchemy only sees the real chain).
+ * fork of a real chain when LOCAL_TOKENS_ONLY is set, since Alchemy only sees the real chain). INDEXER_URL: your own
+ * indexer (clawdbotatg/iw-indexer) for the networks it reads, from your node.
  */
 export async function GET(req: NextRequest) {
   const a = req.nextUrl.searchParams.get("address");
@@ -32,12 +33,16 @@ export async function GET(req: NextRequest) {
   // scan=1: the page just did something that can bring a new token (its own tx landed, a pull, back to the tab):
   // a big wallet's full scan runs now, not at its next 5 minutes (EXPECTATIONS #6)
   const scan = req.nextUrl.searchParams.get("scan") === "1";
-  const work = CHAINS.map(c => chainAssets(c.id, wallet, scan).catch((): Asset[] | null => LATE));
+  // the networks your own indexer (INDEXER_URL, clawdbotatg/iw-indexer) reads come from it; if it fails, Alchemy as before
+  const ix = await indexerChains();
+  const fromIx = ix.size ? indexerAssets(wallet) : null;
+  const one = (id: number) => (ix.has(id) ? fromIx!.then(l => l!.filter(x => x.chainId === id)).catch(() => chainAssets(id, wallet, scan)) : chainAssets(id, wallet, scan));
+  const work = CHAINS.map(c => one(c.id).catch((): Asset[] | null => LATE));
   after(Promise.allSettled(work));
   const perChain = await Promise.all(work.map(w => Promise.race([w, timer()])));
   const late = CHAINS.filter((_, i) => perChain[i] === LATE).map(c => c.id);
   const assets = perChain.flatMap(x => x ?? []);
-  await price(assets);
+  await price(assets.filter(x => !ix.has(x.chainId))); // the indexer's prices are from the chain already
   assets.sort((x, y) => (y.usd ?? -1) - (x.usd ?? -1) || Number(y.formatted) - Number(x.formatted));
   const priced = assets.filter(x => x.usd !== null);
   const body: Portfolio = {
@@ -46,6 +51,31 @@ export async function GET(req: NextRequest) {
     ...(late.length ? { late } : {}),
   };
   return NextResponse.json(body);
+}
+
+// ---- your own indexer (INDEXER_URL): which networks it reads (asked once a minute), and a wallet's coins there
+let ixChains: { at: number; v: Promise<Set<number>> } | null = null;
+function indexerChains(): Promise<Set<number>> {
+  const url = process.env.INDEXER_URL;
+  if (!url) return Promise.resolve(new Set());
+  if (ixChains && Date.now() - ixChains.at < 60_000) return ixChains.v;
+  const v = fetch(`${url}/status`, { signal: AbortSignal.timeout(3000), cache: "no-store" })
+    .then(r => r.json())
+    .then(j => new Set<number>((j.chains ?? []).map((c: { id: number }) => c.id)))
+    .catch(() => new Set<number>());
+  ixChains = { at: Date.now(), v };
+  return v;
+}
+async function indexerAssets(wallet: Address): Promise<Asset[]> {
+  const j = await fetch(`${process.env.INDEXER_URL}/portfolio?address=${wallet}`, { signal: AbortSignal.timeout(10_000), cache: "no-store" }).then(r => r.json());
+  if (!Array.isArray(j.assets)) throw new Error("indexer: no assets");
+  // the same logos as before for the coins we know (the indexer has none)
+  return (j.assets as Asset[]).map(x => {
+    const info = chainById(x.chainId);
+    const a = x.asset.toLowerCase();
+    const logo = x.asset === ETH ? info?.native.logo : a === info?.usdc?.toLowerCase() ? "/tokens/usdc.png" : POPULAR[x.chainId]?.find(t => t.address.toLowerCase() === a)?.logo;
+    return { ...x, asset: getAddress(x.asset), ...(logo ? { logo } : {}) };
+  });
 }
 
 type Meta = { decimals: number | null; logo: string | null; name: string | null; symbol: string | null };

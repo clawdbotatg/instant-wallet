@@ -44,7 +44,11 @@ and instantwallet.io moves onto them (in place of Alchemy and Zerion) once they'
 | clear-sim (exists) | pointed at your node |
 | instant-wallet-apps (exists) | run beside the wallet |
 
-## New repo 1: the indexer (`clawdbotatg/iw-indexer`)
+## New repo 1: the indexer (`clawdbotatg/iw-indexer`): 0.1 built 11-14
+
+Built: /portfolio (well-known + seen tokens, live balances, Uniswap v3 prices), /transfers, /status; the wallet
+uses it per network (`INDEXER_URL`), run-local.sh starts it when you give a node. Same 54 coins and balances as
+Alchemy on a test wallet. Next: Activity rows, NFTs, Chainlink, v4 pools.
 
 One process, one SQLite file, reads only your node. It watches the wallets you open (the app tells it, the same
 way the app tells the relay today), per chain.

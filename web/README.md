@@ -25,6 +25,7 @@ Names only. Values live in Vercel and in `web/.env.local` (gitignored).
 | `RELAY_KV_URL`, `RELAY_KV_TOKEN` | Upstash: relay limits, alerts, drops, the shared tx queue |
 | `NEXT_PUBLIC_CHAINS` | optional. All 14 by default; `8453,1` for a few; `31337` for a local anvil |
 | `KV_FILE` | optional: without Upstash, keep the store in this JSON file (run-local.sh) |
+| `INDEXER_URL` | optional: your own indexer (github.com/clawdbotatg/iw-indexer); coins and prices on the networks it reads come from it, not Alchemy (run-local.sh starts it when you give a node) |
 | `WEDGIE_CLEAR_DIR` | optional: a copy of wedgie.dev/clear (wedgie-dev public/clear); a local copy serves the wedgie's words from it at /clear/ (run-local.sh) |
 | `CLEAR_REGISTRY_DIR`, `CLEAR_OURS_DIR` | optional, both: git clones of the EF clear-signing registry and clear-descriptors; tx words come from them, not GitHub (run-local.sh) |
 | `RPC_URL_<chainId>` | optional: your own node for that network (`RPC_URL_1=http://127.0.0.1:8545`); first choice over everything below |

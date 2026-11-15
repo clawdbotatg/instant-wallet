@@ -6,13 +6,11 @@ import { amount, feeWords, short, usd } from "@/lib/format";
 import { Money, Raw, WhatFor, Who, Words } from "../bits";
 import { txRows } from "@/lib/safe/raw";
 import { WARN, describe, ours, relayFee } from "@/lib/safe/describe";
-import { type Line, type Src, type Told, heardAll, intents, srcOf } from "@/lib/safe/intents";
+import { type Line, type Src, type Told, heardAll, intents, srcOf, warnsOf } from "@/lib/safe/intents";
 export { type Line, type Src, intents };
 import type { Call } from "@/lib/safe/core";
 import { type Sim, asSafeTx, lightOn, moves, simulate } from "@/lib/safe/sim";
-import { RECOVERY_DAYS } from "@/lib/safe/config";
-import { rolesAddress } from "@/lib/safe/core";
-import { MARKS, dangers } from "clear-signing-safe-kit";
+import { MARKS } from "clear-signing-safe-kit";
 import { chainById } from "@/lib/chains";
 import { nativeUsd } from "@/lib/price";
 
@@ -113,8 +111,8 @@ export function WhatItDoes({ chainId, safe, calls, tx, signs, same, quiet, else:
   const was = useRef<string | undefined>(undefined);
   // what could take everything (clear-signing-safe-kit, the same rules wedgie.dev uses): a delegatecall that isn't a
   // plain batch, a module that isn't ours, a guard, a fallback handler
-  const known = [...Object.keys(RECOVERY_DAYS), rolesAddress(safe)].map(a => a.toLowerCase());
-  const warns = calls.length || tx ? dangers(safe, tx ?? asSafeTx(calls), known) : [];
+  // …and a change of signers or recovery addresses (lib/safe/intents.ts warnsOf)
+  const warns = warnsOf(safe, calls, tx);
   const danger = warns.length > 0;
   // only the relay's fee: a Reject, which takes another transaction's number so that one can never run
   const reject = calls.length > 0 && calls.every(c => relayFee(chainId, c));

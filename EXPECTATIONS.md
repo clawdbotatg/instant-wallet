@@ -28,7 +28,9 @@ What Instant Wallet must always do. If a change breaks one, it doesn't ship. In 
 - Reads and transactions go to your own node on any network where you set one (Settings → Your node). Never a
   fallback to ours.
 - Anything that could take everything says so in red, first: a delegatecall that isn't a plain batch, a
-  module, a guard, a fallback handler.
+  module, a guard, a fallback handler; and (11-14) a new, swapped or removed signer, a change in how many must
+  sign, a new recovery address. A link or a site can ask for those. `tools/intents-check.mts`,
+  `tools/link-warn-e2e.mjs`.
 - What is shown is what is signed (11-13). The hash the keys sign is worked out in the wallet from the transaction
   on screen, never taken from a server or a link. A transaction that isn't whole bytes and plain numbers is refused.
   `tools/share-check.mts`.

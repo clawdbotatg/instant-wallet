@@ -1,5 +1,6 @@
 import { type Address, getAddress } from "viem";
-import type { Mark } from "clear-signing-safe-kit";
+import { type Mark, type SafeTxLike, asSafeTx, dangers } from "clear-signing-safe-kit";
+import { RECOVERY_DAYS } from "./config";
 import { type Call, rolesAddress } from "./core";
 import { WARN, describe, ours } from "./describe";
 import { isSwapTarget } from "./swap";
@@ -27,16 +28,27 @@ function approval(c: Call): { key: string; amount: bigint } | null {
   return { key: `${c.to.toLowerCase()}:${c.data.slice(34, 74).toLowerCase()}`, amount: BigInt("0x" + c.data.slice(74)) };
 }
 
+const RECOVERY = Object.keys(RECOVERY_DAYS).map(a => a.toLowerCase());
+
+/**
+ * What in a tx could take everything, for the red lines over a sheet (clear-signing-safe-kit, the rules wedgie.dev
+ * uses): a delegatecall that isn't a plain batch, a module that isn't ours, a guard, a fallback handler; and any
+ * change of signers, of how many must sign, or a new recovery address (audit 11-13: a link's "Add signer 0x…" read
+ * as plain text, and a signer owns the wallet). Settings makes those changes on its own screens, not on these sheets.
+ */
+export const warnsOf = (safe: Address, calls: Call[], tx?: SafeTxLike): string[] =>
+  calls.length || tx ? dangers(safe, tx ?? asSafeTx(calls), [...RECOVERY, rolesAddress(safe).toLowerCase()], { signers: true, recovery: RECOVERY }) : [];
+
 /**
  * The server's words for one call (/api/explain), or null where the wallet's own reading must stand (audit 11-13):
- * a call on the wallet itself or its daily-limit module (add a signer, turn on a module: a server that lied could
+ * a call on the wallet itself, its daily-limit module or a recovery module (add a signer, turn on a module: a server that lied could
  * call it "Claim your reward"), and any call the wallet's own reading warns about. A swap card (amounts in place of
  * the step) only for a call to a swap router: for anything else the server's words stay, its amounts go.
  */
 export function heard(chainId: number, safe: Address, c: Call, t: Told | undefined): Told {
   if (!t) return null;
   const to = c.to.toLowerCase();
-  if (to === safe.toLowerCase() || to === rolesAddress(safe).toLowerCase()) return null;
+  if (to === safe.toLowerCase() || to === rolesAddress(safe).toLowerCase() || RECOVERY.includes(to)) return null;
   if (describe(chainId, safe, c).startsWith(WARN)) return null;
   if (t.swap && !isSwapTarget(c.to)) {
     if (ours(chainId, c) || !describe(chainId, safe, c).startsWith("Call ")) return null; // the wallet can read it itself

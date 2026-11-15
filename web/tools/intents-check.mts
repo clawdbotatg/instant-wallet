@@ -4,7 +4,8 @@
 //   npx tsx tools/intents-check.mts
 import { encodeFunctionData, parseAbi, type Hex } from "viem";
 import { abi, type Call, rolesAddress } from "../lib/safe/core";
-import { heardAll, intents } from "../lib/safe/intents";
+import { heardAll, intents, warnsOf } from "../lib/safe/intents";
+import { RECOVERY_DAYS } from "../lib/safe/config";
 import { LIFI_DIAMOND } from "../lib/safe/swap";
 
 let bad = 0;
@@ -70,8 +71,8 @@ ok(l.length === 3, "the full list has every step", l);
 
 // a server that lies (/api/explain): the wallet's own reading stands for its own contracts and for anything it
 // warns about, and a swap card is only for a swap router (audit 11-13)
-const safeAbi = parseAbi(["function addOwnerWithThreshold(address owner, uint256 threshold)", "function enableModule(address module)"]);
-const onSafe = (functionName: "addOwnerWithThreshold" | "enableModule", args: any): Call => ({ to: safe, value: 0n, data: encodeFunctionData({ abi: safeAbi, functionName, args }) });
+const safeAbi = parseAbi(["function addOwnerWithThreshold(address owner, uint256 threshold)", "function enableModule(address module)", "function swapOwner(address prev, address old, address owner)", "function removeOwner(address prev, address owner, uint256 threshold)", "function changeThreshold(uint256 threshold)"]);
+const onSafe = (functionName: "addOwnerWithThreshold" | "enableModule" | "swapOwner" | "removeOwner" | "changeThreshold", args: any): Call => ({ to: safe, value: 0n, data: encodeFunctionData({ abi: safeAbi, functionName, args }) });
 const lie = (what: string) => ({ what, short: what, fields: [], src: "ef" });
 for (const brief of [true, false]) {
   l = said([onSafe("addOwnerWithThreshold", [attacker, 1n])], [lie("Claim your reward")], brief);
@@ -94,6 +95,31 @@ h = heardAll(CHAIN, safe, [foo, send], [lie("Deposit") as any, null]);
 ok(h?.[0]?.what === "Deposit" && h?.[1] === null, "the server's words for any other contract are still used", h);
 l = said([foo], [lie("Deposit")]);
 ok(has(l, /^Deposit/), "…in the headline too", l);
+
+// signer and recovery-address changes are red on every sheet that shows a tx the wallet didn't build there (a link,
+// a dapp, the waiting list): "Add signer 0x…" read as plain text, and a signer owns the wallet (audit 11-13)
+const REC = Object.keys(RECOVERY_DAYS)[0] as Hex;
+const guardian = (g: string): Call => ({ to: REC, value: 0n, data: encodeFunctionData({ abi: abi.recovery, functionName: "addGuardianWithThreshold", args: [g as Hex, 1n] }) });
+let w = warnsOf(safe, [onSafe("addOwnerWithThreshold", [attacker, 1n])]);
+ok(w.length === 1 && /^Adds 0x2222…2222 as a signer/.test(w[0]), "add a signer: a red warning", w);
+w = warnsOf(safe, [send, onSafe("addOwnerWithThreshold", [attacker, 1n])]);
+ok(w.length === 1 && /signer/.test(w[0]), "…inside a batch too", w);
+w = warnsOf(safe, [onSafe("swapOwner", [friend, friend, attacker])]);
+ok(w.length === 1 && /^Swaps signer/.test(w[0]), "swap a signer: a red warning", w);
+w = warnsOf(safe, [onSafe("removeOwner", [friend, friend, 1n])]);
+ok(w.length === 1 && /^Removes signer/.test(w[0]), "remove a signer: a red warning", w);
+w = warnsOf(safe, [onSafe("changeThreshold", [1n])]);
+ok(w.length === 1 && /1 signature /.test(w[0]), "change how many must sign: a red warning", w);
+w = warnsOf(safe, [guardian(attacker)]);
+ok(w.length === 1 && /^Adds 0x2222…2222 as a recovery address/.test(w[0]), "add a recovery address: a red warning", w);
+w = warnsOf(safe, [onSafe("enableModule", [REC])]);
+ok(w.length === 0, "turning on the wallet's own recovery module: no warning, as before", w);
+w = warnsOf(safe, [send]);
+ok(w.length === 0, "a plain send: no warning", w);
+h = heardAll(CHAIN, safe, [guardian(attacker)], [lie("Claim your reward") as any]);
+ok(h?.[0] === null, "add a recovery address, the server says \"Claim your reward\": the wallet's own words", h);
+l = said([guardian(attacker)], [lie("Claim your reward")]);
+ok(has(l, /^Add recovery address 0x2222/), "…and they say so", l);
 
 if (bad) {
   console.error(`${bad} failed`);

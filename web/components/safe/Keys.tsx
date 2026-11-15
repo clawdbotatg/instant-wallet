@@ -10,7 +10,7 @@ import { type ReactNode, useCallback, useEffect, useRef, useState } from "react"
 import { type Address, type Hex, encodeFunctionData, formatUnits, zeroAddress } from "viem";
 import { brainKey, isXdai, oldBurnerKey } from "@/lib/brand";
 import { claimKey } from "@/lib/claim";
-import { CHAINS, chainById, explorerAddress, ETH, nativeSymbol, publicClient } from "@/lib/chains";
+import { CHAINS, chainById, moneyChain, explorerAddress, ETH, nativeSymbol, publicClient } from "@/lib/chains";
 import { amount, short, feeText, usd } from "@/lib/format";
 import { DAO, FEE_ALLOWANCE, RECOVERY_14D, RECOVERY_60D, VERIFIERS } from "@/lib/safe/config";
 import { type Call, DEFAULT_BUDGET, abi, signerAddress, budgetCalls, deploySignerCall, feeAllowanceCalls, guardianListCalls, recoveryLayoutCalls, selfCall } from "@/lib/safe/core";
@@ -72,9 +72,8 @@ export function Keys({
   };
   useEffect(() => {
     if (picked.current || !assets.length) return;
-    const usdOn = (id: number) => assets.filter(a => a.chainId === id).reduce((t, a) => t + (a.usd ?? 0), 0);
-    const best = [...CHAINS].sort((a, b) => usdOn(b.id) - usdOn(a.id))[0];
-    if (best && usdOn(best.id) > 0) setChainIdRaw(best.id);
+    const best = moneyChain(assets);
+    if (best) setChainIdRaw(best);
   }, [assets]);
   const [busy, setBusy] = useState<string | null>(null);
   // an error shows in the step whose button caused it, next to where you tapped

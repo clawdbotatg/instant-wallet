@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type Address, getAddress, isAddress, zeroAddress } from "viem";
-import { CHAINS, chainById } from "@/lib/chains";
+import { CHAINS, chainById, moneyChain } from "@/lib/chains";
 import { amount, compactUsd, short, usd, nameIn } from "@/lib/format";
 import { type ChainState, type SafeAccount, forgetKnown, loadAccount, loadWalletName, readAll, saveAccount, saveWalletName } from "@/lib/safe/state";
 import { type Asset, type Portfolio, keepLate } from "@/lib/types";
@@ -449,8 +449,11 @@ export function SafeApp({ link }: { link?: string } = {}) {
     refresh();
   };
   const top = Math.max(1, ...states.map(s => s.level));
-  // the settings button's "2/3": the Safe's threshold / its owners (on the chain at the top level)
-  const topState = states.find(s => s.level === top);
+  // the settings button's "2/4": the Safe's threshold / its owners, on the network Settings opens on (the one
+  // with the most money), so the two say the same when networks have different signers (Austin 11-15: the gear
+  // said 2/3 from another network, Settings 2 of 4). No money anywhere: the first network at the top level.
+  const moneyId = moneyChain(assets);
+  const topState = states.find(s => s.chainId === moneyId) ?? states.find(s => s.level === top);
   const keysHave = topState?.owners.length || 1;
   const keysNeed = topState?.threshold || 1;
   const feeTokenOn = (chainId: number): "usdc" | "eth" => {

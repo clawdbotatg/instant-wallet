@@ -81,6 +81,13 @@ const xdai = typeof document !== "undefined" && document.documentElement.dataset
 export const CHAINS: ChainInfo[] = xdai ? [...enabled.filter(c => c.id === 100), ...enabled.filter(c => c.id !== 100)] : enabled;
 export const DEFAULT_CHAIN = CHAINS[0];
 
+/** The network with the most dollars on it: the one Settings opens on, and the one the gear's "2/4" counts. null: no money anywhere. */
+export function moneyChain(assets: { chainId: number; usd?: number | null }[]): number | null {
+  const usdOn = (id: number) => assets.filter(a => a.chainId === id).reduce((t, a) => t + (a.usd ?? 0), 0);
+  const best = [...CHAINS].sort((x, y) => usdOn(y.id) - usdOn(x.id))[0];
+  return best && usdOn(best.id) > 0 ? best.id : null;
+}
+
 /** Any known chain, enabled or not (the server still resolves ENS on Ethereum when only Base is enabled). */
 export const knownChain = (id: number) => ALL.find(c => c.id === id);
 

@@ -121,11 +121,11 @@ for (const p of files) {
     if (!/<RemoveX\b/.test(src)) (bad++, console.log(`${relative(root, p)}  a Reject with no <RemoveX>: a waiting tx gets both, ✕ then Reject`));
 }
 // Done, Close, Cancel (a form) and Back are white: red is only for destroying something (Austin 10-30). Whole buttons,
-// since the tag often runs over several lines. The one red Close: an app's, top left of its frame (Austin 11-15).
+// since the tag often runs over several lines. The one red Close: an app's, top right of its frame (Austin 11-15).
 const APP_FRAME = "components/safe/Apps.tsx";
 const rel = p => relative(root, p);
-if (!/<button className="pill stop" onClick=\{onClose\}>\s*Close/.test(readFileSync(join(root, APP_FRAME), "utf8")))
-  (bad++, console.log(`${APP_FRAME}  the app frame's Close is red (pill stop), top left`));
+if (!/<button className="pill stop" onClick=\{onClose\}>\s*Close\s*<\/button>\s*<\/div>/.test(readFileSync(join(root, APP_FRAME), "utf8")))
+  (bad++, console.log(`${APP_FRAME}  the app frame's Close is red (pill stop), last in its bar: top right`));
 for (const p of files) {
   const src = readFileSync(p, "utf8");
   for (const b of src.match(/<button\b(?:(?!<\/button>)[\s\S])*<\/button>/g) || [])

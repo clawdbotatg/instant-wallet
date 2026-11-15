@@ -59,7 +59,7 @@ export function AppList({ onOpen }: { onOpen: (a: AppEntry) => void }) {
   );
 }
 
-/** A Safe App, full screen (on a wide screen: left of the wallet), talking to this wallet on one network (a Safe App can't switch: pick another and it reloads). */
+/** A Safe App, full screen (on a wide screen: right of the wallet), talking to this wallet on one network (a Safe App can't switch: pick another and it reloads). */
 export function AppFrame({ app, account, states, onClose }: { app: AppEntry; account: SafeAccount; states: ChainState[]; onClose: () => void }) {
   const [chainId, setChainId] = useState(app.chains[0]);
   const ref = useRef<HTMLIFrameElement>(null);
@@ -84,10 +84,6 @@ export function AppFrame({ app, account, states, onClose }: { app: AppEntry; acc
   return (
     <div className="appframe">
       <div className="appframe-bar">
-        {/* red: the one Close that is (Austin 11-15). It ends the app; every other Close, Back, Done is white */}
-        <button className="pill stop" onClick={onClose}>
-          Close
-        </button>
         <b className="grow">{app.name}</b>
         {app.chains.length > 1 ? (
           <div style={{ width: 190, flex: "none" }}>
@@ -96,6 +92,10 @@ export function AppFrame({ app, account, states, onClose }: { app: AppEntry; acc
         ) : (
           <span className="pill"><Net chainId={chainId} /></span>
         )}
+        {/* red, top right: the one Close that is red (Austin 11-15). It ends the app; every other Close, Back, Done is white */}
+        <button className="pill stop" onClick={onClose}>
+          Close
+        </button>
       </div>
       {ready ? (
         <iframe

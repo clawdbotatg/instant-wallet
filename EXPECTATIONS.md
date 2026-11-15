@@ -101,7 +101,7 @@ Words:
 Button colors (10-30):
 - Green = the one obvious action.
 - Dark gray = the second choice (11-12): the next thing someone might do after the green one (I already have one, NFC card). One per screen. Where a copy link (`<CopyLink>`) is on the screen, that is the second choice, and any other is a third: white. When copying the link is the only thing that works (the first page inside a wallet app's browser), it is green. Also Switch account.
-- Red = it destroys something: remove (✕), delete, disconnect, sign out, cancel something onchain, or something went wrong (a bug report). Closing a window is not red: Back, Close, Done, Cancel (a form) are white. The one red Close (11-15): an app's, top left of its frame.
+- Red = it destroys something: remove (✕), delete, disconnect, sign out, cancel something onchain, or something went wrong (a bug report). Closing a window is not red: Back, Close, Done, Cancel (a form) are white. The one red Close (11-15): an app's, top right of its frame. On a wide screen the wallet is on the left and the app on the right.
 - White = everything else: most buttons. Reject, `<Eject>`, Add a wedgie.
 Button sizes (11-11):
 - Two heights. The main button is 56. Every small one (a pill, `btn-sm`, `<Eject>`) is 38.

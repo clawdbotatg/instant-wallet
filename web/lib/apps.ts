@@ -14,7 +14,7 @@ export const APPS_URL = process.env.NEXT_PUBLIC_APPS_URL || "https://instant-wal
 const ALL: AppEntry[] = [
   { id: "swap", name: "Swap", what: "Best price from Uniswap or LI.FI, any network", chains: CHAINS.map(c => c.id) },
   { id: "revoke", name: "Revoke", what: "See and stop every app that can spend your coins", chains: CHAINS.map(c => c.id), icon: "/apps/revoke.svg" },
-  { id: "earn", name: "Earn", what: "Best interest on USDC: Aave, Compound, Spark, Morpho", chains: [8453, 1], url: `${APPS_URL}/earn`, icon: "/apps/earn.svg" },
+  { id: "earn", name: "Earn", what: "Best interest on USDC or ETH: Aave, Compound, Spark, Morpho", chains: [8453, 1], url: `${APPS_URL}/earn`, icon: "/apps/earn.svg" },
   { id: "borrow", name: "Borrow", what: "Borrow USDC, USDT or ETH: Aave, Compound, Morpho", chains: [8453, 1], url: `${APPS_URL}/borrow`, icon: "/apps/borrow.svg" },
   { id: "stake", name: "Stake ETH", what: "Earn on ETH: Lido, Coinbase, Rocket Pool", chains: [8453, 1], url: `${APPS_URL}/stake`, icon: "/apps/stake.svg" },
   { id: "ens", name: "ENS", what: "Get a name like alice.eth", chains: [1], url: `${APPS_URL}/ens`, icon: "/apps/ens.svg" },

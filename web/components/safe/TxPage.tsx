@@ -17,7 +17,7 @@ import { startSending } from "@/lib/safe/sending";
 import { executeWaiting, sentOut } from "@/lib/safe/execute";
 import { type ChainState, keyFromCode, loadAccount, loadSigners, readChain, wedgieHome, wedgieSigners } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
-import { Net, BioSigner, Blockie, CopyLink, Eject, ExecutedLine, RemoveX, Who, Words, useToast, stageLabel } from "../bits";
+import { Net, BioSigner, Blockie, CopyLink, Eject, ExecutedLine, RemoveX, Who, Words, useToast, FROM_MINE, stageLabel } from "../bits";
 import { friendly } from "@/lib/friendly";
 import { Progress, useSendProgress } from "./Progress";
 import { ErrorLine } from "./WedgieButton";
@@ -491,7 +491,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
       <p className="fine row" style={{ gap: 16, justifyContent: "center", flexWrap: "wrap" }}>
         {enough && !done && !behind && !sent && hotAvailable() && (
           <a href="#" onClick={e => (e.preventDefault(), sendSelf())}>
-            {busy === "self" ? "Executing…" : "Execute from my wallet (I pay gas)"}
+            {busy === "self" ? "Executing…" : FROM_MINE}
           </a>
         )}
       </p>

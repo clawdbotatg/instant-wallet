@@ -13,7 +13,7 @@ import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
 import { friendly } from "@/lib/friendly";
 import { callsOf } from "@/lib/safe/describe";
-import { DoneBar, ExecutedLine, Net, Proven, RemoveX, TokenIcon, Who, stageLabel } from "../bits";
+import { DoneBar, ExecutedLine, Net, Proven, RemoveX, TokenIcon, Who, FROM_MINE, stageLabel } from "../bits";
 import { Progress } from "./Progress";
 import { ErrorLine } from "./WedgieButton";
 import { WhatItDoes } from "./WhatItDoes";
@@ -163,7 +163,7 @@ export function Revoke({ account, assets, states, onDone }: { account: SafeAccou
       {canMine && all.length > 0 && (
         <label className="row" style={{ gap: 8 }}>
           <input type="checkbox" checked={mine} onChange={e => (setMine(e.target.checked), setRows({}))} />
-          Execute from my wallet (no fee, I pay gas)
+          {FROM_MINE}
         </label>
       )}
       {shown.map(chainId => {

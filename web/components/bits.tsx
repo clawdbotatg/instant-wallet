@@ -1114,6 +1114,17 @@ export function stageLabel(stage?: string | null): React.ReactNode {
   return "…";
 }
 
+// Your own browser wallet executes it and pays the gas: no relay, no fee. One part, so it says the same on every
+// screen and stays on one line (Austin 11-15: "(no fee, I pay gas)" wrapped the button to two lines).
+export const FROM_MINE = "Execute from my wallet";
+export function FromMine({ onClick }: { onClick: () => void }) {
+  return (
+    <button className="btn btn-dark wide" title="No fee. Your browser wallet pays the gas." onClick={onClick}>
+      {FROM_MINE}
+    </button>
+  );
+}
+
 export function GreenButton() {
   return <span className="green-key" role="img" aria-label="the green button" />;
 }

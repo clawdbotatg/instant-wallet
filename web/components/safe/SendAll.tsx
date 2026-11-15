@@ -23,7 +23,7 @@ import {
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { Net, AddressInput, DoneBar, ExecutedLine, Money, Proven, ProvenMark, TokenIcon, stageLabel } from "../bits";
+import { Net, AddressInput, DoneBar, ExecutedLine, Money, Proven, ProvenMark, TokenIcon, FROM_MINE, stageLabel } from "../bits";
 import { friendly } from "@/lib/friendly";
 import { Progress } from "./Progress";
 import { ErrorLine } from "./WedgieButton";
@@ -183,7 +183,7 @@ export function SendAll({
       {canMine && (
         <label className="row" style={{ gap: 8 }}>
           <input type="checkbox" checked={mine} onChange={(e) => (setMine(e.target.checked), setRows({}))} />
-          Execute from my wallet (no fee, I pay gas)
+          {FROM_MINE}
         </label>
       )}
       {chains.length === 0 && <p className="fine">Nothing to send.</p>}

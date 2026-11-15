@@ -17,7 +17,11 @@ import { hotAvailable } from "@/lib/safe/hot";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
+<<<<<<< HEAD
 import { Net, AddressInput, AmountBox, DoneBar, Money, NameMoved, Proven, SendOrSwap, TokenIcon, Who, stageLabel, useSheetBack } from "../bits";
+=======
+import { Net, AddressInput, AmountBox, DoneBar, Money, NameMoved, Proven, TokenIcon, Who, FromMine, stageLabel, useSheetBack } from "../bits";
+>>>>>>> 4cbeccf (The dark gray button says "Execute from my wallet", on one line (Austin 11-15: "(no fee, I pay gas)" wrapped it to two). One part, <FromMine>, on Send, Swap and a site's request; the checkboxes and the tx page's link say the same words. same-check fails on the old words.)
 import { Scanner } from "../Scanner";
 import { Select, assetOpt } from "./Pick";
 import { friendly } from "@/lib/friendly";
@@ -316,9 +320,7 @@ export function SafeSend({
           {busy ? stageLabel(stage) : "Sign"}
         </button>
         {!busy && canSelf && st?.deployed && p && (
-          <button className="btn btn-dark wide" onClick={() => send(true)}>
-            Execute from my wallet (no fee, I pay gas)
-          </button>
+          <FromMine onClick={() => send(true)} />
         )}
         <Progress stage={stage} chainId={chainId} hash={hash} />
         {!busy && (

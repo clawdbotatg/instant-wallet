@@ -9,7 +9,7 @@ import { type FeeToken, type Prepared, type Signer, type Stage, Shared, finishOw
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { type Pending, type Siwe, remember, respond } from "@/lib/walletconnect";
 import { signInCheck } from "@/lib/signin";
-import { Net, Raw, Who, Words, stageLabel } from "../bits";
+import { Net, Raw, Who, Words, FromMine, stageLabel } from "../bits";
 import { messageRows } from "@/lib/safe/raw";
 import type { TypedCard } from "@/lib/safe/typed";
 import { ConnectLayer, DappHead, type Session } from "../WalletConnect";
@@ -277,9 +277,7 @@ function SafeRequest({
         </button>
       )}
       {!refused && !busy && pending.kind === "calls" && mine && (
-        <button className="btn btn-dark wide" onClick={() => go(true)}>
-          Execute from my wallet (no fee, I pay gas)
-        </button>
+        <FromMine onClick={() => go(true)} />
       )}
       <Progress stage={stage} chainId={pending.chainId} hash={hash} />
       {!busy && (

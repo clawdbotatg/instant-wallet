@@ -27,7 +27,7 @@ with a passkey made on the real site. If it does, everything below is plumbing.
 | Today (our server, our secrets) | Local |
 |---|---|
 | Reads: `/api/rpc`, portfolio, prices, NFTs via Alchemy (`ALCHEMY_API_KEY`) | Your own free Alchemy key, or your own node (Settings → Your node already exists, `docs/OWN-NODE.md`) |
-| The relay pays gas (`RELAYER_PRIVATE_KEY`) and takes a fee in the same tx | Your own relay key, funded by you. The fee goes to the relay's own address (`relayCore.ts`), so you pay yourself back: you only pay gas. Or skip it: "Execute from my wallet (I pay gas)" |
+| The relay pays gas (`RELAYER_PRIVATE_KEY`) and takes a fee in the same tx | Your own relay key, funded by you. The fee goes to the relay's own address (`relayCore.ts`), so you pay yourself back: you only pay gas. Or skip it: "Execute from my wallet" |
 | The store: Upstash (`RELAY_KV_*`): tx queue, names, rate limits | A file on disk. Today it falls back to memory (`lib/kv.ts`), which is lost on restart |
 | The simulator, sim.wedgie.dev | clear-sim on your computer (open source), set in Settings → Simulator. Or the light client on Ethereum and Gnosis |
 | Words for a tx: `/api/explain` (EF registry + clear-descriptors from GitHub) | Same route, runs locally, from your own clones of the two repos |

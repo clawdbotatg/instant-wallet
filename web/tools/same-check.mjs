@@ -46,7 +46,7 @@ const RULES = [
   // picked by what most of the app already says (11-12): Sign on the tap that signs, recovery address, coin
   { re: /stageLabel\((stage|step)\) : (step === "unfunded" \? "Try again" : )?"(Send|Swap|Fund it)"/, say: "the tap that signs says Sign, or 'Sign to …'" },
   { re: /["`>][^"`<{]*( [Gg]uardians?\b|\b[Gg]uardians? )[^"`<{]*["`<]/, say: "'guardian' in words a user reads: say 'recovery address'", skip: ["components/safe/RecoverTool.tsx", "components/safe/SafeWelcome.tsx"] }, // code that reads getGuardians
-  { re: /Execute it myself|your wallet pays the gas/, say: "said one way: '… from my wallet (I pay gas)'" },
+  { re: /Execute it myself|your wallet pays the gas|I pay gas\)|^\s*Execute from my wallet|"Execute from my wallet/, say: "said one way, on one line: <FromMine> (or FROM_MINE in a checkbox or a link). Never '(no fee, I pay gas)' on a button", skip: [SHARED] },
   { re: /^\s*✓ (Executed|Funded)\b|Card written ✓/, say: "a tx that ran, said by hand: <ExecutedLine href> (and <DoneBar> on a finished screen)" },
   { re: /^\s*[A-Z][^<>{}=;]* [Gg]uardians?\b/, say: "'guardian' in words a user reads: say 'recovery address'" },
   { re: /\.toLocaleString\(\)/, say: "a date written its own way: when() from lib/format (or Activity's day)" },

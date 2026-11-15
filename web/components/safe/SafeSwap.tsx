@@ -13,7 +13,11 @@ import { uniswapRoute } from "@/lib/safe/uniswap";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import { hotAvailable } from "@/lib/safe/hot";
 import type { Asset } from "@/lib/types";
+<<<<<<< HEAD
 import { Net, AmountBox, DoneBar, Eject, Money, Proven, SendOrSwap, TimedBar, TokenIcon, Who, stageLabel } from "../bits";
+=======
+import { Net, AmountBox, DoneBar, Eject, Money, Proven, TimedBar, TokenIcon, Who, FromMine, stageLabel } from "../bits";
+>>>>>>> 4cbeccf (The dark gray button says "Execute from my wallet", on one line (Austin 11-15: "(no fee, I pay gas)" wrapped it to two). One part, <FromMine>, on Send, Swap and a site's request; the checkboxes and the tx page's link say the same words. same-check fails on the old words.)
 import { ChainSelect, type Opt, Select, SignerChoice, assetOpt } from "./Pick";
 import { Progress, TimeBar } from "./Progress";
 import { friendly } from "@/lib/friendly";
@@ -552,9 +556,7 @@ export function SafeSwap({
         {busy ? stageLabel(stage) : "Sign to swap"}
       </button>
       {!busy && canSelf && st?.deployed && route && !needsComputer && !quoting && (
-        <button className="btn btn-dark wide" onClick={() => swap(true)}>
-          Execute from my wallet (no fee, I pay gas)
-        </button>
+        <FromMine onClick={() => swap(true)} />
       )}
       <Progress stage={stage} chainId={chainId} hash={hash} />
     </div>

@@ -28,6 +28,7 @@ import {
 } from "@/lib/safe/core";
 import { GAS_BUDGET, type SendKind, feePaid, rolesCalls, unpackMultiSend } from "@/lib/safe/fee";
 import { authCall, validAuth } from "@/lib/claim";
+import { MAX_DATA, l1Fee, l1Owed } from "@/lib/safe/l1fee";
 import { L1_ALLOWANCE, clients, nativeUsd, quote, tipFloor } from "@/lib/safe/relayCore";
 import { tooMany } from "@/lib/limit";
 import {
@@ -238,7 +239,9 @@ export async function POST(req: NextRequest) {
         throw new Error(`it would fail on chain: ${e?.shortMessage || e?.message || e}`);
       });
     if (gas > GAS_BUDGET[kind]) throw new RelayRefused("That's bigger than a normal Instant Wallet send.", 400);
-    const l1 = chainId === 1 ? 0n : L1_ALLOWANCE;
+    if ((data.length - 2) / 2 > MAX_DATA) throw new RelayRefused("That's bigger than a normal Instant Wallet send.", 400);
+    // the L1 data fee: the flat allowance for a normal send, the chain's own number for one padded far past it
+    const l1 = chainId === 1 ? 0n : l1Owed(await l1Fee(pc, chainId, data), L1_ALLOWANCE);
     const costEth = (gas * BigInt(q.gasPrice) * 105n) / 100n + l1; // gas price may tick up a little before inclusion
     const costUsdc = BigInt(Math.ceil((Number(costEth) / 1e18) * q.ethUsd * 1e6));
     if (paid.eth < costEth && paid.usdc < costUsdc) {

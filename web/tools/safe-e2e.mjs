@@ -256,9 +256,10 @@ if (!process.env.SKIP_SWAPS) {
   ok(/Uniswap/.test(how) && u0 - u1 >= 100_000_000n && u0 - u1 < 102_000_000n && e1 > e0, `swap via Uniswap: 100 USDC → ${Number(e1 - e0) / 1e18} ETH (${how})`);
   // SKIP_LIFI=1: LI.FI's live route sometimes reverts on a fork (solver/RFQ state the fork doesn't have)
   if (!process.env.SKIP_LIFI) {
-    const how2 = await swap("ETH", "0.002", USDC, "lifi", "s4b"); // USDC picked as a custom (pasted) token
+    // the amount box is in dollars: "2" is $2 of ETH (this asked for 0.002 ETH's worth and got "0.002", $0.002, right)
+    const how2 = await swap("ETH", "2", USDC, "lifi", "s4b"); // USDC picked as a custom (pasted) token
     const u2 = usdcOf(acct.address), e2 = BigInt(cast(`balance ${acct.address}`));
-    ok(/LI\.FI/.test(how2) && e1 - e2 >= 2_000_000_000_000_000n && u2 > u1, `swap via LI.FI: 0.002 ETH → ${Number(u2 - u1) / 1e6} USDC (${how2})`);
+    ok(/LI\.FI/.test(how2) && e1 > e2 && u2 - u1 > 1_850_000n && u2 - u1 < 2_050_000n, `swap via LI.FI: $2 of ETH → ${Number(u2 - u1) / 1e6} USDC (${how2})`);
   }
   ok(cast(`call ${USDC} "allowance(address,address)(uint256)" ${acct.address} 0x2626664c2603336E57B271c5C0b26F421741e481`) === "0", "no allowance left behind");
 }

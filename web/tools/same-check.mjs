@@ -101,6 +101,9 @@ for (const p of files) {
   const src = readFileSync(p, "utf8");
   if (/"card (assets|nfts)\b/.test(src) && !/<Fold\b/.test(src)) (bad++, console.log(`${relative(root, p)}  a list card with no <Fold>: a page of it (640px), then Show all`));
 }
+// Send and Swap are one tap apart (Austin 11-15): both forms have <SendOrSwap> at the top
+for (const f of ["components/safe/SafeSend.tsx", "components/safe/SafeSwap.tsx"])
+  if (!/<SendOrSwap\b/.test(readFileSync(join(root, f), "utf8"))) (bad++, console.log(`${f}  no <SendOrSwap>: Send and Swap are one tap apart, on the same coin`));
 // dark gray is the second choice (Austin 11-12): it sits beside a green, and Reject is never it.
 // <CopyLink>, Switch account and the invite link's copy are dark gray on their own.
 const DARK_OK = [SHARED, "components/Receive.tsx", "components/safe/Keys.tsx"];

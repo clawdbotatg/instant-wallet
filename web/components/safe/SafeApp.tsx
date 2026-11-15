@@ -49,7 +49,7 @@ const WATCH = "watch"; // credentialId of a ?watch= view
 /** JSON.stringify's replacer for a chain's state (it has bigints). */
 const big = (_: string, v: unknown) => (typeof v === "bigint" ? `${v}n` : v);
 
-type View = { kind: "home" } | { kind: "send"; asset?: Asset; scanned?: string } | { kind: "swap"; fund?: number } | { kind: "apps" } | { kind: "receive" } | { kind: "deposit" } | { kind: "keys" } | { kind: "share"; chainId: number } | { kind: "sendAll" } | { kind: "revoke" } | { kind: "tx"; chainId: number; safe: Address; code: string };
+type View = { kind: "home" } | { kind: "send"; asset?: Asset; amount?: string; to?: string; scanned?: string } | { kind: "swap"; fund?: number; asset?: Asset; amount?: string; to?: string } | { kind: "apps" } | { kind: "receive" } | { kind: "deposit" } | { kind: "keys" } | { kind: "share"; chainId: number } | { kind: "sendAll" } | { kind: "revoke" } | { kind: "tx"; chainId: number; safe: Address; code: string };
 
 /** Instant Wallet on a Safe: a big balance, Deposit / Apps, the connected sites above the coins, the address pill opens Receive, settings bottom left (signatures needed / signers; the wedgie lives in there), a send button on each asset, a green send button that opens on the scanner (addresses, claim cards, WalletConnect QRs). */
 export function SafeApp({ link }: { link?: string } = {}) {
@@ -659,12 +659,12 @@ export function SafeApp({ link }: { link?: string } = {}) {
 
       {view.kind !== "home" && (
         <Sheet onClose={close}>
-          {view.kind === "send" && <SafeSend account={account} assets={assets} states={states} start={view.asset} scanned={view.scanned} onDone={close} />}
+          {view.kind === "send" && <SafeSend account={account} assets={assets} states={states} start={view.asset} amount={view.amount} to={view.to} scanned={view.scanned} onSwap={(asset, amount, to) => setView({ kind: "swap", asset, amount, to })} onDone={close} />}
           {view.kind === "tx" && <TxPage key={view.code} chainId={view.chainId} safe={view.safe} code={view.code} />}
           {view.kind === "sendAll" && <SendAll account={account} assets={assets} states={states} onDone={close} />}
           {view.kind === "apps" && <AppList onOpen={a => (a.url ? (setApp(a), close()) : setView({ kind: a.id === "revoke" ? "revoke" : "swap" }))} />}
           {view.kind === "revoke" && <Revoke account={account} assets={assets} states={states} onDone={close} />}
-          {view.kind === "swap" && <SafeSwap account={account} assets={assets} states={states} fund={view.fund} onDone={close} />}
+          {view.kind === "swap" && <SafeSwap account={account} assets={assets} states={states} start={view.asset} amount={view.amount} fund={view.fund} onSend={(asset, amount) => setView({ kind: "send", asset, amount, to: view.to ?? "" })} onDone={close} />}
           {view.kind === "deposit" && <Deposit account={account} onReceive={() => setView({ kind: "receive" })} />}
           {view.kind === "receive" && (
             <Receive

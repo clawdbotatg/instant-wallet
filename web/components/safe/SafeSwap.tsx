@@ -13,7 +13,7 @@ import { uniswapRoute } from "@/lib/safe/uniswap";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import { hotAvailable } from "@/lib/safe/hot";
 import type { Asset } from "@/lib/types";
-import { Net, AmountBox, DoneBar, Eject, Money, Proven, TimedBar, TokenIcon, Who, stageLabel } from "../bits";
+import { Net, AmountBox, DoneBar, Eject, Money, Proven, SendOrSwap, TimedBar, TokenIcon, Who, stageLabel } from "../bits";
 import { ChainSelect, type Opt, Select, SignerChoice, assetOpt } from "./Pick";
 import { Progress, TimeBar } from "./Progress";
 import { friendly } from "@/lib/friendly";
@@ -60,14 +60,18 @@ export function SafeSwap({
   assets,
   states,
   start,
+  amount,
   fund,
+  onSend,
   onDone,
 }: {
   account: SafeAccount;
   assets: Asset[];
   states: ChainState[];
   start?: Asset;
+  amount?: string; // from Send: what was typed there
   fund?: number;
+  onSend: (asset: Asset | undefined, amount: string) => void; // the Send half of <SendOrSwap>
   onDone: () => void;
 }) {
   const key = (a: { chainId: number; asset: string }) => `${a.chainId}:${a.asset.toLowerCase()}`;
@@ -79,7 +83,7 @@ export function SafeSwap({
   };
   const first = start ?? (fund ? fundFrom() : undefined) ?? assets[0];
   const [fromKey, setFromKey] = useState<string | null>(first ? key(first) : null);
-  const [amountIn, setAmountIn] = useState("");
+  const [amountIn, setAmountIn] = useState(amount ?? "");
   const from = useMemo(() => assets.find(a => key(a) === fromKey) ?? null, [assets, fromKey]);
   const chainId = from?.chainId ?? CHAINS[0].id;
   const [toChain, setToChain] = useState(fund ?? chainId);
@@ -405,7 +409,7 @@ export function SafeSwap({
 
   return (
     <div className="stack swap">
-      <h2>{fund ? <>Add gas on <Net chainId={fund} /></> : "Swap"}</h2>
+      {fund ? <h2>Add gas on <Net chainId={fund} /></h2> : <SendOrSwap on="swap" disabled={busy} onOther={() => onSend(from ?? undefined, amountIn)} />}
       {fund && <p className="fine">Your wallet has the same address on every network. This moves a little to <Net chainId={fund} /> so it can pay for changes there.</p>}
 
       <div className="field">

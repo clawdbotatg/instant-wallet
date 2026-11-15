@@ -17,7 +17,7 @@ import { hotAvailable } from "@/lib/safe/hot";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { Net, AddressInput, AmountBox, DoneBar, Money, NameMoved, Proven, TokenIcon, Who, stageLabel, useSheetBack } from "../bits";
+import { Net, AddressInput, AmountBox, DoneBar, Money, NameMoved, Proven, SendOrSwap, TokenIcon, Who, stageLabel, useSheetBack } from "../bits";
 import { Scanner } from "../Scanner";
 import { Select, assetOpt } from "./Pick";
 import { friendly } from "@/lib/friendly";
@@ -36,18 +36,24 @@ export function SafeSend({
   assets,
   states,
   start,
+  amount,
+  to,
   scanned,
+  onSwap,
   onDone,
 }: {
   account: SafeAccount;
   assets: Asset[];
   states: ChainState[];
   start?: Asset;
+  amount?: string; // back from Swap: what was typed there
+  to?: string; // back from Swap: who was typed here before
+  onSwap: (asset: Asset | undefined, amount: string, to: string) => void; // the Swap half of <SendOrSwap>
   scanned?: string; // a payment request link that opened the app: filled in as if scanned
   onDone: () => void;
 }) {
-  const [toInput, setToInput] = useState("");
-  const [scanning, setScanning] = useState(!start && !scanned);
+  const [toInput, setToInput] = useState(to ?? "");
+  const [scanning, setScanning] = useState(!start && !scanned && to === undefined);
   // the scanner opened from the form: swiping it away goes back to the form
   const [scanFromForm, setScanFromForm] = useState(false);
   const leaveScan = useCallback(() => {
@@ -59,7 +65,7 @@ export function SafeSend({
   const [toName, setToName] = useState<string | null>(null); // the name that was looked up: as typed, or lil.inst.eth for a bare "lil"
   const key = (a: { chainId: number; asset: string }) => `${a.chainId}:${a.asset.toLowerCase()}`;
   const [pick, setPick] = useState<string | null>(start ? key(start) : null);
-  const [amountIn, setAmountIn] = useState(""); // always the token amount (<AmountBox> takes dollars and works it out)
+  const [amountIn, setAmountIn] = useState(amount ?? ""); // always the token amount (<AmountBox> takes dollars and works it out)
   const [asCoin, setAsCoin] = useState(false); // the box opens on the coin: a payment request names a coin amount
   const [stage, setStage] = useState<"form" | "review" | Stage | "done">("form");
   const [quote, setQuote] = useState<Quote | null>(null);
@@ -326,7 +332,7 @@ export function SafeSend({
 
   return (
     <div className="stack">
-      <h2>{scanning ? "Send or scan" : "Send"}</h2>
+      {scanning ? <h2>Send or scan</h2> : <SendOrSwap on="send" onOther={() => onSwap(asset ?? undefined, amountIn, toInput)} />}
       {scanning && <Scanner short onResult={onScan} />}
       {/* the one To box, on the scan screen and on the form (the scan pill only on the form: the scan screen is the scanner) */}
       <div className="field">

@@ -700,6 +700,22 @@ export function ExecutedLine({ href }: { href?: string | false | null }) {
  * for the other signers); with `label` a pill with the words. `message`: what the toast says once copied.
  * `green`: copying is the one thing left to do (the first page inside a wallet app's browser, where passkeys can't work).
  */
+/**
+ * Send or Swap, at the top of both forms (Austin 11-15): a tap on a coin opens Send with it, and one tap here swaps
+ * that same coin (the amount comes along). The one you're on is pressed in, like every picked pill.
+ */
+export function SendOrSwap({ on, onOther, disabled }: { on: "send" | "swap"; onOther: () => void; disabled?: boolean }) {
+  return (
+    <div className="pair send-or-swap">
+      {(["send", "swap"] as const).map(k => (
+        <button key={k} className={`pill ${k === on ? "on" : ""}`} aria-pressed={k === on} disabled={disabled} onClick={k === on ? undefined : onOther}>
+          {k === "send" ? "Send" : "Swap"}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function CopyLink({ link, message = "Link copied. Send it to the other signers.", label, green }: { link: string; message?: string; label?: React.ReactNode; green?: boolean }) {
   const [toast, setToast] = useToast();
   const go = async () => setToast((await copy(link)) ? message : "Couldn't copy");

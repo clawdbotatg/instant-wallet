@@ -84,8 +84,8 @@ export function AppFrame({ app, account, states, onClose }: { app: AppEntry; acc
   return (
     <div className="appframe">
       <div className="appframe-bar">
-        {/* white: closing a window is never red (Austin 11-12; it was red since 10-31) */}
-        <button className="pill" onClick={onClose}>
+        {/* red: the one Close that is (Austin 11-15). It ends the app; every other Close, Back, Done is white */}
+        <button className="pill stop" onClick={onClose}>
           Close
         </button>
         <b className="grow">{app.name}</b>

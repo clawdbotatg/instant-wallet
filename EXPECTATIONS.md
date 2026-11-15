@@ -77,6 +77,7 @@ Where it lives: `WhatItDoes`, `<Money>`, `<Proven>`, clear-signing-safe-kit (`da
 | Typing an amount of a coin | `<AmountBox>`: dollars first, a pill switches to the coin and back (Send, Swap, Share, Request, Limits) | a box that takes tokens only, a hand-made box |
 | Typing or pasting an address | ONE box, `<AddressInput>`, everywhere an address is typed: Send, the scan screen, Send everything, adding a signer or a guardian, both recover screens (11-12). It works the same in each: 0x…, a name (`nick.eth`), or a word alone (`lil` is tried as `lil.inst.eth`). The box and the cursor are never touched, so `nick` goes on to `nick.eth`; the match shows under the box with its name and address. The box keeps only the address: a dot, a space, words around it are dropped; `atg.eth.` is atg.eth (`addressIn()`, `nameIn()`). A scan pill in every one: the scanner opens as its own sheet over the page, looking like Send's scan screen (the short camera, Paste address, no WalletConnect), and closes itself with the address in the box | an `<input>` for an address by hand, a box with its own lookup, a box that swaps what you typed for a short address, a camera that opens inside the page, an error on `0x….` |
 | A long list on Home (coins, positions, collectibles) | `<Fold>`: the biggest first, about a page of it (640px) faded at the bottom, then Show all N (11-12). Activity shows 6 | hundreds of coins pushing the positions a long scroll down |
+| Our own apps (Earn, Borrow, Stake ETH, ENS, Morpho: the instant-wallet-apps repo) | the wallet's look (11-15): its colors and its parts (`.btn` green / dark / white, `.pill`, `.card`, the recessed `.input`, `.asset` rows, `.progress`, `<Net>`, ✓ Executed), copied from `globals.css`, drawn only in that repo's `src/ui.tsx`. Its `tools/same-check.mjs` fails when a color or a part differs from the wallet's, or on a button or box drawn by hand | an app with its own colors, a blue button, a bare `<button>` or `<input>` |
 | A wait of ~5 s or more | a progress bar sized to it | a dead screen, an "Ask again" button |
 
 Words:
@@ -100,7 +101,7 @@ Words:
 Button colors (10-30):
 - Green = the one obvious action.
 - Dark gray = the second choice (11-12): the next thing someone might do after the green one (I already have one, NFC card). One per screen. Where a copy link (`<CopyLink>`) is on the screen, that is the second choice, and any other is a third: white. When copying the link is the only thing that works (the first page inside a wallet app's browser), it is green. Also Switch account.
-- Red = it destroys something: remove (✕), delete, disconnect, sign out, cancel something onchain, or something went wrong (a bug report). Closing a window is not red: Back, Close, Done, Cancel (a form) are white.
+- Red = it destroys something: remove (✕), delete, disconnect, sign out, cancel something onchain, or something went wrong (a bug report). Closing a window is not red: Back, Close, Done, Cancel (a form) are white. The one red Close (11-15): an app's, top left of its frame.
 - White = everything else: most buttons. Reject, `<Eject>`, Add a wedgie.
 Button sizes (11-11):
 - Two heights. The main button is 56. Every small one (a pill, `btn-sm`, `<Eject>`) is 38.

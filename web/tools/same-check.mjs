@@ -121,11 +121,15 @@ for (const p of files) {
     if (!/<RemoveX\b/.test(src)) (bad++, console.log(`${relative(root, p)}  a Reject with no <RemoveX>: a waiting tx gets both, ✕ then Reject`));
 }
 // Done, Close, Cancel (a form) and Back are white: red is only for destroying something (Austin 10-30). Whole buttons,
-// since the tag often runs over several lines.
+// since the tag often runs over several lines. The one red Close: an app's, top left of its frame (Austin 11-15).
+const APP_FRAME = "components/safe/Apps.tsx";
+const rel = p => relative(root, p);
+if (!/<button className="pill stop" onClick=\{onClose\}>\s*Close/.test(readFileSync(join(root, APP_FRAME), "utf8")))
+  (bad++, console.log(`${APP_FRAME}  the app frame's Close is red (pill stop), top left`));
 for (const p of files) {
   const src = readFileSync(p, "utf8");
   for (const b of src.match(/<button\b(?:(?!<\/button>)[\s\S])*<\/button>/g) || [])
-    if (/btn-red|pill stop/.test(b) && />\s*(?:✕\s*)?(Done|Close|Cancel|Back)\s*<\/button>$/.test(b))
+    if (rel(p) !== APP_FRAME && /btn-red|pill stop/.test(b) && />\s*(?:✕\s*)?(Done|Close|Cancel|Back)\s*<\/button>$/.test(b))
       (bad++, console.log(`${relative(root, p)}  a red ${b.match(/(Done|Close|Cancel|Back)\s*<\/button>$/)[1]}: closing a window is white, red only destroys`));
 }
 // fewest words (Austin 11-10): a settings box is its title, the box and a checkbox. No sentence that says what the

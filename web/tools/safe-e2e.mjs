@@ -282,7 +282,13 @@ async function addWedgie(p, both, who = acct.address) {
   await add.waitFor({ timeout: 20000 });
   if (both) await p.getByRole("button", { name: "More", exact: true }).tap();
   await add.tap();
-  await p.getByRole("button", { name: "Sign", exact: true }).tap();
+  // the confirm names the wedgie's own address (audit 11-13): the one to hold against its screen
+  const sign = p.getByRole("button", { name: "Sign", exact: true });
+  await sign.waitFor({ timeout: 60000 });
+  await p.waitForTimeout(2500); // WhatItDoes lands
+  ok((await p.getByText("It must be the one on the wedgie").count()) > 0, "add wedgie: the confirm shows its address, to check against the wedgie's screen");
+  await p.screenshot({ path: `${OUT}/s4b-add-wedgie-confirm.png`, fullPage: true });
+  await sign.tap();
   await until(() => owners(who).length > n0, 90000);
   await p.waitForTimeout(6000); // the page reads it
 }

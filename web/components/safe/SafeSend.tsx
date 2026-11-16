@@ -171,7 +171,9 @@ export function SafeSend({
     if (!asset) return;
     setError(null);
     let amt = BigInt(asset.balance);
-    if (sendingUsdc || sendingEth) {
+    // its own wallet pays the gas in the network's coin: every bit of another coin can go, no relay fee to leave.
+    // The network's coin keeps the relay's fee back, as room for that gas
+    if (itself ? sendingEth : sendingUsdc || sendingEth) {
       setMaxing(true);
       try {
         const q = await quoteFor(amt);

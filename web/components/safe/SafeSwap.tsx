@@ -6,7 +6,7 @@ import { CHAINS, chainById, explorerAddress, explorerTx, publicClient, nativeSym
 import { amount as fmtAmount, compactUsd, usd, feeText } from "@/lib/format";
 import { abi } from "@/lib/safe/core";
 import type { Quote } from "@/lib/safe/fee";
-import { type FeeToken, type Signer, type Stage, Shared, asItself, feeCall, getQuote, itselfSend, ownerSigners, ownersSend, pickFee, sendKind, signThenQueue, signerOptions, usesWedgie } from "@/lib/safe/send";
+import { type FeeToken, type Signer, type Stage, Shared, Stale, asItself, feeCall, getQuote, itselfSend, ownerSigners, ownersSend, pickFee, sendKind, signThenQueue, signerOptions, usesWedgie } from "@/lib/safe/send";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { POPULAR, type SwapRoute, type Token, swapCalls } from "@/lib/safe/swap";
 import { uniswapRoute } from "@/lib/safe/uniswap";
@@ -300,7 +300,8 @@ export function SafeSwap({
   async function max() {
     if (!from || !st) return;
     let bal = BigInt(from.balance);
-    if (fromUsdc || fromEth) {
+    // its own wallet pays the gas in the network's coin: every bit of another coin can go, no relay fee to leave
+    if (itself ? fromEth : fromUsdc || fromEth) {
       // leave room for the fee (a generous guess: the route isn't known yet)
       const q = await getQuote(chainId, await sendKind(account, st, "owners", signers, { swapGas: 600_000n }), 600_000n).catch(() => null);
       if (q) bal -= (BigInt(fromUsdc ? q.feeUsdc : q.feeEth) * 3n) / 2n;
@@ -323,7 +324,11 @@ export function SafeSwap({
         if (h) setHash(h);
       };
       if (!itself && st && usesWedgie(account, st, signers) && wedgieSupported()) wedgie = await Wedgie.connect(); // a computer: it signs here too
-      const h = itself ? await itselfSend({ account, state: st, calls: swapCalls(route), onStage }) : await ownersSend({
+      // its own wallet sends the approval, then the swap: the price may run out while the approval lands
+      const fresh = () => {
+        if (route.until < Date.now()) throw new Stale("Approved. The price ran out while it did: tap Execute again for the new one.");
+      };
+      const h = itself ? await itselfSend({ account, state: st, calls: swapCalls(route), check: fresh, onStage }) : await ownersSend({
         account,
         state: st,
         calls: swapCalls(route),
@@ -341,6 +346,7 @@ export function SafeSwap({
       if (e instanceof Shared) return; // its page has the sheet now
       setError(friendly(e));
       setStage("form");
+      if (e instanceof Stale) setTick(n => n + 1); // a fresh price now
     } finally {
       await wedgie?.close();
     }

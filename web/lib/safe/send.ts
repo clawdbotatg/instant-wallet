@@ -279,35 +279,49 @@ export async function finishOwners(p: Prepared): Promise<Hash> {
  */
 export const asItself = (a: SafeAccount, st?: ChainState) => a.credentialId === "watch" && !!st && !st.deployed;
 
+/** Thrown by `itselfSend`'s `check`: what was agreed went out of date between two of its transactions. */
+export class Stale extends Error {}
+
 /**
  * The calls as plain transactions from the address itself, one after another, each waited for: its own browser
- * wallet sends them and pays the gas. No Safe, no relay, no fee. An approval back to 0 is skipped when nothing is
- * left to take back (a swap spends all it approved). The hash back is the last call that isn't one of those (a
- * swap's own, which the bridge is followed by).
+ * wallet sends them and pays the gas. No Safe, no relay, no fee. Not one transaction, so (review 11-15):
+ *   - an approval already in place isn't asked for again (a second try after the first stopped half way), and an
+ *     approval back to 0 is skipped when nothing is left to take back (a swap spends all it approved);
+ *   - `check` runs before every call that isn't an approval: a swap's price may have run out while the approval
+ *     landed. It throws (Stale) to stop there;
+ *   - once the real call is in, a reset that is refused or fails doesn't undo it: the hash still comes back.
+ * The hash back is the last call that isn't a reset (a swap's own, which the bridge is followed by).
  */
-export async function itselfSend(opts: { account: SafeAccount; state: ChainState; calls: Call[]; onStage?: (s: Stage, hash?: Hash) => void }): Promise<Hash> {
+export async function itselfSend(opts: { account: SafeAccount; state: ChainState; calls: Call[]; check?: () => void; onStage?: (s: Stage, hash?: Hash) => void }): Promise<Hash> {
   const { account: a, state: st, calls } = opts;
   const chainId = st.chainId;
   const stage = opts.onStage ?? (() => {});
-  const zeroApprove = (c: Call) => c.value === 0n && c.data.length === 138 && c.data.startsWith("0x095ea7b3") && BigInt("0x" + c.data.slice(74)) === 0n;
+  const isApprove = (c: Call) => c.value === 0n && c.data.length === 138 && c.data.startsWith("0x095ea7b3");
   const out = startSending(chainId, a.address, calls);
   let main: Hash | undefined;
   try {
     for (const c of calls) {
-      const back = zeroApprove(c);
-      if (back) {
+      const approve = isApprove(c);
+      const want = approve ? BigInt("0x" + c.data.slice(74)) : 0n;
+      const back = approve && want === 0n;
+      if (approve) {
         const spender = ("0x" + c.data.slice(34, 74)) as Address;
-        const left = await publicClient(chainId).readContract({ address: c.to, abi: abi.erc20, functionName: "allowance", args: [a.address, spender] }).catch(() => 1n);
-        if (left === 0n) continue;
+        const has = await publicClient(chainId).readContract({ address: c.to, abi: abi.erc20, functionName: "allowance", args: [a.address, spender] }).catch(() => null);
+        if (has !== null && (back ? has === 0n : has >= want)) continue;
+      } else opts.check?.();
+      try {
+        stage("signing-hot");
+        const hash = await hotCall(chainId, a.address, c);
+        if (!back || !main) {
+          main = hash;
+          out.hash(hash);
+        }
+        stage("confirming", main);
+        await waitFor(chainId, hash);
+      } catch (e) {
+        if (back && main) continue; // the real call is in: a reset that didn't happen is a leftover approval, not a failure
+        throw e;
       }
-      stage("signing-hot");
-      const hash = await hotCall(chainId, a.address, c);
-      if (!back || !main) {
-        main = hash;
-        out.hash(hash);
-      }
-      stage("confirming", main);
-      await waitFor(chainId, hash);
     }
     if (!main) throw new Error("Nothing to execute.");
     return main;

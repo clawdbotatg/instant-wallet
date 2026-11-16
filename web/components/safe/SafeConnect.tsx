@@ -179,7 +179,11 @@ function SafeRequest({
           calls,
           onStage: (s, hh) => {
             setStage(s);
-            if (hh) (setHash(hh), tell(hh).catch(() => {}));
+            if (hh) setHash(hh);
+            // one call: answer as soon as it's out, as any wallet does. Several: they are separate transactions
+            // here, so the site hears only when all are in, with the last one's hash (review 11-15: it got the
+            // approval's, and read "done" from that)
+            if (hh && calls!.length === 1) tell(hh).catch(() => {});
           },
         });
         await tell(h);

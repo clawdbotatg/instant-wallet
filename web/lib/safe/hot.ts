@@ -99,9 +99,28 @@ async function onChain(p: Provider, chainId: number) {
   }
 }
 
-/** Put the wallet that holds `a` on this network now (at Connect, so the switch is seen before the transaction). */
-export async function hotSwitch(a: Address, chainId: number) {
-  await onChain((await pick([a])).p, chainId);
+/** Put the wallet that holds `a` on this network now (at Connect, and the Switch button). `force`: ask the wallet
+ * even when it says it's there already (Austin 11-15: the button always makes the call). */
+export async function hotSwitch(a: Address, chainId: number, force = false) {
+  const { p } = await pick([a]);
+  if (!force) return onChain(p, chainId);
+  try {
+    await p.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x" + chainId.toString(16) }] });
+  } catch (e: any) {
+    if (e?.code === 4902) throw new Error(`Add ${chainById(chainId)?.name ?? "this network"} to your browser wallet first.`);
+    throw e;
+  }
+}
+
+/** The network the wallet that holds `a` is on now (no popup), or null. */
+export async function hotChain(a: Address): Promise<number | null> {
+  for (const { p } of wallets()) {
+    const as = await p.request({ method: "eth_accounts" }).catch(() => []);
+    if (!Array.isArray(as) || !as.some((x: string) => x.toLowerCase() === a.toLowerCase())) continue;
+    const id = await p.request({ method: "eth_chainId" }).catch(() => null);
+    return id ? Number(id) : null;
+  }
+  return null;
 }
 
 /** The wallet's own node for this network refused it (Austin 11-15: "RPC 0x89 Custom eth_getBlockByNumber:

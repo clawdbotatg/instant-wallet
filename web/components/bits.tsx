@@ -11,7 +11,7 @@ import { amount as fmtAmount, short, usd as fmtUsd, addressIn, nameIn } from "@/
 import { movedFrom, nameTyped } from "@/lib/names";
 import { parse } from "@/lib/parse";
 import { homeOf } from "@/lib/safe/state";
-import { connectHot, hotDrop, hotName, hotSwitch } from "@/lib/safe/hot";
+import { connectHot, hotChain, hotDrop, hotName, hotSwitch } from "@/lib/safe/hot";
 import { friendly } from "@/lib/friendly";
 import { bio } from "@/lib/passkey";
 import { useProven } from "@/lib/safe/proven";
@@ -1135,14 +1135,33 @@ export function MineGo({ address, chainId, busy, disabled, onGo, onError }: { ad
   const [name, setName] = useState<string | null>(null);
   useEffect(() => {
     let live = true;
-    const read = () => hotName(address).then(n => live && setName(n));
+    const read = () => {
+      hotName(address).then(n => live && setName(n));
+      hotChain(address).then(c => live && setOn(c));
+    };
     read();
     window.addEventListener("focus", read);
+    // the wallet's own network, as it is now: a local call to the extension, no network read (so 3 s is free)
+    const t = setInterval(() => !document.hidden && read(), 3000);
     return () => {
       live = false;
       window.removeEventListener("focus", read);
+      clearInterval(t);
     };
   }, [address]);
+  const [on, setOn] = useState<number | null>(null); // the network the wallet is on
+  const [switching, setSwitching] = useState(false);
+  async function toNet() {
+    onError(null);
+    setSwitching(true);
+    try {
+      await hotSwitch(address, chainId, true);
+      setOn(await hotChain(address));
+    } catch (e) {
+      onError(friendly(e));
+    }
+    setSwitching(false);
+  }
   async function tap() {
     if (name) return onGo();
     onError(null);
@@ -1150,6 +1169,7 @@ export function MineGo({ address, chainId, busy, disabled, onGo, onError }: { ad
       await connectHot([address]);
       setName((await hotName(address)) ?? "Browser wallet");
       await hotSwitch(address, chainId); // the wallet goes to this network now, not as a surprise at the transaction
+      setOn(await hotChain(address));
     } catch (e) {
       onError(friendly(e));
     }
@@ -1165,9 +1185,16 @@ export function MineGo({ address, chainId, busy, disabled, onGo, onError }: { ad
         </button>
       </div>
       {name && (
-        <p className="fine center">
-          {name} connected: <Who flat address={address} size={16} />
-        </p>
+        <>
+          <p className="fine center">
+            {name} connected: <Who flat address={address} size={16} />
+            {on !== null && <> on {chainById(on) ? <Net chainId={on} /> : "another network"}</>}
+          </p>
+          {/* always there: one tap asks the wallet to go to the transaction's network (Austin 11-15) */}
+          <button className="btn btn-sm" style={{ justifySelf: "center" }} disabled={!!busy || switching} onClick={toNet}>
+            Switch network to <Net chainId={chainId} />
+          </button>
+        </>
       )}
     </>
   );

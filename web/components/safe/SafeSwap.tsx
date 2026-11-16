@@ -6,7 +6,7 @@ import { CHAINS, chainById, explorerAddress, explorerTx, publicClient, nativeSym
 import { amount as fmtAmount, compactUsd, usd, feeText } from "@/lib/format";
 import { abi } from "@/lib/safe/core";
 import type { Quote } from "@/lib/safe/fee";
-import { type FeeToken, type Signer, type Stage, Shared, feeCall, getQuote, ownerSigners, ownersSend, sendKind, signThenQueue, signerOptions, usesWedgie } from "@/lib/safe/send";
+import { type FeeToken, type Signer, type Stage, Shared, feeCall, getQuote, ownerSigners, ownersSend, pickFee, sendKind, signThenQueue, signerOptions, usesWedgie } from "@/lib/safe/send";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { POPULAR, type SwapRoute, type Token, swapCalls } from "@/lib/safe/swap";
 import { uniswapRoute } from "@/lib/safe/uniswap";
@@ -271,13 +271,12 @@ export function SafeSwap({
   const other = route && routes ? (route === routes.uni ? routes.lifi : routes.uni) : null;
   routeRef.current = route;
 
-  // the fee: in the token being swapped when it's USDC or ETH, else USDC if there's enough, else ETH
+  // the fee: in the token being swapped when it's USDC or ETH, else USDC if it covers the fee, else ETH (pickFee)
   const usdcAddr = chainById(chainId)?.usdc;
   const usdcHeld = assets.find(a => a.chainId === chainId && a.asset.toLowerCase() === usdcAddr?.toLowerCase());
   const ethHeld = assets.find(a => a.chainId === chainId && a.asset === zeroAddress);
   const fromUsdc = !!from && from.asset.toLowerCase() === usdcAddr?.toLowerCase();
   const fromEth = from?.asset === zeroAddress;
-  const feeToken: FeeToken = fromEth ? "eth" : fromUsdc ? "usdc" : usdcHeld ? "usdc" : "eth";
   useEffect(() => {
     if (!route || !st) return;
     let live = true;
@@ -290,6 +289,7 @@ export function SafeSwap({
       live = false;
     };
   }, [route?.tx.data, signers.join()]);
+  const feeToken: FeeToken = pickFee(fee, fromEth ? "eth" : fromUsdc ? "usdc" : null, { usdc: BigInt(usdcHeld?.balance ?? "0"), eth: BigInt(ethHeld?.balance ?? "0") }, base ?? 0n);
   const feeAmt = fee ? BigInt(feeToken === "usdc" ? fee.feeUsdc : fee.feeEth) : 0n;
   const feeLabel = fee ? feeText(fee, feeToken, nativeSymbol(chainId)) : "…";
   const feeBalance = BigInt((feeToken === "usdc" ? usdcHeld?.balance : ethHeld?.balance) ?? "0");

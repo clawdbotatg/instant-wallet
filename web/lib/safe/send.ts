@@ -35,6 +35,16 @@ export class Shared extends Error {
 }
 
 export type FeeToken = "usdc" | "eth";
+
+/** Which coin pays the fee: the coin being moved when it's USDC or ETH, else USDC, else ETH. The first one that
+ *  covers it (a speck of USDC doesn't count: 11-15, a swap said "not enough USDC" with $12 of ETH there).
+ *  `spend` is how much of `moved` this transaction takes. None covers: the first choice, so the screen says which. */
+export function pickFee(q: Quote | null | undefined, moved: FeeToken | null, have: { usdc: bigint; eth: bigint }, spend = 0n): FeeToken {
+  const order: FeeToken[] = moved === "eth" ? ["eth", "usdc"] : ["usdc", "eth"];
+  if (!q) return moved ?? (have.usdc > 0n ? "usdc" : "eth");
+  const covers = (t: FeeToken) => have[t] >= (t === moved ? spend : 0n) + BigInt(t === "usdc" ? q.feeUsdc : q.feeEth);
+  return order.find(covers) ?? order[0];
+}
 /** A signer is an owner's address. How it signs is worked out per address (`howSigns`): there are no kinds of owner. */
 export type Signer = Address;
 export type How = "faceid" | "wedgie" | "wallet" | "friend";

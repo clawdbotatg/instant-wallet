@@ -12,7 +12,7 @@ import { parse } from "@/lib/parse";
 import { openWalletConnect } from "@/lib/walletconnect";
 import { transfer } from "@/lib/safe/core";
 import type { Quote } from "@/lib/safe/fee";
-import { type FeeToken, type Signer, type Stage, Shared, budgetSend, feeCall, getQuote, ownersSend, plan, sendKind, signThenQueue, signerOptions, usesWedgie } from "@/lib/safe/send";
+import { type FeeToken, type Signer, type Stage, Shared, budgetSend, feeCall, getQuote, ownersSend, pickFee, plan, sendKind, signThenQueue, signerOptions, usesWedgie } from "@/lib/safe/send";
 import { hotAvailable } from "@/lib/safe/hot";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
@@ -94,10 +94,13 @@ export function SafeSend({
   // the fee: in the token being sent when it's USDC or ETH, else USDC if there's enough, else ETH
   const sendingUsdc = !!asset && asset.asset.toLowerCase() === usdcAddr?.toLowerCase();
   const sendingEth = asset?.asset === zeroAddress;
-  const feeToken: FeeToken = sendingEth ? "eth" : sendingUsdc ? "usdc" : usdcHeld ? "usdc" : "eth";
+  const feeOf = (q: typeof quote, amount: bigint): FeeToken =>
+    pickFee(q, sendingEth ? "eth" : sendingUsdc ? "usdc" : null, { usdc: BigInt(usdcHeld?.balance ?? "0"), eth: BigInt(ethHeld?.balance ?? "0") }, amount);
+  const sameAs = (t: FeeToken) => (t === "usdc" && sendingUsdc) || (t === "eth" && sendingEth); // the fee is in the coin being sent
+  const feeToken = feeOf(quote, base ?? 0n);
   const fee = quote ? BigInt(feeToken === "usdc" ? quote.feeUsdc : quote.feeEth) : 0n;
   const feeLabel = quote ? feeText(quote, feeToken, nativeSymbol(chainId)) : "…";
-  const p = st && asset && base !== null ? plan(st, account, asset.asset as Address, base, fee, sendingUsdc || sendingEth) : null;
+  const p = st && asset && base !== null ? plan(st, account, asset.asset as Address, base, fee, sameAs(feeToken)) : null;
   // which keys sign a big move: the first way this device can, unless the user picks another
   const options = st && p?.path === "owners" && st.threshold > 1 && !signThenQueue(st, account) ? signerOptions(st, account) : [];
   const [chosen, setChosen] = useState<Signer[] | null>(null);
@@ -154,7 +157,8 @@ export function SafeSend({
     const k1 = await sendKind(account, st, guess.path, guess.signers);
     let q = await getQuote(chainId, k1);
     // with the real fee, the path can change (near the budget's edge): then quote that kind instead
-    const real = plan(st, account, asset.asset as Address, amount, BigInt(feeToken === "usdc" ? q.feeUsdc : q.feeEth), same);
+    const t = feeOf(q, amount);
+    const real = plan(st, account, asset.asset as Address, amount, BigInt(t === "usdc" ? q.feeUsdc : q.feeEth), sameAs(t));
     const k2 = await sendKind(account, st, real.path, real.signers);
     if (k2 !== k1) q = await getQuote(chainId, k2);
     return q;

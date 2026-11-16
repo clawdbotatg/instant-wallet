@@ -135,6 +135,9 @@ const APP_FRAME = "components/safe/Apps.tsx";
 const rel = p => relative(root, p);
 if (!/<button className="pill stop" onClick=\{onClose\}>\s*Close\s*<\/button>\s*<\/div>/.test(readFileSync(join(root, APP_FRAME), "utf8")))
   (bad++, console.log(`${APP_FRAME}  the app frame's Close is red (pill stop), last in its bar: top right`));
+// every app in the Apps list opens in the app frame, never in a sheet (Austin 11-15)
+if (!/<AppList onOpen=\{a => \(setApp\(a\), close\(\)\)\} \/>/.test(readFileSync(join(root, "components/safe/SafeApp.tsx"), "utf8")))
+  (bad++, console.log("components/safe/SafeApp.tsx  every app in the Apps list opens in the app frame (setApp), never in a sheet"));
 for (const p of files) {
   const src = readFileSync(p, "utf8");
   for (const b of src.match(/<button\b(?:(?!<\/button>)[\s\S])*<\/button>/g) || [])

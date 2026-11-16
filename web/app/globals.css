@@ -331,6 +331,11 @@ html[data-brand="xdai"] .seedcard .word { background: #1d1d1d; border-color: var
 .appframe-bar .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .appframe-bar select.pill { max-width: 40%; }
 .appframe iframe { flex: 1; width: 100%; border: 0; background: #fff; }
+/* our own app (Swap, Revoke): its screen in one phone-width column, spaced like a sheet */
+.appframe-body { flex: 1; overflow: auto; overscroll-behavior: contain; }
+.appframe-page { max-width: 480px; margin: 0 auto; padding: 16px 16px calc(20px + env(safe-area-inset-bottom)); display: grid; gap: 14px; position: relative; min-width: 0; }
+.appframe-page > * { min-width: 0; }
+.appframe-page h2 { font-size: 26px; }
 /* wide screens: the wallet (and its sheets, buttons, toasts) in a 512px column on the left, the app on the right (Austin 11-15; it was the other way round) */
 @media (min-width: 1000px) {
   html.app-side .appframe { left: 512px; border-left: 1px solid var(--recess); }

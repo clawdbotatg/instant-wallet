@@ -49,7 +49,7 @@ const WATCH = "watch"; // credentialId of a ?watch= view
 /** JSON.stringify's replacer for a chain's state (it has bigints). */
 const big = (_: string, v: unknown) => (typeof v === "bigint" ? `${v}n` : v);
 
-type View = { kind: "home" } | { kind: "send"; asset?: Asset; amount?: string; to?: string; scanned?: string } | { kind: "swap"; fund?: number; asset?: Asset; amount?: string; to?: string } | { kind: "apps" } | { kind: "receive" } | { kind: "deposit" } | { kind: "keys" } | { kind: "share"; chainId: number } | { kind: "sendAll" } | { kind: "revoke" } | { kind: "tx"; chainId: number; safe: Address; code: string };
+type View = { kind: "home" } | { kind: "send"; asset?: Asset; amount?: string; to?: string; scanned?: string } | { kind: "swap"; fund?: number; asset?: Asset; amount?: string; to?: string } | { kind: "apps" } | { kind: "receive" } | { kind: "deposit" } | { kind: "keys" } | { kind: "share"; chainId: number } | { kind: "sendAll" } | { kind: "tx"; chainId: number; safe: Address; code: string };
 
 /** Instant Wallet on a Safe: a big balance, Deposit / Apps, the connected sites above the coins, the address pill opens Receive, settings bottom left (signatures needed / signers; the wedgie lives in there), a send button on each asset, a green send button that opens on the scanner (addresses, claim cards, WalletConnect QRs). */
 export function SafeApp({ link }: { link?: string } = {}) {
@@ -448,6 +448,10 @@ export function SafeApp({ link }: { link?: string } = {}) {
     setView({ kind: "home" });
     refresh();
   };
+  const closeApp = () => {
+    setApp(null);
+    refresh();
+  };
   const top = Math.max(1, ...states.map(s => s.level));
   // the settings button's "2/4": the Safe's threshold / its owners, on the network Settings opens on (the one
   // with the most money), so the two say the same when networks have different signers (Austin 11-15: the gear
@@ -662,8 +666,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
           {view.kind === "send" && <SafeSend account={account} assets={assets} states={states} start={view.asset} amount={view.amount} to={view.to} scanned={view.scanned} onSwap={(asset, amount, to) => setView({ kind: "swap", asset, amount, to })} onDone={close} />}
           {view.kind === "tx" && <TxPage key={view.code} chainId={view.chainId} safe={view.safe} code={view.code} />}
           {view.kind === "sendAll" && <SendAll account={account} assets={assets} states={states} onDone={close} />}
-          {view.kind === "apps" && <AppList onOpen={a => (a.url ? (setApp(a), close()) : setView({ kind: a.id === "revoke" ? "revoke" : "swap" }))} />}
-          {view.kind === "revoke" && <Revoke account={account} assets={assets} states={states} onDone={close} />}
+          {view.kind === "apps" && <AppList onOpen={a => (setApp(a), close())} />}
           {view.kind === "swap" && <SafeSwap account={account} assets={assets} states={states} start={view.asset} amount={view.amount} fund={view.fund} onSend={(asset, amount) => setView({ kind: "send", asset, amount, to: view.to ?? "" })} onDone={close} />}
           {view.kind === "deposit" && <Deposit account={account} onReceive={() => setView({ kind: "receive" })} />}
           {view.kind === "receive" && (
@@ -701,7 +704,12 @@ export function SafeApp({ link }: { link?: string } = {}) {
           )}
         </Sheet>
       )}
-      {app && <AppFrame app={app} account={account} states={states} onClose={() => (setApp(null), refresh())} />}
+      {app && (
+        <AppFrame app={app} account={account} states={states} onClose={closeApp}>
+          {app.id === "swap" && <SafeSwap account={account} assets={assets} states={states} onDone={closeApp} />}
+          {app.id === "revoke" && <Revoke account={account} assets={assets} states={states} bare onDone={closeApp} />}
+        </AppFrame>
+      )}
       <SafeConnectLayer account={account} states={states} feeTokenOn={feeTokenOn} onSent={refresh} onSessions={setSites} />
       {toast && <div className="toast">{toast}</div>}
       {switching && (

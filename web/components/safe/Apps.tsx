@@ -9,7 +9,7 @@ import { hostApp } from "@/lib/safeapps";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Net, ChainIcon, SwapIcon } from "../bits";
 
-/** The Apps sheet: one row per app, what it does, its networks. Swap and Revoke open our own sheets; the rest open in the frame. */
+/** The Apps sheet: one row per app, what it does, its networks. Every one opens in the frame (AppFrame), never in a sheet. */
 export function AppList({ onOpen }: { onOpen: (a: AppEntry) => void }) {
   const [link, setLink] = useState("");
   const custom = (() => {
@@ -59,8 +59,11 @@ export function AppList({ onOpen }: { onOpen: (a: AppEntry) => void }) {
   );
 }
 
-/** A Safe App, full screen (on a wide screen: right of the wallet), talking to this wallet on one network (a Safe App can't switch: pick another and it reloads). */
-export function AppFrame({ app, account, states, onClose }: { app: AppEntry; account: SafeAccount; states: ChainState[]; onClose: () => void }) {
+/**
+ * An app, full screen (on a wide screen: right of the wallet). A Safe App (app.url) is framed and talks to this wallet on
+ * one network (it can't switch: pick another and it reloads). Swap and Revoke are ours: their screen is `children`.
+ */
+export function AppFrame({ app, account, states, onClose, children }: { app: AppEntry; account: SafeAccount; states: ChainState[]; onClose: () => void; children?: React.ReactNode }) {
   const [chainId, setChainId] = useState(app.chains[0]);
   const ref = useRef<HTMLIFrameElement>(null);
   const statesRef = useRef(states);
@@ -75,7 +78,7 @@ export function AppFrame({ app, account, states, onClose }: { app: AppEntry; acc
 
   // listen before the frame loads: the app asks for the Safe at once and gives up after 10 ms
   useEffect(() => {
-    if (!ready || !ref.current) return;
+    if (!app.url || !ready || !ref.current) return;
     return hostApp(ref.current, { name: app.name, url: app.url!, icon: app.icon }, account.address, chainId, () =>
       statesRef.current.find(s => s.chainId === chainId),
     );
@@ -85,7 +88,7 @@ export function AppFrame({ app, account, states, onClose }: { app: AppEntry; acc
     <div className="appframe">
       <div className="appframe-bar">
         <b className="grow">{app.name}</b>
-        {app.chains.length > 1 ? (
+        {!app.url ? null : app.chains.length > 1 ? (
           <div style={{ width: 190, flex: "none" }}>
             <ChainSelect value={chainId} onChange={setChainId} only={app.chains} />
           </div>
@@ -97,7 +100,11 @@ export function AppFrame({ app, account, states, onClose }: { app: AppEntry; acc
           Close
         </button>
       </div>
-      {ready ? (
+      {!app.url ? (
+        <div className="appframe-body">
+          <div className="appframe-page">{children}</div>
+        </div>
+      ) : ready ? (
         <iframe
           key={chainId}
           ref={ref}

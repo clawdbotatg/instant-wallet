@@ -71,7 +71,7 @@ export function SafeSwap({
   start?: Asset;
   amount?: string; // from Send: what was typed there
   fund?: number;
-  onSend: (asset: Asset | undefined, amount: string) => void; // the Send half of <SendOrSwap>
+  onSend?: (asset: Asset | undefined, amount: string) => void; // the Send half of <SendOrSwap>; none when opened from Apps (the frame's bar says Swap)
   onDone: () => void;
 }) {
   const key = (a: { chainId: number; asset: string }) => `${a.chainId}:${a.asset.toLowerCase()}`;
@@ -416,7 +416,7 @@ export function SafeSwap({
 
   return (
     <div className="stack swap">
-      {fund ? <h2>Add gas on <Net chainId={fund} /></h2> : <SendOrSwap on="swap" disabled={busy} onOther={() => onSend(from ?? undefined, amountIn)} />}
+      {fund ? <h2>Add gas on <Net chainId={fund} /></h2> : onSend && <SendOrSwap on="swap" disabled={busy} onOther={() => onSend(from ?? undefined, amountIn)} />}
       {fund && <p className="fine">Your wallet has the same address on every network. This moves a little to <Net chainId={fund} /> so it can pay for changes there.</p>}
 
       <div className="field">

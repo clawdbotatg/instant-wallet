@@ -2,7 +2,7 @@ import { CHAINS } from "./chains";
 
 /**
  * The Apps list (docs/APP-STORE.md). Each entry is a Safe App at a URL, opened in our frame (lib/safeapps.ts),
- * except Swap and Revoke, our own sheets. Ours (ENS, Morpho) live in github.com/clawdbotatg/instant-wallet-apps;
+ * except Swap and Revoke, our own screens in that same frame. Ours (ENS, Morpho) live in github.com/clawdbotatg/instant-wallet-apps;
  * the rest are Safe{Wallet}'s apps that let any site frame them AND accept us as their Safe (test before adding:
  * tools/apps-connect-probe.mjs). Add one: a line here.
  */

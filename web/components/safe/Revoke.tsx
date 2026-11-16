@@ -41,7 +41,8 @@ const spenderLabel = (a: string) => (UNISWAP.some(u => eq(u, a)) ? "Uniswap" : e
  * read from the chain (lib/safe/approvals.ts). ✕ on a row takes that one back; the green button takes them all
  * back on that network, one tx (up to MAX_BATCH at a time). First tap gets the fee, the next one signs.
  */
-export function Revoke({ account, assets, states, onDone }: { account: SafeAccount; assets: Asset[]; states: ChainState[]; onDone: () => void }) {
+/** `bare`: no title (the app frame's bar says Revoke). */
+export function Revoke({ account, assets, states, bare, onDone }: { account: SafeAccount; assets: Asset[]; states: ChainState[]; bare?: boolean; onDone: () => void }) {
   const chains = states.filter(s => s.deployed).map(s => s.chainId);
   const [found, setFound] = useState<Record<number, Approval[] | string>>({}); // a string: why that network couldn't be read
   const [rows, setRows] = useState<Record<number, Row>>({});
@@ -153,7 +154,7 @@ export function Revoke({ account, assets, states, onDone }: { account: SafeAccou
 
   return (
     <div className="stack">
-      <h2>Revoke</h2>
+      {!bare && <h2>Revoke</h2>}
       {read < chains.length && (
         <div className="progress" aria-label="Looking">
           <div style={{ width: `${Math.round((100 * (read + 0.3)) / Math.max(1, chains.length))}%`, transitionDuration: "400ms" }} />

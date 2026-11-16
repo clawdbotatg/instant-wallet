@@ -158,8 +158,13 @@ async function sendTx(p: Provider, chainId: number, tx: { from: Address; to: Add
       if (nodeRefused(e2)) first = e2;
     }
     const net = chainById(chainId)?.name ?? "this network";
+    // the proof, said: does the wallet's node answer anything at all? (Austin 11-15: his answered Unauthorized to
+    // every read, the block number too; five tries here could not have worked)
+    const dead = await p.request({ method: "eth_blockNumber" }).then(() => false, () => true);
     throw new Error(
-      `Your browser wallet can't reach ${net}: the RPC saved in it answered "${String(first?.message || first).slice(0, 80)}". In the wallet: Networks, ${net}, Edit, and pick another RPC URL. Then tap Execute again. Only you can change it; a site can't.`,
+      dead
+        ? `Your browser wallet's ${net} RPC is dead: it refuses everything, even the block number ("${String(first?.message || first).slice(0, 60)}"). The wallet can't send anything on ${net} until you change it: in the wallet, Networks, ${net}, Edit, pick another RPC URL. A site can't change it.`
+        : `Your browser wallet's ${net} RPC refused this ("${String(first?.message || first).slice(0, 80)}"). In the wallet: Networks, ${net}, Edit, and pick another RPC URL. Then tap Execute again.`,
     );
   }
 }

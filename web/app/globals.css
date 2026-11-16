@@ -254,8 +254,11 @@ div.asset:active { background: none; }
 .fab-settings { right: auto; left: max(18px, calc(50vw - 222px)); gap: 0; align-content: center; color: #fff; background: var(--grey-fill);
   box-shadow: inset 0 3px 0 rgba(255,255,255,.22), inset 0 -5px 0 rgba(0,0,0,.25), 0 3px 0 #2c2d2f, 0 16px 28px -10px rgba(20,20,20,.7); }
 .fab-settings:active { transform: translateY(3px); }
-.fab-settings .lvl { font-size: 11px; font-weight: 700; letter-spacing: .03em; color: rgba(255,255,255,.75); line-height: 1; margin-top: 1px; }
-.fab-settings .lvl.bad { font-size: 13px; color: #fff; background: var(--red-fill); border-radius: 99px; min-width: 16px; padding: 1px 0; margin-top: 2px; }
+.signer-groups { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 18px; margin: 12px 0 16px; font-size: 15px; font-weight: 700; color: var(--muted); }
+.signer-group { display: inline-flex; align-items: center; gap: 6px; }
+.net-stack { display: inline-flex; }
+.net-stack img { box-shadow: 0 0 0 1.5px var(--card); }
+.net-stack img + img { margin-left: -5px; }
 
 /* claim cards (/claim/new): printed, the QR alone fills a card; several to a page */
 @media print { .claim-maker { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; } .claim-card { break-inside: avoid; } }

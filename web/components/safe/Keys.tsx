@@ -12,12 +12,11 @@ import { brainKey, isXdai, oldBurnerKey } from "@/lib/brand";
 import { claimKey } from "@/lib/claim";
 import { CHAINS, chainById, moneyChain, explorerAddress, ETH, nativeSymbol, publicClient } from "@/lib/chains";
 import { amount, short, feeText, usd } from "@/lib/format";
-import { DAO, FEE_ALLOWANCE, RECOVERY_14D, RECOVERY_60D, VERIFIERS, VERIFIERS_SLOT2 } from "@/lib/safe/config";
+import { DAO, FEE_ALLOWANCE, RECOVERY_14D, RECOVERY_60D, VERIFIERS } from "@/lib/safe/config";
 import { type Call, DEFAULT_BUDGET, abi, signerAddress, budgetCalls, deploySignerCall, feeAllowanceCalls, guardianListCalls, recoveryLayoutCalls, selfCall } from "@/lib/safe/core";
-import { matchCalls, signersKey } from "@/lib/safe/match";
 import { openTx } from "@/lib/safe/share";
 import { type FeeToken, type Prepared, Shared, type Signer, finishOwners, keepUnsigned, getQuote, howSigns, ownerSigners, prepareOwners, signerLabel, usesWedgie } from "@/lib/safe/send";
-import { type ChainState, type SafeAccount, type SignerInfo, countedStates, daoDays, keyFromCode, loadSigners, loadWalletName, passkeyHome, readChain, rememberHome, saveSigner, wedgieHome, wedgieSigners, shownAs } from "@/lib/safe/state";
+import { type ChainState, type SafeAccount, type SignerInfo, daoDays, loadSigners, loadWalletName, passkeyHome, readChain, rememberHome, saveSigner, wedgieHome, wedgieSigners, shownAs } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
 import { WhatItDoes } from "./WhatItDoes";
@@ -88,31 +87,28 @@ export function Keys({
   const [wedgieNeed, setWedgieNeed] = useState<number | null>(null); // signatures needed once the wedgie is on (null: same as now, e.g. 1 of 2)
   const [wedgieLook, setWedgieLook] = useState<{ tone: string; looking: boolean } | null>(null); // what the pill says
   const st = states.find(s => s.chainId === chainId);
-  // what pays a change's fee on a network, and whether anything there can
-  const payOn = (id: number): { feeToken: FeeToken; canPay: boolean } => {
-    const usdc = chainById(id)?.usdc?.toLowerCase();
-    const haveUsdc = assets.some(a => a.chainId === id && a.asset.toLowerCase() === usdc && BigInt(a.balance) >= (id === 1 ? 10_000_000n : 1_000_000n));
-    const haveEth = assets.some(a => a.chainId === id && a.asset === zeroAddress && BigInt(a.balance) > 0n);
-    return { feeToken: haveUsdc ? "usdc" : "eth", canPay: haveUsdc || haveEth || assets.some(a => a.chainId === id && a.asset.toLowerCase() === usdc && BigInt(a.balance) > 0n) };
-  };
-  const { feeToken, canPay } = payOn(chainId);
+  const usdc = chainById(chainId)?.usdc?.toLowerCase();
+  const haveUsdc = assets.some(a => a.chainId === chainId && a.asset.toLowerCase() === usdc && BigInt(a.balance) >= (chainId === 1 ? 10_000_000n : 1_000_000n));
+  const haveEth = assets.some(a => a.chainId === chainId && a.asset === zeroAddress && BigInt(a.balance) > 0n);
+  const feeToken: FeeToken = haveUsdc ? "usdc" : "eth";
+  const canPay = haveUsdc || haveEth || assets.some(a => a.chainId === chainId && a.asset.toLowerCase() === usdc && BigInt(a.balance) > 0n);
 
   // the budget comes with the first second key (the wedgie; on older wallets maybe a hot wallet)
   // (with the fee's own allowance, so the relay's USDC fee doesn't come off the limit)
   const now = () => BigInt(Math.floor(Date.now() / 1000));
   // (no USDC on this chain: fees are in its native coin, there's no USDC fee to keep apart)
-  const feeApart = async (id: number) => {
-    const u = chainById(id)?.usdc;
-    return u ? feeAllowanceCalls(account.address, u, (await getQuote(id, "setup")).relayer, FEE_ALLOWANCE[id] ?? 1_000_000n, now()) : [];
+  const feeApart = async () => {
+    const u = chainById(chainId)?.usdc;
+    return u ? feeAllowanceCalls(account.address, u, (await getQuote(chainId, "setup")).relayer, FEE_ALLOWANCE[chainId] ?? 1_000_000n, now()) : [];
   };
   const budgetFirst = async (s: ChainState): Promise<Call[]> =>
     s.threshold <= 1
       ? [
-          ...budgetCalls(account.address, chainById(s.chainId)?.usdc, account.burnerSigner, { usdc: DEFAULT_BUDGET.usdc, eth: chainById(s.chainId)?.nativeBudget ?? DEFAULT_BUDGET.eth }, now(), {
+          ...budgetCalls(account.address, chainById(chainId)?.usdc, account.burnerSigner, { usdc: DEFAULT_BUDGET.usdc, eth: chainById(chainId)?.nativeBudget ?? DEFAULT_BUDGET.eth }, now(), {
             rolesDeployed: s.rolesDeployed,
             rolesEnabled: !!s.roles,
           }),
-          ...(await feeApart(s.chainId)),
+          ...(await feeApart()),
         ]
       : [];
   // the wedgie's recovery: the DAO on 60 days, your own address on 14 (never while a recovery runs: a guardian
@@ -385,50 +381,6 @@ export function Keys({
     );
   };
 
-  // the same signers on every network (Austin 11-15: 2 of 4 on one, 2 of 3 on another, and nothing said so). A
-  // signer change is one network's transaction, so the others are brought along one at a time: the network on
-  // screen is the one copied, `to` is the one changed (its own signers sign it, its own coins pay the fee).
-  const counted = countedStates(states, assets);
-  const others = st && counted.includes(st) ? counted.filter(s => s.chainId !== chainId && signersKey(s) !== signersKey(st)) : [];
-  const matchTo = (to: number) =>
-    prep(`match:${to}`, async () => {
-      const [from, has] = await Promise.all([readChain(chainId, account), readChain(to, account)]);
-      onRefresh();
-      // a signer that is a contract here has to be one there too: a passkey's (the wedgie, an invited person) is made
-      // in the same batch from the key in its code; any other must already be there
-      const deploy: Record<string, Call> = {};
-      await Promise.all(
-        from.owners.filter(o => !has.owners.some(x => same(x, o))).map(async o => {
-          const code = await publicClient(chainId).getCode({ address: o });
-          if (!code || code === "0x") return;
-          const key = keyFromCode(code);
-          const v = key && [VERIFIERS, VERIFIERS_SLOT2].find(v => same(signerAddress(key.x, key.y, v), o));
-          if (key && v !== undefined) return void (deploy[o.toLowerCase()] = deploySignerCall(key.x, key.y, v));
-          const there = await publicClient(to).getCode({ address: o });
-          if (!there || there === "0x") throw new Error(`${o} is a contract that isn't on ${chainById(to)?.name /* plain text: an error */} yet. It can't sign there.`);
-        }),
-      );
-      const faceId = (s: ChainState) => s.owners.some(o => same(o, account.burnerSigner));
-      const gainsWedgie = from.hasWedgie && !has.hasWedgie;
-      const calls = [
-        // as Add a wedgie does: the DAO's 60 days first, then Face ID's daily limit (it can't send alone any more)
-        ...(gainsWedgie ? await toLayout(has) : []),
-        ...(faceId(from) && faceId(has) && (gainsWedgie || from.threshold > 1) ? await budgetFirst(has) : []),
-        ...matchCalls(account.address, from, has, deploy),
-      ];
-      if (signersKey(from) === signersKey(has)) throw new Error("Already the same.");
-      const signers = ownerSigners(has, account);
-      const w = await wedgieFor(has, signers);
-      try {
-        const p = await prepareOwners({ account, state: has, calls, signers, feeToken: payOn(to).feeToken, setup: true, wedgie: w, label: "Change the signers" });
-        const want = signersKey(from);
-        return { label: <>The same signers on <Net chainId={to} /> as on <Net chainId={chainId} /></>, p, settled: s => signersKey(s) === want, close: async () => w?.close() };
-      } catch (e) {
-        await w?.close();
-        throw e;
-      }
-    });
-
   // a wallet that paired its wedgie before the 60-day layout: the same move on its own (the wedgie signs it too)
   const upgradeLayout = () =>
     prep("layout", async () => {
@@ -514,9 +466,9 @@ export function Keys({
   // what === the step's own action: its button, or the confirm that replaces it, plus that step's error
   const action = (what: string, button: ReactNode) => (
     <>
-      {wait?.what === what && (wait.chainId === chainId || what.startsWith("match:")) ? (
+      {wait?.what === what && wait.chainId === chainId ? (
         <div className="stack" style={{ gap: 8 }}>
-          <p className="fine">{busy ? "Executing…" : <>Waiting for <Net chainId={wait.chainId} />…</>}</p>
+          <p className="fine">{busy ? "Executing…" : <>Waiting for <Net chainId={chainId} />…</>}</p>
           <TimedBar ms={wait.ms} />
         </div>
       ) : pending?.what === what ? (
@@ -761,35 +713,6 @@ export function Keys({
             </>
           )}
         </Summary>
-      )}
-      {others.length > 0 && (
-        <div className="card alert">
-          <b>Not the same on every network</b>
-          {others.map(o => {
-            const pay = payOn(o.chainId);
-            return (
-              <div key={o.chainId} className="stack" style={{ gap: 8 }}>
-                <p>
-                  <Net chainId={o.chainId} />: <b>{o.threshold} of {o.owners.length}</b>
-                </p>
-                {action(
-                  `match:${o.chainId}`,
-                  <>
-                    <button className="btn btn-green wide" onClick={() => matchTo(o.chainId)} disabled={!!busy || !!pending || !!wait || !pay.canPay}>
-                      {busy === `match:${o.chainId}` ? stageLabel("quote") : <>Use these signers on <Net chainId={o.chainId} /></>}
-                    </button>
-                    {!busy && !pay.canPay && <p className="fine">Needs a little gas on <Net chainId={o.chainId} /> first.</p>}
-                    {!pay.canPay && assets.some(a => a.chainId !== o.chainId && (a.usd ?? 0) >= 0.5) && (
-                      <button className="btn wide" onClick={() => onFund(o.chainId)}>
-                        Add gas on <Net chainId={o.chainId} />
-                      </button>
-                    )}
-                  </>,
-                )}
-              </div>
-            );
-          })}
-        </div>
       )}
 
       {!st && <p className="fine">Loading…</p>}

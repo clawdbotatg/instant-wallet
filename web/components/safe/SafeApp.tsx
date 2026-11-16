@@ -5,14 +5,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { type Address, getAddress, isAddress, zeroAddress } from "viem";
 import { CHAINS, chainById, moneyChain } from "@/lib/chains";
 import { amount, compactUsd, short, usd, nameIn } from "@/lib/format";
-import { signersDiffer } from "@/lib/safe/match";
-import { type ChainState, type SafeAccount, countedStates, forgetKnown, loadAccount, loadWalletName, readAll, saveAccount, saveWalletName } from "@/lib/safe/state";
+import { type ChainState, type SafeAccount, forgetKnown, loadAccount, loadWalletName, readAll, saveAccount, saveWalletName } from "@/lib/safe/state";
 import { type Asset, type Portfolio, keepLate } from "@/lib/types";
 import { loadHidden, loadPortfolio, loadShown, saveHidden, savePortfolio, saveShown } from "@/lib/store";
 import { dropOtherBudgetsCalls } from "@/lib/safe/core";
 import { type Prepared, Shared, finishOwners, ownerSigners, prepareOwners } from "@/lib/safe/send";
 import { friendly } from "@/lib/friendly";
-import { AppsIcon, Blockie, Net, DepositIcon, GearIcon, SendIcon, SendScanIcon, Fold, Proven, ProvenMark, provenCoin, Sheet, sheetOpen, TokenIcon, TrashIcon, CopyLink, SiteRow, Who, named, useName, useToast } from "../bits";
+import { AppsIcon, Blockie, ChainIcon, Net, DepositIcon, GearIcon, SendIcon, SendScanIcon, Fold, Proven, ProvenMark, provenCoin, Sheet, sheetOpen, TokenIcon, TrashIcon, CopyLink, SiteRow, Who, named, useName, useToast } from "../bits";
 import { see, useProven } from "@/lib/safe/proven";
 import { Receive } from "../Receive";
 import { onSending, sendingNow } from "@/lib/safe/sending";
@@ -463,17 +462,21 @@ export function SafeApp({ link }: { link?: string } = {}) {
     setApp(null);
     refresh();
   };
-  const top = Math.max(1, ...states.map(s => s.level));
-  // the settings button's "2/4": how many must sign / the signers. One number is only true when every network the
-  // wallet is on has the same signers (Austin 11-15: the gear said 2/3 from one network, Settings 2 of 4 from
-  // another). When they differ it is a red ! and Home has a card; Settings (it opens on the network with the most
-  // money) copies one network's signers to another.
-  const counted = countedStates(states, assets);
-  const differ = signersDiffer(counted);
-  const moneyId = moneyChain(assets);
-  const topState = counted.find(s => s.chainId === moneyId) ?? counted[0] ?? states.find(s => s.level === top);
-  const keysHave = topState?.owners.length || 1;
-  const keysNeed = topState?.threshold || 1;
+  // under the balance: each network's "2 of 4", networks with the same signers stacked together (Austin 11-15: the
+  // gear showed one network's number while others had other signers). A network shows once the wallet is set up
+  // there or holds $1 there. Most money first.
+  const usdOn = (id: number) => assets.filter(a => a.chainId === id).reduce((t, a) => t + (a.usd ?? 0), 0);
+  const signerGroups = Object.values(
+    states
+      .filter(s => s.deployed || usdOn(s.chainId) >= 1)
+      .reduce<Record<string, ChainState[]>>((g, s) => {
+        const k = `${s.threshold}:${s.owners.map(o => o.toLowerCase()).sort().join()}`;
+        (g[k] ??= []).push(s);
+        return g;
+      }, {}),
+  )
+    .map(l => l.sort((a, b) => usdOn(b.chainId) - usdOn(a.chainId)))
+    .sort((a, b) => b.reduce((t, s) => t + usdOn(s.chainId), 0) - a.reduce((t, s) => t + usdOn(s.chainId), 0));
   const feeTokenOn = (chainId: number): "usdc" | "eth" => {
     const usdcAddr = chainById(chainId)?.usdc?.toLowerCase();
     // USDC only when there's plenty for a fee there (Ethereum fees are dollars); else ETH
@@ -537,19 +540,6 @@ export function SafeApp({ link }: { link?: string } = {}) {
         {states.filter(s => s.deployed && (s.strangers.length || s.guard)).map(s => <AddonAlert key={`addon${s.chainId}`} safe={account.address} state={s} />)}
         <RecoveryCheck safe={account.address} states={states} onChange={() => setView({ kind: "keys" })} />
         {states.flatMap(s => s.recoveries.filter(r => r.request).map(r => <RecoveryAlert key={`${s.chainId}:${r.module}`} account={account} state={s} rec={r} feeToken={feeTokenOn(s.chainId)} onDone={refresh} />))}
-        {differ && (
-          <div className="card alert">
-            <b>Your signers differ</b>
-            {counted.map(s => (
-              <p key={s.chainId}>
-                <Net chainId={s.chainId} />: <b>{s.threshold} of {s.owners.length}</b>
-              </p>
-            ))}
-            <button className="btn btn-green wide" onClick={() => setView({ kind: "keys" })}>
-              Fix
-            </button>
-          </div>
-        )}
         {states.map(
           s =>
             s.staleBudget &&
@@ -591,6 +581,20 @@ export function SafeApp({ link }: { link?: string } = {}) {
               </button>
             )}
           </div>
+          {signerGroups.length > 0 && (
+            <div className="signer-groups">
+              {signerGroups.map(g => (
+                <span key={g[0].chainId} className="signer-group" aria-label={`${g.map(s => chainById(s.chainId)?.name).join(", ") /* plain text: a label */}: ${g[0].threshold} of ${g[0].owners.length}`}>
+                  <span className="net-stack">
+                    {g.map(s => (
+                      <ChainIcon key={s.chainId} chainId={s.chainId} size={18} />
+                    ))}
+                  </span>
+                  {g[0].threshold} of {g[0].owners.length}
+                </span>
+              ))}
+            </div>
+          )}
           <div className="actions">
             {/* no Coinbase keys here (a copy on your own computer): Deposit is sending crypto in */}
             <button className="btn" onClick={() => setView({ kind: features.deposit ? "deposit" : "receive" })}>
@@ -681,12 +685,6 @@ export function SafeApp({ link }: { link?: string } = {}) {
 
       <button className="fab fab-settings" aria-label="Settings" onClick={() => setView({ kind: "keys" })}>
         <GearIcon />
-        {/* before the wallet loads: a faint M/N, never a guessed 1/1 */}
-        {differ ? (
-          <span className="lvl bad" aria-label="Your signers differ">!</span>
-        ) : (
-          <span className="lvl" style={topState ? undefined : { opacity: 0.2 }}>{topState ? `${keysNeed}/${keysHave}` : "M/N"}</span>
-        )}
       </button>
       <button className="fab" aria-label="Send or scan" onClick={() => setView({ kind: "send" })}>
         <SendScanIcon />

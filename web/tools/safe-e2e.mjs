@@ -495,7 +495,7 @@ const acct3 = await page.evaluate(() => JSON.parse(localStorage.getItem("iws.acc
 setUsdc(acct3.address, 2000_000_000n);
 cast(`rpc anvil_setBalance ${acct3.address} 0x2386f26fc10000`);
 await page.waitForTimeout(13000);
-const lvl = async () => (await page.locator(".fab-settings .lvl").textContent()).replace(/\s/g, "");
+const lvl = async () => (await page.locator(".signer-groups").textContent()).replace(/\s/g, "").replace("of", "/");
 ok((await lvl()) === "1/1", "a new wallet: 1/1");
 await page.locator(".fab-settings").tap();
 await addGuardian(page, paper);

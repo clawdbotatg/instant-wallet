@@ -37,7 +37,7 @@ const RULES = [
   // something new shows at once (Austin 11-12: Home re-read its waiting transactions every 5 minutes, for a limit that didn't apply)
   { re: /setInterval\(.*,\s*(\d+\s*\*\s*60_?000|[4-9]\d_?000|\d{3,}_?000)\s*\)/, say: "a list re-read slower than every 30 s: something new shows within seconds" },
   // found by the 11-12 look through the whole app: each was said or drawn two ways
-  { re: /<ChainChip\b|<ChainIcon\b[^>]*\/>\s*$/, say: "a network as a chip, or its logo alone: use <Net> (logo, then name)", skip: ["components/safe/Apps.tsx", "components/safe/Pick.tsx"] }, // an app's row of logos; the picker's own icon slot
+  { re: /<ChainChip\b|<ChainIcon\b[^>]*\/>\s*$/, say: "a network as a chip, or its logo alone: use <Net> (logo, then name)", skip: ["components/safe/Apps.tsx", "components/safe/Pick.tsx", "components/safe/SafeApp.tsx"] }, // an app's row of logos; the picker's own icon slot; Home's stacks of networks by their signers
   { re: /Network fee: \{|[Dd]aily budget|Instant wallet\b|hot wallet…|title="(Open in|See it on) the explorer"|"Swapped"|✓ signed/, say: "said another way elsewhere: Fee · daily limit · Instant Wallet · browser wallet · <Eject>'s own title · Executed · ✓ Signed" },
   { re: /"\$" \+|`\$\$\{\(?[\w.]+\)?\.toFixed\(|const compactUsd/, say: "dollars written by hand: usd() or compactUsd() from lib/format" },
   { re: /"(Working|Getting ready|Cancelling|Signing)…"|`(Check )?\$\{bio\(\)\}…`/, say: "a button's busy words written by hand: stageLabel(\"quote\" | \"signing\" | \"sending\")", skip: [SHARED] },
@@ -145,16 +145,10 @@ for (const p of files) {
     if (rel(p) !== APP_FRAME && /btn-red|pill stop/.test(b) && />\s*(?:✕\s*)?(Done|Close|Cancel|Back)\s*<\/button>$/.test(b))
       (bad++, console.log(`${relative(root, p)}  a red ${b.match(/(Done|Close|Cancel|Back)\s*<\/button>$/)[1]}: closing a window is white, red only destroys`));
 }
-// the gear's "2/4" is only a number when every network has the same signers (Austin 11-15: it said 2/3 from one
-// network while Settings said 2 of 4 from another): else a red !, a card on Home, and Settings copies them across
-{
-  const home = readFileSync(join(root, "components/safe/SafeApp.tsx"), "utf8");
-  const keys = readFileSync(join(root, "components/safe/Keys.tsx"), "utf8");
-  if (!/signersDiffer\(countedStates\(states, assets\)\)|const differ = signersDiffer\(counted\)/.test(home) || !/\{differ \? \(\s*<span className="lvl bad"/.test(home))
-    (bad++, console.log("components/safe/SafeApp.tsx  the gear's M/N: a red ! when the networks' signers differ (signersDiffer), never one network's number"));
-  if (!/Your signers differ<\/b>/.test(home)) (bad++, console.log("components/safe/SafeApp.tsx  signers that differ between networks: a red card on Home"));
-  if (!/matchTo\(o\.chainId\)/.test(keys)) (bad++, console.log("components/safe/Keys.tsx  signers that differ between networks: Settings copies them across (matchTo)"));
-}
+// the signers' "2 of 4" is under the balance, one per group of networks with the same signers; never on the gear
+// (Austin 11-15: the gear showed one network's number, others had other signers)
+if (/className="lvl"/.test(readFileSync(join(root, "components/safe/SafeApp.tsx"), "utf8")) || !/className="signer-groups"/.test(readFileSync(join(root, "components/safe/SafeApp.tsx"), "utf8")))
+  (bad++, console.log("components/safe/SafeApp.tsx  the signers' M of N: under the balance, grouped by network (signer-groups), never on the gear"));
 // fewest words (Austin 11-10): a settings box is its title, the box and a checkbox. No sentence that says what the
 // title says, and an empty box's placeholder is its default (the address itself, or "Default …").
 for (const p of files.filter(f => /Setting\.tsx$/.test(f))) {

@@ -125,46 +125,21 @@ export async function hotChain(a: Address): Promise<number | null> {
 
 /**
  * The wallet's own node for this network refused it (Austin 11-15: "RPC 0x89 Custom eth_getBlockByNumber:
- * Unauthorized", a dead key in MetaMask's Polygon settings; the swap could not go out at all). The wallet is asked,
- * there and then, to use our node for that network (/api/rpc/<id>: the one this page reads through, no key in it);
- * it shows the address and asks first. Then the transaction again, once. Refused, or still failing: said in words.
+ * Unauthorized": the RPC saved in MetaMask for Polygon had a dead key). The wallet reads and sends through that
+ * node, and only its owner can pick another: wallet_addEthereumChain for a network MetaMask already has adds our
+ * URL to its list but keeps the old one as the default (read in metamask-extension's add-ethereum-chain.ts, 11-15;
+ * tried, and it changed nothing). So: say exactly where to change it.
  */
 const nodeRefused = (e: any) => e?.code !== 4001 && /unauthorized|forbidden|\b40[13]\b|\b429\b|rate limit|failed to fetch|RPC /i.test(String(e?.message || e));
-async function useOurNode(p: Provider, chainId: number) {
-  const c = chainById(chainId);
-  if (!c || typeof window === "undefined" || window.location.protocol !== "https:") throw new Error("no node to offer");
-  await p.request({
-    method: "wallet_addEthereumChain",
-    params: [
-      {
-        chainId: "0x" + chainId.toString(16),
-        chainName: c.name,
-        nativeCurrency: c.chain.nativeCurrency,
-        rpcUrls: [`${window.location.origin}/api/rpc/${chainId}`],
-        ...(c.explorer ? { blockExplorerUrls: [c.explorer] } : {}),
-      },
-    ],
-  });
-}
 async function sendTx(p: Provider, chainId: number, tx: unknown): Promise<Hex> {
-  const send = () => p.request({ method: "eth_sendTransaction", params: [tx] }) as Promise<Hex>;
   try {
-    return await send();
+    return (await p.request({ method: "eth_sendTransaction", params: [tx] })) as Hex;
   } catch (e: any) {
     if (!nodeRefused(e)) throw e;
     const net = chainById(chainId)?.name ?? "this network";
-    const said = `Your browser wallet's ${net} node refused it ("${String(e?.message || e).slice(0, 80)}").`;
-    try {
-      await useOurNode(p, chainId);
-    } catch {
-      throw new Error(`${said} Change the RPC for ${net} in the wallet's network settings, then try again.`);
-    }
-    try {
-      return await send();
-    } catch (e2: any) {
-      if (!nodeRefused(e2)) throw e2;
-      throw new Error(`${said} Change the RPC for ${net} in the wallet's network settings, then try again.`);
-    }
+    throw new Error(
+      `Your browser wallet can't reach ${net}: the RPC saved in it answered "${String(e?.message || e).slice(0, 80)}". In the wallet: Networks, ${net}, Edit, and pick another RPC URL. Then tap Execute again. Only you can change it; a site can't.`,
+    );
   }
 }
 

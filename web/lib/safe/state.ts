@@ -203,7 +203,9 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
   // a failed read throws (the caller keeps what it knew): guessing "not deployed" would show a live wallet as a new one
   // codeOnce: code that's there is asked once per page, not every 12 s on every chain
   const [code, code60] = await Promise.all([codeOnce(chainId, safe), codeOnce(chainId, RECOVERY_60D).catch(() => undefined)]);
-  const deployed = !!code && code !== "0x";
+  // an EIP-7702 delegation (0xef0100…) is a plain address that lent its code to a contract, never a Safe (Austin
+  // 11-16: bearbuyer.eth, delegated to MetaMask's smart account on Arbitrum, was read as a Safe, and Max did nothing)
+  const deployed = !!code && code !== "0x" && !code.startsWith("0xef0100");
   const has60 = !!code60 && code60 !== "0x";
   if (!deployed)
     return {

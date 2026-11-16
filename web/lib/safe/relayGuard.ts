@@ -2,7 +2,7 @@ import "server-only";
 import { type Address, type Hex, keccak256, size, slice } from "viem";
 import { MODULE_FACTORY, MULTICALL3, PASSKEY_FACTORY, RECOVERY_MODULES, ROLES_MASTERCOPY } from "./config";
 import { type Call, rolesAddress } from "./core";
-import { approvesRouter, checkSwap, isSwapTarget } from "./swap";
+import { POPULAR, approvesRouter, checkSwap, isSwapTarget } from "./swap";
 import { kv as store } from "../kv";
 
 /**
@@ -223,12 +223,16 @@ const SAFE_SELF = new Set([
 export async function checkCalls(
   safe: Address,
   calls: Call[],
-  plainRecipient: (a: Address) => Promise<boolean>,
+  plainRecipient: (a: Address) => Promise<boolean | "7702">,
   allowDapp = false,
-): Promise<{ swap: boolean; dapp: boolean }> {
+): Promise<{ swap: boolean; dapp: boolean; risky: boolean }> {
   const roles = rolesAddress(safe).toLowerCase();
   let swap = false;
   let dapp = false;
+  // runs code the relay didn't pick (audit IW-9): a "transfer" to a token we don't list (any contract can have that
+  // function), ETH to a 7702 account (its delegate runs on receive). Allowed, but kept to wallets with a past once
+  // the day's losses hit the cap, like swaps and sites' calls
+  let risky = false;
   try {
     swap = checkSwap(safe, calls);
   } catch (e: any) {
@@ -248,8 +252,17 @@ export async function checkCalls(
       slice(c.data, 16, 36).toLowerCase() === ROLES_MASTERCOPY.toLowerCase()
     )
       continue;
-    if (c.data === "0x" && (await plainRecipient(c.to))) continue; // ETH to an account, a 7702 account, or a Safe
-    if (c.value === 0n && size(c.data) === 68 && s === TRANSFER) continue; // an ERC-20 transfer
+    if (c.data === "0x") {
+      const p = await plainRecipient(c.to); // ETH to an account, a 7702 account, or a Safe
+      if (p) {
+        if (p === "7702") risky = true;
+        continue;
+      }
+    }
+    if (c.value === 0n && size(c.data) === 68 && s === TRANSFER) {
+      if (!LISTED.has(to)) risky = true;
+      continue; // an ERC-20 transfer
+    }
     if (isSwapTarget(c.to) || approvesRouter(c)) continue; // a swap: checked above (receiver, approvals)
     // a site's call (WalletConnect), owner-signed: anything but the wallet's own guts (its guard, fallback, modules)
     if (allowDapp && to !== safe.toLowerCase() && to !== roles && !RECOVERY.includes(to)) {
@@ -263,8 +276,10 @@ export async function checkCalls(
       400,
     );
   }
-  return { swap, dapp };
+  return { swap, dapp, risky };
 }
+/** Tokens the wallet lists on any chain: their transfer() is the token's own. */
+const LISTED = new Set(Object.values(POPULAR).flatMap(ts => ts.map(t => t.address.toLowerCase())));
 
 /** Runtime code hashes of SafeProxy 1.3.0 and 1.5.0, and the singletons a real Safe points at. */
 const SAFE_PROXY_CODE = new Set([
@@ -301,10 +316,10 @@ export async function isSafe(code: Hex | undefined, getSlot0: () => Promise<Hex 
 
 /** Can the relay send ETH here without running someone's arbitrary code? */
 export function plainRecipientCheck(getCode: (a: Address) => Promise<Hex | undefined>, getSlot0: (a: Address) => Promise<Hex | undefined>) {
-  return async (a: Address): Promise<boolean> => {
+  return async (a: Address): Promise<boolean | "7702"> => {
     const code = await getCode(a);
     if (!code || code === "0x") return true;
-    if (code.startsWith("0xef0100") && size(code) === 23) return true; // EIP-7702: an EOA with delegated code
+    if (code.startsWith("0xef0100") && size(code) === 23) return "7702"; // EIP-7702: an EOA with delegated code
     return isSafe(code, () => getSlot0(a));
   };
 }

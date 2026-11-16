@@ -106,6 +106,7 @@ export async function POST(req: NextRequest) {
     let paid: { usdc: bigint; eth: bigint };
     let kind: SendKind;
     let swap = false;
+    let risky = false; // a call runs code the relay didn't pick (checkCalls)
     let fresh = false; // the wallet isn't deployed yet: this send would make it
     let sentKey: string; // one submission per signed tx, whatever bytes come after its signatures
 
@@ -117,6 +118,7 @@ export async function POST(req: NextRequest) {
       const inner = unpackMultiSend(tx.data);
       const checked = await checkCalls(safe, inner, plain, true);
       swap = checked.swap;
+      risky = checked.risky;
       const dapp = checked.dapp;
       paid = feePaid(inner, me, info.usdc);
       // a level change (deploys Roles or the wedgie's signers) gets the bigger gas budget
@@ -171,7 +173,7 @@ export async function POST(req: NextRequest) {
     } else if (body.kind === "roles") {
       if (!hex(body.call) || !hex(body.signature) || !hex(body.salt) || !isAddress(body.signer)) throw new Error("role call?");
       const inner = rolesCalls(body.call, ROLE_BURNER);
-      await checkCalls(safe, inner, plain);
+      risky = (await checkCalls(safe, inner, plain)).risky;
       paid = feePaid(inner, me, info.usdc);
       to = rolesAddress(safe);
       // a call to an address with no code "succeeds" and does nothing: the wallet must be a Safe with its Roles
@@ -206,7 +208,7 @@ export async function POST(req: NextRequest) {
     await admit(ip, safe);
     // a swap or a site's call runs code the relay can't read, and can fail on chain after passing here. Once that has
     // cost a day's allowance on this chain, those are sent only for wallets that have sent and paid before
-    if (swap && (await overLoss(chainId)) && !(await hasSentFine(safe)))
+    if ((swap || risky) && (await overLoss(chainId)) && !(await hasSentFine(safe)))
       throw new RelayRefused("The relay only sends swaps and sites' requests for wallets that sent before today. Send something first, or try tomorrow.", 429);
     const myTurn = `fly:${chainId}:${safe}`;
     await takeTurn(myTurn);

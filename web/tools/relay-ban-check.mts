@@ -1,7 +1,7 @@
 // Who the relay refuses after a failed send (fix list 11b), in memory, no chain: the wallet that failed is refused
 // for a day; everyone else on the same IP (a room on one Wi-Fi) still sends, until that IP's third failure.
 //   npx tsx --conditions=react-server tools/relay-ban-check.mts
-const { admit, reverted, IP_REVERTS, takeTurn, forget, lost, overLoss, LOSS_CAP_CENTS, sentFine, hasSentFine, isSafe } = await import("../lib/safe/relayGuard");
+const { admit, reverted, IP_REVERTS, takeTurn, forget, lost, overLoss, LOSS_CAP_CENTS, sentFine, hasSentFine, isSafe, checkCalls, plainRecipientCheck } = await import("../lib/safe/relayGuard");
 let bad = 0;
 const ok = (c: boolean, m: string) => {
   console.log((c ? "PASS " : "FAIL ") + m);
@@ -65,6 +65,21 @@ ok(!(await isSafe("0x600160005260206000f3", slot("0xEdd160fEBBD92E350D4D398fb636
 const P141 = "0x608060405273ffffffffffffffffffffffffffffffffffffffff600054167fa619486e0000000000000000000000000000000000000000000000000000000060003514156050578060005260206000f35b3660008037600080366000845af43d6000803e60008114156070573d6000fd5b3d6000f3fea264697066735822122003d1488ee65e08fa41e58e888a9865554c535f2c77126a82cb4c0f917f31441364736f6c63430007060033";
 ok(await isSafe(P141 as `0x${string}`, slot("0x41675C099F32341bf84BFc5382aF534df5C7461a")), "a Safe 1.4.1 proxy on Safe 1.4.1 is a Safe");
 ok(!(await isSafe("0x", slot("0xEdd160fEBBD92E350D4D398fb636302fccd67C7e"))) && !(await isSafe(undefined, slot("0x0"))), "no code is not");
+
+// what runs code the relay didn't pick is "risky" (audit IW-9): sent, but kept to wallets with a past once the day's losses hit the cap
+const ME = w(7777), USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as `0x${string}`;
+const xfer = (token: `0x${string}`) => ({ to: token, value: 0n, data: ("0xa9059cbb" + "0".repeat(24) + "11".repeat(20) + "0".repeat(63) + "1") as `0x${string}` });
+const plainOf = plainRecipientCheck(async a => (a === w(9001) ? ("0xef0100" + "22".repeat(20)) as `0x${string}` : "0x"), async () => "0x");
+const r1 = await checkCalls(ME, [xfer(USDC)], plainOf);
+ok(!r1.risky, "a USDC transfer is not risky");
+const r2 = await checkCalls(ME, [xfer(w(4242))], plainOf);
+ok(r2.risky, "a 'transfer' to a token we don't list is risky (any contract can have that function)");
+const r3 = await checkCalls(ME, [{ to: w(9001), value: 1n, data: "0x" }], plainOf);
+ok(r3.risky, "ETH to a 7702 account is risky (its delegate runs)");
+const r4 = await checkCalls(ME, [{ to: w(9002), value: 1n, data: "0x" }], plainOf);
+ok(!r4.risky, "ETH to a plain account is not");
+const route = (await import("node:fs")).readFileSync("app/api/safe/relay/route.ts", "utf8");
+ok(/if \(\(swap \|\| risky\) && \(await overLoss\(chainId\)\) && !\(await hasSentFine\(safe\)\)\)/.test(route), "the route keeps risky sends to wallets with a past once over the day's loss");
 
 // one IP, many sends in an hour: the wallet's own cap is the only one here now
 let through = 0;

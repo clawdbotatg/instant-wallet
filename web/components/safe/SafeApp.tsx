@@ -85,7 +85,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
   useEffect(() => setDropCode(stashedCode()), []);
 
   useEffect(() => {
-    // ?watch=0x…: view any wallet, read only (not advertised; for debugging). Never saved, never signs.
+    // ?watch=0x…: view any wallet, read only (the welcome's Watch a wallet goes here). Never saved, never signs.
     // ?watch=atg.eth works too (resolved on Ethereum).
     const w = nameIn(new URLSearchParams(window.location.search).get("watch") ?? "");
     const watch = (a: string) => setAccountState({ credentialId: WATCH, qx: "0x", qy: "0x", burnerSigner: zeroAddress, address: getAddress(a) });

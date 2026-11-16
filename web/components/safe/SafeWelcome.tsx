@@ -106,6 +106,7 @@ export async function signIn(): Promise<{ account: SafeAccount } | { confirm: Co
 export function SafeWelcome({ onReady, initialConfirm }: { onReady: (a: SafeAccount) => void; initialConfirm?: Confirm | null }) {
   const [busy, setBusy] = useState<"create" | "login" | "recover" | null>(null);
   const [recovering, setRecovering] = useState(false);
+  const [watching, setWatching] = useState(false); // Watch a wallet: any address, read only
   const [wallet, setWallet] = useState<Address | null>(null);
   const [confirm, setConfirm] = useState<Confirm | null>(initialConfirm ?? null);
   const [error, setError] = useState<string | null>(null);
@@ -193,6 +194,35 @@ export function SafeWelcome({ onReady, initialConfirm }: { onReady: (a: SafeAcco
       </div>
     );
 
+  if (watching) {
+    // the wallet opens at /?watch=0x…: read only, never saved
+    const go = () => (wallet ? window.location.assign(`/?watch=${wallet}`) : setError("Paste the wallet's address or name."));
+    return (
+      <div className="app">
+        <div className="welcome">
+          <div className="stack">
+            <h1>Watch a wallet</h1>
+          </div>
+          <AddressInput onChange={setWallet} onEnter={go} />
+          <button className="btn btn-green wide" onClick={go}>
+            Go
+          </button>
+          <button
+            className="btn wide"
+            onClick={() => {
+              setWatching(false);
+              setWallet(null);
+              setError(null);
+            }}
+          >
+            Back
+          </button>
+          {error && <ErrorLine text={error} />}
+        </div>
+      </div>
+    );
+  }
+
   if (recovering)
     return (
       <div className="app">
@@ -228,6 +258,9 @@ export function SafeWelcome({ onReady, initialConfirm }: { onReady: (a: SafeAcco
             </button>
             <button className="btn btn-dark wide" onClick={login} disabled={!!busy}>
               {busy === "login" ? "Opening…" : "I already have one"}
+            </button>
+            <button className="btn wide" onClick={() => (setWallet(null), setError(null), setWatching(true))} disabled={!!busy}>
+              Watch a wallet
             </button>
             <button className="pill" style={{ justifySelf: "center" }} onClick={() => setRecovering(true)}>
               Lost my phone: recover a wallet

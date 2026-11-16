@@ -133,12 +133,15 @@ for (const p of files) {
   if (/\btype Waiting\b/.test(src) && (/>\s*Reject\s*</.test(src) || /: "Reject"\s*[)}]/.test(src)))
     if (!/<RemoveX\b/.test(src)) (bad++, console.log(`${relative(root, p)}  a Reject with no <RemoveX>: a waiting tx gets both, ✕ then Reject`));
 }
-// Done, Close, Cancel (a form) and Back are white: red is only for destroying something (Austin 10-30). Whole buttons,
+// Done, Close, Cancel (a form) and Back are white: red ends or destroys something, or is for when something went wrong (Austin 10-30, 11-16). Whole buttons,
 // since the tag often runs over several lines. The one red Close: an app's, top right of its frame (Austin 11-15).
 const APP_FRAME = "components/safe/Apps.tsx";
 const rel = p => relative(root, p);
 if (!/<button className="pill stop" onClick=\{onClose\}>\s*Close\s*<\/button>\s*<\/div>/.test(readFileSync(join(root, APP_FRAME), "utf8")))
   (bad++, console.log(`${APP_FRAME}  the app frame's Close is red (pill stop), last in its bar: top right`));
+// red is also for when something went wrong: the welcome's Recover a wallet is a red pill, those words alone (Austin 11-16)
+if (!/<button className="pill stop"[^>]*onClick=\{\(\) => setRecovering\(true\)\}>\s*Recover a wallet\s*<\/button>/.test(readFileSync(join(root, "components/safe/SafeWelcome.tsx"), "utf8")))
+  (bad++, console.log("components/safe/SafeWelcome.tsx  Recover a wallet is a red pill (pill stop) saying just that"));
 // every app in the Apps list opens in the app frame, never in a sheet (Austin 11-15)
 if (!/<AppList onOpen=\{a => \(setApp\(a\), close\(\)\)\} \/>/.test(readFileSync(join(root, "components/safe/SafeApp.tsx"), "utf8")))
   (bad++, console.log("components/safe/SafeApp.tsx  every app in the Apps list opens in the app frame (setApp), never in a sheet"));

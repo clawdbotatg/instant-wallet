@@ -17,7 +17,7 @@ import { friendly } from "@/lib/friendly";
 import { Progress } from "./Progress";
 import { ErrorLine } from "./WedgieButton";
 import { WhatItDoes } from "./WhatItDoes";
-import { hotAvailable } from "@/lib/safe/hot";
+import { hotAvailable, hotSignAs } from "@/lib/safe/hot";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import { bio } from "@/lib/passkey";
 
@@ -96,8 +96,9 @@ function SafeRequest({
   const queue = !!st && pending.kind === "calls" && signThenQueue(st, account);
   const signers: Signer[] = st ? ownerSigners(st, account, !queue) : [account.burnerSigner];
   const busy = stage !== null;
-  // watching a plain address: its own browser wallet executes a site's calls (no fee). Not a message: no key here signs
-  const itself = asItself(account, st) && pending.kind === "calls";
+  // watching a plain address: its own browser wallet executes a site's calls (no fee) and signs its messages
+  // (Austin 11-16: a sign-in on a watched wallet asked for a passkey that isn't there: "atob")
+  const itself = asItself(account, st);
   useEffect(() => onBusy(busy), [busy]); // eslint-disable-line react-hooks/exhaustive-deps
 
   let calls: ReturnType<typeof siteCalls> | null = null;
@@ -170,6 +171,12 @@ function SafeRequest({
     const use = self ? mine : prepared;
     if (use && madeFor.current !== asked) return setTick(t => t + 1); // made for another request: make it again, sign nothing
     try {
+      if (itself && pending.kind === "sign") {
+        setStage("signing-hot");
+        const sig = await hotSignAs(pending.chainId, account.address, { raw: pending.raw, json: pending.json });
+        await respond(pending.topic, pending.id, sig);
+        return onDone();
+      }
       if (itself && calls) {
         let told: Promise<void> | null = null;
         const tell = (h: Hash) => (told ??= (remember(h, pending.chainId), respond(pending.topic, pending.id, pending.method === "wallet_sendCalls" ? { id: h } : h)));
@@ -297,7 +304,7 @@ function SafeRequest({
       {!st && <p className="err">This wallet isn&apos;t on <Net chainId={pending.chainId} /> here.</p>}
       {refused && <ErrorLine text={refused} />}
       {error && <ErrorLine text={error} />}
-      {!refused && itself && <MineGo address={account.address} chainId={pending.chainId} busy={busy ? stageLabel(stage) : undefined} onGo={() => go()} onError={setError} />}
+      {!refused && itself && <MineGo address={account.address} chainId={pending.chainId} label={pending.kind === "sign" ? "Sign with my wallet" : undefined} busy={busy ? stageLabel(stage) : undefined} onGo={() => go()} onError={setError} />}
       {!refused && !itself && (
         <button className="btn btn-green wide" disabled={busy || !ready} onClick={() => go()}>
           {busy ? stageLabel(stage) : pending.kind === "calls" ? (prepared ? "Sign" : "Getting the fee…") : "Sign"}

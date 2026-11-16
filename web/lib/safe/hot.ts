@@ -211,6 +211,49 @@ export async function hotCall(chainId: number, from: Address, c: { to: Address; 
   return sendTx(p, chainId, { from: who, to: c.to, data: c.data, value: ("0x" + c.value.toString(16)) as Hex });
 }
 
+/**
+ * Several calls as ONE request (EIP-5792 wallet_sendCalls, atomic): one popup for a swap's approve + swap + reset,
+ * all or nothing. Only where the wallet says it can already (atomic "supported": a MetaMask smart account, as
+ * bearbuyer.eth on Arbitrum). "ready" means the wallet would turn the address into a smart account first: that's
+ * the owner's choice in the wallet, not ours, so it goes call by call. null: not here, go call by call.
+ */
+export async function hotBatch(chainId: number, from: Address, calls: { to: Address; value: bigint; data: Hex }[]): Promise<Hex | null> {
+  const { p, who } = await pick([from]);
+  const id = "0x" + chainId.toString(16);
+  const caps = await p.request({ method: "wallet_getCapabilities", params: [who, [id]] }).catch(() => null);
+  const c = caps?.[id] ?? caps?.[chainId];
+  if (!(c?.atomic?.status === "supported" || c?.atomicBatch?.supported === true)) return null;
+  await onChain(p, chainId);
+  const sent = await p.request({
+    method: "wallet_sendCalls",
+    params: [{ version: "2.0.0", chainId: id, from: who, atomicRequired: true, calls: calls.map(x => ({ to: x.to, data: x.data, value: "0x" + x.value.toString(16) })) }],
+  });
+  const ref = typeof sent === "string" ? sent : sent?.id;
+  // its status until it's in a block: 100 pending, 200 confirmed, 400+ failed (EIP-5792 v2; v1 said PENDING/CONFIRMED)
+  for (const end = Date.now() + 180_000; Date.now() < end; await new Promise(r => setTimeout(r, 1500))) {
+    const s = await p.request({ method: "wallet_getCallsStatus", params: [ref] }).catch(() => null);
+    if (!s) continue;
+    const hash = s.receipts?.[s.receipts.length - 1]?.transactionHash as Hex | undefined;
+    if ((s.status === 200 || s.status === "CONFIRMED") && hash) return hash;
+    if (typeof s.status === "number" && s.status >= 400) throw new Error(`It failed${hash ? ` on chain (${hash.slice(0, 10)}…)` : " in the wallet"}.`);
+  }
+  throw new Error("The wallet didn't say it went out in 3 minutes. Check the wallet's activity.");
+}
+
+/** A site's message signed by `from` itself, a plain address (a wallet opened to watch): the wallet that holds it
+ * signs the site's own request, text (personal_sign) or typed data, as it would on the site. */
+export async function hotSignAs(chainId: number, from: Address, m: { raw?: Hex; json?: string }): Promise<Hex> {
+  const { p, who } = await pick([from]);
+  if (m.json) {
+    // MetaMask signs typed data only on the network its domain names
+    const named = Number(JSON.parse(m.json)?.domain?.chainId ?? 0);
+    await onChain(p, named || chainId);
+    return (await p.request({ method: "eth_signTypedData_v4", params: [who, m.json] })) as Hex;
+  }
+  if (!m.raw) throw new Error("Nothing to sign.");
+  return (await p.request({ method: "personal_sign", params: [m.raw, who] })) as Hex;
+}
+
 export async function hotSign(chainId: number, safe: Address, t: SafeTx, expect: Address): Promise<Sig> {
   return hotSignTyped(chainId, safeTxTypedData(chainId, safe, t), expect);
 }

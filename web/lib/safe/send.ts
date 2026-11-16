@@ -16,7 +16,7 @@ import {
   transfer,
 } from "./core";
 import { type Quote, type SendKind } from "./fee";
-import { connectHot, hotAvailable, hotCall, hotSend, hotSign } from "./hot";
+import { connectHot, hotAvailable, hotBatch, hotCall, hotSend, hotSign } from "./hot";
 import { passkeySign, passkeySignRaw } from "./sign";
 import { type ChainState, type SafeAccount, loadAccount, loadSigners, salt, wedgieSigners } from "./state";
 import { Wedgie, wedgieSupported } from "./wedgie";
@@ -328,6 +328,18 @@ export async function itselfSend(opts: { account: SafeAccount; state: ChainState
   const out = startSending(chainId, a.address, calls);
   let main: Hash | undefined;
   try {
+    // one popup, all or nothing, where the wallet can (hotBatch)
+    if (calls.length > 1) {
+      opts.check?.();
+      stage("signing-hot");
+      const one = await hotBatch(chainId, a.address, calls);
+      if (one) {
+        out.hash(one);
+        stage("confirming", one);
+        await waitFor(chainId, one);
+        return one;
+      }
+    }
     for (const c of calls) {
       const approve = isApprove(c);
       const want = approve ? BigInt("0x" + c.data.slice(74)) : 0n;

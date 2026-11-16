@@ -1235,7 +1235,7 @@ export function FromMine({ onClick }: { onClick: () => void }) {
 // A wallet opened to watch that is a plain address (send.ts asItself): the green button at the bottom. "Connect my
 // wallet" until a browser wallet here holds that address, then it executes from it (Austin 11-15). One part: Send,
 // Swap and a site's request.
-export function MineGo({ address, chainId, busy, disabled, onGo, onError }: { address: Address; chainId: number; busy?: React.ReactNode; disabled?: boolean; onGo: () => void; onError: (e: string | null) => void }) {
+export function MineGo({ address, chainId, busy, disabled, label = FROM_MINE, onGo, onError }: { address: Address; chainId: number; label?: string; busy?: React.ReactNode; disabled?: boolean; onGo: () => void; onError: (e: string | null) => void }) {
   // which wallet holds it (MetaMask, Rainbow), read again when the window comes back: the account may have changed there
   const [name, setName] = useState<string | null>(null);
   useEffect(() => {
@@ -1289,7 +1289,7 @@ export function MineGo({ address, chainId, busy, disabled, onGo, onError }: { ad
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
         {name && <RemoveX label="Disconnect" disabled={!!busy} onClick={() => hotDrop(address).then(() => setName(null))} />}
         <button className="btn btn-green wide" style={{ flex: 1 }} disabled={name && wrong ? switching || !!busy : disabled || !!busy} onClick={tap}>
-          {busy ?? (!name ? "Connect my wallet" : wrong ? <>Switch network to <Net chainId={chainId} /></> : FROM_MINE)}
+          {busy ?? (!name ? "Connect my wallet" : wrong ? <>Switch network to <Net chainId={chainId} /></> : label)}
         </button>
       </div>
       {name && (

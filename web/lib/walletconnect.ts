@@ -135,7 +135,7 @@ export type Dapp = { name: string; url: string; icon?: string; origin?: string; 
 /** A request that needs the user: a batch of calls, or a message to sign. */
 export type Pending =
   | { kind: "calls"; id: number; topic: string; chainId: number; dapp: Dapp; calls: Call[]; method: string }
-  | { kind: "sign"; id: number; topic: string; chainId: number; dapp: Dapp; hash: Hex; preview: string; method: string; raw?: Hex; parts?: { domain: Hex; message: Hex }; siwe?: Siwe; typed?: TypedCard };
+  | { kind: "sign"; id: number; topic: string; chainId: number; dapp: Dapp; hash: Hex; preview: string; method: string; raw?: Hex; json?: string; parts?: { domain: Hex; message: Hex }; siwe?: Siwe; typed?: TypedCard };
 
 /** A Sign-In with Ethereum message (ERC-4361), read from a personal_sign's text: shown as a sign-in, not as text. */
 export type Siwe = { domain: string; address: string; uri: string; chainId: number; statement?: string; expires?: string };
@@ -257,7 +257,7 @@ export function toPending(topic: string, id: number, method: string, p: any[], c
         site = new URL(dapp.url).host || site;
       } catch {}
       const typed = typedCard(raw, chainId, site);
-      return { kind: "sign", id, topic, chainId, dapp, hash, preview: [`${typed.app} · ${raw.primaryType}`, ...typed.lines].join("\n"), method, parts: typedParts(raw), typed };
+      return { kind: "sign", id, topic, chainId, dapp, hash, preview: [`${typed.app} · ${raw.primaryType}`, ...typed.lines].join("\n"), method, json: JSON.stringify(raw), parts: typedParts(raw), typed };
     }
     default:
       return null;

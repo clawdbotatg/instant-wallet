@@ -115,7 +115,7 @@ the guesses below with what it finds.
 - **Now:** every read goes through our server (it hides you from Alchemy, not from us). The relay keeps address
   and IP for a few days to stop abuse (`app/privacy`). Your own node fixes this for you alone.
 - **Should:** a way to use the wallet where no server sees your IP with your address.
-- **How:** own node on your own network (done). Then one of: BuidlGuidl RPC over anon-RPC, an OHTTP relay in
+- **How:** own node on your own network (done). Then one of: BuidlGuidl RPC over anon-RPC (plan: `docs/ANON-RPC.md`), an OHTTP relay in
   front of `/api/rpc`, or a Tor address for the app. A web page can't use Tor by itself, so this may need the
   extension or the native app.
 

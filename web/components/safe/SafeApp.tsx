@@ -463,13 +463,13 @@ export function SafeApp({ link }: { link?: string } = {}) {
     refresh();
   };
   // under the balance: each network's "2 of 4", networks with the same signers stacked together (Austin 11-15: the
-  // gear showed one network's number while others had other signers). Every network: an Instant Wallet works on all of
-  // them, one not set up yet as what it will be set up as (Face ID, 1 of 1). A watched address shows only where it is
-  // a Safe on chain, none at all for a plain or 7702 account (Austin 11-15). Most money first.
+  // gear showed one network's number while others had other signers). Only networks with coins on them (all of them
+  // was too many); one not set up yet shows what it will be set up as (1 of 1). A watched address: only where it is a
+  // Safe on chain, so a plain or 7702 account shows nothing (Austin 11-15). Most money first.
   const usdOn = (id: number) => assets.filter(a => a.chainId === id).reduce((t, a) => t + (a.usd ?? 0), 0);
   const signerGroups = Object.values(
     states
-      .filter(s => account.credentialId !== WATCH || s.deployed) // readChain drops a network whose code isn't a Safe (getOwners fails): 7702 too
+      .filter(s => assets.some(a => a.chainId === s.chainId) && (account.credentialId !== WATCH || s.deployed)) // readChain drops a network whose code isn't a Safe (getOwners fails): 7702 too
       .reduce<Record<string, ChainState[]>>((g, s) => {
         const k = `${s.threshold}:${s.owners.map(o => o.toLowerCase()).sort().join()}`;
         (g[k] ??= []).push(s);

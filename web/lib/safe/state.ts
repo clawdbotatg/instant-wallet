@@ -374,6 +374,17 @@ function avail(x: readonly [bigint, bigint, bigint, bigint, bigint]): bigint {
   return b > maxRefill ? (balance > maxRefill ? balance : maxRefill) : b;
 }
 
+/** The networks whose signers count for "the same on every network" (lib/safe/match.ts): where the wallet is set up,
+ * or where it holds $1 or more of the network's coin or USDC (that money is spent by that network's signers: Face ID
+ * alone on a network never used). An empty network nobody uses is not a mismatch. */
+export function countedStates(states: ChainState[], assets: { chainId: number; asset: string; usd?: number | null }[]): ChainState[] {
+  const core = (s: ChainState) => {
+    const usdc = CHAINS.find(c => c.id === s.chainId)?.usdc?.toLowerCase();
+    return assets.filter(a => a.chainId === s.chainId && (a.asset === zeroAddress || a.asset.toLowerCase() === usdc)).reduce((t, a) => t + (a.usd ?? 0), 0);
+  };
+  return states.filter(s => s.deployed || core(s) >= 1);
+}
+
 /** Every chain's state; `skip` leaves chains out (the caller keeps what it knew of them). */
 export async function readAll(a: SafeAccount, skip?: Set<number>): Promise<ChainState[]> {
   return Promise.all(CHAINS.filter(c => !skip?.has(c.id)).map(c => readChain(c.id, a).catch(() => null))).then(r => r.filter((x): x is ChainState => !!x));

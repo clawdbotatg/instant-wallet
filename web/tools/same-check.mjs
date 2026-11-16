@@ -145,6 +145,16 @@ for (const p of files) {
     if (rel(p) !== APP_FRAME && /btn-red|pill stop/.test(b) && />\s*(?:✕\s*)?(Done|Close|Cancel|Back)\s*<\/button>$/.test(b))
       (bad++, console.log(`${relative(root, p)}  a red ${b.match(/(Done|Close|Cancel|Back)\s*<\/button>$/)[1]}: closing a window is white, red only destroys`));
 }
+// the gear's "2/4" is only a number when every network has the same signers (Austin 11-15: it said 2/3 from one
+// network while Settings said 2 of 4 from another): else a red !, a card on Home, and Settings copies them across
+{
+  const home = readFileSync(join(root, "components/safe/SafeApp.tsx"), "utf8");
+  const keys = readFileSync(join(root, "components/safe/Keys.tsx"), "utf8");
+  if (!/signersDiffer\(countedStates\(states, assets\)\)|const differ = signersDiffer\(counted\)/.test(home) || !/\{differ \? \(\s*<span className="lvl bad"/.test(home))
+    (bad++, console.log("components/safe/SafeApp.tsx  the gear's M/N: a red ! when the networks' signers differ (signersDiffer), never one network's number"));
+  if (!/Your signers differ<\/b>/.test(home)) (bad++, console.log("components/safe/SafeApp.tsx  signers that differ between networks: a red card on Home"));
+  if (!/matchTo\(o\.chainId\)/.test(keys)) (bad++, console.log("components/safe/Keys.tsx  signers that differ between networks: Settings copies them across (matchTo)"));
+}
 // fewest words (Austin 11-10): a settings box is its title, the box and a checkbox. No sentence that says what the
 // title says, and an empty box's placeholder is its default (the address itself, or "Default …").
 for (const p of files.filter(f => /Setting\.tsx$/.test(f))) {

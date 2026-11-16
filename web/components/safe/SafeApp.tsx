@@ -5,7 +5,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { type Address, getAddress, isAddress, zeroAddress } from "viem";
 import { CHAINS, chainById, moneyChain } from "@/lib/chains";
 import { amount, compactUsd, short, usd, nameIn } from "@/lib/format";
-import { type ChainState, type SafeAccount, forgetKnown, loadAccount, loadWalletName, readAll, saveAccount, saveWalletName } from "@/lib/safe/state";
+import { signersDiffer } from "@/lib/safe/match";
+import { type ChainState, type SafeAccount, countedStates, forgetKnown, loadAccount, loadWalletName, readAll, saveAccount, saveWalletName } from "@/lib/safe/state";
 import { type Asset, type Portfolio, keepLate } from "@/lib/types";
 import { loadHidden, loadPortfolio, loadShown, saveHidden, savePortfolio, saveShown } from "@/lib/store";
 import { dropOtherBudgetsCalls } from "@/lib/safe/core";
@@ -463,11 +464,14 @@ export function SafeApp({ link }: { link?: string } = {}) {
     refresh();
   };
   const top = Math.max(1, ...states.map(s => s.level));
-  // the settings button's "2/4": the Safe's threshold / its owners, on the network Settings opens on (the one
-  // with the most money), so the two say the same when networks have different signers (Austin 11-15: the gear
-  // said 2/3 from another network, Settings 2 of 4). No money anywhere: the first network at the top level.
+  // the settings button's "2/4": how many must sign / the signers. One number is only true when every network the
+  // wallet is on has the same signers (Austin 11-15: the gear said 2/3 from one network, Settings 2 of 4 from
+  // another). When they differ it is a red ! and Home has a card; Settings (it opens on the network with the most
+  // money) copies one network's signers to another.
+  const counted = countedStates(states, assets);
+  const differ = signersDiffer(counted);
   const moneyId = moneyChain(assets);
-  const topState = states.find(s => s.chainId === moneyId) ?? states.find(s => s.level === top);
+  const topState = counted.find(s => s.chainId === moneyId) ?? counted[0] ?? states.find(s => s.level === top);
   const keysHave = topState?.owners.length || 1;
   const keysNeed = topState?.threshold || 1;
   const feeTokenOn = (chainId: number): "usdc" | "eth" => {
@@ -533,6 +537,19 @@ export function SafeApp({ link }: { link?: string } = {}) {
         {states.filter(s => s.deployed && (s.strangers.length || s.guard)).map(s => <AddonAlert key={`addon${s.chainId}`} safe={account.address} state={s} />)}
         <RecoveryCheck safe={account.address} states={states} onChange={() => setView({ kind: "keys" })} />
         {states.flatMap(s => s.recoveries.filter(r => r.request).map(r => <RecoveryAlert key={`${s.chainId}:${r.module}`} account={account} state={s} rec={r} feeToken={feeTokenOn(s.chainId)} onDone={refresh} />))}
+        {differ && (
+          <div className="card alert">
+            <b>Your signers differ</b>
+            {counted.map(s => (
+              <p key={s.chainId}>
+                <Net chainId={s.chainId} />: <b>{s.threshold} of {s.owners.length}</b>
+              </p>
+            ))}
+            <button className="btn btn-green wide" onClick={() => setView({ kind: "keys" })}>
+              Fix
+            </button>
+          </div>
+        )}
         {states.map(
           s =>
             s.staleBudget &&
@@ -665,7 +682,11 @@ export function SafeApp({ link }: { link?: string } = {}) {
       <button className="fab fab-settings" aria-label="Settings" onClick={() => setView({ kind: "keys" })}>
         <GearIcon />
         {/* before the wallet loads: a faint M/N, never a guessed 1/1 */}
-        <span className="lvl" style={topState ? undefined : { opacity: 0.2 }}>{topState ? `${keysNeed}/${keysHave}` : "M/N"}</span>
+        {differ ? (
+          <span className="lvl bad" aria-label="Your signers differ">!</span>
+        ) : (
+          <span className="lvl" style={topState ? undefined : { opacity: 0.2 }}>{topState ? `${keysNeed}/${keysHave}` : "M/N"}</span>
+        )}
       </button>
       <button className="fab" aria-label="Send or scan" onClick={() => setView({ kind: "send" })}>
         <SendScanIcon />

@@ -12,12 +12,12 @@ import { parse } from "@/lib/parse";
 import { openWalletConnect } from "@/lib/walletconnect";
 import { transfer } from "@/lib/safe/core";
 import type { Quote } from "@/lib/safe/fee";
-import { type FeeToken, type Signer, type Stage, Shared, budgetSend, feeCall, getQuote, ownersSend, pickFee, plan, sendKind, signThenQueue, signerOptions, usesWedgie } from "@/lib/safe/send";
+import { type FeeToken, type Signer, type Stage, Shared, asItself, budgetSend, feeCall, getQuote, itselfSend, ownersSend, pickFee, plan, sendKind, signThenQueue, signerOptions, usesWedgie } from "@/lib/safe/send";
 import { hotAvailable } from "@/lib/safe/hot";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { Net, AddressInput, AmountBox, DoneBar, Money, NameMoved, Proven, SendOrSwap, TokenIcon, Who, FromMine, stageLabel, useSheetBack } from "../bits";
+import { Net, AddressInput, AmountBox, DoneBar, Money, NameMoved, Proven, SendOrSwap, TokenIcon, Who, FromMine, MineGo, stageLabel, useSheetBack } from "../bits";
 import { Scanner } from "../Scanner";
 import { Select, assetOpt } from "./Pick";
 import { friendly } from "@/lib/friendly";
@@ -78,6 +78,7 @@ export function SafeSend({
   }, [assets, pick]);
   const chainId = asset?.chainId ?? 8453;
   const st = states.find(s => s.chainId === chainId);
+  const itself = asItself(account, st); // watching a plain address: its own browser wallet executes, no fee
   const usdcAddr = chainById(chainId)?.usdc;
   const usdcHeld = assets.find(a => a.chainId === chainId && a.asset.toLowerCase() === usdcAddr?.toLowerCase());
   const ethHeld = assets.find(a => a.chainId === chainId && a.asset === zeroAddress);
@@ -143,7 +144,7 @@ export function SafeSend({
     setQuote(null);
     try {
       if (!st || !asset || base === null) throw new Error("Still loading");
-      setQuote(await quoteFor(base));
+      if (!itself) setQuote(await quoteFor(base));
     } catch (e: any) {
       setError(friendly(e));
     }
@@ -243,9 +244,10 @@ export function SafeSend({
         setStage(s);
         if (h) setHash(h);
       };
-      if (st && usesWedgie(account, st, signers) && wedgieSupported()) wedgie = await Wedgie.connect(); // a computer: it signs here too
-      const h =
-        p.path === "budget"
+      if (!itself && st && usesWedgie(account, st, signers) && wedgieSupported()) wedgie = await Wedgie.connect(); // a computer: it signs here too
+      const h = itself
+        ? await itselfSend({ account, state: st, calls, onStage })
+        : p.path === "budget"
           ? await budgetSend({ account, state: st, calls, feeToken, quote: quote ?? undefined, self, onStage })
           : await ownersSend({ account, state: st, calls, signers, feeToken, wedgie, quote: quote ?? undefined, self, onStage, label: `Send ${what} to ${toName ?? resolved}` });
       setHash(h);
@@ -299,15 +301,17 @@ export function SafeSend({
             <span>Network</span>
             <span><Net chainId={chainId} /></span>
           </div>
-          <div className="line">
-            <span>Fee</span>
-            <span>{feeLabel}</span>
-          </div>
+          {!itself && (
+            <div className="line">
+              <span>Fee</span>
+              <span>{feeLabel}</span>
+            </div>
+          )}
           <div className="line">
             <span>Signed by</span>
-            {p ? <SignerChoice options={options} value={signers} onChange={setChosen} disabled={busy} note={p.path === "budget" ? "daily limit" : st && signThenQueue(st, account) ? "then the wedgie or the others" : undefined} /> : <span>…</span>}
+            {itself ? <span>Browser wallet</span> : p ? <SignerChoice options={options} value={signers} onChange={setChosen} disabled={busy} note={p.path === "budget" ? "daily limit" : st && signThenQueue(st, account) ? "then the wedgie or the others" : undefined} /> : <span>…</span>}
           </div>
-          {!st?.deployed && (
+          {!st?.deployed && !itself && (
             <div className="line">
               <span>First one here</span>
               <span className="fine">sets up your wallet on <Net chainId={chainId} /></span>
@@ -316,9 +320,13 @@ export function SafeSend({
         </div>
         {feeShort && <p className="err">Not enough {feeToken === "usdc" ? "USDC" : nativeSymbol(chainId)} on <Net chainId={chainId} /> for this plus the fee.</p>}
         {error && <ErrorLine text={error} />}
-        <button className="btn btn-green wide" onClick={() => send()} disabled={busy || !quote || feeShort}>
-          {busy ? stageLabel(stage) : "Sign"}
-        </button>
+        {itself ? (
+          <MineGo address={account.address} busy={busy ? stageLabel(stage) : undefined} onGo={() => send()} onError={setError} />
+        ) : (
+          <button className="btn btn-green wide" onClick={() => send()} disabled={busy || !quote || feeShort}>
+            {busy ? stageLabel(stage) : "Sign"}
+          </button>
+        )}
         {!busy && canSelf && st?.deployed && p && (
           <FromMine onClick={() => send(true)} />
         )}

@@ -82,6 +82,14 @@ export async function hotSend(chainId: number, to: Address, data: Hex): Promise<
   return (await p.request({ method: "eth_sendTransaction", params: [{ from: who, to, data }] })) as Hex;
 }
 
+/** A plain transaction from `from` itself: only when a browser wallet here holds that address (a wallet opened to
+ * watch that you also have in MetaMask). It fails, in words, when none does. */
+export async function hotCall(chainId: number, from: Address, c: { to: Address; value: bigint; data: Hex }): Promise<Hex> {
+  const { p, who } = await pick([from]);
+  await onChain(p, chainId);
+  return (await p.request({ method: "eth_sendTransaction", params: [{ from: who, to: c.to, data: c.data, value: "0x" + c.value.toString(16) }] })) as Hex;
+}
+
 export async function hotSign(chainId: number, safe: Address, t: SafeTx, expect: Address): Promise<Sig> {
   return hotSignTyped(chainId, safeTxTypedData(chainId, safe, t), expect);
 }

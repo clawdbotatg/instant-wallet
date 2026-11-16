@@ -16,7 +16,7 @@ import {
   transfer,
 } from "./core";
 import { type Quote, type SendKind } from "./fee";
-import { connectHot, hotAvailable, hotSend, hotSign } from "./hot";
+import { connectHot, hotAvailable, hotCall, hotSend, hotSign } from "./hot";
 import { passkeySign, passkeySignRaw } from "./sign";
 import { type ChainState, type SafeAccount, loadAccount, loadSigners, salt, wedgieSigners } from "./state";
 import { Wedgie, wedgieSupported } from "./wedgie";
@@ -267,6 +267,50 @@ export async function finishOwners(p: Prepared): Promise<Hash> {
     await waitFor(chainId, hash);
     used.set(`${chainId}:${a.address}`, t.nonce);
     return hash;
+  } finally {
+    out.done();
+  }
+}
+
+/**
+ * A wallet opened to watch (?watch=) that isn't a Safe on this network: a plain address. No key of ours can sign
+ * for it; the browser wallet that holds that address can (Austin 11-15: "a lot of times I'll be watching a wallet
+ * that I have as a browser wallet").
+ */
+export const asItself = (a: SafeAccount, st?: ChainState) => a.credentialId === "watch" && !!st && !st.deployed;
+
+/**
+ * The calls as plain transactions from the address itself, one after another, each waited for: its own browser
+ * wallet sends them and pays the gas. No Safe, no relay, no fee. An approval back to 0 is skipped when nothing is
+ * left to take back (a swap spends all it approved). The hash back is the last call that isn't one of those (a
+ * swap's own, which the bridge is followed by).
+ */
+export async function itselfSend(opts: { account: SafeAccount; state: ChainState; calls: Call[]; onStage?: (s: Stage, hash?: Hash) => void }): Promise<Hash> {
+  const { account: a, state: st, calls } = opts;
+  const chainId = st.chainId;
+  const stage = opts.onStage ?? (() => {});
+  const zeroApprove = (c: Call) => c.value === 0n && c.data.length === 138 && c.data.startsWith("0x095ea7b3") && BigInt("0x" + c.data.slice(74)) === 0n;
+  const out = startSending(chainId, a.address, calls);
+  let main: Hash | undefined;
+  try {
+    for (const c of calls) {
+      const back = zeroApprove(c);
+      if (back) {
+        const spender = ("0x" + c.data.slice(34, 74)) as Address;
+        const left = await publicClient(chainId).readContract({ address: c.to, abi: abi.erc20, functionName: "allowance", args: [a.address, spender] }).catch(() => 1n);
+        if (left === 0n) continue;
+      }
+      stage("signing-hot");
+      const hash = await hotCall(chainId, a.address, c);
+      if (!back || !main) {
+        main = hash;
+        out.hash(hash);
+      }
+      stage("confirming", main);
+      await waitFor(chainId, hash);
+    }
+    if (!main) throw new Error("Nothing to execute.");
+    return main;
   } finally {
     out.done();
   }

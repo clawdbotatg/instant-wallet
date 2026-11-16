@@ -11,6 +11,8 @@ import { amount as fmtAmount, short, usd as fmtUsd, addressIn, nameIn } from "@/
 import { movedFrom, nameTyped } from "@/lib/names";
 import { parse } from "@/lib/parse";
 import { homeOf } from "@/lib/safe/state";
+import { connectHot, hotHas } from "@/lib/safe/hot";
+import { friendly } from "@/lib/friendly";
 import { bio } from "@/lib/passkey";
 import { useProven } from "@/lib/safe/proven";
 import type { Asset } from "@/lib/types";
@@ -1121,6 +1123,35 @@ export function FromMine({ onClick }: { onClick: () => void }) {
   return (
     <button className="btn btn-dark wide" title="No fee. Your browser wallet pays the gas." onClick={onClick}>
       {FROM_MINE}
+    </button>
+  );
+}
+
+// A wallet opened to watch that is a plain address (send.ts asItself): the green button at the bottom. "Connect my
+// wallet" until a browser wallet here holds that address, then it executes from it (Austin 11-15). One part: Send,
+// Swap and a site's request.
+export function MineGo({ address, busy, disabled, onGo, onError }: { address: Address; busy?: React.ReactNode; disabled?: boolean; onGo: () => void; onError: (e: string | null) => void }) {
+  const [has, setHas] = useState(false);
+  useEffect(() => {
+    let live = true;
+    hotHas(address).then(h => live && setHas(h));
+    return () => {
+      live = false;
+    };
+  }, [address]);
+  async function tap() {
+    if (has) return onGo();
+    onError(null);
+    try {
+      await connectHot([address]);
+      setHas(true);
+    } catch (e) {
+      onError(friendly(e));
+    }
+  }
+  return (
+    <button className="btn btn-green wide" disabled={disabled || !!busy} onClick={tap}>
+      {busy ?? (has ? FROM_MINE : "Connect my wallet")}
     </button>
   );
 }

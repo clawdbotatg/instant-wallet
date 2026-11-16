@@ -6,14 +6,14 @@ import { CHAINS, chainById, explorerAddress, explorerTx, publicClient, nativeSym
 import { amount as fmtAmount, compactUsd, usd, feeText } from "@/lib/format";
 import { abi } from "@/lib/safe/core";
 import type { Quote } from "@/lib/safe/fee";
-import { type FeeToken, type Signer, type Stage, Shared, feeCall, getQuote, ownerSigners, ownersSend, pickFee, sendKind, signThenQueue, signerOptions, usesWedgie } from "@/lib/safe/send";
+import { type FeeToken, type Signer, type Stage, Shared, asItself, feeCall, getQuote, itselfSend, ownerSigners, ownersSend, pickFee, sendKind, signThenQueue, signerOptions, usesWedgie } from "@/lib/safe/send";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { POPULAR, type SwapRoute, type Token, swapCalls } from "@/lib/safe/swap";
 import { uniswapRoute } from "@/lib/safe/uniswap";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import { hotAvailable } from "@/lib/safe/hot";
 import type { Asset } from "@/lib/types";
-import { Net, AmountBox, DoneBar, Eject, Money, Proven, SendOrSwap, TimedBar, TokenIcon, Who, FromMine, stageLabel } from "../bits";
+import { Net, AmountBox, DoneBar, Eject, Money, Proven, SendOrSwap, TimedBar, TokenIcon, Who, FromMine, MineGo, stageLabel } from "../bits";
 import { ChainSelect, type Opt, Select, SignerChoice, assetOpt } from "./Pick";
 import { Progress, TimeBar } from "./Progress";
 import { friendly } from "@/lib/friendly";
@@ -187,6 +187,7 @@ export function SafeSwap({
   }
   const tooMuch = !!from && base !== null && base > BigInt(from.balance);
   const st = states.find(s => s.chainId === chainId);
+  const itself = asItself(account, st); // watching a plain address: its own browser wallet executes, no fee
   // which keys sign: the first way this device can, unless the user picks another
   const options = st && st.threshold > 1 && !signThenQueue(st, account) ? signerOptions(st, account) : [];
   const [chosen, setChosen] = useState<Signer[] | null>(null);
@@ -278,7 +279,7 @@ export function SafeSwap({
   const fromUsdc = !!from && from.asset.toLowerCase() === usdcAddr?.toLowerCase();
   const fromEth = from?.asset === zeroAddress;
   useEffect(() => {
-    if (!route || !st) return;
+    if (!route || !st || itself) return;
     let live = true;
     (async () => {
       const k = await sendKind(account, st, "owners", signers, { swapGas: BigInt(route.gas) });
@@ -288,13 +289,13 @@ export function SafeSwap({
     return () => {
       live = false;
     };
-  }, [route?.tx.data, signers.join()]);
+  }, [route?.tx.data, signers.join(), itself]);
   const feeToken: FeeToken = pickFee(fee, fromEth ? "eth" : fromUsdc ? "usdc" : null, { usdc: BigInt(usdcHeld?.balance ?? "0"), eth: BigInt(ethHeld?.balance ?? "0") }, base ?? 0n);
   const feeAmt = fee ? BigInt(feeToken === "usdc" ? fee.feeUsdc : fee.feeEth) : 0n;
   const feeLabel = fee ? feeText(fee, feeToken, nativeSymbol(chainId)) : "…";
   const feeBalance = BigInt((feeToken === "usdc" ? usdcHeld?.balance : ethHeld?.balance) ?? "0");
   const spentInFeeToken = (feeToken === "usdc" && fromUsdc) || (feeToken === "eth" && fromEth) ? (base ?? 0n) : 0n;
-  const feeShort = !!fee && feeBalance < spentInFeeToken + feeAmt;
+  const feeShort = !itself && !!fee && feeBalance < spentInFeeToken + feeAmt;
 
   async function max() {
     if (!from || !st) return;
@@ -312,7 +313,7 @@ export function SafeSwap({
   useEffect(() => setCanSelf(hotAvailable()), [stage]);
 
   async function swap(self = false) {
-    if (!route || !st || (!fee && !self)) return;
+    if (!route || !st || (!fee && !self && !itself)) return;
     if (route.until < Date.now()) return setTick(n => n + 1); // a stale price: get a fresh one first
     setError(null);
     let wedgie: Wedgie | null = null;
@@ -321,8 +322,8 @@ export function SafeSwap({
         setStage(s);
         if (h) setHash(h);
       };
-      if (st && usesWedgie(account, st, signers) && wedgieSupported()) wedgie = await Wedgie.connect(); // a computer: it signs here too
-      const h = await ownersSend({
+      if (!itself && st && usesWedgie(account, st, signers) && wedgieSupported()) wedgie = await Wedgie.connect(); // a computer: it signs here too
+      const h = itself ? await itselfSend({ account, state: st, calls: swapCalls(route), onStage }) : await ownersSend({
         account,
         state: st,
         calls: swapCalls(route),
@@ -405,7 +406,7 @@ export function SafeSwap({
   // the same as the card you sign on Home: the batch we'd send (the swap + the fee), run by the simulator.
   // Not across networks (what you get lands on the other one), nor before the wallet is on this network.
   const ran = !!route && !!fee && !!from && !!to && !!st?.deployed && tokenOf(from).chainId === to.chainId;
-  const ready = !!route && !!fee && !feeShort && !needsComputer && !quoting;
+  const ready = !!route && (itself || (!!fee && !feeShort && !needsComputer)) && !quoting;
 
   return (
     <div className="stack swap">
@@ -515,15 +516,17 @@ export function SafeSwap({
               <span>—</span>
             )}
           </div>
-          <div className="line">
-            <span>Fee</span>
-            <span>{route ? feeLabel : "—"}</span>
-          </div>
+          {!itself && (
+            <div className="line">
+              <span>Fee</span>
+              <span>{route ? feeLabel : "—"}</span>
+            </div>
+          )}
           <div className="line">
             <span>Signed by</span>
-            <SignerChoice options={options} value={signers} onChange={setChosen} disabled={busy} note={st && signThenQueue(st, account) ? "then the wedgie or the others" : undefined} />
+            {itself ? <span>Browser wallet</span> : <SignerChoice options={options} value={signers} onChange={setChosen} disabled={busy} note={st && signThenQueue(st, account) ? "then the wedgie or the others" : undefined} />}
           </div>
-          {!st?.deployed && (
+          {!st?.deployed && !itself && (
             <div className="line">
               <span>First one here</span>
               <span className="fine">sets up your wallet on <Net chainId={chainId} /></span>
@@ -545,12 +548,16 @@ export function SafeSwap({
         </div>
       )}
 
-      {needsComputer && <p className="err">Swaps on this wallet need a key that isn&apos;t here: open Instant Wallet on your computer.</p>}
+      {needsComputer && !itself && <p className="err">Swaps on this wallet need a key that isn&apos;t here: open Instant Wallet on your computer.</p>}
       {feeShort && <p className="err">Not enough {feeToken === "usdc" ? "USDC" : nativeSymbol(chainId)} on <Net chainId={chainId} /> for this plus the fee.</p>}
       {error && <ErrorLine text={error} />}
-      <button className="btn btn-green wide go-swap" onClick={() => swap()} disabled={busy || !ready}>
-        {busy ? stageLabel(stage) : "Sign to swap"}
-      </button>
+      {itself ? (
+        <MineGo address={account.address} busy={busy ? stageLabel(stage) : undefined} disabled={!ready} onGo={() => swap()} onError={setError} />
+      ) : (
+        <button className="btn btn-green wide go-swap" onClick={() => swap()} disabled={busy || !ready}>
+          {busy ? stageLabel(stage) : "Sign to swap"}
+        </button>
+      )}
       {!busy && canSelf && st?.deployed && route && !needsComputer && !quoting && (
         <FromMine onClick={() => swap(true)} />
       )}

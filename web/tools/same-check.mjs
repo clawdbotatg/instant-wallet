@@ -47,6 +47,7 @@ const RULES = [
   { re: /stageLabel\((stage|step)\) : (step === "unfunded" \? "Try again" : )?"(Send|Swap|Fund it)"/, say: "the tap that signs says Sign, or 'Sign to …'" },
   { re: /["`>][^"`<{]*( [Gg]uardians?\b|\b[Gg]uardians? )[^"`<{]*["`<]/, say: "'guardian' in words a user reads: say 'recovery address'", skip: ["components/safe/RecoverTool.tsx", "components/safe/SafeWelcome.tsx"] }, // code that reads getGuardians
   { re: /Execute it myself|your wallet pays the gas|I pay gas\)|^\s*Execute from my wallet|"Execute from my wallet/, say: "said one way, on one line: <FromMine> (or FROM_MINE in a checkbox or a link). Never '(no fee, I pay gas)' on a button", skip: [SHARED] },
+  { re: /Connect my wallet/, say: "a watched plain address executes from its own browser wallet: <MineGo>", skip: [SHARED] },
   { re: /^\s*✓ (Executed|Funded)\b|Card written ✓/, say: "a tx that ran, said by hand: <ExecutedLine href> (and <DoneBar> on a finished screen)" },
   { re: /^\s*[A-Z][^<>{}=;]* [Gg]uardians?\b/, say: "'guardian' in words a user reads: say 'recovery address'" },
   { re: /\.toLocaleString\(\)/, say: "a date written its own way: when() from lib/format (or Activity's day)" },
@@ -95,6 +96,11 @@ for (const p of files) {
   if (/(Spending|Savings) account/.test(src)) (bad++, console.log(`${rel}  a made-up wallet name: a wallet with no name shows its address (Austin 11-12)`));
   if (/\/api\/names\?address/.test(src) && rel !== "components/safe/SafeApp.tsx") (bad++, console.log(`${rel}  a wallet's name read its own way: <Who> / useName decide it (its own ENS name first)`));
   if (/\/api\/ens\?name=/.test(src) && rel !== "components/safe/SafeApp.tsx" && !/NameMoved/.test(src)) (bad++, console.log(`${rel}  a name looked up with no <NameMoved>: say so when it points somewhere new`)); // SafeApp: ?watch, never paid
+}
+// a watched plain address: every screen that sends for it has the one green button (Austin 11-15)
+for (const p of files) {
+  const src = readFileSync(p, "utf8");
+  if (/\b(ownersSend|finishOwners)\(/.test(src) && /Safe(Send|Swap|Connect)\.tsx$/.test(p) && !/<MineGo\b/.test(src)) (bad++, console.log(`${relative(root, p)}  no <MineGo>: a wallet opened to watch can't execute here from its own browser wallet`));
 }
 // a long list on Home shows a page of it (640px), then Show all (Austin 11-12: atg.eth's coins hid the positions)
 for (const p of files) {

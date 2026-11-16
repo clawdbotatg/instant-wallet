@@ -5,11 +5,11 @@ import { type Hash, formatUnits } from "viem";
 import { CHAINS, chainById, nativeSymbol } from "@/lib/chains";
 import { amount as fmtAmount, feeText, when } from "@/lib/format";
 import { siteCalls, siteGas, signForSite } from "@/lib/safe/connect";
-import { type FeeToken, type Prepared, type Signer, type Stage, Shared, finishOwners, ownerSigners, prepareOwners, requote, signThenQueue, signerLabel, usesWedgie } from "@/lib/safe/send";
+import { type FeeToken, type Prepared, type Signer, type Stage, Shared, asItself, finishOwners, itselfSend, ownerSigners, prepareOwners, requote, signThenQueue, signerLabel, usesWedgie } from "@/lib/safe/send";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { type Pending, type Siwe, remember, respond } from "@/lib/walletconnect";
 import { signInCheck } from "@/lib/signin";
-import { Net, Raw, Who, Words, FromMine, stageLabel } from "../bits";
+import { Net, Raw, Who, Words, FromMine, MineGo, stageLabel } from "../bits";
 import { messageRows } from "@/lib/safe/raw";
 import type { TypedCard } from "@/lib/safe/typed";
 import { ConnectLayer, DappHead, type Session } from "../WalletConnect";
@@ -96,6 +96,8 @@ function SafeRequest({
   const queue = !!st && pending.kind === "calls" && signThenQueue(st, account);
   const signers: Signer[] = st ? ownerSigners(st, account, !queue) : [account.burnerSigner];
   const busy = stage !== null;
+  // watching a plain address: its own browser wallet executes a site's calls (no fee). Not a message: no key here signs
+  const itself = asItself(account, st) && pending.kind === "calls";
   useEffect(() => onBusy(busy), [busy]); // eslint-disable-line react-hooks/exhaustive-deps
 
   let calls: ReturnType<typeof siteCalls> | null = null;
@@ -110,7 +112,7 @@ function SafeRequest({
 
   // quote, nonce and hash before the tap: Face ID must start straight from it
   useEffect(() => {
-    if (!st || !calls || busy) return;
+    if (!st || !calls || busy || itself) return;
     let live = true;
     let again: ReturnType<typeof setTimeout> | undefined;
     setPrepared(null);
@@ -163,6 +165,21 @@ function SafeRequest({
     let w: Wedgie | null = null;
     const use = self ? mine : prepared;
     try {
+      if (itself && calls) {
+        let told: Promise<void> | null = null;
+        const tell = (h: Hash) => (told ??= (remember(h, pending.chainId), respond(pending.topic, pending.id, pending.method === "wallet_sendCalls" ? { id: h } : h)));
+        const h = await itselfSend({
+          account,
+          state: st,
+          calls,
+          onStage: (s, hh) => {
+            setStage(s);
+            if (hh) (setHash(hh), tell(hh).catch(() => {}));
+          },
+        });
+        await tell(h);
+        return onDone();
+      }
       if (pending.kind === "calls" && !use) return;
       if (pending.kind === "calls" && !self && use!.fee.until < Date.now() + 30_000) return setTick(t => t + 1); // stale quote: a fresh one, then tap again
       // the wedgie first, while it's still the tap: Chrome's port prompt needs one, and Face ID used it up
@@ -254,7 +271,7 @@ function SafeRequest({
           <span>Network</span>
           <span><Net chainId={pending.chainId} /></span>
         </div>
-        {pending.kind === "calls" && (
+        {pending.kind === "calls" && !itself && (
           <div className="line">
             <span>Fee</span>
             <span>{feeLabel}</span>
@@ -263,7 +280,7 @@ function SafeRequest({
         <div className="line">
           <span>Signed by</span>
           <span className="stack" style={{ gap: 2, justifyItems: "end" }}>
-            <span>{st ? <Words text={signerLabel(account, st, signers)} /> : bio()}</span>
+            <span>{itself ? "Browser wallet" : st ? <Words text={signerLabel(account, st, signers)} /> : bio()}</span>
             {queue && <span className="fine">then the others, on the next screen</span>}
           </span>
         </div>
@@ -271,7 +288,8 @@ function SafeRequest({
       {!st && <p className="err">This wallet isn&apos;t on <Net chainId={pending.chainId} /> here.</p>}
       {refused && <ErrorLine text={refused} />}
       {error && <ErrorLine text={error} />}
-      {!refused && (
+      {!refused && itself && <MineGo address={account.address} busy={busy ? stageLabel(stage) : undefined} onGo={() => go()} onError={setError} />}
+      {!refused && !itself && (
         <button className="btn btn-green wide" disabled={busy || !ready} onClick={() => go()}>
           {busy ? stageLabel(stage) : pending.kind === "calls" ? (prepared ? "Sign" : "Getting the fee…") : "Sign"}
         </button>

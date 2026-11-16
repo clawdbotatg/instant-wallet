@@ -5,8 +5,8 @@ export default function Privacy() {
   return (
     <div className="app">
       <h1>Privacy</h1>
-      <p className="fine">Last updated November 10, 2026.</p>
-      <p>Instant Wallet has no accounts, no email sign-up, no ads and no tracking.</p>
+      <p className="fine">Last updated November 16, 2026.</p>
+      <p>Instant Wallet has no accounts, no email sign-up, no ads and no cookies.</p>
       <h3>What stays on your phone</h3>
       <p className="fine">
         Your keys. Face ID makes a passkey on your device (shared by your iCloud Keychain); we never see it. Wallet
@@ -37,6 +37,10 @@ export default function Privacy() {
       </ul>
       <h3>Other services</h3>
       <ul className="fine">
+        <li>
+          Plausible counts page visits, with no cookies and nothing that identifies you. It gets only the kind of page
+          (never an address, a link or what you do in it), your browser&apos;s type and your country.
+        </li>
         <li>Blockchain data (balances, prices, swaps) comes from Alchemy, Uniswap and LI.FI; they see your wallet address.</li>
         <li>Buying or selling crypto goes through Coinbase or Ramp, under that company&apos;s own privacy policy.</li>
         <li>The camera is used only to scan QR codes, on your phone. Nothing is recorded or uploaded.</li>

@@ -54,11 +54,20 @@ var why=errs.length?"<p style=font-size:12px;color:#777;text-align:left;word-bre
 d.innerHTML=(old?(ios?"<b>Update your iPhone to use the new version.</b><p style=font-size:17px;color:#aaa>Settings \u2192 General \u2192 Software Update</p>":"<b>Update your browser to use the new version.</b>"):errs.length?"<b>The app didn't load.</b>":"<b>Still loading\u2026</b><p style=font-size:17px;color:#aaa>Slow connection? Try again.</p>")+btn+why;document.body.appendChild(d)}
 setTimeout(function(){if(errs.length)show()},6000);setTimeout(show,15000)})();`;
 
+// Plausible: page visits only, no cookies. The URL it gets is the page's kind, never what's in it: no query or #,
+// no address, no pay or claim link (/tx/… → /tx, a pay link → /link). The privacy page says so.
+const PLAUSIBLE_SCRIPT = `window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
+plausible.init({transformRequest:function(p){try{var u=new URL(p.u),s=u.pathname.split("/")[1]||"";
+var known=["","claim","d","drops","join","paper","pk","pq","privacy","recover","terms","tx"];
+p.u=u.origin+"/"+(known.indexOf(s)<0?"link":s==="claim"&&u.pathname.indexOf("/claim/new")===0?"claim/new":s)}catch(e){return null}return p}});`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${outfit.variable} ${mono.variable}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: CRASH_SCRIPT }} />
+        <script async src="https://plausible.io/js/pa-GFtCLbOE4UoerqR3ISRki.js" />
+        <script dangerouslySetInnerHTML={{ __html: PLAUSIBLE_SCRIPT }} />
       </head>
       <body>
         {/* xdai.io's look, before first paint (lib/brand.ts) */}

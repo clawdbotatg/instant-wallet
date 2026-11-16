@@ -3,7 +3,7 @@ import { chainById, nativeSymbol } from "../chains";
 import { KEY_ETH, KEY_FEE_USDC, KEY_USDC, MODULE_FACTORY, MULTICALL3, MULTISEND_CALL_ONLY, MULTISEND_UNWRAPPER, RECOVERY_DAYS, ROLE_BURNER, ROLES_MASTERCOPY } from "./config";
 import { type Call, type SafeTx, abi, rolesAddress } from "./core";
 import { unpackMultiSend } from "./fee";
-import { UNIVERSAL_ROUTERS } from "clear-signing-safe-kit";
+import { UNIVERSAL_ROUTERS, inTokens } from "clear-signing-safe-kit";
 
 const eq = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 /** An address in the words: always the full one, so the page draws it with its blockie (<Words>, components/bits.tsx). */
@@ -107,7 +107,7 @@ export function describe(chainId: number, safe: Address, c: Call): string {
   const t = dec(abi.erc20, d);
   if (t?.functionName === "transfer") {
     const [to, amt] = t.args as [Address, bigint];
-    return usdc && eq(c.to, usdc) ? `Send ${formatUnits(amt, 6)} USDC to ${addr(to)}` : `Send ${amt} units of coin ${addr(c.to)} to ${addr(to)}`;
+    return usdc && eq(c.to, usdc) ? `Send ${formatUnits(amt, 6)} USDC to ${addr(to)}` : ((k) => (k ? `Send ${formatUnits(amt, k.decimals)} ${k.symbol} to ${addr(to)}` : `Send ${amt} units of coin ${addr(c.to)} to ${addr(to)}`))(inTokens(chainId, usdc)[c.to.toLowerCase()]);
   }
 
   if (eq(c.to, safe)) {

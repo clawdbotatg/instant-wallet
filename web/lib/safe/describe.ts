@@ -1,5 +1,6 @@
 import { type Address, type Hex, decodeFunctionData, encodeAbiParameters, encodeFunctionData, formatUnits, getAddress, parseAbi } from "viem";
 import { chainById, nativeSymbol } from "../chains";
+import { amount } from "../format";
 import { KEY_ETH, KEY_FEE_USDC, KEY_USDC, MODULE_FACTORY, MULTICALL3, MULTISEND_CALL_ONLY, MULTISEND_UNWRAPPER, RECOVERY_DAYS, ROLE_BURNER, ROLES_MASTERCOPY } from "./config";
 import { type Call, type SafeTx, abi, rolesAddress } from "./core";
 import { unpackMultiSend } from "./fee";
@@ -102,12 +103,12 @@ export function describe(chainId: number, safe: Address, c: Call): string {
   if (o) return o;
   // the words with amounts come from the server (/api/explain, lib/safe/urWords.ts); this is the fallback
   if (sel === "0x3593564c" || sel === "0x24856bc3") return UNISWAP.some(u => eq(u, c.to)) ? "Swap on Uniswap" : `Swap through ${addr(c.to)}`;
-  if (d === "0x") return `Send ${formatUnits(c.value, 18)} ${sym} to ${addr(c.to)}`;
+  if (d === "0x") return `Send ${amount(formatUnits(c.value, 18))} ${sym} to ${addr(c.to)}`;
 
   const t = dec(abi.erc20, d);
   if (t?.functionName === "transfer") {
     const [to, amt] = t.args as [Address, bigint];
-    return usdc && eq(c.to, usdc) ? `Send ${formatUnits(amt, 6)} USDC to ${addr(to)}` : ((k) => (k ? `Send ${formatUnits(amt, k.decimals)} ${k.symbol} to ${addr(to)}` : `Send ${amt} units of coin ${addr(c.to)} to ${addr(to)}`))(inTokens(chainId, usdc)[c.to.toLowerCase()]);
+    return usdc && eq(c.to, usdc) ? `Send ${amount(formatUnits(amt, 6))} USDC to ${addr(to)}` : ((k) => (k ? `Send ${amount(formatUnits(amt, k.decimals))} ${k.symbol} to ${addr(to)}` : `Send ${amt} units of coin ${addr(c.to)} to ${addr(to)}`))(inTokens(chainId, usdc)[c.to.toLowerCase()]);
   }
 
   if (eq(c.to, safe)) {

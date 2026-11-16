@@ -43,7 +43,8 @@ export function named(a: string, chain?: number, fresh = false): Promise<Named |
   try {
     kept = JSON.parse(localStorage.getItem(NAMES) || "{}");
   } catch {}
-  if (!fresh && kept[k] && Date.now() - kept[k].at < 86_400_000) return Promise.resolve(kept[k]);
+  // a name keeps a day; no name only 5 min, as the server keeps it (one may be set, or a descriptor added)
+  if (!fresh && kept[k] && Date.now() - kept[k].at < (kept[k].name ? 86_400_000 : 300_000)) return Promise.resolve(kept[k]);
   if (fresh) asked.delete(k);
   if (!asked.has(k))
     asked.set(

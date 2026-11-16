@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { Hex } from "viem";
 import { hybridSign } from "@/lib/safe/pq/hybrid";
 import { stageLabel } from "@/components/bits";
+import { bio } from "@/lib/passkey";
 import { ErrorLine } from "@/components/safe/WedgieButton";
 
 /**
@@ -26,7 +27,7 @@ export default function PQLab() {
       const total = performance.now() - t0;
       const s = (ms?: number) => (ms === undefined ? "–" : `${(ms / 1000).toFixed(2)} s`);
       setOut([
-        `Face ID: ${s(a.ms.tap)}`,
+        `${bio()}: ${s(a.ms.tap)}`,
         `Next key: ${s(a.ms.next)}`,
         `This key: ${s(a.ms.key)}`,
         `Hash signature: ${s(a.ms.sign)}`,
@@ -45,7 +46,7 @@ export default function PQLab() {
     <div className="app">
       <h1>Post-quantum lab</h1>
       <p className="fine">
-        Experimental. One Face ID makes your normal passkey signature and a hash-only (post-quantum) signature. This times it on this
+        Experimental. One {bio()} makes your normal passkey signature and a hash-only (post-quantum) signature. This times it on this
         device. Nothing is sent.
       </p>
       <button className="btn btn-green" disabled={busy} onClick={run}>

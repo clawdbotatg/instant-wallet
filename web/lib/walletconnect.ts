@@ -88,7 +88,7 @@ export function getKit(): Promise<Kit> {
       core: new Core({ projectId: PROJECT_ID, telemetryEnabled: false }),
       metadata: {
         name: "Instant Wallet",
-        description: "Your money, instantly. Face ID is the key.",
+        description: "Your money, instantly. Face ID or your fingerprint signs.",
         url: window.location.origin,
         icons: [`${window.location.origin}/icons/icon-192.png`],
       },

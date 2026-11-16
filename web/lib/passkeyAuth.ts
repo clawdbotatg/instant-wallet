@@ -39,7 +39,7 @@ export async function passkeyOwner(req: Request, b: any, use: string, want: (add
   if (typeof cd.challenge !== "string" || bytesHex(base64urlToBytes(cd.challenge)) !== want(address, ts).toLowerCase()) return bad("Signature is for a different request");
   const authData = hexToBytes(b.authenticatorData);
   if (bytesHex(authData.slice(0, 32)) !== bytesHex(sha256(new TextEncoder().encode(host.split(":")[0])))) return bad("Wrong site");
-  if (!(authData[32] & 0x04)) return bad("Face ID required");
+  if (!(authData[32] & 0x04)) return bad("Face ID or fingerprint required");
   const msg = sha256(concatBytes(authData, sha256(new TextEncoder().encode(b.clientDataJSON))));
   if (!verifyP256(b.qx, b.qy, b.r, b.s, msg)) return bad("Bad signature");
   // one use per signature: r is fresh for every signature (s alone can be flipped)

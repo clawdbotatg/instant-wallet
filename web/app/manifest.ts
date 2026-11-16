@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Instant Wallet",
     short_name: "Instant Wallet",
-    description: "Your money, instantly. Face ID makes the key; a wedgie guards the big money.",
+    description: "Your money, instantly. Face ID or your fingerprint signs; a wedgie guards the big money.",
     start_url: "/",
     scope: "/",
     // "browser", not "standalone": a home-screen icon opens in Safari/Chrome, so it shares their

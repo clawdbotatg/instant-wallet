@@ -42,7 +42,7 @@ https://local.instantwallet.io. Leave the Terminal window open; Ctrl+C stops it.
 To keep it running without a Terminal window, and start it every time you log in: `./run-local.sh --install`
 (`--uninstall` stops that; its log is `~/.instantwallet-local/run.log`).
 
-1. Tap "I already have one" and use your passkey. Your wallet opens.
+1. Tap "Select existing passkey" and use your passkey. Your wallet opens.
 2. To send, pay the gas one of two ways:
    - **Your relay:** Settings, at the bottom, **Your relay** → **Make my relay**. Send it a little ETH on each
      network you use (Base: $1 is plenty, Ethereum: about $5). Each send's fee goes back to it, so you only pay the

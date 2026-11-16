@@ -395,7 +395,7 @@ ok(/^\(0, 0, 0/.test(req60), `the DAO's recovery cancelled (${req60.slice(0, 40)
 // ---------------------------------------------------------------- log in again on a "new device"
 await page.evaluate(() => localStorage.clear());
 await page.goto(`${APP}/`);
-await page.getByText("I already have one").tap();
+await page.getByText("Select existing passkey").tap();
 await page.getByText("Deposit", { exact: true }).waitFor({ timeout: 30000 });
 const again = await page.evaluate(() => JSON.parse(localStorage.getItem("iws.account")));
 ok(again.address === acct.address, "logged back in to the same wallet");

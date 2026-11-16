@@ -107,7 +107,16 @@ export function SafeApp({ link }: { link?: string } = {}) {
     saveShown(h);
     setShownState(h);
   };
+  // signing out or opening another wallet leaves the watched one: ?watch= comes out of the link, or the reload
+  // (and every later one) opens the watched wallet again (Austin 11-15)
+  const dropWatch = () => {
+    const u = new URL(window.location.href);
+    if (!u.searchParams.has("watch")) return;
+    u.searchParams.delete("watch");
+    window.history.replaceState(null, "", u.pathname + u.search + u.hash);
+  };
   const setAccount = (a: SafeAccount | null) => {
+    dropWatch();
     saveAccount(a);
     setAccountState(a);
     if (a) setSwitchConfirm(null);
@@ -118,6 +127,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
   const [switchConfirm, setSwitchConfirm] = useState<Confirm | null>(null);
   const [switching, setSwitching] = useState(false); // covers the old wallet from the passkey prompt to the reload
   const openAccount = (a: SafeAccount) => {
+    dropWatch();
     saveAccount(a);
     window.location.reload();
   };

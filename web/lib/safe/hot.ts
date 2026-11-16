@@ -1,6 +1,6 @@
 import { type Address, type Hex, formatEther, getAddress } from "viem";
 import { type SafeTx, type Sig, ecdsaSig, safeMessageTypedData, safeTxTypedData } from "./core";
-import { chainById, publicClient } from "../chains";
+import { CHAINS, chainById, publicClient } from "../chains";
 
 /**
  * The hot wallet: MetaMask, Rainbow, any browser wallet. It only ever signs Safe transactions and Safe messages as
@@ -152,12 +152,12 @@ async function sendTx(p: Provider, chainId: number, tx: { from: Address; to: Add
   const [bal, fee] = await Promise.all([pc.getBalance({ address: tx.from }), pc.estimateFeesPerGas().catch(() => null)]);
   const value = tx.value ? BigInt(tx.value) : 0n;
   const need = gas * (fee?.maxFeePerGas ?? fee?.gasPrice ?? 0n) + value;
-  if (bal < need) throw new Error(shortOfGas(chainId, tx.from, bal, need));
+  if (bal < need) throw new Error(await shortOfGas(chainId, tx.from, bal, need));
   const send = (t: unknown) => p.request({ method: "eth_sendTransaction", params: [t] }) as Promise<Hex>;
   try {
     return await send(withGas);
   } catch (e: any) {
-    if (noGasMoney(e)) throw new Error(shortOfGas(chainId, tx.from, bal, need));
+    if (noGasMoney(e)) throw new Error(await shortOfGas(chainId, tx.from, bal, need));
     if (!nodeRefused(e)) throw e;
     let first: any = e;
     try {
@@ -180,11 +180,25 @@ async function sendTx(p: Provider, chainId: number, tx: { from: Address; to: Add
   }
 }
 
-function shortOfGas(chainId: number, who: Address, bal: bigint, need: bigint) {
+/** Says which network to move the coin from (Austin 11-16: "I need to move ETH to Base, the error should say
+ * that"): the network where this wallet holds the most of the same coin. */
+async function shortOfGas(chainId: number, who: Address, bal: bigint, need: bigint) {
   const c = chainById(chainId);
   const sym = c?.native.symbol ?? "ETH", net = c?.name ?? "this network";
   const n = (x: bigint) => String(Number(Number(formatEther(x)).toPrecision(2)));
-  return `Your browser wallet (${who.slice(0, 6)}…${who.slice(-4)}) has ${bal === 0n ? "no" : n(bal) + " " + sym + ", too little"} ${bal === 0n ? sym + " " : ""}on ${net} to pay the network fee. It pays the fee itself, so send it a little ${sym} on ${net}${need > 0n ? ` (at least ${n(need)} ${sym})` : ""}, then tap Execute again.`;
+  const others = await Promise.all(
+    CHAINS.filter(o => o.id !== chainId && o.native.symbol === sym).map(o =>
+      Promise.race([publicClient(o.id).getBalance({ address: who }), new Promise<bigint>(r => setTimeout(() => r(0n), 4000))])
+        .catch(() => 0n)
+        .then(b => ({ o, b })),
+    ),
+  );
+  const best = others.filter(x => x.b > need).sort((x, y) => (y.b > x.b ? 1 : -1))[0];
+  const has = bal === 0n ? `no ${sym}` : `only ${n(bal)} ${sym}`;
+  const amt = need > 0n ? ` (${n(need)} ${sym} is enough)` : "";
+  return best
+    ? `Not enough ${sym} on ${net} for gas: this wallet has ${has} there. Move a little ${sym} from ${best.o.name} (you have ${n(best.b)}) to ${net}${amt}, then tap Execute again.`
+    : `Not enough ${sym} on ${net} for gas: this wallet has ${has} there. Send a little ${sym} on ${net} to it${amt}, then tap Execute again.`;
 }
 
 /** Send a transaction from the browser wallet itself (it pays the gas): no relay. */

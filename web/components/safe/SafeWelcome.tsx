@@ -262,8 +262,9 @@ export function SafeWelcome({ onReady, initialConfirm }: { onReady: (a: SafeAcco
             <button className="btn wide" onClick={() => (setWallet(null), setError(null), setWatching(true))} disabled={!!busy}>
               Watch a wallet
             </button>
-            <button className="pill" style={{ justifySelf: "center" }} onClick={() => setRecovering(true)}>
-              Lost my phone: recover a wallet
+            {/* red: it swaps out the wallet's signers (EXPECTATIONS #2, Button colors) */}
+            <button className="pill stop" style={{ justifySelf: "center" }} onClick={() => setRecovering(true)}>
+              Recover a wallet
             </button>
           </div>
         ) : (

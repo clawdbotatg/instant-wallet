@@ -268,28 +268,60 @@ async function paidBy(rpc: (m: string, p: unknown[]) => Promise<any>, safe: Addr
 const real = async (rpc: (m: string, p: unknown[]) => Promise<any>, safe: Address, hash: string, from?: string) =>
   from && from.toLowerCase() === MULTICALL3.toLowerCase() ? paidBy(rpc, safe, hash) : (from ?? null);
 
-/** Money in on a network where the Safe isn't made yet (nothing logs it there): Alchemy's transfers to the address,
- * the network's coin and the main tokens only, as the chain's history shows. */
+/** A sender made to look like this wallet (same start and end) sending dust: address poisoning, never shown. */
+const lookalike = (a: string | undefined, me: string) => !!a && a.toLowerCase() !== me.toLowerCase() && a.slice(0, 6).toLowerCase() === me.slice(0, 6).toLowerCase() && a.slice(-3).toLowerCase() === me.slice(-3).toLowerCase();
+
+/** Activity on a network where the Safe isn't made yet (nothing logs it there), from Alchemy's transfers: money in
+ * (the network's coin and the main tokens only, as the chain's history shows), and, for a plain address (a watched
+ * one, Austin 11-16: bearbuyer.eth showed only money in), every transaction it sent itself, in clear signing's words
+ * with what it moved, as the Safe's own runs. Money in from the zero address was minted to it (a bridge): "Received". */
 async function insOn(chainId: number, safe: Address): Promise<Row[]> {
   const info = chainById(chainId);
   const toks = inTokens(chainId, info?.usdc);
-  const r: any = await publicClient(chainId).request({
-    method: "alchemy_getAssetTransfers" as any,
-    params: [{ fromBlock: "0x0", toBlock: "latest", toAddress: safe, category: ["external", "erc20", ...(chainId === 1 || chainId === 137 ? ["internal"] : [])], excludeZeroValue: true, withMetadata: true, order: "desc", maxCount: "0x32" }] as any,
-  });
+  const ask = (side: object, category: string[], zero: boolean) =>
+    publicClient(chainId).request({
+      method: "alchemy_getAssetTransfers" as any,
+      params: [{ fromBlock: "0x0", toBlock: "latest", ...side, category, excludeZeroValue: zero, withMetadata: true, order: "desc", maxCount: "0x32" }] as any,
+    }) as Promise<any>;
+  const [r, sent]: any[] = await Promise.all([ask({ toAddress: safe }, ["external", "erc20", ...(chainId === 1 || chainId === 137 ? ["internal"] : [])], true), ask({ fromAddress: safe }, ["external"], false)]);
+  const rpc = (method: string, params: unknown[]) => publicClient(chainId).request({ method: method as any, params: params as any });
+  const link = (h: string) => (info?.explorer ? `${info.explorer}/tx/${h}` : undefined);
+  const at = (x: any) => String(x.metadata.blockTimestamp).replace(".000Z", "Z");
   const rows = new Map<string, Row>();
+  // what it sent itself: one row each, made once
+  const mine = ((sent?.transfers ?? []) as any[]).filter(x => x.metadata?.blockTimestamp).slice(0, SHOW);
+  const outs = mine.map(x => {
+    const hash = String(x.hash).toLowerCase();
+    return once(`${chainId}:${safe}:${hash}:out`, async (): Promise<Row> => {
+      const tx: any = await rpc("eth_getTransactionByHash", [hash]);
+      const calls = tx?.to ? [{ to: tx.to as Address, value: BigInt(tx.value ?? "0x0"), data: (tx.input ?? "0x") as Hex }] : [];
+      const w = calls.length ? intents(chainId, safe, calls, await explainCalls(chainId, safe, calls), true) : [];
+      const usdc = info?.usdc?.toLowerCase();
+      const token = (a: string) => (a === usdc ? Promise.resolve({ symbol: "USDC", decimals: 6 }) : rpc("alchemy_getTokenMetadata", [a]).then((m: any) => (m && typeof m.decimals === "number" ? { symbol: m.symbol || "?", decimals: m.decimals } : null)));
+      const a = await moved(rpc, safe, hash, calls[0]?.value ?? 0n, info?.native.symbol ?? "ETH", token);
+      const row: Row = { chainId, at: at(x), hash, link: link(hash), pay: [], get: [], words: w.length ? w : undefined };
+      if (a.ok !== "ok") return { ...row, failed: true };
+      const m = moves(a);
+      return { ...row, pay: m.pay, get: m.get, words: row.words ?? (!m.pay.length && !m.get.length ? [{ text: "Changed the wallet", src: "raw" as const }] : undefined) };
+    });
+  });
+  const ours = new Set(mine.map(x => String(x.hash).toLowerCase()));
   for (const x of (r?.transfers ?? []) as any[]) {
     const tok = x.category === "erc20" ? toks[String(x.rawContract?.address).toLowerCase()] : null;
     if (x.category === "erc20" && !tok) continue;
     const v = BigInt(x.rawContract?.value ?? "0x0");
     if (v === 0n || !x.metadata?.blockTimestamp) continue;
     const hash = String(x.hash).toLowerCase();
-    const row: Row = rows.get(hash) ?? { chainId, at: String(x.metadata.blockTimestamp).replace(".000Z", "Z"), hash, link: info?.explorer ? `${info.explorer}/tx/${hash}` : undefined, pay: [], get: [], from: x.from };
-    row.get.push({ token: tok ? String(x.rawContract.address).toLowerCase() : "eth", symbol: tok ? tok.symbol : (info?.native.symbol ?? "ETH"), amount: formatUnits(v, tok ? tok.decimals : 18) } as Move);
+    if (ours.has(hash)) continue; // its own transaction: that row says what came back
+    const dec = tok ? tok.decimals : 18;
+    // dust (under a millionth) from a lookalike of this wallet: address poisoning
+    if (lookalike(x.from, safe) || (dec > 6 && v < 10n ** BigInt(dec - 6))) continue;
+    const row: Row = rows.get(hash) ?? { chainId, at: at(x), hash, link: link(hash), pay: [], get: [], from: x.from === zeroAddress ? null : x.from };
+    row.get.push({ token: tok ? String(x.rawContract.address).toLowerCase() : "eth", symbol: tok ? tok.symbol : (info?.native.symbol ?? "ETH"), amount: formatUnits(v, dec) } as Move);
     rows.set(hash, row);
   }
-  const rpc = (method: string, params: unknown[]) => publicClient(chainId).request({ method: method as any, params: params as any });
-  return Promise.all([...rows.values()].slice(0, SHOW).map(row => once(`${chainId}:${safe}:${row.hash}:in`, async () => ({ ...row, from: await real(rpc, safe, row.hash!, row.from ?? undefined) }))));
+  const ins = [...rows.values()].slice(0, SHOW).map(row => once(`${chainId}:${safe}:${row.hash}:in`, async () => ({ ...row, from: row.from === null ? null : await real(rpc, safe, row.hash!, row.from ?? undefined) })));
+  return Promise.all([...outs, ...ins]);
 }
 
 // a token's symbol and decimals never change: asked once per page, not on every refresh (a failed read is asked again)

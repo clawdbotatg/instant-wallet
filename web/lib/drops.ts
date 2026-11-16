@@ -559,10 +559,13 @@ export async function sessionWallet(t: unknown): Promise<Address | null> {
 export async function walletChallenge(): Promise<string> {
   const n = toHex(crypto.getRandomValues(new Uint8Array(12))).slice(2);
   await kv(["SET", `${P}ch:${n}`, "1", "EX", 600]);
-  return `Log in to Instant Wallet drops\nnonce: ${n}`;
+  return loginMessage(n);
 }
+/** The whole message is ours, not just its nonce (audit 11-13, IW-16): another site could have asked for a nonce and
+ *  had it signed under words of its own. It names the site, so a wallet shows where the login is for. */
+export const loginMessage = (n: string) => `Log in to Instant Wallet drops at https://instantwallet.io\nnonce: ${n}`;
 export async function walletLogin(wallet: Address, message: string, signature: Hex): Promise<boolean> {
   const n = /\nnonce: ([0-9a-f]{24})$/.exec(message)?.[1];
-  if (!n || !(await kv(["DEL", `${P}ch:${n}`]))) return false;
+  if (!n || message !== loginMessage(n) || !(await kv(["DEL", `${P}ch:${n}`]))) return false;
   return createPublicClient({ chain: knownChain(1)!.chain, transport: http(mustRpc(1)) }).verifyMessage({ address: wallet, message, signature });
 }

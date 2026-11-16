@@ -23,7 +23,7 @@ export default function Paper() {
         <li>In MetaMask, a Ledger, or any wallet: make a new wallet with a fresh 24-word seed. Use it only for recovery.</li>
         <li>Print this page. Write each word in its numbered box, in pen. Never type the seed anywhere else.</li>
         <li>Seal each card in its own tamper-evident bag. Write down each bag&apos;s serial number. Keep the 3 in 3 places.</li>
-        <li>Copy the seed&apos;s address into Instant Wallet → Keys → Recovery.</li>
+        <li>Copy the seed&apos;s address into Instant Wallet → Settings → Recovery address.</li>
         <li>Check a bag now and then: seal unbroken, serial matches. Broken seal = make a new seed and new cards.</li>
       </ol>
       {CARDS.map(c => (
@@ -39,7 +39,7 @@ export default function Paper() {
               </div>
             ))}
           </div>
-          <p className="fine">Any 2 cards = the whole seed. Recovery waits 7 days (14 with a wedgie) and your keys can cancel it.</p>
+          <p className="fine">Any 2 cards = the whole seed. Recovery waits 7 days (14 with a wedgie) and your signers can cancel it.</p>
         </div>
       ))}
       <p className="fine noprint center">Print with ⌘P / Ctrl+P.</p>

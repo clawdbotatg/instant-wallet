@@ -508,7 +508,7 @@ async function tipped(pc: ReturnType<typeof clients>["pc"], chainId: number, alw
 /** Wait for it; a revert (marked `reverted`) is a failed claim: the reservation goes back. A slow chain past the wait counts as sent. */
 async function landed(pc: ReturnType<typeof clients>["pc"], hash: Hex) {
   const rc = await pc.waitForTransactionReceipt({ hash, timeout: 45_000 }).catch(() => null);
-  if (rc && rc.status !== "success") throw Object.assign(new Error("The transfer failed on chain. Try again."), { reverted: true });
+  if (rc && rc.status !== "success") throw Object.assign(new Error("The transfer failed. Try again."), { reverted: true });
 }
 
 export async function potBalances(d: Drop): Promise<{ address: Address; usdc: string; eth: string; feeUsdc: string; gasEth: string; ethUsd: number; each: string }> {

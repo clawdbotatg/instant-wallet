@@ -7,6 +7,7 @@ import { bio } from "@/lib/passkey";
 import { type SafeAccount, loadAccount } from "@/lib/safe/state";
 import { friendly } from "@/lib/friendly";
 import { ErrorLine } from "./safe/WedgieButton";
+import { stageLabel } from "./bits";
 
 /** The admin session (12 hours), for /drops. */
 export const SESSION = "iw.dropAdmin";
@@ -61,7 +62,7 @@ export function AdminLogin({ title, blurb, onDone }: { title: string; blurb: str
         <p className="fine">{blurb}</p>
         {account ? (
           <button className="btn btn-green wide" onClick={passkey} disabled={busy}>
-            {busy ? "…" : `Log in with ${bio()}`}
+            {busy ? stageLabel("signing") : `Log in with ${bio()}`}
           </button>
         ) : (
           <>

@@ -107,7 +107,7 @@ export function ChainLimit({ account, st, assets, onRefresh, onPoll, toast, onCl
     <>
       {wait ? (
         <div className="stack" style={{ gap: 6 }}>
-          <p className="fine">{busy ? "Executing…" : <>Waiting for <Net chainId={chainId} />…</>}</p>
+          <p className="fine">{busy ? stageLabel("sending") : <>Waiting for <Net chainId={chainId} />…</>}</p>
           <TimedBar ms={wait.ms} />
         </div>
       ) : ready ? (
@@ -116,9 +116,17 @@ export function ChainLimit({ account, st, assets, onRefresh, onPoll, toast, onCl
             New daily limit: {fmtAmount(formatUnits(ready.usdc, 6))} USDC + {fmtAmount(formatUnits(ready.eth, 18))} {coin}
             {inUsd(ready.eth)}
           </b>
-          <p className="fine">
-            Fee {fee}. Signed by <Words text={signerLabel(account, ready.p.opts.state, ready.p.opts.signers)} />.
-          </p>
+          {/* the same Fee and Signed by rows as Send and Swap */}
+          <div className="card">
+            <div className="line">
+              <span>Fee</span>
+              <span>{fee}</span>
+            </div>
+            <div className="line">
+              <span>Signed by</span>
+              <span><Words text={signerLabel(account, ready.p.opts.state, ready.p.opts.signers)} /></span>
+            </div>
+          </div>
           <button className="btn btn-green wide" onClick={sign} disabled={busy}>
             {busy ? stageLabel("signing") : "Sign"}
           </button>

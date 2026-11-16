@@ -287,7 +287,7 @@ function Manage({
   return (
     <div className="stack">
       <h2>Connect to a site</h2>
-      <p className="fine">On the site, pick WalletConnect and scan its QR code, or paste the link.</p>
+      <p className="fine">On the site, pick WalletConnect. Scan its QR code or paste the link.</p>
       {scan ? (
         <Scanner
           onResult={t => {

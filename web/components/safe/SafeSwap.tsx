@@ -326,7 +326,7 @@ export function SafeSwap({
       if (!itself && st && usesWedgie(account, st, signers) && wedgieSupported()) wedgie = await Wedgie.connect(); // a computer: it signs here too
       // its own wallet sends the approval, then the swap: the price may run out while the approval lands
       const fresh = () => {
-        if (route.until < Date.now()) throw new Stale("Approved, but the price expired. Tap Execute for the new one.");
+        if (route.until < Date.now()) throw new Stale("Signed, but the price expired. Sign again for the new price.");
       };
       const h = itself ? await itselfSend({ account, state: st, calls: swapCalls(route), check: fresh, onStage }) : await ownersSend({
         account,
@@ -400,7 +400,7 @@ export function SafeSwap({
           {crossChain && <span className="fine">on <Net chainId={toChain} /></span>}
         </div>
         {crossChain && !landed && !failed && <TimeBar seconds={route.seconds} label={`About ${Math.max(1, Math.round(route.seconds / 60))} min. You can close this.`} />}
-        {failed && <p className="fine">{arrival?.substatus === "REFUNDED" ? <>Refunded to your wallet on <Net chainId={chainId} />.</> : "Check the explorer; LI.FI usually refunds."}</p>}
+        {failed && <p className="fine">{arrival?.substatus === "REFUNDED" ? <>Refunded to your wallet on <Net chainId={chainId} />.</> : "LI.FI usually refunds."}</p>}
         {arrival?.substatus === "PARTIAL" && <p className="fine">It arrived as a different coin (the bridge's fallback).</p>}
         <DoneBar onDone={onDone} href={url} />
       </div>
@@ -460,7 +460,7 @@ export function SafeSwap({
             value={to ? { ...tokenOpt(to), right: undefined } : null}
             options={toOptions.map(tokenOpt)}
             onPick={k => setTo(toOptions.find(t => t.address === k) ?? null)}
-            placeholder="Token"
+            placeholder="Coin"
             search={{ onQuery: setQuery, busy: searching, placeholder: "Search any coin, or paste its address" }}
             custom={{ label: "Custom: paste a contract address", placeholder: `Coin's contract on ${toName}` /* plain text: a placeholder takes no logo */, onCustom: customTo }}
             disabled={busy}

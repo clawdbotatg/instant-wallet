@@ -552,7 +552,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
               Send this link to your recovery address. Takes 7 days after they start (with a wedgie: 14, or 60 from the DAO).
             </p>
             <span className="fine">
-              new key <Who plain inline size={18} address={account.burnerSigner} />
+              new signer <Who plain inline size={18} address={account.burnerSigner} />
             </span>
             <CopyLink link={`${window.location.origin}/recover?wallet=${account.address}&owner=${account.burnerSigner}`} message="Link copied" label="Copy the recovery link" />
           </div>

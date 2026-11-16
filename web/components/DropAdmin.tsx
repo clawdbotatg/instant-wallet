@@ -5,7 +5,7 @@ import { type Address, formatUnits } from "viem";
 import { chainById, explorerTx } from "@/lib/chains";
 import { cardsPdf } from "@/lib/claimBatch";
 import { type DropInfo, dropAmount, dropUrl } from "@/lib/dropClient";
-import { Net, CopyAddress, CopyLink, Eject, Qr, TimedBar, Who, copy, useToast } from "./bits";
+import { Net, CopyAddress, CopyLink, Eject, Qr, TimedBar, When, Who, copy, useToast } from "./bits";
 import { ErrorLine } from "./safe/WedgieButton";
 import { AdminLogin, SESSION } from "./AdminLogin";
 import { friendly } from "@/lib/friendly";
@@ -290,7 +290,7 @@ function DropCard({ id, toast, onClose }: { id: string; toast: (m: string) => vo
         <span className="pill on">{st}</span>
         <span className="pill">{dollars(drop)} {drop.token === "eth" ? "of ETH" : "USDC"}</span>
         <span className="pill"><Net chainId={drop.chainId} /></span>
-        <span className="pill">{d.claimed} / {drop.cap} claimed</span>
+        <span className="pill">{d.claimed} of {drop.cap} claimed</span>
         {drop.closesAt && !drop.ended && <span className="pill">{Date.now() < drop.closesAt ? "closes" : "closed"} {new Date(drop.closesAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span>}
       </div>
 
@@ -385,7 +385,7 @@ function DropCard({ id, toast, onClose }: { id: string; toast: (m: string) => vo
           {[...d.claims].reverse().map(c => (
             <div key={`${c.code}${c.wallet}${c.at}`} className="row fine" style={{ justifyContent: "space-between", padding: "4px 0", gap: 8 }}>
               <Who address={c.wallet} chain={drop.chainId} size={18} inline />
-              <span>{new Date(c.at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
+              <span><When at={c.at} /></span>
               {c.tx && explorerTx(drop.chainId, c.tx) && <Eject href={explorerTx(drop.chainId, c.tx)!} />}
             </div>
           ))}

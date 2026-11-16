@@ -104,7 +104,7 @@ async function post(body: unknown): Promise<Hash> {
 
 export async function waitFor(chainId: number, hash: Hash) {
   const rc = await publicClient(chainId).waitForTransactionReceipt({ hash, timeout: 180_000, pollingInterval: 1500 });
-  if (rc.status !== "success") throw new Error(`It failed on chain (${hash.slice(0, 10)}…)`);
+  if (rc.status !== "success") throw new Error("It failed on the network. Nothing moved.");
   // it may have set this wallet's ENS name (the ENS app): useName re-reads the wallet's own name, past every cache
   try {
     const me = loadAccount()?.address;
@@ -147,7 +147,7 @@ export async function prepareOwners(opts: OwnersOpts): Promise<Prepared> {
   const kind = ownersKind(fresh, feeWedgie(a, st, signers), opts);
   if (opts.self) {
     // anyone can send a signed Safe transaction; the relay only adds deploying the wallet on a new network
-    if (fresh) throw new Error("Send one through the relay first on this network (it sets the wallet up there).");
+    if (fresh) throw new Error("Execute one with the fee first on this network. That sets the wallet up there.");
     if (!hotAvailable()) throw new Error("No browser wallet here to execute it.");
     const t: SafeTx = batch(opts.calls, opts.nonce ?? (await freshNonce(chainId, a.address, st)));
     return { opts, t, h: safeTxHash(chainId, a.address, t), fee: selfQuote(chainId, kind) };
@@ -269,7 +269,7 @@ export async function finishOwners(p: Prepared): Promise<Hash> {
   }
   // not enough signatures for the Safe yet: the others sign from a link (the tx page)
   if (sigs.length < st.threshold) {
-    if (!st.deployed) throw new Error("Set the wallet up on this network first (one send it signs alone), then ask the others.");
+    if (!st.deployed) throw new Error("Set the wallet up on this network first.");
     stage("sending");
     const w: Waiting = { chainId, safe: a.address, tx: t, hash: h, sigs: sigs.map(s => ({ owner: s.signer, signature: sigHex(s) })), label: p.opts.label };
     // not waited for (Austin 11-12: its page and Home's card come up at once). It's in this browser and on Home
@@ -422,7 +422,7 @@ export async function budgetSend(opts: {
   const { account: a, state: st } = opts;
   const stage = opts.onStage ?? (() => {});
   stage("quote");
-  if (opts.self && !st.deployed) throw new Error("Send one through the relay first on this network (it sets the wallet up there).");
+  if (opts.self && !st.deployed) throw new Error("Execute one with the fee first on this network. That sets the wallet up there.");
   if (opts.self && !hotAvailable()) throw new Error("No browser wallet here to execute it.");
   const q = opts.self ? null : opts.quote && opts.quote.kind === "roles" && opts.quote.until > Date.now() + 30_000 ? opts.quote : await getQuote(st.chainId, "roles");
   const call = rolesSpendCall(q ? [...opts.calls, feeCall(q, opts.feeToken)] : opts.calls);

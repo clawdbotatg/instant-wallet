@@ -503,10 +503,17 @@ export function Keys({
           <div className="recess stack" style={{ gap: 6, overflowWrap: "anywhere", minWidth: 0 }}>
             <WhatItDoes chainId={pending.p.opts.state.chainId} safe={account.address} calls={callsOf(pending.p.t)} signs={pending.p.t} />
           </div>
-          <p className="fine">
-            Fee {feeText(pending.p.fee, pending.p.opts.feeToken, nativeSymbol(pending.p.opts.state.chainId))}. Signed by{" "}
-            <Words text={signLabel(pending.p)} />.
-          </p>
+          {/* the same Fee and Signed by rows as Send and Swap */}
+          <div className="card">
+            <div className="line">
+              <span>Fee</span>
+              <span>{feeText(pending.p.fee, pending.p.opts.feeToken, nativeSymbol(pending.p.opts.state.chainId))}</span>
+            </div>
+            <div className="line">
+              <span>Signed by</span>
+              <span><Words text={signLabel(pending.p)} /></span>
+            </div>
+          </div>
           <button className="btn btn-green wide" onClick={sign} disabled={!!busy}>
             {busy ? stageLabel("signing") : "Sign"}
           </button>
@@ -584,8 +591,7 @@ export function Keys({
                   ) : (
                     <Addr a={howSigns(account, st, o) === "wedgie" ? shownAs(o, st) : o} chainId={chainId} plain={howSigns(account, st, o) === "wedgie"} />
                   )}
-                  {howSigns(account, st, o) !== "faceid" && !known(o)?.wallet && known(o)?.name && <b>{known(o)!.name}</b>}
-                  {howSigns(account, st, o) === "wedgie" && (
+                                    {howSigns(account, st, o) === "wedgie" && (
                     <button className="pill row" style={{ gap: 4 }} onClick={() => (setWedgieOpen(v => !v), setWedgieLook(null))} aria-expanded={wedgieOpen}>
                       <WedgieIcon size={26} />
                       {!wedgieOpen ? (
@@ -712,7 +718,7 @@ export function Keys({
                       <h2 className="row" style={{ gap: 8 }}>
                         <WedgieIcon size={34} /> Add a wedgie
                       </h2>
-                      <RemoveX onClick={() => setWedgieAdd(false)} disabled={!!busy} label="Close" />
+                      <button className="btn btn-sm" onClick={() => setWedgieAdd(false)} disabled={!!busy}>Close</button>
                     </div>
                     <WedgiePanel
                       account={account}
@@ -892,12 +898,12 @@ export function Keys({
 
       {/* the whole wallet on your own computer, if this site is ever gone: README "Run it fully local" */}
       <a
-        className="btn btn-dark wide"
+        className="btn wide"
         href="https://github.com/clawdbotatg/instant-wallet#run-it-fully-local-if-instantwalletio-is-gone"
         target="_blank"
         rel="noopener noreferrer"
       >
-        Fork and run locally
+        Fork and run locally ↗
       </a>
     </div>
   );

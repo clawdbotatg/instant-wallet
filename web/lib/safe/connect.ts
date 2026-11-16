@@ -21,7 +21,7 @@ import { Wedgie, wedgieSupported } from "./wedgie";
 export function siteCalls(safe: Address, calls: { target: Address; value: bigint; data: Hex }[]): Call[] {
   const own = [safe, rolesAddress(safe), ...RECOVERY_MODULES].map(a => a.toLowerCase());
   return calls.map(c => {
-    if (own.includes(c.target.toLowerCase())) throw new Error("A site can't change your wallet's keys or settings.");
+    if (own.includes(c.target.toLowerCase())) throw new Error("A site can't change your wallet's signers or settings.");
     return { to: c.target, value: c.value, data: c.data };
   });
 }

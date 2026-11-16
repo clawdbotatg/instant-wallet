@@ -233,7 +233,7 @@ export function SendAll({
             {ran ? <WhatItDoes quiet chainId={chainId} safe={account.address} calls={callsOf(ran)} tx={ran} else={list} /> : list}
             {held.length > 5 && !ran && (
               <span className="fine">
-                {held.length} coins · scroll to see all
+                {held.length} coins
               </span>
             )}
             {fee && <span className="fine">Fee {fee}</span>}
@@ -242,6 +242,9 @@ export function SendAll({
             {r.stage === "done" ? (
               <ExecutedLine href={url} />
             ) : (
+              <div className="row" style={{ gap: 8 }}>
+              {/* a way back out, as on Revoke */}
+              {r.stage === "ready" && <button className="btn wide" onClick={() => set(chainId, { stage: "idle" })}>Cancel</button>}
               <button
                 className="btn btn-green wide"
                 disabled={
@@ -252,13 +255,14 @@ export function SendAll({
                 }
               >
                 {r.stage === "preparing"
-                  ? "Getting the fee…"
+                  ? stageLabel("quote")
                   : r.stage === "busy"
                     ? stageLabel(r.send ?? "sending")
                     : r.stage === "ready"
                       ? <>Sign to send everything on <Net chainId={chainId} /></>
                       : <>Send everything on <Net chainId={chainId} /></>}
               </button>
+              </div>
             )}
             {r.stage === "busy" && <Progress stage={r.send ?? null} chainId={chainId} hash={r.hash} />}
           </div>

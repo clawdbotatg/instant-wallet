@@ -74,9 +74,8 @@ export function PayLink() {
             <a className="btn btn-green wide" href={raw}>
               Open in a wallet app
             </a>
-            <p className="fine center">MetaMask, Rainbow and most other wallets open this with the amount filled in.</p>
             <Qr value={raw} center={p.to.startsWith("0x") ? p.to : undefined}>
-              <p className="fine center" style={{ marginTop: 8 }}>Or scan it from a wallet on another device.</p>
+              <p className="fine center" style={{ marginTop: 8 }}>Or scan it from another device.</p>
             </Qr>
           </>
         )}

@@ -44,7 +44,7 @@ export function Progress({ stage, chainId, hash }: { stage: Stage | string | nul
       const tip = tx.maxPriorityFeePerGas ?? 0n;
       const base = block?.baseFeePerGas;
       const cap = tx.maxFeePerGas ?? tx.gasPrice ?? 0n;
-      if (base && cap < base) return setWhy(`Waiting: gas went up past what it pays (${formatGwei(cap)} vs ${formatGwei(base)} gwei).`);
+      if (base && cap < base) return setWhy(`Waiting: network fees went above what it pays (${formatGwei(cap)} vs ${formatGwei(base)} gwei).`);
       setWhy(`Waiting in line for a block. Tip ${formatGwei(tip)} gwei${base ? `, base fee ${formatGwei(base)} gwei` : ""}.`);
     };
     look();

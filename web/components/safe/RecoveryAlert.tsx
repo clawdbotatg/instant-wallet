@@ -79,7 +79,7 @@ export function RecoveryAlert({
     <div className="card alert">
       <b>{mine ? "Your recovery is running" : "Someone is recovering this wallet"}</b>
       <p className="fine">
-        On <Net chainId={state.chainId} />, on {when_(when)}, your keys get replaced by
+        On <Net chainId={state.chainId} />, on {when_(when)}, your signers get replaced by
         {r.newOwners.length > 1 ? ` any ${r.newThreshold} of these` : ""}:
       </p>
       {r.newOwners.map(o => (

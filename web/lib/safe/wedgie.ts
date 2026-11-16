@@ -588,7 +588,7 @@ export class Wedgie {
   async key(): Promise<{ x: Hex; y: Hex }> {
     activity({ what: "Talking to your wedgie", p: 0.1 });
     const h = await this.request({ type: "hello" }, 5000).finally(() => activity(null));
-    if (!h?.safe) throw new Error("The wedgie has no Safe key yet. Press the green button on it to make one.");
+    if (!h?.safe) throw new Error("The wedgie has no signer yet. Press the green button on it to make one.");
     return { x: h.safe.x, y: h.safe.y };
   }
 
@@ -627,7 +627,7 @@ export class Wedgie {
       const g = await this.request(msg, 300_000);
       if (g?.type === "error" && /unknown type/.test(g.error || "")) throw new Error("The wedgie's Safe signer is too old for messages. Update it from the wedgie button on a computer.");
       if (g?.type !== "safe_sig") throw notSigned(g);
-      if (String(g.safeMessageHash).toLowerCase() !== expectHash.toLowerCase()) throw new Error("The wedgie signed a different message. Not sending.");
+      if (String(g.safeMessageHash).toLowerCase() !== expectHash.toLowerCase()) throw new Error("The wedgie signed a different message.");
       const data = encodeWebAuthn({ authenticatorData: g.authenticatorData, clientDataFields: g.clientDataFields, r: BigInt(g.r), s: BigInt(g.s) });
       return slots.map(signer => ({ signer, data, kind: "contract" as const }));
     } finally {

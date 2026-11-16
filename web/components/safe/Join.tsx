@@ -68,7 +68,7 @@ export function Join() {
           <Who address={done.wallet} size={56} />
         </div>
         <p>
-          {inv?.from ?? "The wallet's owner"} adds you next. Then you sign their links with this {bio()}.
+          {inv?.from ?? "They"} adds you next. Then you sign their links with this {bio()}.
         </p>
         <p className="fine">
           You sign as <Who address={done.signer} size={14} plain inline />
@@ -88,7 +88,7 @@ export function Join() {
             Your passkey stays on your phone. They can only ask you to sign.
           </p>
           <div className="input">
-            <input value={name} onChange={e => setName(e.target.value)} placeholder="Your name (so they know it's you)" maxLength={40} />
+            <input value={name} onChange={e => setName(e.target.value)} placeholder="Your name" maxLength={40} />
           </div>
           {inv.answer ? (
             <p className="fine">Someone already answered this invite. Ask for a new one.</p>
@@ -96,7 +96,7 @@ export function Join() {
             <>
               {mine && (
                 <button className="btn btn-green wide" onClick={() => answer("mine")} disabled={!!busy}>
-                  {busy === "mine" ? "Sending…" : "Use this device's Instant Wallet key"}
+                  {busy === "mine" ? "Sending…" : "Use this device's signer"}
                 </button>
               )}
               <button className={`btn wide ${mine ? "btn-dark" : "btn-green"}`} onClick={() => answer("signin")} disabled={!!busy}>

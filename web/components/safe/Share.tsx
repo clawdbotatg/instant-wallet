@@ -241,7 +241,7 @@ export function Share({ account, states, assets, chainId: startChain, onDone }: 
         ) : (
           <p>✓ Card written</p>
         )}
-        {step === "unfunded" && <p className="err">The money didn&apos;t send. {error}</p>}
+        {step === "unfunded" && error && <ErrorLine text={error} />}
         {funded ? (
           <>
             <ExecutedLine />
@@ -302,7 +302,7 @@ export function Share({ account, states, assets, chainId: startChain, onDone }: 
       <ChainSelect value={chainId} onChange={setChainId} />
       <p className="fine">Whoever scans or taps it gets it.</p>
       <a className="fine" href="/claim/new">
-        My shares: see which are claimed, take back the rest
+        My shares
       </a>
       <div className="field">
         <label>What</label>

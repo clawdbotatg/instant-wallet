@@ -10,13 +10,14 @@ import { nativeUsd } from "@/lib/price";
 import { loadRequestLink, saveRequestLink } from "@/lib/store";
 import type { Account } from "@/lib/types";
 import { AmountBox, CopyIcon, Money, Net, PencilIcon, Qr, SwitchIcon, TokenIcon, WhatFor, Who, copy, stageLabel } from "./bits";
+import { ErrorLine } from "./safe/WedgieButton";
 import { ChainSelect } from "./safe/Pick";
 
 /**
  * One card: your address as a QR (blockie in the middle), the short address + a copy icon under it; a tap anywhere
  * copies it and says so. The title is the wallet's name; a tap on it takes a public one, alice.inst.eth (lib/names.ts).
  * The QR always holds the address: other wallets can't read a name. Request → an amount, token and network, and the QR becomes an EIP-681 payment request.
- * "Include instantwallet.io link (any phone camera opens it)" (on by default, remembered) wraps it in a web link so any phone camera opens it
+ * "Include instantwallet.io link" (on by default, remembered) wraps it in a web link so any phone camera opens it
  * (/[...link]); off, it's the bare ethereum: request other wallets' scanners read.
  * `got`: money that landed while this is up: "Received" and the amount over the code, until a tap (`onSeen`).
  */
@@ -150,7 +151,7 @@ export function Receive({
           <ChainSelect value={chainId} onChange={id => (setChainId(id), setAmount(""))} />
           <label className="row" style={{ gap: 8 }}>
             <input type="checkbox" checked={withLink} onChange={e => toggleLink(e.target.checked)} />
-            Include {window.location.host} link (any phone camera opens it)
+            Include {window.location.host} link
           </label>
           <button className="btn wide" onClick={() => (setAsking(false), setAmount(""))}>
             Cancel
@@ -236,7 +237,7 @@ function NameTitle({ name, start, address, onClaim }: { name: string | null; sta
         <input autoFocus maxLength={32} placeholder="name" value={v} onChange={e => (setV(labelIn(e.target.value)), setErr(null))} disabled={busy} autoCapitalize="none" autoCorrect="off" spellCheck={false} />
         <span className="unit" style={{ paddingRight: 8 }}>.{NAME_PARENT}</span>
       </div>
-      {(err || problem) && <span className="err">{err || problem}</span>}
+      {(err || problem) && <ErrorLine text={(err || problem)!} />}
       <button className="btn btn-green wide" type="submit" disabled={busy || !now?.ok}>
         {busy ? stageLabel("signing") : "Save"}
       </button>

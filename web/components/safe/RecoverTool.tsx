@@ -5,7 +5,7 @@ import { type Address, type Hex, encodeFunctionData } from "viem";
 import { CHAINS, chainById, explorerTx, publicClient } from "@/lib/chains";
 import { DAO, RECOVERY_7D, RECOVERY_DAYS, RECOVERY_MODULES, SAFE_FACTORY } from "@/lib/safe/config";
 import { abi, deploySafeCall, safeAddress } from "@/lib/safe/core";
-import { Net, AddressInput, Band, Who, Words, copy, useToast } from "../bits";
+import { Eject, Net, AddressInput, Band, Who, Words, copy, useToast } from "../bits";
 import { when as when_ } from "@/lib/format";
 import { ErrorLine } from "./WedgieButton";
 import { ChainSelect } from "./Pick";
@@ -39,6 +39,7 @@ export function RecoverTool() {
   type Mod = { module: Address; guardians: Address[]; executeAfter: number; newOwners: Address[] };
   const [info, setInfo] = useState<{ deployed: boolean; mods: Mod[] } | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const [txUrl, setTxUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
   const [running, setRunning] = useState(false); // one at a time: Start, Finish and Deploy are off while one runs
@@ -76,12 +77,14 @@ export function RecoverTool() {
   async function run(to: Address, data: Hex, what: string) {
     setError(null);
     setMsg(`${what}: sign in your browser wallet…`);
+    setTxUrl(null);
     setRunning(true);
     try {
       const hash = await sendFromWallet(chainId, to, data);
-      setMsg(`${what}: sent. ${explorerTx(chainId, hash) ?? hash}`);
+      setMsg(`${what}: executing…`);
+      setTxUrl(explorerTx(chainId, hash) ?? null);
       await publicClient(chainId).waitForTransactionReceipt({ hash });
-      setMsg(`${what}: done.`);
+      setMsg(`${what}: ✓ Executed`);
       setTick(t => t + 1);
     } catch (e: any) {
       setMsg(null);
@@ -104,7 +107,7 @@ export function RecoverTool() {
   return (
     <div className="app">
       <h1>Recover a wallet</h1>
-      <p className="fine">For a wallet&apos;s recovery address: the DAO, a paper seed opened in a wallet, a friend. You swap in the owner&apos;s new key. It lands after 7 days (with a wedgie: 14 from their own recovery address, 60 from the DAO). The owner can cancel it from any key they still have.</p>
+      <p className="fine">For a wallet&apos;s recovery address: the DAO, a paper seed opened in a wallet, a friend. You swap in their new signer after 7 days (with a wedgie: 14 from their own recovery address, 60 from the DAO). Any signer they still have can cancel it.</p>
       <Band />
       <ChainSelect value={chainId} onChange={setChainId} />
       <div className="field">
@@ -127,8 +130,8 @@ export function RecoverTool() {
       {info && !info.deployed && (
         <div className="card stack">
           <b>0. Deploy it here first</b>
-          <p className="fine">It was never used on <Net chainId={chainId} />. Paste the &quot;Instant Wallet key&quot; from the owner&apos;s wallet card.</p>
-          <AddressInput onChange={setOriginal} placeholder="Instant Wallet key: 0x… or name.eth" chain={chainId} />
+          <p className="fine">It was never used on <Net chainId={chainId} />. Paste their old Instant Wallet signer.</p>
+          <AddressInput onChange={setOriginal} placeholder="Old signer: 0x… or name.eth" chain={chainId} />
           {original && w && safeAddress(original) !== w && <p className="err">That signer doesn&apos;t make this wallet.</p>}
           <button
             className="btn btn-green wide"
@@ -142,7 +145,7 @@ export function RecoverTool() {
 
       <div className="card stack">
         <b>1. Start the recovery</b>
-        <AddressInput initial={q?.get("owner") ?? ""} onChange={setNewKey} placeholder="The owner's new key: 0x… or name.eth" chain={chainId} />
+        <AddressInput initial={q?.get("owner") ?? ""} onChange={setNewKey} placeholder="Their new signer: 0x… or name.eth" chain={chainId} />
         {info?.mods.map((m, i) => (
           <button key={m.module} className={`btn ${i === 0 && info.deployed && !due ? "btn-green" : ""} wide`} disabled={running || !startData || !info.deployed} onClick={() => startData && run(m.module, startData, "Start")}>
             Start as {names(m.guardians, " or ")} ({RECOVERY_DAYS[m.module]} days)
@@ -172,7 +175,12 @@ export function RecoverTool() {
           </button>
         )}
       </div>
-      {msg && <p className="fine mono">{msg}</p>}
+      {msg && (
+        <div className="row" style={{ justifyContent: "space-between", gap: 8 }}>
+          <p className="fine">{msg}</p>
+          {txUrl && <Eject href={txUrl} />}
+        </div>
+      )}
       {error && <ErrorLine text={error} />}
       {toast && <div className="toast">{toast}</div>}
     </div>

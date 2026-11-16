@@ -65,7 +65,7 @@ const eth = () => (window as any).ethereum;
 async function send(from: Address, to: Address, data: Hex, chainId: number): Promise<void> {
   const hash = (await eth().request({ method: "eth_sendTransaction", params: [{ from, to, data }] })) as Hex;
   const rc = await publicClient(chainId).waitForTransactionReceipt({ hash, timeout: 180_000, pollingInterval: 1500 });
-  if (rc.status !== "success") throw new Error(`It failed on chain (${hash.slice(0, 10)}…)`);
+  if (rc.status !== "success") throw new Error("It failed on the network. Nothing moved.");
 }
 
 /**

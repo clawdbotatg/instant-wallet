@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { formatEther } from "viem";
-import { chainById, nativeSymbol } from "@/lib/chains";
+import { nativeSymbol } from "@/lib/chains";
 import { isLocal } from "@/lib/local";
 import { CopyAddress, Net, Who } from "../bits";
 import { ErrorLine } from "./WedgieButton";
@@ -52,8 +52,8 @@ export function LocalRelay() {
     <div id="relay" className="card stack" style={{ gap: 10 }}>
       <b>Your relay</b>
       <p className="fine">
-        It pays gas for sends from this computer. Send it each network&apos;s coin (Base: $1, Ethereum: about $5). Each
-        send&apos;s fee pays it back.
+        It pays gas for what this computer executes. Send it each network&apos;s coin (Base: $1, Ethereum: about $5). Each
+        fee pays it back.
       </p>
       {info && !info.address && (
         <button className="btn btn-green wide" onClick={make} disabled={busy}>
@@ -74,7 +74,7 @@ export function LocalRelay() {
               </span>
             </div>
           ))}
-          {empty.length > 0 && <p className="fine">Empty on {empty.map(b => chainById(b.chainId)?.name).join(", ")}.</p>}
+          {empty.length > 0 && <p className="fine row" style={{ gap: 6, flexWrap: "wrap" }}>Empty on {empty.map((b, i) => <span key={b.chainId}>{i > 0 && ", "}<Net chainId={b.chainId} /></span>)}</p>}
         </>
       )}
       {err && <ErrorLine text={err} />}

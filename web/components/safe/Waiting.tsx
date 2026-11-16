@@ -164,7 +164,7 @@ export function WaitingCards({
   const lead = list.find(canRun)?.w.hash;
   return (
     <div className="card stack" style={{ gap: 10 }}>
-      <b>{lead ? "Ready: press Execute" : "Waiting for signatures"}</b>
+      <b>{lead ? "Ready" : "Waiting for signatures"}</b>
       {sorted.map(({ w, need, next }) => {
         const enough = w.sigs.length >= need;
         const behind = enough && w.tx.nonce > next;
@@ -212,7 +212,7 @@ export function WaitingCards({
                   else openTx(w);
                 }}
               >
-                {executing === w.hash ? stageLabel("sending") : behind ? `Signed · waits on #${next}` : enough ? "Execute" : `${mineLeft ? "Sign" : "Signed"} · ${w.sigs.length} of ${need}`}
+                {executing === w.hash ? stageLabel("sending") : behind ? `Go to #${next} first` : enough ? "Execute" : `${mineLeft ? "Sign" : "Signed"} · ${w.sigs.length} of ${need}`}
               </a>
             </div>
             {r && <Progress stage={bar.stage} chainId={w.chainId} hash={bar.hash} />}

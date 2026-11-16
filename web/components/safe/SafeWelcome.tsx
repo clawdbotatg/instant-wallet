@@ -172,7 +172,7 @@ export function SafeWelcome({ onReady, initialConfirm }: { onReady: (a: SafeAcco
                   ))
                 : "none"}
               .
-              Only say yes if you recognise this wallet. Anyone can make a wallet that lists your key.
+              Only say yes if you recognise this wallet. Anyone can make a wallet that lists your signer.
             </p>
           </div>
           <button className="btn btn-green wide" onClick={() => onReady(confirm.account)}>
@@ -229,11 +229,11 @@ export function SafeWelcome({ onReady, initialConfirm }: { onReady: (a: SafeAcco
         <div className="welcome">
           <div className="stack">
             <h1>Recover a wallet</h1>
-            <p>Lost your phone? This makes a new key here. Your recovery address (the DAO or your own) swaps it in after 7 days (with a wedgie: 14 from your own, 60 from the DAO). Any key you still have can cancel it.</p>
+            <p>Lost your phone? Make a new signer here. Your recovery address swaps it in after 7 days (with a wedgie: 14 from your own, 60 from the DAO). Any signer you still have can cancel it.</p>
           </div>
           <AddressInput onChange={setWallet} placeholder="Your wallet: 0x… or name.eth" />
           <button className="btn btn-green wide" onClick={recover} disabled={!!busy}>
-            {busy === "recover" ? "Making the new key…" : "Make my new key"}
+            {busy === "recover" ? "Making the new signer…" : "Make a new signer"}
           </button>
           <button className="btn wide" onClick={() => setRecovering(false)}>
             Back

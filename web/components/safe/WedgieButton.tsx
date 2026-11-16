@@ -174,10 +174,10 @@ function baseStatus(peek: Peek | null, account: SafeAccount, states: ChainState[
       detail: `It's running ${h.running ? `“${h.running}”` : "no app"}. This wallet needs the Safe signer.`,
       install: true,
     };
-  if (!h.safe) return { tone: "warn", title: "Wedgie has no key yet", detail: "Press the green button to make its Safe key. It never leaves the chip." };
+  if (!h.safe) return { tone: "warn", title: "Wedgie has no signer yet", detail: "Press the green button to make one. It never leaves the chip." };
   const mine = account.wedgie;
   if (mine && !same(mine, h.safe))
-    return { tone: "bad", title: "A different wedgie", detail: "This wedgie's key isn't the one on this wallet. Plug in the one you added.", key: h.safe };
+    return { tone: "bad", title: "A different wedgie", detail: "This wedgie isn't the signer on this wallet. Plug in the one you added.", key: h.safe };
   if (!mine && !onWallet)
     return { tone: "warn", title: "Wedgie ready", detail: "It isn't a signer on this wallet yet.", key: h.safe };
   if (!mine && onWallet)
@@ -295,7 +295,7 @@ export function WedgiePanel({
                 Its firmware is {hello.version}. wedgie.dev has {latest.version}.
               </p>
             )}
-            {st.update === "app" && <p className="warn-note">wedgie.dev has a newer Safe signer. Updating keeps your key.</p>}
+            {st.update === "app" && <p className="warn-note">wedgie.dev has a newer Safe signer. Updating keeps your signer.</p>}
             {!plugged && !onWallet && !account.wedgie && !st.get && (
               <p className="fine">
                 Don&apos;t have one?{" "}

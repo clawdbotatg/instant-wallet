@@ -242,7 +242,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
       const call = { to: safe, value: 0n, data: encodeFunctionData({ abi: abi.safe, functionName: "approveHash", args: [w.hash] }) };
       try {
         await ownersSend({ account: me, state: st, calls: [call], signers: ownerSigners(st, me), feeToken: bal >= (chainId === 1 ? 10_000_000n : 1_000_000n) ? "usdc" : "eth",
-          label: `Approve #${w.tx.nonce} on ${safe}` });
+          label: `Sign #${w.tx.nonce} on ${safe}` });
       } catch (e) {
         if (e instanceof Shared) return; // your wallet needs more signers: its own tx page opened; this one counts it once it runs
         throw e;
@@ -252,7 +252,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
     const signers = ownerSigners(st, me, true);
     if (usesWedgie(me, st, signers)) throw new Error("Your wallet needs its wedgie too, and a wedgie can't sign for another wallet yet.");
     const sig = await signForSite(me, st, signers, w.hash);
-    if (sig.endsWith(ERC6492)) throw new Error(`Your ${bio()} key isn't on ${chainById(chainId)?.name ?? "this network"} yet. Send anything from your wallet there first.`);
+    if (sig.endsWith(ERC6492)) throw new Error(`Your ${bio()} signer isn't on ${chainById(chainId)?.name ?? "this network"} yet. Execute anything from your wallet there first.`);
     await add({ signer: me.address, data: sig, kind: "contract" });
   });
 
@@ -446,7 +446,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
                 done || enough ? null : k === "safe" ? (
                   app ? <Eject href={app} title="Sign it in Safe{Wallet}, connected as that wallet's signer">Sign in Safe</Eject> : <span className="fine">In its own app</span>
                 ) : k === "other" ? (
-                  <span className="fine">Needs a wallet extension</span>
+                  <span className="fine">Needs a browser wallet</span>
                 ) : (
                   <span className="fine">Waiting</span>
                 )
@@ -480,7 +480,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
           )}
           {enough && !behind && (
             <button className="btn btn-sm btn-green" style={{ flex: 1, minWidth: 0 }} onClick={sendRelay} disabled={!!busy}>
-              {busy === "send" ? "Executing…" : "Execute"}
+              {busy === "send" ? stageLabel("sending") : "Execute"}
             </button>
           )}
         </div>
@@ -491,7 +491,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
       <p className="fine row" style={{ gap: 16, justifyContent: "center", flexWrap: "wrap" }}>
         {enough && !done && !behind && !sent && hotAvailable() && (
           <a href="#" onClick={e => (e.preventDefault(), sendSelf())}>
-            {busy === "self" ? "Executing…" : FROM_MINE}
+            {busy === "self" ? stageLabel("sending") : FROM_MINE}
           </a>
         )}
       </p>

@@ -2,11 +2,11 @@
 
 /* eslint-disable @next/next/no-img-element */
 import { useEffect, useState } from "react";
-import { type Address, type Hash, type Hex, createWalletClient, formatUnits, http, parseAbi, toHex, zeroAddress } from "viem";
+import { type Address, type Hash, type Hex, createWalletClient, formatUnits, parseAbi, toHex, zeroAddress } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { isXdai, retireBurnerKey } from "@/lib/brand";
 import { type OldSafe, findOldSafes, sweepOldSafe } from "@/lib/oldSafes";
-import { CHAINS, nativeSymbol, publicClient, rpcPath } from "@/lib/chains";
+import { CHAINS, nativeSymbol, publicClient, rpcTransport } from "@/lib/chains";
 import { AUTH_TYPES, type ClaimAuth, claimKey, usdc3009 } from "@/lib/claim";
 import { amount as fmtAmount, usd } from "@/lib/format";
 import { abi } from "@/lib/safe/core";
@@ -89,7 +89,7 @@ async function claimToken(key: Hex, t: Asset, to: Address): Promise<void> {
   const c = CHAINS.find(x => x.id === t.chainId)!;
   const card = privateKeyToAccount(key);
   const pc = publicClient(t.chainId);
-  const wc = createWalletClient({ account: card, chain: c.chain, transport: http(rpcPath(t.chainId)) });
+  const wc = createWalletClient({ account: card, chain: c.chain, transport: rpcTransport(t.chainId) });
   const bal = (await pc.readContract({ address: t.asset, abi: abi.erc20, functionName: "balanceOf", args: [card.address] })) as bigint;
   if (bal === 0n) return;
   const hash = await wc.writeContract({ address: t.asset, abi: abi.erc20, functionName: "transfer", args: [to, bal], chain: c.chain }).catch((e: any) => {
@@ -105,7 +105,7 @@ async function claimNfts(key: Hex, nfts: Nft[], to: Address): Promise<number> {
     const c = CHAINS.find(x => x.id === chainId)!;
     const card = privateKeyToAccount(key);
     const pc = publicClient(chainId);
-    const wc = createWalletClient({ account: card, chain: c.chain, transport: http(rpcPath(chainId)) });
+    const wc = createWalletClient({ account: card, chain: c.chain, transport: rpcTransport(chainId) });
     let nonce = await pc.getTransactionCount({ address: card.address, blockTag: "pending" });
     const sent: Hash[] = [];
     for (const n of nfts.filter(x => x.chainId === chainId)) {
@@ -130,7 +130,7 @@ const UNI: Address = "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984";
 async function claimUni(key: Hex, u: UniClaim, to: Address): Promise<void> {
   const card = privateKeyToAccount(key);
   const c = CHAINS.find(x => x.id === 1)!;
-  const wc = createWalletClient({ account: card, chain: c.chain, transport: http(rpcPath(1)) });
+  const wc = createWalletClient({ account: card, chain: c.chain, transport: rpcTransport(1) });
   const hash = await wc.writeContract({
     address: "0x090D4613473dEE047c3f2706764f49E0821D256e",
     abi: parseAbi(["function claim(uint256 index, address account, uint256 amount, bytes32[] merkleProof)"]),
@@ -174,7 +174,7 @@ async function claimEth(key: Hex, chainId: number, to: Address): Promise<bigint>
   const c = CHAINS.find(x => x.id === chainId)!;
   const card = privateKeyToAccount(key);
   const pc = publicClient(chainId);
-  const wc = createWalletClient({ account: card, chain: c.chain, transport: http(rpcPath(chainId)) });
+  const wc = createWalletClient({ account: card, chain: c.chain, transport: rpcTransport(chainId) });
   const [bal, fees] = await Promise.all([pc.getBalance({ address: card.address }), pc.estimateFeesPerGas()]);
   const gas = await pc.estimateGas({ account: card.address, to, value: 1n }).catch(() => 50_000n);
   const maxFee = fees.maxFeePerGas;

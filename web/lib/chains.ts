@@ -1,4 +1,5 @@
 import { type Address, type Chain, type Transport, createPublicClient, http } from "viem";
+import { isOnion, torFetch } from "./tor";
 import { arbitrum, arc, avalanche, base, bsc, celo, foundry, gnosis, hyperEvm, mainnet, optimism, plasma, polygon, robinhood, sonic } from "viem/chains";
 
 /**
@@ -122,7 +123,7 @@ export function publicClient(chainId: number) {
     // reads asked in the same tick go out as one request (/api/rpc takes up to 50), not one request each
     const to = (url: string) => http(url, { batch: { batchSize: 50, wait: 0 } });
     const own = ownRpc(chainId);
-    c = createPublicClient({ chain: info.chain, transport: own ? split(to(own), to(proxyPath(chainId))) : to(proxyPath(chainId)), batch: { multicall: false } });
+    c = createPublicClient({ chain: info.chain, transport: own ? split(isOnion(own) ? onion(own) : to(own), to(proxyPath(chainId))) : to(proxyPath(chainId)), batch: { multicall: false } });
     clients.set(chainId, c);
   }
   return c;
@@ -148,6 +149,15 @@ const proxyPath = (chainId: number) => `${typeof window === "undefined" ? "" : w
 /** Where this browser reads a chain and sends its signed txs: your own node if you set one, else our proxy. */
 export function rpcPath(chainId: number): string {
   return ownRpc(chainId) || proxyPath(chainId);
+}
+
+/** A .onion node, over Tor (lib/tor.ts): batches of 20 (the node's filter takes no more), and a minute for Tor's first start. */
+const onion = (url: string) => http(url, { batch: { batchSize: 20, wait: 0 }, fetchFn: torFetch(), timeout: 60_000, retryCount: 1 });
+
+/** The transport for code that builds its own client (a wallet client that sends): your node (over Tor for a .onion), else our proxy. */
+export function rpcTransport(chainId: number): Transport {
+  const own = ownRpc(chainId);
+  return own && isOnion(own) ? onion(own) : http(rpcPath(chainId));
 }
 
 /** Your own node, per network (Settings → Your node), kept in this browser. No fallback to ours: if it's down, reads fail. */

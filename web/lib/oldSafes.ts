@@ -1,6 +1,6 @@
-import { type Address, type Hex, concat, createWalletClient, http, pad, parseAbi, zeroAddress } from "viem";
+import { type Address, type Hex, concat, createWalletClient, pad, parseAbi, zeroAddress } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { CHAINS, publicClient, rpcPath } from "./chains";
+import { CHAINS, publicClient, rpcTransport } from "./chains";
 import { waitFor } from "./safe/send";
 
 /**
@@ -75,7 +75,7 @@ export async function findOldSafes(owner: Address): Promise<OldSafe[]> {
 export async function sweepOldSafe(key: Hex, safe: Address, to: Address): Promise<bigint> {
   const owner = privateKeyToAccount(key);
   const pc = publicClient(100);
-  const wc = createWalletClient({ account: owner, chain: CHAINS.find(c => c.id === 100)!.chain, transport: http(rpcPath(100)) });
+  const wc = createWalletClient({ account: owner, chain: CHAINS.find(c => c.id === 100)!.chain, transport: rpcTransport(100) });
   const wei = await pc.getBalance({ address: safe });
   if (wei === 0n) return 0n;
   const sig = concat([pad(owner.address), pad("0x0"), "0x01"]);

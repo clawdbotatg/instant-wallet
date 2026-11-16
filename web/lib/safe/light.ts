@@ -1,5 +1,6 @@
 import { type Address, type Hex, concat, decodeFunctionResult, encodeFunctionData, pad, parseAbi, toEventSelector, zeroAddress } from "viem";
 import type { SafeTxLike, SimAnswer } from "clear-signing-safe-kit";
+import { isOnion, torFetch } from "../tor";
 
 /**
  * The simulation, run in this browser by a light client (Colibri, corpus-core/colibri-stateless): the Safe tx runs in
@@ -11,7 +12,7 @@ import type { SafeTxLike, SimAnswer } from "clear-signing-safe-kit";
  * block in 6 minutes. Speed would be fine: the proofs for one Safe tx on Base took 0.7 to 1.2 s from Alchemy.
  * It also trusts Base's sequencer key, not Ethereum's validators.
  *
- * Reads go where the wallet's reads go (your node, else our proxy); block header proofs come from a Colibri prover
+ * Reads go where the wallet's reads go (your node, over Tor for a .onion, else our proxy); block header proofs come from a Colibri prover
  * (theirs, or yours). VerifiedOnly: an answer that fails its proof throws, it never falls back to the plain answer.
  */
 export const LIGHT_CHAINS = [1, 100];
@@ -42,7 +43,7 @@ function client(chainId: number, rpc: string, prover: string, wasm?: string): Pr
       if (wasm) m.set_wasm_url(wasm);
       // "latest" may be 90 s old (measured 11-11: proofs run 14 to 38 s old) (the default, 1 minute, failed on a phone when the prover ran behind: "proof for
       // latest too old"). A proof that is still too old is asked for again, twice, a block apart.
-      const lc = new m.default({ chainId, rpcs: [rpc], prover: [prover], prover_mode: "hybrid", proofStrategy: m.Strategy.VerifiedOnly, max_latest_age_seconds: 90 }) as unknown as Lc;
+      const lc = new m.default({ chainId, rpcs: [rpc], prover: [prover], prover_mode: "hybrid", proofStrategy: m.Strategy.VerifiedOnly, max_latest_age_seconds: 90, ...(isOnion(rpc) ? { fetch: torFetch() } : {}) }) as unknown as Lc;
       const request = async (a: { method: string; params: unknown[] }, left = 2): Promise<any> => {
         try {
           return await lc.request(a);

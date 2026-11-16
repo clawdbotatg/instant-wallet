@@ -1,4 +1,15 @@
-# Private reads over Tor (plan, not built)
+# Private reads over Tor
+
+**Built 2026-11-16.** Settings → Your node takes a `.onion` address. Code: `web/lib/tor.ts`, wired in `lib/chains.ts`
+(`publicClient`, `rpcTransport`) and `lib/safe/light.ts`. Tested in headless Chromium against bgnodetest3: Tor up in
+~11 s, reads 0.3–2 s after. On Ethereum only the tor-js hash read and `alchemy_*` reached `/api/rpc/1`.
+
+Where the build differs from the plan below:
+- Any network, not Ethereum only: the save checks the node's chain id over Tor, same as a normal node.
+- The light client (Prove balances, Check it in this browser) also works over Tor: Colibri takes a custom `fetch`.
+  The prover (colibri-proof.tech) is still reached directly; it serves header proofs, not your address.
+- Uses viem `http()` with `fetchFn: torFetch()` (batches of 20, at most 6 requests at once, 60 s timeout), not `custom()`.
+- No line under the field (same-check: no sentences under a settings box). The button says "Starting Tor…" while it starts.
 
 A setting that sends the wallet's chain reads over Tor to a BuidlGuidl home node. No server of ours, and no
 Alchemy, sees your IP with your address. This is the "hide your IP" part of CROPS level 5 (`docs/CROPS.md`).

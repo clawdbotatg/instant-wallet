@@ -15,6 +15,7 @@ import {
   feeMoved,
   finishOwners,
   getQuote,
+  noFeeText,
   ownerSigners,
   prepareOwners,
   sendKind,
@@ -109,9 +110,7 @@ export function SendAll({
             ? "eth"
             : null;
       if (!feeToken)
-        throw new Error(
-          `Not enough USDC or ${nativeSymbol(chainId)} on ${chainById(chainId)?.name} for the fee.`,
-        );
+        throw new Error(noFeeText(chainId, q));
       const feeAsset = feeToken === "usdc" ? usdcA! : ethA!;
       const net: Record<string, bigint> = {};
       for (const a of held)

@@ -7,7 +7,7 @@ import { amount as fmtAmount, usd, feeText } from "@/lib/format";
 import { type Approval, PERMIT2, Unchecked, findApprovals, revokeCall } from "@/lib/safe/approvals";
 import { UNISWAP } from "@/lib/safe/describe";
 import { hotAvailable } from "@/lib/safe/hot";
-import { type FeeToken, type Prepared, type Stage, Shared, feeMoved, finishOwners, getQuote, ownerSigners, prepareOwners, sendKind, usesWedgie } from "@/lib/safe/send";
+import { type FeeToken, type Prepared, type Stage, Shared, feeMoved, finishOwners, getQuote, noFeeText, ownerSigners, prepareOwners, sendKind, usesWedgie } from "@/lib/safe/send";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
@@ -105,7 +105,7 @@ export function Revoke({ account, assets, states, bare, onDone }: { account: Saf
       const usdcAddr = chainById(chainId)?.usdc;
       const feeToken: FeeToken | null =
         usdcAddr && held(usdcAddr) > BigInt(q.feeUsdc) ? "usdc" : held(zeroAddress) > BigInt(q.feeEth) ? "eth" : null;
-      if (!feeToken) throw new Error(`Not enough USDC or ${nativeSymbol(chainId)} on ${chainById(chainId)?.name} for the fee.`);
+      if (!feeToken) throw new Error(noFeeText(chainId, q));
       const prepared = await prepareOwners({ account, state: st, calls, signers, feeToken, quote: q, dappGas, nonce: prev?.t.nonce, label: "Revoke" });
       put({ stage: "ready", pick, prepared });
     } catch (e: any) {

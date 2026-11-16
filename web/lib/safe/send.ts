@@ -152,9 +152,39 @@ export async function prepareOwners(opts: OwnersOpts): Promise<Prepared> {
     const t: SafeTx = batch(opts.calls, opts.nonce ?? (await freshNonce(chainId, a.address, st)));
     return { opts, t, h: safeTxHash(chainId, a.address, t), fee: selfQuote(chainId, kind) };
   }
+  const have = feeCoins(chainId, a.address);
   const q = opts.quote && opts.quote.kind === kind && opts.quote.until > Date.now() + 30_000 ? opts.quote : await getQuote(chainId, kind, opts.swapGas ?? opts.dappGas);
+  const h = await have;
+  // neither coin covers the fee: say so now, not as a failed send (Austin 11-16: "any time the wallet detects that
+  // we don't have gas, show that clearly")
+  if (h && h.usdc < BigInt(q.feeUsdc) && h.eth < BigInt(q.feeEth)) throw new Error(noFeeText(chainId, q));
   const t: SafeTx = batch([...opts.calls, feeCall(q, opts.feeToken)], opts.nonce ?? (await freshNonce(chainId, a.address, st)));
   return { opts, t, h: safeTxHash(chainId, a.address, t), fee: q };
+}
+
+/** The wallet's USDC and native coin on this network, or null when they can't be read (then nothing is said). */
+async function feeCoins(chainId: number, safe: Address): Promise<{ usdc: bigint; eth: bigint } | null> {
+  const pc = publicClient(chainId);
+  const usdc = chainById(chainId)?.usdc;
+  try {
+    const [u, e] = await Promise.all([
+      usdc ? (pc.readContract({ address: usdc, abi: abi.erc20, functionName: "balanceOf", args: [safe] }) as Promise<bigint>) : 0n,
+      pc.getBalance({ address: safe }),
+    ]);
+    return { usdc: u, eth: e };
+  } catch {
+    return null;
+  }
+}
+
+/** The one way to say this wallet can't pay its fee. It pays in USDC or the network's coin, either one (a browser
+ * wallet pays its own gas in the coin only: hot.ts says that). */
+export function noFeeText(chainId: number, q?: Quote): string {
+  const c = chainById(chainId);
+  const sym = c?.native.symbol ?? "ETH", net = c?.name ?? "this network";
+  const usd = q ? Number(q.feeUsdc) / 1e6 : 0;
+  const amt = usd ? ` (about $${usd < 0.01 ? "0.01" : usd.toFixed(2)})` : "";
+  return `Not enough ${c?.usdc ? `USDC or ${sym}` : sym} on ${net} to pay the fee${amt}. Add a little ${c?.usdc ? "of either" : sym} to this wallet on ${net}, then try again.`;
 }
 
 /** The fee has moved enough to show (5% either way), or the quote on screen is about to run out. Under that the

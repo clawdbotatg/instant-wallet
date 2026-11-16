@@ -506,7 +506,6 @@ export function SafeApp({ link }: { link?: string } = {}) {
   return (
     <>
       <div className="app">
-        {account.credentialId === WATCH && <div className="fine" style={{ textAlign: "center" }}>View only</div>}
         {local && <div className="fine" style={{ textAlign: "center" }}>Local copy, running on this computer</div>}
         <div className="top">
           <div className="brand">

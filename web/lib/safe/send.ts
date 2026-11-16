@@ -182,9 +182,7 @@ async function feeCoins(chainId: number, safe: Address): Promise<{ usdc: bigint;
 export function noFeeText(chainId: number, q?: Quote): string {
   const c = chainById(chainId);
   const sym = c?.native.symbol ?? "ETH", net = c?.name ?? "this network";
-  const usd = q ? Number(q.feeUsdc) / 1e6 : 0;
-  const amt = usd ? ` (about $${usd < 0.01 ? "0.01" : usd.toFixed(2)})` : "";
-  return `Not enough ${c?.usdc ? `USDC or ${sym}` : sym} on ${net} to pay the fee${amt}. Add a little ${c?.usdc ? "of either" : sym} to this wallet on ${net}, then try again.`;
+  return `Not enough ${c?.usdc ? `USDC or ${sym}` : sym} on ${net} for the fee.`;
 }
 
 /** The fee has moved enough to show (5% either way), or the quote on screen is about to run out. Under that the

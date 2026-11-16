@@ -50,7 +50,8 @@ const RULES = [
   { re: /Connect my wallet/, say: "a watched plain address executes from its own browser wallet: <MineGo>", skip: [SHARED] },
   { re: /^\s*✓ (Executed|Funded)\b|Card written ✓/, say: "a tx that ran, said by hand: <ExecutedLine href> (and <DoneBar> on a finished screen)" },
   { re: /^\s*[A-Z][^<>{}=;]* [Gg]uardians?\b/, say: "'guardian' in words a user reads: say 'recovery address'" },
-  { re: /\.toLocaleString\(\)/, say: "a date written its own way: when() from lib/format (or Activity's day)" },
+  { re: /\.toLocaleString\(\)/, say: "a date written its own way: when() from lib/format (or <When> for a past time)" },
+  { re: /\.toLocaleDateString\(/, say: "a past time drawn by hand: <When at> (the day, then how long ago)", skip: [SHARED] },
   { re: /<input className="grow"/, say: "a text box with no recessed box: wrap it in <div className=\"input\">" },
   { re: /"Checking what it does…"|>\s*Checking what it does…/, say: "said one way: Checking…" },
   // a network named in words on a screen is <Net> too: no name typed by hand, no browser <select> of networks

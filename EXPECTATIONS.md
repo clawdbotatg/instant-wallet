@@ -81,6 +81,7 @@ Where it lives: `WhatItDoes`, `<Money>`, `<Proven>`, clear-signing-safe-kit (`da
 | Send and Swap | `<SendOrSwap>` at the top of both forms, in place of a title (11-15): a tap on a coin opens Send with it, one tap swaps that same coin, and the amount comes along | a title alone, a coin that has to be picked again |
 | Executing from your own browser wallet | `<FromMine>`: dark gray, "Execute from my wallet", one line (11-15). A checkbox or a link says the same words (`FROM_MINE`) | "(no fee, I pay gas)" on the button, a button whose words wrap to two lines |
 | A wallet opened to watch (`?watch=`) that is a plain address, not a Safe | `<MineGo>` at the bottom of Send, Swap and a site's request (11-15): ONE green button, three steps: "Connect my wallet", then "Switch network to Polygon" while the wallet is on another network, then "Execute from my wallet". Connected, it says which wallet under the button ("MetaMask connected") and the network it is on, and a red ✕ left of the button disconnects. The browser wallet that holds that address executes it as plain transactions and pays the gas. No fee row | a Sign button for a passkey that isn't there |
+| When something happened (Activity) | `<When>`: the day, then how long ago: "Nov 15 · 10 min ago" (11-15). It counts by itself. Past 30 days, the day alone | the day alone, a date formatted by hand |
 | A wait of ~5 s or more | a progress bar sized to it | a dead screen, an "Ask again" button |
 
 Words:

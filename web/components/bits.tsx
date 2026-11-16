@@ -193,6 +193,38 @@ function NetWords({ text }: { text: string }) {
   return <>{parts.map((p, i) => (i % 2 ? <span key={i}>on <Net chainId={CHAINS.find(c => c.name === p)!.id} /></span> : p))}</>;
 }
 
+/** How long ago, in a few words: "15 sec ago", "10 min ago", "8 hr ago", "3 days ago". Nothing past 30 days: the day says it. */
+export function ago(at: string | number | Date, now = Date.now()): string {
+  const s = Math.max(0, Math.round((now - new Date(at).getTime()) / 1000));
+  if (s < 60) return `${s} sec ago`;
+  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
+  if (s < 86_400) return `${Math.floor(s / 3600)} hr ago`;
+  const d = Math.floor(s / 86_400);
+  return d > 30 ? "" : `${d} day${d === 1 ? "" : "s"} ago`;
+}
+
+/**
+ * When something happened, wherever a past time shows: the day, then how long ago: "Nov 15 · 10 min ago"
+ * (Austin 11-15: "sure, it says November 15. But was it ten minutes ago?"). Counts by itself: each second in the
+ * first minute, then each half minute.
+ */
+export function When({ at }: { at: string | number | Date }) {
+  const [now, setNow] = useState(() => Date.now());
+  const t = new Date(at).getTime();
+  const young = now - t < 60_000;
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), young ? 1000 : 30_000);
+    return () => clearInterval(id);
+  }, [young]);
+  const a = ago(t, now);
+  return (
+    <span style={{ whiteSpace: "nowrap" }}>
+      {new Date(t).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+      {a && ` · ${a}`}
+    </span>
+  );
+}
+
 /**
  * A network, wherever one is named: its logo, then its name (Austin 11-12: Activity had the logo, a waiting tx
  * didn't). Sits in a sentence like a word. The one place without it: an asset row, whose token icon has the badge.

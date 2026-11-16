@@ -12,16 +12,16 @@ import { brainKey, isXdai, oldBurnerKey } from "@/lib/brand";
 import { claimKey } from "@/lib/claim";
 import { CHAINS, chainById, moneyChain, explorerAddress, ETH, nativeSymbol, publicClient } from "@/lib/chains";
 import { amount, short, feeText, usd } from "@/lib/format";
-import { DAO, FEE_ALLOWANCE, RECOVERY_14D, RECOVERY_60D, VERIFIERS } from "@/lib/safe/config";
+import { DAO, FEE_ALLOWANCE, RECOVERY_14D, RECOVERY_60D, VERIFIERS, VERIFIERS_SLOT2 } from "@/lib/safe/config";
 import { type Call, DEFAULT_BUDGET, abi, signerAddress, budgetCalls, deploySignerCall, feeAllowanceCalls, guardianListCalls, recoveryLayoutCalls, selfCall } from "@/lib/safe/core";
 import { openTx } from "@/lib/safe/share";
 import { type FeeToken, type Prepared, Shared, type Signer, finishOwners, keepUnsigned, getQuote, howSigns, ownerSigners, prepareOwners, signerLabel, usesWedgie } from "@/lib/safe/send";
-import { type ChainState, type SafeAccount, type SignerInfo, daoDays, loadSigners, loadWalletName, passkeyHome, readChain, rememberHome, saveSigner, wedgieHome, wedgieSigners, shownAs } from "@/lib/safe/state";
+import { type ChainState, type SafeAccount, type SignerInfo, daoDays, keyFromCode, loadSigners, signerGroups, signersKey, loadWalletName, passkeyHome, readChain, rememberHome, saveSigner, wedgieHome, wedgieSigners, shownAs } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
 import { WhatItDoes } from "./WhatItDoes";
 import { callsOf } from "@/lib/safe/describe";
-import { Net, AddressInput, BioIcon, BioSigner, Blockie, CopyAddress, CopyLink, PencilIcon, RemoveX, Sheet, TimedBar, Who, Words, copy, stageLabel } from "../bits";
+import { Net, AddressInput, ChainIcon, CopyIcon, BioIcon, BioSigner, Blockie, CopyAddress, CopyLink, PencilIcon, RemoveX, Sheet, TimedBar, Who, Words, copy, stageLabel } from "../bits";
 import { Alerts } from "./Alerts";
 import { ChainSelect } from "./Pick";
 import { ChainLimit } from "./Limits";
@@ -295,7 +295,7 @@ export function Keys({
   };
   // the edit is a draft: tap × to drop a signer, add any number, pick how many must sign; Save sends it all as
   // one transaction (Austin 10-28: remove someone and set the threshold together)
-  type Add = { a: Address; key?: { x: Hex; y: Hex }; name?: string };
+  type Add = { a: Address; key?: { x: Hex; y: Hex }; name?: string; v?: bigint; wedgie?: boolean }; // v: the verifiers its signer contract was made with; wedgie: a wedgie copied from another network
   const known = (o: string) => loadSigners(account.address)[o.toLowerCase()] as SignerInfo | undefined; // a signer this browser added by invite
   const [drop, setDrop] = useState<string[]>([]); // lowercase
   const [adds, setAdds] = useState<Add[]>([]);
@@ -322,6 +322,30 @@ export function Keys({
     setSignerIn(null);
     setInKey(k => k + 1);
   };
+  // copy another group of networks' signers into the draft (Austin 11-16): drop who isn't there, add who is, the same
+  // "M of N". Nothing is signed: Save does that, as for any edit. A passkey signer (an invited person, a wedgie) gets
+  // its contract made here from the key in its code on that network.
+  const groups = st ? signerGroups(states, assets).filter(g => !g.some(s => s.chainId === chainId) && signersKey(g[0]) !== signersKey(st)) : [];
+  const copyFrom = async (o: ChainState) => {
+    if (!st) return;
+    setErrorRaw(null);
+    try {
+      const plus: Add[] = await Promise.all(
+        o.owners.filter(x => !st.owners.some(y => same(x, y))).map(async a => {
+          const code = await publicClient(o.chainId).getCode({ address: a });
+          const key = keyFromCode(code);
+          const v = key && [VERIFIERS, VERIFIERS_SLOT2].find(v => same(signerAddress(key.x, key.y, v), a));
+          const k = known(a);
+          return key && v !== undefined ? { a, key, v, name: k?.name, wedgie: o.wedgieSlots.some(w => same(w, a)) } : { a, name: k?.name };
+        }),
+      );
+      setDrop(st.owners.filter(x => !o.owners.some(y => same(x, y))).map(x => x.toLowerCase()));
+      setAdds(plus);
+      setNeed(o.threshold);
+    } catch (e) {
+      setErrorRaw({ what: "stage", msg: friendly(e) });
+    }
+  };
   const toggleDrop = (o: Address) => setDrop(d => (d.includes(o.toLowerCase()) ? d.filter(x => x !== o.toLowerCase()) : [...d, o.toLowerCase()]));
 
   const save = () => {
@@ -340,7 +364,7 @@ export function Keys({
         ))}
         {plus.map(x => (
           <span key={x.a}>
-            Add {x.key ? <Addr a={passkeyHome(x.key)} signer={x.a} chainId={chainId} inline /> : <Addr a={x.a} chainId={chainId} inline />} {x.name ?? ""}
+            Add {x.key && x.wedgie ? <Addr a={wedgieHome(x.key)} chainId={chainId} plain inline /> : x.key ? <Addr a={passkeyHome(x.key)} signer={x.a} chainId={chainId} inline /> : <Addr a={x.a} chainId={chainId} inline />} {x.name ?? ""}
           </span>
         ))}
         <span>
@@ -353,7 +377,7 @@ export function Keys({
         let thr = st.threshold;
         for (const x of plus) {
           if (owners.some(o => same(o, x.a))) throw new Error(`${x.a} is already a signer.`);
-          if (x.key) calls.push(deploySignerCall(x.key.x, x.key.y, VERIFIERS));
+          if (x.key) calls.push(deploySignerCall(x.key.x, x.key.y, x.v ?? VERIFIERS));
           calls.push(safeCall("addOwnerWithThreshold", [x.a, BigInt(thr)]));
           owners = [x.a, ...owners]; // the Safe puts a new owner first
         }
@@ -376,7 +400,7 @@ export function Keys({
       },
       s => s.threshold === goal && gone.every(o => !s.owners.some(x => same(x, o as Address))) && plus.every(x => s.owners.some(o => same(o, x.a))),
       () => {
-        plus.filter(x => x.key).forEach(x => saveSigner(account.address, x.a, { name: x.name, passkey: true, wallet: passkeyHome(x.key!) }));
+        plus.filter(x => x.key && !x.wedgie).forEach(x => saveSigner(account.address, x.a, { name: x.name, passkey: true, wallet: passkeyHome(x.key!) }));
         resetDraft();
       },
     );
@@ -522,7 +546,29 @@ export function Keys({
       <h2>Instant Wallet is a Safe multisig</h2>
       <ChainSelect value={chainId} onChange={setChainId} />
       {st && (
-        <Summary key={chainId} account={account} st={st} assets={assets} onRefresh={onRefresh} onPoll={onPoll} toast={toast}>
+        <Summary
+          key={chainId}
+          account={account}
+          st={st}
+          assets={assets}
+          onRefresh={onRefresh}
+          onPoll={onPoll}
+          toast={toast}
+          copy={
+            keysEdit &&
+            groups.map(g => (
+              <button key={g[0].chainId} className="pill row copy-group" style={{ gap: 6 }} onClick={() => copyFrom(g[0])} disabled={idle} aria-label={`Copy the signers of ${g.map(s => chainById(s.chainId)?.name).join(", ") /* plain text: a label */}`}>
+                <span className="net-stack">
+                  {g.map(s => (
+                    <ChainIcon key={s.chainId} chainId={s.chainId} size={18} />
+                  ))}
+                </span>
+                {g[0].threshold} of {g[0].owners.length}
+                <CopyIcon size={14} />
+              </button>
+            ))
+          }
+        >
           {/* every owner, so the rows match "N of M" (an older wallet's wedgie is in 2 slots: 2 rows) */}
           {st.owners.map(o => {
             const gone = drop.includes(o.toLowerCase());
@@ -568,7 +614,7 @@ export function Keys({
           {adds.map(x => (
             <div className="keyrow" key={x.a} style={{ padding: 0 }}>
               <span className="row" style={{ gap: 8 }}>
-                {x.key ? <Addr a={passkeyHome(x.key)} signer={x.a} name={x.name} chainId={chainId} /> : <Addr a={x.a} chainId={chainId} />}
+                {x.key && x.wedgie ? <Addr a={wedgieHome(x.key)} chainId={chainId} plain /> : x.key ? <Addr a={passkeyHome(x.key)} signer={x.a} name={x.name} chainId={chainId} /> : <Addr a={x.a} chainId={chainId} />}
                 <span className="fine">new</span>
               </span>
               <RemoveX onClick={() => setAdds(adds.filter(y => y !== x))} disabled={idle} label="Don't add" />
@@ -911,7 +957,7 @@ function OldBurner({ toast }: { toast: (m: string) => void }) {
 
 
 /** This chain's Safe: the daily limit (Face ID alone), M of N for anything else, then the signers (`children`). */
-function Summary({ account, st, assets, onRefresh, onPoll, toast, children }: { account: SafeAccount; st: ChainState; assets: Asset[]; onRefresh: () => void; onPoll: () => void; toast: (m: string) => void; children: ReactNode }) {
+function Summary({ account, st, assets, onRefresh, onPoll, toast, copy, children }: { account: SafeAccount; st: ChainState; assets: Asset[]; onRefresh: () => void; onPoll: () => void; toast: (m: string) => void; copy?: ReactNode; children: ReactNode }) {
   const [edit, setEdit] = useState(false);
   const close = useCallback(() => setEdit(false), []); // stable: the editor's wait effect depends on it
   const coin = nativeSymbol(st.chainId);
@@ -933,12 +979,15 @@ function Summary({ account, st, assets, onRefresh, onPoll, toast, children }: { 
         </p>
       )}
       {b && edit && <ChainLimit account={account} st={st} assets={assets} onRefresh={onRefresh} onPoll={onPoll} toast={toast} onClose={close} />}
-      <p>
-        {b ? "Anything else" : "Signers"}:{" "}
-        <b>
-          {st.threshold} of {st.owners.length}
-        </b>
-      </p>
+      <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+        <p>
+          {b ? "Anything else" : "Signers"}:{" "}
+          <b>
+            {st.threshold} of {st.owners.length}
+          </b>
+        </p>
+        {copy}
+      </div>
       {children}
     </div>
   );

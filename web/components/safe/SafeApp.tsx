@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { type Address, getAddress, isAddress, zeroAddress } from "viem";
 import { CHAINS, chainById, moneyChain } from "@/lib/chains";
 import { amount, compactUsd, short, usd, nameIn } from "@/lib/format";
-import { type ChainState, type SafeAccount, forgetKnown, loadAccount, loadWalletName, readAll, saveAccount, saveWalletName } from "@/lib/safe/state";
+import { type ChainState, type SafeAccount, signerGroups, forgetKnown, loadAccount, loadWalletName, readAll, saveAccount, saveWalletName } from "@/lib/safe/state";
 import { type Asset, type Portfolio, keepLate } from "@/lib/types";
 import { loadHidden, loadPortfolio, loadShown, saveHidden, savePortfolio, saveShown } from "@/lib/store";
 import { dropOtherBudgetsCalls } from "@/lib/safe/core";
@@ -466,18 +466,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
   // gear showed one network's number while others had other signers). Only networks with coins on them (all of them
   // was too many); one not set up yet shows what it will be set up as (1 of 1). A watched address: only where it is a
   // Safe on chain, so a plain or 7702 account shows nothing (Austin 11-15). Most money first.
-  const usdOn = (id: number) => assets.filter(a => a.chainId === id).reduce((t, a) => t + (a.usd ?? 0), 0);
-  const signerGroups = Object.values(
-    states
-      .filter(s => assets.some(a => a.chainId === s.chainId) && (account.credentialId !== WATCH || s.deployed)) // readChain drops a network whose code isn't a Safe (getOwners fails): 7702 too
-      .reduce<Record<string, ChainState[]>>((g, s) => {
-        const k = `${s.threshold}:${s.owners.map(o => o.toLowerCase()).sort().join()}`;
-        (g[k] ??= []).push(s);
-        return g;
-      }, {}),
-  )
-    .map(l => l.sort((a, b) => usdOn(b.chainId) - usdOn(a.chainId)))
-    .sort((a, b) => b.reduce((t, s) => t + usdOn(s.chainId), 0) - a.reduce((t, s) => t + usdOn(s.chainId), 0));
+  const groups = signerGroups(states, assets, account.credentialId === WATCH); // readChain drops a network whose code isn't a Safe: 7702 too
   const feeTokenOn = (chainId: number): "usdc" | "eth" => {
     const usdcAddr = chainById(chainId)?.usdc?.toLowerCase();
     // USDC only when there's plenty for a fee there (Ethereum fees are dollars); else ETH
@@ -582,9 +571,9 @@ export function SafeApp({ link }: { link?: string } = {}) {
               </button>
             )}
           </div>
-          {signerGroups.length > 0 && (
+          {groups.length > 0 && (
             <div className="signer-groups">
-              {signerGroups.map(g => (
+              {groups.map(g => (
                 <span key={g[0].chainId} className="signer-group" aria-label={`${g.map(s => chainById(s.chainId)?.name).join(", ") /* plain text: a label */}: ${g[0].threshold} of ${g[0].owners.length}`}>
                   <span className="net-stack">
                     {g.map(s => (

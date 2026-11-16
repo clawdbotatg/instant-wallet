@@ -37,7 +37,7 @@ const RULES = [
   // something new shows at once (Austin 11-12: Home re-read its waiting transactions every 5 minutes, for a limit that didn't apply)
   { re: /setInterval\(.*,\s*(\d+\s*\*\s*60_?000|[4-9]\d_?000|\d{3,}_?000)\s*\)/, say: "a list re-read slower than every 30 s: something new shows within seconds" },
   // found by the 11-12 look through the whole app: each was said or drawn two ways
-  { re: /<ChainChip\b|<ChainIcon\b[^>]*\/>\s*$/, say: "a network as a chip, or its logo alone: use <Net> (logo, then name)", skip: ["components/safe/Apps.tsx", "components/safe/Pick.tsx", "components/safe/SafeApp.tsx"] }, // an app's row of logos; the picker's own icon slot; Home's stacks of networks by their signers
+  { re: /<ChainChip\b|<ChainIcon\b[^>]*\/>\s*$/, say: "a network as a chip, or its logo alone: use <Net> (logo, then name)", skip: ["components/safe/Apps.tsx", "components/safe/Pick.tsx", "components/safe/SafeApp.tsx", "components/safe/Keys.tsx"] }, // an app's row of logos; the picker's own icon slot; stacks of networks by their signers (Home, the signers editor's copy buttons)
   { re: /Network fee: \{|[Dd]aily budget|Instant wallet\b|hot wallet…|title="(Open in|See it on) the explorer"|"Swapped"|✓ signed/, say: "said another way elsewhere: Fee · daily limit · Instant Wallet · browser wallet · <Eject>'s own title · Executed · ✓ Signed" },
   { re: /"\$" \+|`\$\$\{\(?[\w.]+\)?\.toFixed\(|const compactUsd/, say: "dollars written by hand: usd() or compactUsd() from lib/format" },
   { re: /"(Working|Getting ready|Cancelling|Signing)…"|`(Check )?\$\{bio\(\)\}…`/, say: "a button's busy words written by hand: stageLabel(\"quote\" | \"signing\" | \"sending\")", skip: [SHARED] },

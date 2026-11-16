@@ -376,6 +376,24 @@ function avail(x: readonly [bigint, bigint, bigint, bigint, bigint]): bigint {
   return b > maxRefill ? (balance > maxRefill ? balance : maxRefill) : b;
 }
 
+/** A network's signers as one string: two networks with the same one are in the same group. */
+export const signersKey = (s: { owners: Address[]; threshold: number }) => `${s.threshold}:${s.owners.map(o => o.toLowerCase()).sort().join()}`;
+
+/**
+ * Networks grouped by their signers (the same "2 of 4" and the same people), most money first: Home's row under the
+ * balance and Settings' copy buttons (Austin 11-15/16). Only networks with coins on them; `safeOnly` (a watched
+ * address): only where it is a Safe on chain, so a plain or 7702 account has none.
+ */
+export function signerGroups(states: ChainState[], assets: { chainId: number; usd?: number | null }[], safeOnly = false): ChainState[][] {
+  const usdOn = (id: number) => assets.filter(a => a.chainId === id).reduce((t, a) => t + (a.usd ?? 0), 0);
+  const sum = (l: ChainState[]) => l.reduce((t, s) => t + usdOn(s.chainId), 0);
+  const g: Record<string, ChainState[]> = {};
+  for (const s of states) if (assets.some(a => a.chainId === s.chainId) && (!safeOnly || s.deployed)) (g[signersKey(s)] ??= []).push(s);
+  return Object.values(g)
+    .map(l => l.sort((a, b) => usdOn(b.chainId) - usdOn(a.chainId)))
+    .sort((a, b) => sum(b) - sum(a));
+}
+
 /** Every chain's state; `skip` leaves chains out (the caller keeps what it knew of them). */
 export async function readAll(a: SafeAccount, skip?: Set<number>): Promise<ChainState[]> {
   return Promise.all(CHAINS.filter(c => !skip?.has(c.id)).map(c => readChain(c.id, a).catch(() => null))).then(r => r.filter((x): x is ChainState => !!x));

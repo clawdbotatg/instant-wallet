@@ -21,7 +21,7 @@ import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
 import { WhatItDoes } from "./WhatItDoes";
 import { callsOf } from "@/lib/safe/describe";
-import { Net, AddressInput, BioIcon, BioSigner, Blockie, CopyAddress, CopyLink, PencilIcon, RemoveX, TimedBar, Who, Words, copy, stageLabel } from "../bits";
+import { Net, AddressInput, BioIcon, BioSigner, Blockie, CopyAddress, CopyLink, PencilIcon, RemoveX, Sheet, TimedBar, Who, Words, copy, stageLabel } from "../bits";
 import { Alerts } from "./Alerts";
 import { ChainSelect } from "./Pick";
 import { ChainLimit } from "./Limits";
@@ -84,6 +84,7 @@ export function Keys({
   const [guardKey, setGuardKey] = useState(0); // empties the guardian field after an add
   const [keysEdit, setKeysEdit] = useState(false); // signers: the list until Edit
   const [wedgieOpen, setWedgieOpen] = useState(false);
+  const [wedgieAdd, setWedgieAdd] = useState(false); // the Add a wedgie sheet
   const [wedgieNeed, setWedgieNeed] = useState<number | null>(null); // signatures needed once the wedgie is on (null: same as now, e.g. 1 of 2)
   const [wedgieLook, setWedgieLook] = useState<{ tone: string; looking: boolean } | null>(null); // what the pill says
   const st = states.find(s => s.chainId === chainId);
@@ -584,6 +585,13 @@ export function Keys({
                 key={`${chainId}-${inKey}`}
                 onChange={setSignerIn}
                 placeholder="Add: 0x… or name.eth"
+                inside={
+                  !st.hasWedgie && (
+                    <button type="button" className="pill" onClick={() => setWedgieAdd(true)} aria-label="Add a wedgie">
+                      <WedgieIcon size={22} />
+                    </button>
+                  )
+                }
                 after={
                   <button className="btn btn-sm" onClick={() => signerIn && stage({ a: signerIn })} disabled={idle || !signerIn}>
                     Add
@@ -651,12 +659,15 @@ export function Keys({
                   </button>
                 </div>
               )}
-              {!st.hasWedgie && (
-                <>
-                  <button className="btn wide" onClick={() => setWedgieOpen(v => !v)} aria-expanded={wedgieOpen}>
-                    <WedgieIcon size={34} /> Add a wedgie
-                  </button>
-                  {wedgieOpen && (
+              {wedgieAdd && !st.hasWedgie && (
+                <Sheet onClose={() => !busy && setWedgieAdd(false)}>
+                  <div className="stack">
+                    <div className="keyrow" style={{ padding: 0 }}>
+                      <h2 className="row" style={{ gap: 8 }}>
+                        <WedgieIcon size={34} /> Add a wedgie
+                      </h2>
+                      <RemoveX onClick={() => setWedgieAdd(false)} disabled={!!busy} label="Close" />
+                    </div>
                     <WedgiePanel
                       account={account}
                       states={states}
@@ -694,8 +705,8 @@ export function Keys({
                         </>,
                       )}
                     />
-                  )}
-                </>
+                  </div>
+                </Sheet>
               )}
               {action(
                 "save",

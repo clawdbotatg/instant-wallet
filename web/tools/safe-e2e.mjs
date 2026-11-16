@@ -275,7 +275,7 @@ const until = async (fn, ms) => {
 async function addWedgie(p, both, who = acct.address) {
   const n0 = owners(who).length;
   await p.getByText("Edit signers").tap();
-  await p.getByText("Add a wedgie").tap();
+  await p.getByRole("button", { name: "Add a wedgie" }).tap();
   const add = p.getByText("Add it as a signer");
   const find = p.getByText("Find my wedgie");
   await add.or(find).first().waitFor({ timeout: 20000 });

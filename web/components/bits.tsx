@@ -1055,6 +1055,7 @@ export function AddressInput({
   onScan,
   onEnter,
   after,
+  inside,
 }: {
   initial?: string;
   value?: string;
@@ -1066,6 +1067,7 @@ export function AddressInput({
   onScan?: () => void;
   onEnter?: () => void;
   after?: React.ReactNode;
+  inside?: React.ReactNode; // another button in the box, before the scan button
 }) {
   const [own, setOwn] = useState(initial ?? "");
   const text = value ?? own;
@@ -1110,6 +1112,7 @@ export function AddressInput({
         <div className="input grow">
           {addr && !name && <Blockie address={addr} size={30} />}
           <input value={text} onChange={e => setText(addressIn(e.target.value))} onKeyDown={e => e.key === "Enter" && addr && onEnter?.()} placeholder={placeholder} autoCapitalize="none" autoCorrect="off" spellCheck={false} />
+          {inside}
           {scan &&
             (onScan ? (
               <button type="button" className="pill" onClick={onScan} aria-label="Scan">

@@ -1,12 +1,11 @@
 "use client";
 
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { isAddress } from "viem";
 import { CHAINS, chainById } from "@/lib/chains";
 import { amount as fmtAmount, usd, addressIn } from "@/lib/format";
 import type { Signer, SignerOption } from "@/lib/safe/send";
 import type { Asset } from "@/lib/types";
-import { ChainIcon, Proven, TokenIcon, Words } from "../bits";
+import { AddressInput, ChainIcon, Proven, TokenIcon, Words } from "../bits";
 import { bio } from "@/lib/passkey";
 
 /** A token you hold, as a select-box row: icon, symbol, and how much (in dollars too). */
@@ -129,30 +128,24 @@ export function Select({
   return (
     <div ref={box} className="stack" style={{ gap: 6, position: "relative" }}>
       {pasting ? (
-        <div className="input" style={{ minHeight: 50 }}>
-          <input
-            key="paste"
-            autoFocus
-            value={pasted}
-            placeholder={custom?.placeholder}
-            autoCapitalize="none"
-            autoCorrect="off"
-            spellCheck={false}
-            style={{ fontSize: 15, padding: "10px 0" }}
-            onChange={async e => {
-              const v = addressIn(e.target.value).trim();
-              setPasted(v);
-              setErr(null);
-              if (!isAddress(v) || !custom) return;
-              const bad = await custom.onCustom(v);
-              if (bad) setErr(bad);
-              else close();
-            }}
-          />
-          <button className="pill" aria-label="Close" onClick={close}>
-            ▴
-          </button>
-        </div>
+        <AddressInput
+          autoFocus
+          initial={pasted}
+          placeholder={custom?.placeholder}
+          onChange={async a => {
+            setErr(null);
+            if (!a || !custom) return;
+            setPasted(a);
+            const bad = await custom.onCustom(a);
+            if (bad) setErr(bad);
+            else close();
+          }}
+          inside={
+            <button className="pill" aria-label="Close" onClick={close}>
+              ▴
+            </button>
+          }
+        />
       ) : filter ? (
         <div className="input" style={{ minHeight: 50 }}>
           <input key="filter" autoFocus value={q} onChange={e => (setQ(addressIn(e.target.value)), search?.onQuery(addressIn(e.target.value).trim()))} onKeyDown={keys} placeholder={search?.placeholder ?? "Type to filter"} autoCapitalize="none" autoCorrect="off" spellCheck={false} style={{ fontSize: 16, padding: "10px 0" }} />

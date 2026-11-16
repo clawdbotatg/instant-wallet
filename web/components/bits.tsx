@@ -1034,6 +1034,33 @@ export function useAddressScan(onAddress: (to: string) => void) {
   return { pill, camera };
 }
 
+/** The address cut in the middle (0x1234…cdef) to fit its input's width, or null when it fits whole or isn't an address. */
+function useMiddleCut(field: React.RefObject<HTMLInputElement | null>, full: string | null) {
+  const [cut, setCut] = useState<string | null>(null);
+  useEffect(() => {
+    const el = field.current;
+    if (!el || !full) return setCut(null);
+    const ctx = document.createElement("canvas").getContext("2d");
+    if (!ctx) return setCut(null);
+    const fit = () => {
+      const cs = getComputedStyle(el);
+      ctx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+      const room = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 2;
+      if (room <= 0 || ctx.measureText(full).width <= room) return setCut(null);
+      const hex = full.slice(2);
+      let k = 1; // hex characters kept on each side
+      while (k < 19 && ctx.measureText(`0x${hex.slice(0, k + 1)}…${hex.slice(-(k + 1))}`).width <= room) k++;
+      setCut(`0x${hex.slice(0, k)}…${hex.slice(-k)}`);
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    document.fonts?.ready.then(fit);
+    return () => ro.disconnect();
+  }, [field, full]);
+  return cut;
+}
+
 /**
  * THE address box. Every place an address is typed uses this one, so they all work the same (Austin 11-12).
  * Takes 0x…, a name (nick.eth), or a word alone (lil → lil.inst.eth). The box always shows what was typed: the text
@@ -1056,7 +1083,9 @@ export function AddressInput({
   onEnter,
   after,
   inside,
+  autoFocus,
 }: {
+  autoFocus?: boolean;
   initial?: string;
   value?: string;
   onText?: (t: string) => void;
@@ -1106,13 +1135,52 @@ export function AddressInput({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [text]);
   const cam = useAddressScan(setText);
+  // A full 0x address too long for the box shows its start and end with … between (Austin 11-16: a paste showed only
+  // the end). Only the view is short: the input still holds the whole address, so a copy copies all of it. Shown while
+  // the box isn't being edited: a tap, a key or a selection shows the whole text again; a paste or a scan shortens it.
+  const [focused, setFocused] = useState(false);
+  const [tidy, setTidy] = useState(true);
+  const full = isAddress(text.trim()) ? text.trim() : null;
+  const field = useRef<HTMLInputElement>(null);
+  const shortView = useMiddleCut(field, full);
+  const showShort = !!shortView && (!focused || tidy);
+  const untidy = () => setTidy(false);
   return (
     // minWidth 0: in a grid (.stack) the box must shrink to the card, or the Add button after it runs off the edge
     <div style={{ display: "grid", gap: 6, minWidth: 0, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <div className="row" style={{ gap: 6 }}>
         <div className="input grow">
           {addr && !name && <Blockie address={addr} size={30} />}
-          <input value={text} onChange={e => setText(addressIn(e.target.value))} onKeyDown={e => e.key === "Enter" && addr && onEnter?.()} placeholder={placeholder} autoCapitalize="none" autoCorrect="off" spellCheck={false} />
+          <span style={{ position: "relative", flex: 1, minWidth: 0, display: "flex" }}>
+            <input
+              ref={field}
+              autoFocus={autoFocus}
+              value={text}
+              onChange={e => {
+                const v = addressIn(e.target.value);
+                setTidy(isAddress(v.trim()) && v.length - text.length > 20); // pasted (or filled) whole: show it short
+                setText(v);
+              }}
+              onKeyDown={e => (e.key === "Enter" ? addr && onEnter?.() : e.key !== "Tab" && e.key !== "Shift" && untidy())}
+              onPointerDown={untidy}
+              onSelect={e => {
+                const t = e.currentTarget;
+                if (t.selectionStart !== t.selectionEnd) untidy();
+              }}
+              onFocus={() => setFocused(true)}
+              onBlur={() => (setFocused(false), setTidy(true))}
+              placeholder={placeholder}
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              style={showShort ? { color: "transparent", caretColor: "transparent" } : undefined}
+            />
+            {showShort && (
+              <span aria-hidden style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", pointerEvents: "none", whiteSpace: "nowrap", overflow: "hidden", fontSize: 18, fontWeight: 600 }}>
+                {shortView}
+              </span>
+            )}
+          </span>
           {inside}
           {scan &&
             (onScan ? (

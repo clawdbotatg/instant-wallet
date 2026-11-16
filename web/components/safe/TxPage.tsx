@@ -311,7 +311,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
     return (
       <div className="stack">
         <h2>Transaction not found</h2>
-        <p className="fine">Ask for the link again. It may have been executed or replaced already.</p>
+        <p className="fine">It may have been executed or replaced. Ask for the link again.</p>
         {!inWallet && (
           <a className="btn btn-green wide" href="/">
             Open Instant Wallet
@@ -459,7 +459,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
       {sent ? (
         <ExecutedLine href={explorerTx(chainId, sent)} />
       ) : done ? (
-        <p className="fine">This wallet already used #{w.tx.nonce.toString()}: this one was executed or replaced.</p>
+        <p className="fine">#{w.tx.nonce.toString()} was already executed or replaced.</p>
       ) : enough && behind ? (
         <p className="fine">Signed. #{chain.nonce.toString()}{w.tx.nonce - chain.nonce > 1n ? ` (and the others before it)` : ""} has to execute or be rejected first.</p>
       ) : null}

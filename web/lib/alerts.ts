@@ -263,7 +263,7 @@ export function recoveryText(r: Request, soon: boolean) {
   const when = new Date(r.executeAfter * 1000).toUTCString().replace(" GMT", " UTC");
   const subject = soon ? "Recovery lands in less than a day" : "Someone started a recovery on your wallet";
   const text = [
-    `A recovery on your Instant Wallet ${short(r.wallet)} (${chainById(r.chainId)?.name ?? r.chainId}) will replace your keys with ${r.newOwners.map(short).join(", ")} on ${when}.`,
+    `A recovery on your Instant Wallet ${short(r.wallet)} (${chainById(r.chainId)?.name ?? r.chainId}) will replace your signers with ${r.newOwners.map(short).join(", ")} on ${when}.`,
     "",
     "If this is you (a lost phone or wedgie), do nothing.",
     `If it isn't, open ${SITE} now and tap Cancel it.`,

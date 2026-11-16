@@ -16,7 +16,7 @@ export const maxDuration = 120;
  */
 export async function GET(req: NextRequest) {
   const f = await byCode(req.nextUrl.searchParams.get("code") ?? "");
-  if (!f) return NextResponse.json({ error: "That code isn't one of ours. Check it and try again." }, { status: 404 });
+  if (!f) return NextResponse.json({ error: "That code isn't one of ours. Check it." }, { status: 404 });
   const { drop: d, code } = f;
   const claimed = await claimedCount(d.id);
   let why = closed(d, claimed);

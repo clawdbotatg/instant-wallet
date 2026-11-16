@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
   const wallet = getAddress(w);
   const old = await getContacts(wallet);
   if (old.telegram && old.telegram !== chat)
-    await notify(wallet, { telegram: old.telegram }, "Your recovery alerts changed", `Telegram alerts for your Instant Wallet ${wallet} moved to another chat. If this wasn't you, open the app and check your keys.`);
+    await notify(wallet, { telegram: old.telegram }, "Your recovery alerts changed", `Telegram alerts for your Instant Wallet ${wallet} moved to another chat. If this wasn't you, check your signers in the app.`);
   await changeContacts(wallet, c => void ((c.telegram = chat), (c.at = Date.now())));
   await sendTelegram(chat, `Recovery alerts are on. If anyone starts a recovery on your Instant Wallet ${wallet}, you'll hear about it here.`).catch(() => {});
   return NextResponse.json({ ok: true });

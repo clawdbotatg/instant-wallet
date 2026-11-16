@@ -229,7 +229,7 @@ export function SafeWelcome({ onReady, initialConfirm }: { onReady: (a: SafeAcco
         <div className="welcome">
           <div className="stack">
             <h1>Recover a wallet</h1>
-            <p>Lost your phone? This makes a new key on this device. Your recovery address (the DAO, or your own recovery wallet) then swaps it in; it takes 7 days (with a wedgie: 14 from your own recovery address, 60 from the DAO), and you can cancel it from any key you still have.</p>
+            <p>Lost your phone? This makes a new key here. Your recovery address (the DAO or your own) swaps it in after 7 days (with a wedgie: 14 from your own, 60 from the DAO). Any key you still have can cancel it.</p>
           </div>
           <AddressInput onChange={setWallet} placeholder="Your wallet: 0x… or name.eth" />
           <button className="btn btn-green wide" onClick={recover} disabled={!!busy}>

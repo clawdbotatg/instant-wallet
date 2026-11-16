@@ -198,7 +198,7 @@ function driveRequest(msg: Record<string, unknown>, ms: number): Promise<any> {
 
 type Pending = { res: (v: any) => void; rej: (e: Error) => void; t: number };
 
-const NOT_SAFE = "Your wedgie isn't in Safe Signer. Open Safe Signer on it, then try again.";
+const NOT_SAFE = "Your wedgie isn't in Safe Signer. Open Safe Signer on it.";
 /** Any answer but a signature, as an error that says what the wedgie said. */
 function notSigned(g: any): Error {
   if (g?.type === "refused") return new Error("Rejected on the wedgie.");
@@ -243,7 +243,7 @@ export type Peek =
 
 /** The wedgie's port is held by another tab or app (wedgie.dev, a second Instant Wallet, Thonny). ErrorLine shows it
  * with a sad wedgie. */
-export const WEDGIE_TAKEN = "Your wedgie is busy in another tab. Close the other tab, then try again.";
+export const WEDGIE_TAKEN = "Your wedgie is busy in another tab. Close that tab.";
 const takenError = (e: any) => /failed to open|busy|access denied|already open/i.test(e?.message || "");
 
 export class Wedgie {
@@ -305,7 +305,7 @@ export class Wedgie {
         const s = await d.status().catch(() => null);
         if (s?.state === "here") return;
         const waiting = s?.panel || s?.state === "readonly" || (s?.state === "away" && s.connecting);
-        if (!waiting || Date.now() > end) throw new Error("No wedgie connected. Plug it into this iPhone, then try again.");
+        if (!waiting || Date.now() > end) throw new Error("No wedgie connected. Plug it into this iPhone.");
       }
     })();
     this.driveIn.catch(() => (this.driveIn = undefined)); // closed the panel: the next request asks again
@@ -550,7 +550,7 @@ export class Wedgie {
       holder = this;
       return;
     }
-    throw new Error("Your wedgie restarted and didn't come back. Unplug it, plug it in again, then try again.");
+    throw new Error("The wedgie restarted and didn't come back. Unplug it and plug it in again.");
   }
 
   /** A short JSON line, then `raw` bytes right after it (a checked install's put, firmware 0.3.16+). */
@@ -588,7 +588,7 @@ export class Wedgie {
   async key(): Promise<{ x: Hex; y: Hex }> {
     activity({ what: "Talking to your wedgie", p: 0.1 });
     const h = await this.request({ type: "hello" }, 5000).finally(() => activity(null));
-    if (!h?.safe) throw new Error("The wedgie has no Safe key yet: press the green button on it to make one, then try again.");
+    if (!h?.safe) throw new Error("The wedgie has no Safe key yet. Press the green button on it to make one.");
     return { x: h.safe.x, y: h.safe.y };
   }
 
@@ -625,7 +625,7 @@ export class Wedgie {
       await this.safeHello();
       activity({ what: "Press the green button on your wedgie", p: 0.92, press: true });
       const g = await this.request(msg, 300_000);
-      if (g?.type === "error" && /unknown type/.test(g.error || "")) throw new Error("Your wedgie's Safe signer is too old to sign messages. Update it from the wedgie button (on a computer), then try again.");
+      if (g?.type === "error" && /unknown type/.test(g.error || "")) throw new Error("The wedgie's Safe signer is too old for messages. Update it from the wedgie button on a computer.");
       if (g?.type !== "safe_sig") throw notSigned(g);
       if (String(g.safeMessageHash).toLowerCase() !== expectHash.toLowerCase()) throw new Error("The wedgie signed a different message. Not sending.");
       const data = encodeWebAuthn({ authenticatorData: g.authenticatorData, clientDataFields: g.clientDataFields, r: BigInt(g.r), s: BigInt(g.s) });
@@ -718,7 +718,7 @@ export async function installSafeApp(step: (what: string, p?: number) => void): 
   let w = await Wedgie.connect();
   try {
     const h = await w.request({ type: "hello" }, 2500).catch(() => null);
-    if (!h) throw new Error("The wedgie didn't answer. Unplug it, plug it back in, then try again.");
+    if (!h) throw new Error("The wedgie didn't answer. Unplug it and plug it back in.");
     if (!h.jobs || !h.version || older(h.version, "0.3.12")) throw new OldFirmware("Its firmware is too old for this. Update it at wedgie.dev first.");
     const [m, rel] = await Promise.all([
       fetch(FW + "manifest.json", { cache: "no-cache" }).then(r => r.json() as Promise<Manifest>),
@@ -760,7 +760,7 @@ export async function installSafeApp(step: (what: string, p?: number) => void): 
       await w.close();
       w = await Wedgie.reopen(sent);
       const h2 = await w.request({ type: "hello" }, 1500).catch(() => null);
-      if (!h2?.job) throw new Error("The wedgie restarted without the install (Y on its screen?).");
+      if (!h2?.job) throw new Error("The wedgie restarted without the install. Try again and press the green button.");
       bin = h2.bin;
     } else if (go.type === "refused") throw new Error("Rejected on the wedgie.");
     else if (go.type === "busy") throw new Error("The wedgie is busy signing. Try again after.");

@@ -335,7 +335,7 @@ function Typed({ typed, chainId, children }: { typed: TypedCard; chainId: number
       ))}
       {typed.otherChain !== undefined && (
         <p className="err">
-          This is for another network: <Net chainId={typed.otherChain} />.
+          For another network: <Net chainId={typed.otherChain} />.
         </p>
       )}
       <div className="card">

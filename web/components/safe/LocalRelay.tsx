@@ -52,8 +52,8 @@ export function LocalRelay() {
     <div id="relay" className="card stack" style={{ gap: 10 }}>
       <b>Your relay</b>
       <p className="fine">
-        It pays the gas for your sends on this computer. Send it a little of each network&apos;s coin (Base: $1, Ethereum:
-        about $5). Each send&apos;s fee comes back to it.
+        It pays gas for sends from this computer. Send it each network&apos;s coin (Base: $1, Ethereum: about $5). Each
+        send&apos;s fee pays it back.
       </p>
       {info && !info.address && (
         <button className="btn btn-green wide" onClick={make} disabled={busy}>

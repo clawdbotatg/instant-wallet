@@ -212,7 +212,7 @@ export function Revoke({ account, assets, states, bare, onDone }: { account: Saf
             })}
             {ran && <WhatItDoes chainId={chainId} safe={account.address} calls={callsOf(ran)} tx={ran} />}
             {fee && r.stage === "ready" && <span className="fine">Fee {fee}</span>}
-            {r.prepared?.opts.self && r.stage === "ready" && <span className="fine">No fee. Your browser wallet executes it and pays the gas.</span>}
+            {r.prepared?.opts.self && r.stage === "ready" && <span className="fine">No fee. Your browser wallet pays the gas.</span>}
             {r.error && <ErrorLine text={r.error} />}
             {r.stage === "done" && <ExecutedLine href={url} />}
             {r.stage === "ready" || r.stage === "busy" ? (

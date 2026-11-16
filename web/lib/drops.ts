@@ -200,7 +200,7 @@ export function closed(d: Drop, claimed: number): string | null {
   if (d.ended) return "This drop has ended.";
   if (d.paused) return "This drop is paused. Try again in a bit.";
   if (d.closesAt && Date.now() > d.closesAt) return "This drop has closed.";
-  if (d.kind === "crowd" && claimed >= d.cap) return "All gone: everyone already claimed this one.";
+  if (d.kind === "crowd" && claimed >= d.cap) return "All gone: everyone claimed it.";
   return null;
 }
 
@@ -286,7 +286,7 @@ async function pay(code: string, d: Drop, wallet: Address, die?: string): Promis
     if (d.kind === "crowd" && n > d.cap) {
       await kv(["DEL", hold]);
       await kv(["DECR", `${P}n:${d.id}`]);
-      throw new DropRefused("All gone: everyone already claimed this one.", 410);
+      throw new DropRefused("All gone: everyone claimed it.", 410);
     }
   }
   const done = async (rec: ClaimRecord) => {
@@ -404,7 +404,7 @@ export async function sendUsdc(chainId: number, key: Hex, to: Address, value: bi
   const [q, bal] = await Promise.all([quote(chainId, "claim"), pc.readContract({ address: usdc, abi: abi.erc20, functionName: "balanceOf", args: [pot.address] }) as Promise<bigint>]);
   const fee = BigInt(q.feeUsdc);
   const v = value === "all" ? bal - fee : value;
-  if (v <= 0n || bal < v + fee) throw new DropRefused("The pot is empty. Ask whoever made this drop to top it up.", 410);
+  if (v <= 0n || bal < v + fee) throw new DropRefused("The pot is empty. Ask whoever made the drop to top it up.", 410);
   let dom = domains.get(chainId);
   if (!dom) {
     const [name, version] = await Promise.all([pc.readContract({ address: usdc, abi: usdc3009, functionName: "name" }), pc.readContract({ address: usdc, abi: usdc3009, functionName: "version" })]);
@@ -457,7 +457,7 @@ export async function sendUsdc(chainId: number, key: Hex, to: Address, value: bi
   await landed(pc, hash).catch(async e => {
     // many claims at once each saw enough in the pot; the ones that ran it dry say so
     const now = (await pc.readContract({ address: usdc, abi: abi.erc20, functionName: "balanceOf", args: [pot.address] }).catch(() => 0n)) as bigint;
-    throw now < v + fee ? Object.assign(new DropRefused("The pot is empty. Ask whoever made this drop to top it up.", 410), { reverted: true }) : e;
+    throw now < v + fee ? Object.assign(new DropRefused("The pot is empty. Ask whoever made the drop to top it up.", 410), { reverted: true }) : e;
   });
   return hash;
 }
@@ -482,7 +482,7 @@ export async function sendEth(chainId: number, key: Hex, to: Address, value: big
     const gas = ((await pc.estimateGas({ account: pot.address, to, value: 1n }).catch(() => 60_000n)) * 12n) / 10n;
     const cost = gas * f.maxFeePerGas + (chainId === 1 ? 0n : 1_000_000_000_000n); // + an L2's L1 data fee
     const v = value === "all" ? bal - cost : value;
-    if (v <= 0n || bal < v + cost) throw new DropRefused("The pot is empty. Ask whoever made this drop to top it up.", 410);
+    if (v <= 0n || bal < v + cost) throw new DropRefused("The pot is empty. Ask whoever made the drop to top it up.", 410);
     // a load-balanced RPC can lag our own last send: never reuse a nonce (remembered 10 s only: see relaySend)
     const nonce = opts?.reuse !== undefined && mined <= opts.reuse ? opts.reuse : pickNonce(pending, last === null ? null : Number(last));
     const raw = await pot.signTransaction({ type: "eip1559", chainId, to, value: v, gas, nonce, maxFeePerGas: f.maxFeePerGas, maxPriorityFeePerGas: f.maxPriorityFeePerGas });

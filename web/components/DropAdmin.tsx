@@ -372,7 +372,7 @@ function DropCard({ id, toast, onClose }: { id: string; toast: (m: string) => vo
             End
           </button>
         )}
-        <button className="pill" onClick={() => confirm(`Send everything left in the pot to your wallet?${st === "live" ? " The drop is still live: claims after this will find it empty." : ""}`) && act("takeback", "takeback")} disabled={!!busy}>
+        <button className="pill" onClick={() => confirm(`Send everything left in the pot to your wallet?${st === "live" ? " The drop is still live: later claims will find it empty." : ""}`) && act("takeback", "takeback")} disabled={!!busy}>
           {busy === "takeback" ? "Executing…" : "Take back"}
         </button>
       </div>

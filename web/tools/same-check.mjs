@@ -214,5 +214,30 @@ for (const p of files) {
   const h = c => css.match(new RegExp(`^\\.${c} \\{[^}]*height: (\\d+)px`, "m"))?.[1];
   if (h("pill") !== h("btn-sm")) (bad++, console.log(`app/globals.css  .btn-sm is ${h("btn-sm")} tall, .pill is ${h("pill")}: small buttons are one height`));
 }
+// fewest words that stay clear (Austin 11-16): an error is what's wrong plus the one fix, never over WORDS words,
+// never "then try/tap … again" (the button is right there)
+{
+  const WORDS = 18;
+  const all = [...files];
+  (function lib(d) {
+    for (const f of readdirSync(d)) {
+      const p = join(d, f);
+      if (statSync(p).isDirectory()) lib(p);
+      else if (p.endsWith(".ts")) all.push(p);
+    }
+  })(join(root, "lib"));
+  for (const p of all)
+    readFileSync(p, "utf8")
+      .split("\n")
+      .forEach((line, i) => {
+        if (/^\s*(\/\/|\*|\/\*)/.test(line)) return;
+        for (const m of line.matchAll(/(?:new Error|setErr(?:or)?|setMsg)\(\s*(["`])(.*?)\1/g)) {
+          const n = m[2].replace(/\$\{[^}]*\}/g, "X").split(/\s+/).filter(Boolean).length;
+          if (n > WORDS) (bad++, console.log(`${relative(root, p)}:${i + 1}  ${n} words: say it in fewer (${WORDS} at most), still clear\n    ${m[2].slice(0, 140)}`));
+        }
+        if (/["`>][^"`<]*\bthen (try|tap|check)\b[^"`<]*again/i.test(line.replace(/\s\/\/ .*$/, "")))
+          (bad++, console.log(`${relative(root, p)}:${i + 1}  "then … again": cut it, the button is right there\n    ${line.trim().slice(0, 140)}`));
+      });
+}
 console.log(bad ? `\n${bad} not the same as everywhere else` : "same everywhere ✓");
 process.exit(bad ? 1 : 0);

@@ -44,7 +44,7 @@ export function AdminLogin({ title, blurb, onDone }: { title: string; blurb: str
 
   function wallet() {
     const eth = (window as any).ethereum;
-    if (!eth) return setError("No wallet in this browser. Open this page in your wallet's browser, or on a computer with MetaMask or Rabby.");
+    if (!eth) return setError("No browser wallet here. Open this page in your wallet app, or on a computer with MetaMask.");
     return run(async () => {
       const [w] = await eth.request({ method: "eth_requestAccounts" });
       const { message } = await post("challenge");

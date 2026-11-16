@@ -11,7 +11,7 @@ import { type Sig, type WebAuthnSig, encodeWebAuthn } from "./core";
 export function toWebAuthnSig(authenticatorData: Uint8Array, clientDataJSON: Uint8Array, r: Hex, s: Hex, challenge: Hex): WebAuthnSig {
   const json = new TextDecoder().decode(clientDataJSON);
   const prefix = `{"type":"webauthn.get","challenge":"${bytesToBase64url(hexToBytes(challenge))}",`;
-  if (!json.startsWith(prefix) || !json.endsWith("}")) throw new Error("This browser's passkey format isn't supported yet (clientDataJSON order).");
+  if (!json.startsWith(prefix) || !json.endsWith("}")) throw new Error("This browser's passkey format isn't supported yet.");
   return { authenticatorData: bytesToHex(authenticatorData), clientDataFields: json.slice(prefix.length, -1), r: BigInt(r), s: BigInt(s) };
 }
 

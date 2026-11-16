@@ -68,7 +68,7 @@ export function Join() {
           <Who address={done.wallet} size={56} />
         </div>
         <p>
-          {inv?.from ?? "The wallet's owner"} adds you next. After that, you sign from the links they send you, with this {bio()}.
+          {inv?.from ?? "The wallet's owner"} adds you next. Then you sign their links with this {bio()}.
         </p>
         <p className="fine">
           You sign as <Who address={done.signer} size={14} plain inline />

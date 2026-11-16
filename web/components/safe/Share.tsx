@@ -110,7 +110,7 @@ export function Share({ account, states, assets, chainId: startChain, onDone }: 
     const needCoin = (coin ? c.amount : 0n) + gas + (feeToken === "eth" ? fee2 : 0n);
     const needUsdc = (isUsdc(a) ? c.amount : 0n) + (feeToken === "usdc" ? fee2 : 0n);
     if (!coin && !isUsdc(a) && BigInt(a.balance) < c.amount) throw new Error(`Not enough ${a.symbol}.`);
-    if (coinHeld < needCoin) throw new Error(`Not enough ${net?.native.symbol ?? "ETH"} on ${net?.name}${gas ? " (the card needs a little for gas)" : ""}.`);
+    if (coinHeld < needCoin) throw new Error(`Not enough ${net?.native.symbol ?? "ETH"} on ${net?.name}${gas ? " (the card needs some for gas)" : ""}.`);
     if (usdcHeld < needUsdc) throw new Error(`Not enough USDC on ${net?.name} for this plus the fee.`);
     return { calls, p, q, feeToken };
   }

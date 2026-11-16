@@ -206,7 +206,7 @@ export function SafeSend({
       if (!m) {
         setPick(null);
         setAmountIn("");
-        return setError("That request is for a coin or network you don't hold here.");
+        return setError("You don't have that coin on that network.");
       }
       setPick(key(m));
     }
@@ -384,7 +384,7 @@ export function SafeSend({
                 }}
               />
             ) : (
-              <p className="fine">Nothing to send yet. Receive something first.</p>
+              <p className="fine">Nothing to send yet.</p>
             )}
           </div>
 

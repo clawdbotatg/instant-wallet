@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
   // what this change does to the saved contacts: run on a fresh read, under the wallet's lock (changeContacts)
   let edit: ((c: Contacts) => void) | undefined;
   const removed = (what: string) =>
-    notify(wallet, old, "Your recovery alerts changed", `${what} on your Instant Wallet ${wallet}. If this wasn't you, someone has your passkey: open the app and check your keys.`);
+    notify(wallet, old, "Your recovery alerts changed", `${what} on your Instant Wallet ${wallet}. If this wasn't you, someone has your passkey: check your signers in the app.`);
   let link: string | undefined;
   switch (ch.op) {
     case "email": {

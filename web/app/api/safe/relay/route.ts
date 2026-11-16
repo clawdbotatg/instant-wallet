@@ -207,7 +207,7 @@ export async function POST(req: NextRequest) {
     // a swap or a site's call runs code the relay can't read, and can fail on chain after passing here. Once that has
     // cost a day's allowance on this chain, those are sent only for wallets that have sent and paid before
     if (swap && (await overLoss(chainId)) && !(await hasSentFine(safe)))
-      throw new RelayRefused("The relay is only sending swaps and sites' requests for wallets that have sent before today. Send something first, or try tomorrow.", 429);
+      throw new RelayRefused("The relay only sends swaps and sites' requests for wallets that sent before today. Send something first, or try tomorrow.", 429);
     const myTurn = `fly:${chainId}:${safe}`;
     await takeTurn(myTurn);
     turn = myTurn;

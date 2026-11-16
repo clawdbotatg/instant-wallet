@@ -65,7 +65,7 @@ export function ErrorLine({ text }: { text: string }) {
       <WedgieIcon size={64} sad />
       <div className="grow">
         <b>Wedgie busy</b>
-        <div className="fine">It&apos;s open in another tab. Close that tab, then try again.</div>
+        <div className="fine">It&apos;s open in another tab. Close that tab.</div>
       </div>
     </div>
   );
@@ -161,7 +161,7 @@ function baseStatus(peek: Peek | null, account: SafeAccount, states: ChainState[
             : "Plug your wedgie into this computer and tap Find my wedgie (once per browser).",
         };
   if (peek.kind === "busy") return { tone: "ok", title: "Wedgie connected", detail: "" };
-  if (peek.kind === "taken") return { tone: "bad", title: "Wedgie busy", detail: "It's open in another tab (wedgie.dev, or Instant Wallet in another window). Close that tab, then check again." };
+  if (peek.kind === "taken") return { tone: "bad", title: "Wedgie busy", detail: "It's open in another tab: wedgie.dev or another Instant Wallet window. Close that tab." };
   if (peek.kind === "silent" && wedgieDrive()) // the drive is up but no answer yet: it keeps asking (no install advice)
     return { tone: "warn", title: "Waiting for your wedgie to answer", detail: "" };
   if (peek.kind === "silent")
@@ -292,10 +292,10 @@ export function WedgiePanel({
             {wedgieDrive() && peek?.kind === "silent" && <Creep />}
             {st.update === "firmware" && hello && latest && (
               <p className="warn-note">
-                Its firmware is {hello.version}. wedgie.dev has {latest.version}. Update it there, then come back.
+                Its firmware is {hello.version}. wedgie.dev has {latest.version}.
               </p>
             )}
-            {st.update === "app" && <p className="warn-note">wedgie.dev has a newer Safe signer. Update it here (your key stays).</p>}
+            {st.update === "app" && <p className="warn-note">wedgie.dev has a newer Safe signer. Updating keeps your key.</p>}
             {!plugged && !onWallet && !account.wedgie && !st.get && (
               <p className="fine">
                 Don&apos;t have one?{" "}

@@ -53,7 +53,7 @@ export async function signForSite(
   const wallets = signers.filter(s => howSigns(a, st, s) === "wallet");
   const slots = signers.filter(s => howSigns(a, st, s) === "wedgie");
   if (slots.length) {
-    if (!raw) throw new Error("The wedgie can't show this kind of message (typed data) yet, so it won't sign it.");
+    if (!raw) throw new Error("The wedgie can't sign this kind of message yet.");
     if (!wedgieSupported()) throw new Error("With the wedgie, connect the site on your computer or in the Instant Wallet app.");
   }
   let w: Wedgie | null = null;

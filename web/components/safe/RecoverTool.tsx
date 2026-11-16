@@ -75,7 +75,7 @@ export function RecoverTool() {
 
   async function run(to: Address, data: Hex, what: string) {
     setError(null);
-    setMsg(`${what}: confirm in your wallet…`);
+    setMsg(`${what}: sign in your browser wallet…`);
     setRunning(true);
     try {
       const hash = await sendFromWallet(chainId, to, data);
@@ -104,7 +104,7 @@ export function RecoverTool() {
   return (
     <div className="app">
       <h1>Recover a wallet</h1>
-      <p className="fine">For a wallet&apos;s recovery address: the DAO, a paper seed opened in a wallet, a friend. You swap in the owner&apos;s new key; it lands after 7 days (with a wedgie: 14 from their own recovery address, 60 from the DAO), and the owner can cancel it from any key they still have.</p>
+      <p className="fine">For a wallet&apos;s recovery address: the DAO, a paper seed opened in a wallet, a friend. You swap in the owner&apos;s new key. It lands after 7 days (with a wedgie: 14 from their own recovery address, 60 from the DAO). The owner can cancel it from any key they still have.</p>
       <Band />
       <ChainSelect value={chainId} onChange={setChainId} />
       <div className="field">

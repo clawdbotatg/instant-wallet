@@ -237,7 +237,7 @@ export function SendAll({
               </span>
             )}
             {fee && <span className="fine">Fee {fee}</span>}
-            {r.prepared?.opts.self && <span className="fine">No fee. Your browser wallet executes it and pays the gas.</span>}
+            {r.prepared?.opts.self && <span className="fine">No fee. Your browser wallet pays the gas.</span>}
             {r.error && <ErrorLine text={r.error} />}
             {r.stage === "done" ? (
               <ExecutedLine href={url} />

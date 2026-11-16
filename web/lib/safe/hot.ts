@@ -33,7 +33,7 @@ export const hotAvailable = () => wallets().length > 0;
  * connected are asked first, with no popup; then each one is asked to connect. */
 async function pick(expect: Address[] = []): Promise<{ p: Provider; who: Address }> {
   const all = wallets();
-  if (!all.length) throw new Error("No browser wallet here. Open this page in a browser with a wallet extension, or in your wallet app's browser.");
+  if (!all.length) throw new Error("No browser wallet here. Use a browser with one, or your wallet app.");
   const want = expect.map(a => a.toLowerCase());
   const match = (as: unknown) => {
     const list = Array.isArray(as) ? (as as string[]) : [];
@@ -174,8 +174,8 @@ async function sendTx(p: Provider, chainId: number, tx: { from: Address; to: Add
     const dead = await p.request({ method: "eth_blockNumber" }).then(() => false, () => true);
     throw new Error(
       dead
-        ? `Your browser wallet's ${net} RPC is dead: it refuses everything, even the block number ("${String(first?.message || first).slice(0, 60)}"). The wallet can't send anything on ${net} until you change it: in the wallet, Networks, ${net}, Edit, pick another RPC URL. A site can't change it.`
-        : `Your browser wallet's ${net} RPC refused this ("${String(first?.message || first).slice(0, 80)}"). In the wallet: Networks, ${net}, Edit, and pick another RPC URL. Then tap Execute again.`,
+        ? `Your browser wallet's ${net} RPC is down ("${String(first?.message || first).slice(0, 60)}"). In the wallet: Networks, ${net}, Edit, pick another RPC URL.`
+        : `Your browser wallet's ${net} RPC refused this ("${String(first?.message || first).slice(0, 80)}"). In the wallet: Networks, ${net}, Edit, pick another RPC URL.`,
     );
   }
 }

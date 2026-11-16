@@ -76,7 +76,7 @@ export async function fillWithWallet(cards: Address[], each: bigint, onStep: (s:
   const splitter = SPLITTER[chainId];
   const usdc = CHAINS.find(c => c.id === chainId)?.usdc;
   if (!splitter || !usdc) throw new Error("Filling many at once works on Base only.");
-  if (!eth()) throw new Error("No browser wallet here. Open this page in a browser with MetaMask (or another wallet), or copy the addresses into split.buidlguidl.com.");
+  if (!eth()) throw new Error("No browser wallet here. Use a browser with MetaMask or another wallet, or copy the addresses into split.buidlguidl.com.");
   const [raw] = await eth().request({ method: "eth_requestAccounts" });
   const me = getAddress(raw);
   const want = "0x" + chainId.toString(16);

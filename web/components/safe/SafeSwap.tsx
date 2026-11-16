@@ -326,7 +326,7 @@ export function SafeSwap({
       if (!itself && st && usesWedgie(account, st, signers) && wedgieSupported()) wedgie = await Wedgie.connect(); // a computer: it signs here too
       // its own wallet sends the approval, then the swap: the price may run out while the approval lands
       const fresh = () => {
-        if (route.until < Date.now()) throw new Stale("Approved. The price ran out while it did: tap Execute again for the new one.");
+        if (route.until < Date.now()) throw new Stale("Approved, but the price expired. Tap Execute for the new one.");
       };
       const h = itself ? await itselfSend({ account, state: st, calls: swapCalls(route), check: fresh, onStage }) : await ownersSend({
         account,
@@ -399,9 +399,9 @@ export function SafeSwap({
           <Money amount={formatUnits(BigInt(route.toAmount), route.to.decimals)} symbol={route.to.symbol} usd={toUsd} get />
           {crossChain && <span className="fine">on <Net chainId={toChain} /></span>}
         </div>
-        {crossChain && !landed && !failed && <TimeBar seconds={route.seconds} label={`Usually about ${Math.max(1, Math.round(route.seconds / 60))} min. You can close this.`} />}
+        {crossChain && !landed && !failed && <TimeBar seconds={route.seconds} label={`About ${Math.max(1, Math.round(route.seconds / 60))} min. You can close this.`} />}
         {failed && <p className="fine">{arrival?.substatus === "REFUNDED" ? <>Refunded to your wallet on <Net chainId={chainId} />.</> : "Check the explorer; LI.FI usually refunds."}</p>}
-        {arrival?.substatus === "PARTIAL" && <p className="fine">It arrived as a different coin than planned (the bridge's fallback).</p>}
+        {arrival?.substatus === "PARTIAL" && <p className="fine">It arrived as a different coin (the bridge's fallback).</p>}
         <DoneBar onDone={onDone} href={url} />
       </div>
     );
@@ -417,7 +417,7 @@ export function SafeSwap({
   return (
     <div className="stack swap">
       {fund ? <h2>Add gas on <Net chainId={fund} /></h2> : onSend && <SendOrSwap on="swap" disabled={busy} onOther={() => onSend(from ?? undefined, amountIn)} />}
-      {fund && <p className="fine">Your wallet has the same address on every network. This moves a little to <Net chainId={fund} /> so it can pay for changes there.</p>}
+      {fund && <p className="fine">Moves some to <Net chainId={fund} /> to pay for changes there.</p>}
 
       <div className="field">
         <label>From</label>
@@ -432,7 +432,7 @@ export function SafeSwap({
             disabled={busy}
           />
         ) : (
-          <p className="fine">Nothing to swap yet. Receive something first.</p>
+          <p className="fine">Nothing to swap yet.</p>
         )}
         {from && (
           <>
@@ -468,7 +468,7 @@ export function SafeSwap({
         </div>
         {unknownTo && to && (
           <span className="fine">
-            Anyone can make a token called {to.symbol}. This one is{" "}
+            Anyone can make a coin called {to.symbol}. This one is{" "}
             <Eject href={explorerAddress(to.chainId, to.address) ?? ""}>
               <Who flat plain address={to.address} size={16} />
             </Eject>
@@ -554,7 +554,7 @@ export function SafeSwap({
         </div>
       )}
 
-      {needsComputer && !itself && <p className="err">Swaps on this wallet need a key that isn&apos;t here: open Instant Wallet on your computer.</p>}
+      {needsComputer && !itself && <p className="err">Swaps on this wallet need a signer on your computer. Open Instant Wallet there.</p>}
       {feeShort && <p className="err">Not enough {feeToken === "usdc" ? "USDC" : nativeSymbol(chainId)} on <Net chainId={chainId} /> for this plus the fee.</p>}
       {error && <ErrorLine text={error} />}
       {itself ? (

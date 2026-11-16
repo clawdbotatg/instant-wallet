@@ -54,7 +54,7 @@ function Planted({ k }: { k: Hex }) {
     <div className="app">
       <div className="welcome">
         <h1>Test Burner</h1>
-        <p>A fake old Burner Wallet key is saved in this browser. Send it a little xDAI on <Net chainId={100} />:</p>
+        <p>A fake old Burner Wallet key is in this browser. Send it xDAI on <Net chainId={100} />:</p>
         <div className="recess">
           <Who plain address={a} />
         </div>

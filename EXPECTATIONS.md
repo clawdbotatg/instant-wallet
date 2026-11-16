@@ -97,6 +97,10 @@ Words:
 - Say it once (11-10). The Send sheet is one line: "Send $1.00 of ETH to atg.eth?". Send, Swap and Send
   everything show the run's coins (red −, green +) and a Fee row, no sentence (`<WhatItDoes quiet>`); a danger
   or a warning brings the full card back. Never hide the coins. Never "Checked in this browser".
+- Fewest words that stay clear (11-16). Never say a thing with more words than it needs, and never cut so far it
+  turns cryptic. A message is what's wrong plus the one fix: "No ETH on Base for gas. Move some from Arbitrum." Not
+  "then tap Execute again", not what the screen already shows, not filler ("a little", "please"). same-check
+  fails an error over the word cap.
 - One word per thing (11-12): **recovery address** (never guardian), **coin** (never token), **signer** (never owner or key), **daily limit** (never budget), **network** (never chain), **browser wallet** (never hot wallet), **Instant Wallet**. "Gas" only where your own browser wallet pays it.
 - A fee reads the same everywhere: the coin, then dollars: "Fee 0.03 USDC ($0.03)" (`feeText`, `feeWords`).
 - A signer is shown the same in Settings and on a tx's page: the name you gave it, else what it is (Wedgie, Browser wallet).

@@ -117,8 +117,8 @@ export function Keys({
   // (a chain without the 60-day module yet, HyperEVM: pairing leaves it as it is, the upgrade shows once it's there)
   const toLayout = async (s: ChainState): Promise<Call[]> => {
     if (s.modules.includes(RECOVERY_60D) || !s.has60) return [];
-    if (s.recovery) throw new Error("A recovery is running on this wallet. Cancel it or let it finish first.");
-    if (!s.stored) throw new Error("Couldn't read the recovery address. Try again in a moment.");
+    if (s.recovery) throw new Error("A recovery is running. Cancel it or let it finish first.");
+    if (!s.stored) throw new Error("Couldn't read the recovery address.");
     return recoveryLayoutCalls(account.address, s.modules, s.stored);
   };
   // a change the wedgie has to sign: connect it now, while this is still the tap (a port prompt needs one)
@@ -428,8 +428,8 @@ export function Keys({
   const setGuardians = (next: Address[], label: string) =>
     prep("guardian", async () => {
       const s = await fresh();
-      if (s.recovery) throw new Error("A recovery is running on this wallet. Cancel it or let it finish first.");
-      if (!s.stored) throw new Error("Couldn't read the recovery addresses. Try again in a moment.");
+      if (s.recovery) throw new Error("A recovery is running. Cancel it or let it finish first.");
+      if (!s.stored) throw new Error("Couldn't read the recovery addresses.");
       const code = await publicClient(chainId).getCode({ address: RECOVERY_14D }).catch(() => undefined);
       if (!code || code === "0x") throw new Error(`Your own recovery addresses aren't on ${chainById(chainId)?.name} yet.`);
       const calls: Call[] = [];
@@ -477,7 +477,7 @@ export function Keys({
         // wedgie's own screen, before anything is signed (audit 11-13: a fake device's key would spend alone at 1 of 2)
         const note = (
           <>
-            Its address is <Who address={wedgieHome(key)} chain={st.chainId} size={18} inline />. It must be the one on the wedgie&apos;s own screen. If it isn&apos;t, cancel.
+            Its address is <Who address={wedgieHome(key)} chain={st.chainId} size={18} inline />. It must match the wedgie&apos;s screen. If it doesn&apos;t, cancel.
             <span className="fine"> Below, its signer on this wallet shows as <Who address={w1} chain={st.chainId} size={16} inline />.</span>
           </>
         );
@@ -534,7 +534,7 @@ export function Keys({
   const idle = !!busy || !!pending || !!wait || !canPay;
   // why a step's button is grey, said under it (a green button that does nothing is a bug report)
   const blocked = busy ? null
-    : !canPay ? <>Needs a little gas on <Net chainId={chainId} /> first.</>
+    : !canPay ? <>Needs gas on <Net chainId={chainId} /> first.</>
     : pending ? "Finish or cancel the change above first."
     : wait ? <>Waiting for the last change on <Net chainId={wait.chainId} />…</>
     : null;
@@ -775,13 +775,13 @@ export function Keys({
       {!st && <p className="fine">Loading…</p>}
       {!canPay ? (
         <div className="card stack" style={{ gap: 8 }}>
-          <p className="fine">Changes on <Net chainId={chainId} /> need a little gas there, and this wallet has none on it yet.</p>
+          <p className="fine">No gas on <Net chainId={chainId} /> for changes.</p>
           {assets.some(a => a.chainId !== chainId && (a.usd ?? 0) >= 0.5) ? (
             <button className="btn btn-green wide" onClick={() => onFund(chainId)}>
               Add gas on <Net chainId={chainId} />
             </button>
           ) : (
-            <p className="fine">Add a little USDC or {nativeSymbol(chainId)} on <Net chainId={chainId} /> first.</p>
+            <p className="fine">Add USDC or {nativeSymbol(chainId)} on <Net chainId={chainId} /> first.</p>
           )}
         </div>
       ) : (
@@ -948,7 +948,7 @@ function OldBurner({ toast }: { toast: (m: string) => void }) {
               Load
             </button>
           </div>
-          <p className="fine">Type the seed phrase exactly as you did in the old Burner Wallet, spaces and capitals too.</p>
+          <p className="fine">Type it exactly as in the old Burner Wallet, spaces and capitals too.</p>
         </div>
       )}
     </>

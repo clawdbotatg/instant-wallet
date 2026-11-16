@@ -483,7 +483,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
       // one card per network: a tx made ready on another network's card is not this card's (it signed that one)
       const ready = dropReady?.opts.state.chainId === s.chainId ? dropReady : null;
       if (!ready) {
-        if (!s.rolesMembers) throw new Error("Couldn't read the daily limit's keys. Try again.");
+        if (!s.rolesMembers) throw new Error("Couldn't read the daily limit's signers.");
         const calls = dropOtherBudgetsCalls(account!.address, s.rolesMembers, account!.burnerSigner);
         setDropReady(await prepareOwners({ account: account!, state: s, calls, signers: ownerSigners(s, account!), feeToken: feeTokenOn(s.chainId) }));
         return; // the next tap signs (Face ID must start straight from a tap)
@@ -536,7 +536,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
               <div key={`b${s.chainId}`} className="card alert">
                 <b>Turn off the old phone&apos;s daily limit</b>
                 <p className="fine">
-                  On <Net chainId={s.chainId} />, a key that isn&apos;t this device can still spend the Instant Wallet's daily limit (a lost phone, after a recovery).
+                  On <Net chainId={s.chainId} />, the old phone can still spend the daily limit.
                 </p>
                 <button className="btn btn-red wide" onClick={() => dropOldBudget(s)}>
                   {dropReady?.opts.state.chainId === s.chainId ? "Sign to turn it off" : "Turn it off"}

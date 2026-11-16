@@ -39,7 +39,7 @@ export function Progress({ stage, chainId, hash }: { stage: Stage | string | nul
       const pc = publicClient(chainId);
       const [tx, block] = await Promise.all([pc.getTransaction({ hash }).catch(() => null), pc.getBlock().catch(() => null)]);
       if (!live) return;
-      if (!tx) return setWhy("The network hasn't seen it yet. It may still be spreading.");
+      if (!tx) return setWhy("The network hasn't seen it yet.");
       if (tx.blockNumber) return setWhy("It's in a block. Checking the result…");
       const tip = tx.maxPriorityFeePerGas ?? 0n;
       const base = block?.baseFeePerGas;

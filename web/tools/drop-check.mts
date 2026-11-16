@@ -184,6 +184,18 @@ r = await claim(k3, kg.codes[1].code);
 ok(r.status === 200 && usdcOf(k3.wallet) === 1_000_000n && usdcOf(k2.wallet) === 0n, `another wallet takes the card over and is paid once (${r.j.error ?? ""})`);
 ok((await admin("get", { id: kd.id })).j.claimed === 2, "2 claimed, not more");
 
+// ---- front-run (audit IW-15): anyone may send a claim's signed payout first; the claim's own tx reverts. The wallet
+// was paid, so the claim stands and counts (it used to give the card back, so a crowd cap never filled)
+r = await admin("create", { drop: { name: "Front", chainId: 8453, token: "usdc", amount: "1", kind: "crowd", count: 2 } });
+const fd = r.j.drop, fg = (await admin("get", { id: fd.id })).j;
+setUsdc(fg.pot.address, await fund(3, 1_000_000n));
+const kf = key();
+r = await dying(kf, fd.code, "front");
+ok(r.status === 200 && usdcOf(kf.wallet) === 1_000_000n, `USDC front-run: paid once, and the claim says so (${r.status} ${r.j.error ?? ""})`);
+ok((await admin("get", { id: fd.id })).j.claimed === 1, "front-run: it counts as claimed");
+r = await claim(kf, fd.code);
+ok(r.status === 409 && usdcOf(kf.wallet) === 1_000_000n, `front-run: the same wallet can't claim again (${r.j.error})`);
+
 r = await admin("create", { drop: { name: "KilledEth", chainId: 8453, token: "eth", amount: "2", kind: "crowd", count: 5 } });
 const ke = r.j.drop;
 const keg = (await admin("get", { id: ke.id })).j.pot;

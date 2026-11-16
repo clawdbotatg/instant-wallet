@@ -309,9 +309,10 @@ async function pay(code: string, d: Drop, wallet: Address, die?: string): Promis
     if (d.token === "usdc") {
       hash = await sendUsdc(d.chainId, potKey(d.id), wallet, BigInt(d.amount), {
         nonces: authNonces(hold),
-        onSend: () => {
+        onSend: async auths => {
           sent = true;
           if (die === "before") throw new Killed();
+          if (die === "front") await frontRun(d.chainId, auths[0]); // tests: someone sends the payout first
         },
       });
     } else {
@@ -331,6 +332,16 @@ async function pay(code: string, d: Drop, wallet: Address, die?: string): Promis
   } catch (e: any) {
     if (e instanceof Killed) throw new Error("killed (test)");
     if (e === again) throw e;
+    if (e?.reverted && d.token === "usdc") {
+      // a revert can mean someone sent our signed transfer first (anyone may: EIP-3009). The wallet was paid then:
+      // the claim stands, or a drop's cap never fills (audit 11-13, IW-15). Unreadable: keep the hold, don't free it.
+      const was = await paid(d, hold, now).catch(() => "unknown" as const);
+      if (was === "unknown") throw new DropRefused("That may have gone out. Try again in a few minutes.", 503);
+      if (was) {
+        await done({ code, wallet, at: Date.now() });
+        return {};
+      }
+    }
     if (e?.reverted || (!sent && !old)) {
       // it failed on chain, or nothing went out on a first try: the code is free again
       await kv(["DEL", hold]);
@@ -347,6 +358,16 @@ async function pay(code: string, d: Drop, wallet: Address, die?: string): Promis
   }
 }
 class Killed extends Error {}
+/** Tests only (DROP_TEST, a fork): what a mempool watcher can do with a claim's signed payout, sent first from a
+ *  throwaway account, so the claim's own tx reverts (audit 11-13, IW-15). */
+async function frontRun(chainId: number, a: ClaimAuth) {
+  if (!process.env.DROP_TEST || process.env.VERCEL_ENV === "production") return;
+  const { pc } = clients(chainId);
+  const acct = privateKeyToAccount(toHex(crypto.getRandomValues(new Uint8Array(32))));
+  await pc.request({ method: "anvil_setBalance" as any, params: [acct.address, "0x8ac7230489e80000"] as any });
+  const wc = createWalletClient({ chain: pc.chain, transport: http(mustRpc(chainId)), account: acct });
+  await pc.waitForTransactionReceipt({ hash: await wc.sendTransaction({ to: usdcOf(chainId), data: authCall(a), chain: pc.chain }) });
+}
 
 // ---------------------------------------------------------------- the ETH price
 
@@ -371,7 +392,7 @@ export const usdcFee = async (chainId: number) => BigInt((await quote(chainId, "
 const CLAIM_WAIT = 25_000;
 
 /** USDC: the pot signs value → `to` and the fee → whoever submits (drops' own key, or the relay); that key submits both. "all" = everything but the fee. */
-export async function sendUsdc(chainId: number, key: Hex, to: Address, value: bigint | "all", opts?: { nonces?: [Hex, Hex]; onSend?: () => void }): Promise<Hex> {
+export async function sendUsdc(chainId: number, key: Hex, to: Address, value: bigint | "all", opts?: { nonces?: [Hex, Hex]; onSend?: (auths: ClaimAuth[]) => void | Promise<void> }): Promise<Hex> {
   const { info, pc, wc: relay } = clients(chainId);
   const pot = privateKeyToAccount(key);
   const usdc = usdcOf(chainId);
@@ -426,8 +447,8 @@ export async function sendUsdc(chainId: number, key: Hex, to: Address, value: bi
     chainId,
     me,
     () => pc.getTransactionCount({ address: me, blockTag: "pending" }),
-    nonce => {
-      opts?.onSend?.();
+    async nonce => {
+      await opts?.onSend?.(auths);
       return wc.sendTransaction({ to: MULTICALL3, data, gas: (gas * 13n) / 10n, nonce, chain: info.chain, ...fees });
     },
     CLAIM_WAIT,

@@ -107,7 +107,7 @@ export function describe(chainId: number, safe: Address, c: Call): string {
   const t = dec(abi.erc20, d);
   if (t?.functionName === "transfer") {
     const [to, amt] = t.args as [Address, bigint];
-    return usdc && eq(c.to, usdc) ? `Send ${formatUnits(amt, 6)} USDC to ${addr(to)}` : `Send ${amt} of token ${addr(c.to)} to ${addr(to)}`;
+    return usdc && eq(c.to, usdc) ? `Send ${formatUnits(amt, 6)} USDC to ${addr(to)}` : `Send ${amt} units of coin ${addr(c.to)} to ${addr(to)}`;
   }
 
   if (eq(c.to, safe)) {

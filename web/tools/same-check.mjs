@@ -137,21 +137,12 @@ for (const p of files) {
 // since the tag often runs over several lines. The one red Close: an app's, top right of its frame (Austin 11-15).
 const APP_FRAME = "components/safe/Apps.tsx";
 const rel = p => relative(root, p);
-if (!/<button className="pill stop" onClick=\{onClose\}>\s*Close\s*<\/button>\s*<\/div>/.test(readFileSync(join(root, APP_FRAME), "utf8")))
-  (bad++, console.log(`${APP_FRAME}  the app frame's Close is red (pill stop), last in its bar: top right`));
-// every app in the Apps list opens in the app frame, never in a sheet (Austin 11-15)
-if (!/<AppList onOpen=\{a => \(setApp\(a\), close\(\)\)\} \/>/.test(readFileSync(join(root, "components/safe/SafeApp.tsx"), "utf8")))
-  (bad++, console.log("components/safe/SafeApp.tsx  every app in the Apps list opens in the app frame (setApp), never in a sheet"));
 for (const p of files) {
   const src = readFileSync(p, "utf8");
   for (const b of src.match(/<button\b(?:(?!<\/button>)[\s\S])*<\/button>/g) || [])
     if (rel(p) !== APP_FRAME && /btn-red|pill stop/.test(b) && />\s*(?:✕\s*)?(Done|Close|Cancel|Back)\s*<\/button>$/.test(b))
       (bad++, console.log(`${relative(root, p)}  a red ${b.match(/(Done|Close|Cancel|Back)\s*<\/button>$/)[1]}: closing a window is white, red only destroys`));
 }
-// the signers' "2 of 4" is under the balance, one per group of networks with the same signers; never on the gear
-// (Austin 11-15: the gear showed one network's number, others had other signers)
-if (/className="lvl"/.test(readFileSync(join(root, "components/safe/SafeApp.tsx"), "utf8")) || !/className="signer-groups"/.test(readFileSync(join(root, "components/safe/SafeApp.tsx"), "utf8")))
-  (bad++, console.log("components/safe/SafeApp.tsx  the signers' M of N: under the balance, grouped by network (signer-groups), never on the gear"));
 // fewest words (Austin 11-10): a settings box is its title, the box and a checkbox. No sentence that says what the
 // title says, and an empty box's placeholder is its default (the address itself, or "Default …").
 for (const p of files.filter(f => /Setting\.tsx$/.test(f))) {

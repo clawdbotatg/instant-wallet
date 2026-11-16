@@ -1163,38 +1163,35 @@ export function MineGo({ address, chainId, busy, disabled, onGo, onError }: { ad
     setSwitching(false);
   }
   async function tap() {
+    if (name && wrong) return toNet();
     if (name) return onGo();
     onError(null);
     try {
       await connectHot([address]);
       setName((await hotName(address)) ?? "Browser wallet");
-      await hotSwitch(address, chainId); // the wallet goes to this network now, not as a surprise at the transaction
-      setOn(await hotChain(address));
+      setOn(await hotChain(address)); // on another network: the button says Switch network next
     } catch (e) {
       onError(friendly(e));
     }
   }
+  // one green button, three steps (Austin 11-15): Connect my wallet, Switch network to X while the wallet is on
+  // another one, then Execute from my wallet
+  const wrong = on !== null && on !== chainId;
   // connected: said under the button, and the red ✕ left of it disconnects (Austin 11-15: "hard to tell that I
   // have my wallet connected")
   return (
     <>
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
         {name && <RemoveX label="Disconnect" disabled={!!busy} onClick={() => hotDrop(address).then(() => setName(null))} />}
-        <button className="btn btn-green wide" style={{ flex: 1 }} disabled={disabled || !!busy} onClick={tap}>
-          {busy ?? (name ? FROM_MINE : "Connect my wallet")}
+        <button className="btn btn-green wide" style={{ flex: 1 }} disabled={name && wrong ? switching || !!busy : disabled || !!busy} onClick={tap}>
+          {busy ?? (!name ? "Connect my wallet" : wrong ? <>Switch network to <Net chainId={chainId} /></> : FROM_MINE)}
         </button>
       </div>
       {name && (
-        <>
-          <p className="fine center">
-            {name} connected: <Who flat address={address} size={16} />
-            {on !== null && <> on {chainById(on) ? <Net chainId={on} /> : "another network"}</>}
-          </p>
-          {/* always there: one tap asks the wallet to go to the transaction's network (Austin 11-15) */}
-          <button className="btn btn-sm" style={{ justifySelf: "center" }} disabled={!!busy || switching} onClick={toNet}>
-            Switch network to <Net chainId={chainId} />
-          </button>
-        </>
+        <p className="fine center">
+          {name} connected: <Who flat address={address} size={16} />
+          {on !== null && <> on {chainById(on) ? <Net chainId={on} /> : "another network"}</>}
+        </p>
       )}
     </>
   );

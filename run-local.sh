@@ -138,10 +138,24 @@ fi
 [ -d "$W/public/clear" ] && CLEAR="$CLEAR WEDGIE_CLEAR_DIR=$W/public/clear"
 
 # 4d. your own indexer (github.com/clawdbotatg/iw-indexer): coins and prices from your node, not Alchemy, on the
-# networks you gave a node for (RPC_URL_<chainId>). Needs Node 22.18+.
+# networks you have a node for: each RPC_URL_<chainId> in web/.env.local, and an Ethereum node on this computer
+# (127.0.0.1:8545) found by itself. A node on this computer may not search history fast (a light client: 512 blocks
+# at a time), so the history search goes to Alchemy (LOGS_URL_<chainId>). Settings → Balances and prices turns it
+# off. Needs Node 22.18+.
 IXDIR="$DIR/iw-indexer"
 IX=""
-if grep -q '^RPC_URL_' "$ENV" 2>/dev/null; then
+IXENV="$( (grep '^RPC_URL_' "$ENV" 2>/dev/null || true) | xargs)"
+if ! grep -q '^RPC_URL_1=' "$ENV" 2>/dev/null && curl -sf -m 2 -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}' http://127.0.0.1:8545 | grep -q '"result":"0x1"'; then
+  IXENV="$IXENV RPC_URL_1=http://127.0.0.1:8545"
+  echo "Found your Ethereum node at 127.0.0.1:8545: your indexer reads from it."
+fi
+AK="$( (grep '^ALCHEMY_API_KEY=' "$ENV" || true) | cut -d= -f2-)"
+for kv in $IXENV; do
+  id="${kv%%=*}"; id="${id#RPC_URL_}"; url="${kv#*=}"
+  case "$id" in 1) net=eth;; 8453) net=base;; 10) net=opt;; 42161) net=arb;; *) net="";; esac
+  case "$url" in http://127.0.0.1*|http://localhost*) [ -n "$net" ] && [ -n "$AK" ] && IXENV="$IXENV LOGS_URL_$id=https://$net-mainnet.g.alchemy.com/v2/$AK";; esac
+done
+if [ -n "$IXENV" ]; then
   if node -e 'const [a,b]=process.versions.node.split(".").map(Number);process.exit(a>22||(a===22&&b>=18)?0:1)'; then
     if [ -d "$IXDIR" ]; then
       (git -C "$IXDIR" fetch -q --depth 1 origin HEAD && git -C "$IXDIR" reset -q --hard FETCH_HEAD) 2>/dev/null || echo "Couldn't update the indexer (offline?); using the copy you have."
@@ -176,7 +190,7 @@ say "Starting"
 APP=$!
 IXP=""
 if [ -n "$IX" ]; then
-  (cd "$IXDIR" && exec env $(grep '^RPC_URL_' "$ROOT/$ENV" | xargs) DB="$DIR/indexer.db" INDEXER_PORT=4100 node src/main.ts) >"$DIR/indexer.log" 2>&1 &
+  (cd "$IXDIR" && exec env $IXENV DB="$DIR/indexer.db" INDEXER_PORT=4100 node src/main.ts) >"$DIR/indexer.log" 2>&1 &
   IXP=$!
 fi
 npx -y local-ssl-proxy@2.0.5 --source 443 --target "$PORT" --cert "$DIR/$NAME.pem" --key "$DIR/$NAME-key.pem" >/dev/null 2>&1 &

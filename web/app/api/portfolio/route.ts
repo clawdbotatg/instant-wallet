@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse, after } from "next/server";
+import { kv } from "@/lib/kv";
 import { Capped } from "@/lib/capped";
 import { type Address, createPublicClient, erc20Abi, formatUnits, getAddress, http, isAddress } from "viem";
 import { CHAINS, ETH, chainById } from "@/lib/chains";
@@ -55,9 +56,11 @@ export async function GET(req: NextRequest) {
 
 // ---- your own indexer (INDEXER_URL): which networks it reads (asked once a minute), and a wallet's coins there
 let ixChains: { at: number; v: Promise<Set<number>> } | null = null;
-function indexerChains(): Promise<Set<number>> {
+async function indexerChains(): Promise<Set<number>> {
   const url = process.env.INDEXER_URL;
-  if (!url) return Promise.resolve(new Set());
+  if (!url) return new Set();
+  // Settings → Balances and prices: turned off there, Alchemy as on our site
+  if ((await kv(["GET", "local:indexer:off"]).catch(() => null)) === "1") return new Set();
   if (ixChains && Date.now() - ixChains.at < 60_000) return ixChains.v;
   const v = fetch(`${url}/status`, { signal: AbortSignal.timeout(3000), cache: "no-store" })
     .then(r => r.json())

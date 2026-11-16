@@ -33,9 +33,10 @@ You need a Mac with Homebrew (brew.sh). In the Terminal app:
 
 The first time it asks for your Mac password twice (to trust its own certificate, and to point
 local.instantwallet.io at this computer) and for a free Alchemy key (dashboard.alchemy.com: sign in, create an app,
-copy its API key). If you run your own Ethereum node, paste its URL when it asks (it finds one on port 8545 by
-itself); the app then reads and sends through your node instead of Alchemy, and your own indexer
-(github.com/clawdbotatg/iw-indexer) finds your coins and their prices there. It copies the transaction words (the EF
+copy its API key). If you run your own Ethereum node on port 8545, your own indexer
+(github.com/clawdbotatg/iw-indexer) reads your coins and their prices from it, with no setup (Alchemy only searches
+your history); Settings → **Balances and prices** shows it and turns it off. Paste the node's URL when it asks, and the
+app reads and sends through it too. It copies the transaction words (the EF
 clear-signing registry, ours, and what a wedgie shows: about 300 MB) to your computer, and updates them each run. Then it builds and opens
 https://local.instantwallet.io. Leave the Terminal window open; Ctrl+C stops it. Next time: `./run-local.sh` again.
 

@@ -3,7 +3,9 @@
 import { recoveryChecked } from "./RecoveryAlert";
 import { RpcSetting } from "./RpcSetting";
 import { LocalRelay } from "./LocalRelay";
+import { LocalIndexer } from "./LocalIndexer";
 import { LocalOff } from "./LocalOff";
+import { isLocal } from "@/lib/local";
 import { useFeatures } from "@/lib/features";
 import { SimSetting } from "./SimSetting";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
@@ -64,6 +66,8 @@ export function Keys({
 
   const [chainId, setChainIdRaw] = useState(CHAINS[0].id);
   const features = useFeatures(); // no alert keys on this server (a copy on your own computer): no alerts box
+  const [local, setLocal] = useState(false); // a copy on your own computer: its own settings (lib/local.ts)
+  useEffect(() => setLocal(isLocal()), []);
   // default network = where the money is (most USD), until you pick one yourself
   const picked = useRef(false);
   const setChainId = (id: number) => {
@@ -869,6 +873,12 @@ export function Keys({
       <Step title={<>Your node on <Net chainId={chainId} /></>} key={`rpc${chainId}`}>
         <RpcSetting chainId={chainId} toast={toast} />
       </Step>
+
+      {local && (
+        <Step title="Balances and prices" key="indexer">
+          <LocalIndexer toast={toast} />
+        </Step>
+      )}
 
       <Step title="Simulator" key="sim">
         <SimSetting toast={toast} />

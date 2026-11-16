@@ -70,7 +70,7 @@ export function Drop() {
         setCode(c);
       }}
     >
-      <input className="mono center" placeholder="Your code" value={typed} onChange={e => setTyped(e.target.value)} autoCapitalize="characters" autoCorrect="off" spellCheck={false} />
+      <input autoFocus className="mono center" placeholder="Your code" value={typed} onChange={e => setTyped(e.target.value)} autoCapitalize="characters" autoCorrect="off" spellCheck={false} />
       <button className="btn btn-green wide" disabled={normCode(typed).length < 4}>Go</button>
     </form>
   );

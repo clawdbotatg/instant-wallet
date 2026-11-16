@@ -203,7 +203,7 @@ export function SafeWelcome({ onReady, initialConfirm }: { onReady: (a: SafeAcco
           <div className="stack">
             <h1>Watch a wallet</h1>
           </div>
-          <AddressInput onChange={setWallet} onEnter={go} />
+          <AddressInput autoFocus onChange={setWallet} onEnter={go} />
           <button className="btn btn-green wide" onClick={go}>
             Go
           </button>
@@ -231,7 +231,7 @@ export function SafeWelcome({ onReady, initialConfirm }: { onReady: (a: SafeAcco
             <h1>Recover a wallet</h1>
             <p>Lost your phone? Make a new signer here. Your recovery address swaps it in after 7 days (with a wedgie: 14 from your own, 60 from the DAO). Any signer you still have can cancel it.</p>
           </div>
-          <AddressInput onChange={setWallet} placeholder="Your wallet: 0x… or name.eth" />
+          <AddressInput autoFocus onChange={setWallet} placeholder="Your wallet: 0x… or name.eth" />
           <button className="btn btn-green wide" onClick={recover} disabled={!!busy}>
             {busy === "recover" ? "Making the new signer…" : "Make a new signer"}
           </button>

@@ -326,6 +326,7 @@ export function Share({ account, states, assets, chainId: startChain, onDone }: 
         {asset && (
           <AmountBox
             key={keyOf(asset)}
+            autoFocus
             value={amountIn}
             onChange={setAmountIn}
             symbol={asset.symbol}

@@ -159,7 +159,7 @@ export function ClaimMaker() {
           <div className="card stack">
             <div className="row" style={{ gap: 10, alignItems: "center" }}>
               <div className="input" style={{ width: 90 }}>
-                <input inputMode="numeric" value={many.n} onChange={e => setMany({ ...many, n: e.target.value })} aria-label="How many cards" />
+                <input autoFocus inputMode="numeric" value={many.n} onChange={e => setMany({ ...many, n: e.target.value })} aria-label="How many cards" />
               </div>
               <span>cards ×</span>
               <div className="input" style={{ width: 110 }}>

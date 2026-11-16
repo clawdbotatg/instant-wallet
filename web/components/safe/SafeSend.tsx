@@ -355,6 +355,7 @@ export function SafeSend({
           onChange={(a, name) => (setResolved(a), setToName(name ?? null))}
           chain={chainId}
           scan={!scanning}
+          autoFocus={!scanning && !toInput}
           onScan={() => (setScanFromForm(true), setScanning(true))}
           onEnter={scanning ? leaveScan : undefined}
         />
@@ -394,6 +395,7 @@ export function SafeSend({
               {/* the shared box: dollars first, the pill switches to the coin (the same in Swap, Share, Request, Limits) */}
               <AmountBox
                 key={`${key(asset)}:${asCoin}`}
+                autoFocus={!!toInput}
                 value={amountIn}
                 onChange={setAmountIn}
                 symbol={asset.symbol}

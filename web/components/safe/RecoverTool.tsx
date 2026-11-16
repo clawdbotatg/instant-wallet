@@ -112,7 +112,7 @@ export function RecoverTool() {
       <ChainSelect value={chainId} onChange={setChainId} />
       <div className="field">
         <label>The wallet</label>
-        <AddressInput initial={q?.get("wallet") ?? ""} onChange={setW} chain={chainId} />
+        <AddressInput autoFocus={!q?.get("wallet")} initial={q?.get("wallet") ?? ""} onChange={setW} chain={chainId} />
       </div>
       {info && (
         <p className="fine">

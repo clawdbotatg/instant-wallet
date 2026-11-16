@@ -151,6 +151,15 @@ Button sizes (11-11):
 
 `node web/tools/same-check.mjs` fails on a list re-read slower than every 30 seconds.
 
+## 7. The box you type in has the focus
+
+- When a screen's only thing to do is type something in, the cursor is already in that box (11-16: Watch a wallet
+  opened with no focus). Anywhere in the app: Watch, Recover, Send's To (then its amount), Send everything, Swap,
+  Share, Request, a drop's code, a new drop.
+- Not when the screen has other things to do first (a camera to scan, a settings page, a list).
+
+`node web/tools/same-check.mjs` fails a type-in screen with no `autoFocus`.
+
 ## Known gaps (2026-10-29)
 
 - `<Money>` shows the coin first, dollars after; dollars-first not decided.

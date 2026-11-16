@@ -206,7 +206,7 @@ function NewDrop({ onMade }: { onMade: (d: Drop) => void }) {
         ["crowd", "Crowd code"],
         ["cards", "Cards"],
       ])}
-      {field("Name (only you see it)", <div className="input"><input value={name} placeholder={kind === "crowd" ? "ETHDenver talk" : "Business cards"} onChange={e => setName(e.target.value)} /></div>)}
+      {field("Name (only you see it)", <div className="input"><input autoFocus value={name} placeholder={kind === "crowd" ? "ETHDenver talk" : "Business cards"} onChange={e => setName(e.target.value)} /></div>)}
       {seg(chainId, setChainId, [
         [8453, <Net key={8453} chainId={8453} />],
         [1, <Net key={1} chainId={1} />],

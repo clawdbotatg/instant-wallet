@@ -438,6 +438,7 @@ export function SafeSwap({
           <>
             <AmountBox
               key={assetOpt(from).key}
+              autoFocus
               value={amountIn}
               onChange={setAmountIn}
               symbol={from.symbol}

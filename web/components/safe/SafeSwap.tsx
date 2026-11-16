@@ -552,7 +552,7 @@ export function SafeSwap({
       {feeShort && <p className="err">Not enough {feeToken === "usdc" ? "USDC" : nativeSymbol(chainId)} on <Net chainId={chainId} /> for this plus the fee.</p>}
       {error && <ErrorLine text={error} />}
       {itself ? (
-        <MineGo address={account.address} busy={busy ? stageLabel(stage) : undefined} disabled={!ready} onGo={() => swap()} onError={setError} />
+        <MineGo address={account.address} chainId={chainId} busy={busy ? stageLabel(stage) : undefined} disabled={!ready} onGo={() => swap()} onError={setError} />
       ) : (
         <button className="btn btn-green wide go-swap" onClick={() => swap()} disabled={busy || !ready}>
           {busy ? stageLabel(stage) : "Sign to swap"}

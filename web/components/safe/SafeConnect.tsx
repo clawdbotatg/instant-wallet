@@ -288,7 +288,7 @@ function SafeRequest({
       {!st && <p className="err">This wallet isn&apos;t on <Net chainId={pending.chainId} /> here.</p>}
       {refused && <ErrorLine text={refused} />}
       {error && <ErrorLine text={error} />}
-      {!refused && itself && <MineGo address={account.address} busy={busy ? stageLabel(stage) : undefined} onGo={() => go()} onError={setError} />}
+      {!refused && itself && <MineGo address={account.address} chainId={pending.chainId} busy={busy ? stageLabel(stage) : undefined} onGo={() => go()} onError={setError} />}
       {!refused && !itself && (
         <button className="btn btn-green wide" disabled={busy || !ready} onClick={() => go()}>
           {busy ? stageLabel(stage) : pending.kind === "calls" ? (prepared ? "Sign" : "Getting the fee…") : "Sign"}

@@ -55,25 +55,53 @@ async function pick(expect: Address[] = []): Promise<{ p: Provider; who: Address
   throw new Error(`Switch your wallet to ${expect.join(" or ")}${on.length ? ` (${on.join(", ")})` : ""}.`);
 }
 
-/** Is `a` connected in a browser wallet here already? Asks each one quietly (eth_accounts: no popup). */
-export async function hotHas(a: Address): Promise<boolean> {
+/** The browser wallet here that `a` is connected in (its name: MetaMask, Rainbow), or null. Asks each one quietly
+ * (eth_accounts: no popup). One disconnected here stays null until it's connected again. */
+const dropped = new Set<string>();
+export async function hotName(a: Address): Promise<string | null> {
+  if (dropped.has(a.toLowerCase())) return null;
+  for (const { p, name } of wallets()) {
+    const as = await p.request({ method: "eth_accounts" }).catch(() => []);
+    if (Array.isArray(as) && as.some((x: string) => x.toLowerCase() === a.toLowerCase())) return name === "Your wallet" ? "Browser wallet" : name;
+  }
+  return null;
+}
+export const hotHas = async (a: Address) => (await hotName(a)) !== null;
+
+/** Disconnect `a`: the wallet is asked to take this site's access back (MetaMask does; one that can't is just
+ * left alone here until Connect is tapped again). */
+export async function hotDrop(a: Address) {
   for (const { p } of wallets()) {
     const as = await p.request({ method: "eth_accounts" }).catch(() => []);
-    if (Array.isArray(as) && as.some((x: string) => x.toLowerCase() === a.toLowerCase())) return true;
+    if (Array.isArray(as) && as.some((x: string) => x.toLowerCase() === a.toLowerCase()))
+      await p.request({ method: "wallet_revokePermissions", params: [{ eth_accounts: {} }] }).catch(() => {});
   }
-  return false;
+  dropped.add(a.toLowerCase());
 }
 
 /** Connect, and say which address: one of `expect` when given (it fails, in words, if no wallet here holds one). */
 export async function connectHot(expect?: Address[]): Promise<Address> {
-  return (await pick(expect)).who;
+  const { who } = await pick(expect);
+  dropped.delete(who.toLowerCase());
+  return who;
 }
 
 async function onChain(p: Provider, chainId: number) {
   // MetaMask refuses typed data for a chain other than the one it's on
   const want = "0x" + chainId.toString(16);
   const on = await p.request({ method: "eth_chainId" }).catch(() => want);
-  if (on !== want) await p.request({ method: "wallet_switchEthereumChain", params: [{ chainId: want }] });
+  if (on === want) return;
+  try {
+    await p.request({ method: "wallet_switchEthereumChain", params: [{ chainId: want }] });
+  } catch (e: any) {
+    if (e?.code === 4902) throw new Error(`Add ${chainById(chainId)?.name ?? "this network"} to your browser wallet first.`);
+    throw e;
+  }
+}
+
+/** Put the wallet that holds `a` on this network now (at Connect, so the switch is seen before the transaction). */
+export async function hotSwitch(a: Address, chainId: number) {
+  await onChain((await pick([a])).p, chainId);
 }
 
 /** The wallet's own node for this network refused it (Austin 11-15: "RPC 0x89 Custom eth_getBlockByNumber:

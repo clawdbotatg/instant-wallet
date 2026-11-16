@@ -11,7 +11,7 @@ import { amount as fmtAmount, short, usd as fmtUsd, addressIn, nameIn } from "@/
 import { movedFrom, nameTyped } from "@/lib/names";
 import { parse } from "@/lib/parse";
 import { homeOf } from "@/lib/safe/state";
-import { connectHot, hotHas } from "@/lib/safe/hot";
+import { connectHot, hotDrop, hotName, hotSwitch } from "@/lib/safe/hot";
 import { friendly } from "@/lib/friendly";
 import { bio } from "@/lib/passkey";
 import { useProven } from "@/lib/safe/proven";
@@ -1130,29 +1130,46 @@ export function FromMine({ onClick }: { onClick: () => void }) {
 // A wallet opened to watch that is a plain address (send.ts asItself): the green button at the bottom. "Connect my
 // wallet" until a browser wallet here holds that address, then it executes from it (Austin 11-15). One part: Send,
 // Swap and a site's request.
-export function MineGo({ address, busy, disabled, onGo, onError }: { address: Address; busy?: React.ReactNode; disabled?: boolean; onGo: () => void; onError: (e: string | null) => void }) {
-  const [has, setHas] = useState(false);
+export function MineGo({ address, chainId, busy, disabled, onGo, onError }: { address: Address; chainId: number; busy?: React.ReactNode; disabled?: boolean; onGo: () => void; onError: (e: string | null) => void }) {
+  // which wallet holds it (MetaMask, Rainbow), read again when the window comes back: the account may have changed there
+  const [name, setName] = useState<string | null>(null);
   useEffect(() => {
     let live = true;
-    hotHas(address).then(h => live && setHas(h));
+    const read = () => hotName(address).then(n => live && setName(n));
+    read();
+    window.addEventListener("focus", read);
     return () => {
       live = false;
+      window.removeEventListener("focus", read);
     };
   }, [address]);
   async function tap() {
-    if (has) return onGo();
+    if (name) return onGo();
     onError(null);
     try {
       await connectHot([address]);
-      setHas(true);
+      setName((await hotName(address)) ?? "Browser wallet");
+      await hotSwitch(address, chainId); // the wallet goes to this network now, not as a surprise at the transaction
     } catch (e) {
       onError(friendly(e));
     }
   }
+  // connected: said under the button, and the red ✕ left of it disconnects (Austin 11-15: "hard to tell that I
+  // have my wallet connected")
   return (
-    <button className="btn btn-green wide" disabled={disabled || !!busy} onClick={tap}>
-      {busy ?? (has ? FROM_MINE : "Connect my wallet")}
-    </button>
+    <>
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        {name && <RemoveX label="Disconnect" disabled={!!busy} onClick={() => hotDrop(address).then(() => setName(null))} />}
+        <button className="btn btn-green wide" style={{ flex: 1 }} disabled={disabled || !!busy} onClick={tap}>
+          {busy ?? (name ? FROM_MINE : "Connect my wallet")}
+        </button>
+      </div>
+      {name && (
+        <p className="fine center">
+          {name} connected: <Who flat address={address} size={16} />
+        </p>
+      )}
+    </>
   );
 }
 

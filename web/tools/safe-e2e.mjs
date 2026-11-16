@@ -496,7 +496,7 @@ setUsdc(acct3.address, 2000_000_000n);
 cast(`rpc anvil_setBalance ${acct3.address} 0x2386f26fc10000`);
 await page.waitForTimeout(13000);
 const lvl = async () => (await page.locator(".signer-groups").textContent()).replace(/\s/g, "").replace("of", "/");
-ok((await lvl()) === "1/1", "a new wallet: 1/1");
+ok((await page.locator(".signer-groups").count()) === 0, "a new wallet (no Safe on chain yet): no signers row");
 await page.locator(".fab-settings").tap();
 await addGuardian(page, paper);
 await page.waitForTimeout(25000);

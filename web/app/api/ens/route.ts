@@ -5,6 +5,7 @@ import { avatarUrl, nameAddress, primaryName } from "clear-signing-safe-kit";
 import { fullName, ourLabel } from "@/lib/names";
 import { nameOwner, namesOf } from "@/lib/namesStore";
 import { mustRpc } from "@/lib/rpcServer";
+import { whoIs } from "clear-signing-safe-kit/explain";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,8 @@ export const dynamic = "force-dynamic";
  * clear-signing-safe-kit's names (as wedgie.dev): through ENS's Universal Resolver, so *.base.eth and other gateway
  * names work; with chain, that chain's primary name first. Kept a day by the CDN.
  * Our own names (alice.inst.eth, lib/names.ts) are answered from our store: no chain, no gateway. A wallet's own ENS
- * name (its primary name onchain) comes first; its inst.eth name is what shows when it has none.
+ * name (its primary name onchain) comes first; its inst.eth name is what shows when it has none. A contract with
+ * neither: who its clear-signing descriptor says it is ("LI.FI"), so a spender reads as a name, not hex (Austin 11-16).
  */
 export async function GET(req: NextRequest) {
   const name = req.nextUrl.searchParams.get("name");
@@ -40,7 +42,9 @@ export async function GET(req: NextRequest) {
       if (n) return NextResponse.json({ address, name: n, avatar: (await avatarUrl(client as any, n)) ? `/api/avatar?name=${encodeURIComponent(n)}` : null }, keep); // the picture comes through us (/api/avatar)
       // no ENS name of its own: its inst.eth name (it can be renamed, so brief)
       const mine = await namesOf(address).catch(() => null);
-      return NextResponse.json({ address, name: mine ? fullName(mine.n) : null, avatar: null }, brief);
+      if (mine) return NextResponse.json({ address, name: fullName(mine.n), avatar: null }, brief);
+      const who = (await whoIs(chain ?? 1, address).catch(() => null)) ?? (chain && chain !== 1 ? await whoIs(1, address).catch(() => null) : null);
+      return NextResponse.json({ address, name: who, avatar: null }, brief);
     }
     return NextResponse.json({ error: "name or address required" }, { status: 400 });
   } catch (e: any) {

@@ -1,5 +1,6 @@
 import { type Address, type Hex, getAddress } from "viem";
 import { type SafeTx, type Sig, ecdsaSig, safeMessageTypedData, safeTxTypedData } from "./core";
+import { chainById } from "../chains";
 
 /**
  * The hot wallet: MetaMask, Rainbow, any browser wallet. It only ever signs Safe transactions and Safe messages as
@@ -75,11 +76,26 @@ async function onChain(p: Provider, chainId: number) {
   if (on !== want) await p.request({ method: "wallet_switchEthereumChain", params: [{ chainId: want }] });
 }
 
+/** The wallet's own node for this network refused it (Austin 11-15: "RPC 0x89 Custom eth_getBlockByNumber:
+ * Unauthorized", a dead key in the wallet's Polygon settings). Not ours to fix: say where it is. */
+async function sendTx(p: Provider, chainId: number, tx: unknown): Promise<Hex> {
+  try {
+    return (await p.request({ method: "eth_sendTransaction", params: [tx] })) as Hex;
+  } catch (e: any) {
+    const m = String(e?.message || e);
+    if (e?.code !== 4001 && /unauthorized|forbidden|\b40[13]\b|\b429\b|rate limit|failed to fetch|RPC /i.test(m)) {
+      const net = chainById(chainId)?.name ?? "this network";
+      throw new Error(`Your browser wallet's ${net} node refused it ("${m.slice(0, 80)}"). Change the RPC for ${net} in the wallet's network settings, then try again.`);
+    }
+    throw e;
+  }
+}
+
 /** Send a transaction from the browser wallet itself (it pays the gas): no relay. */
 export async function hotSend(chainId: number, to: Address, data: Hex): Promise<Hex> {
   const { p, who } = await pick();
   await onChain(p, chainId);
-  return (await p.request({ method: "eth_sendTransaction", params: [{ from: who, to, data }] })) as Hex;
+  return sendTx(p, chainId, { from: who, to, data });
 }
 
 /** A plain transaction from `from` itself: only when a browser wallet here holds that address (a wallet opened to
@@ -87,7 +103,7 @@ export async function hotSend(chainId: number, to: Address, data: Hex): Promise<
 export async function hotCall(chainId: number, from: Address, c: { to: Address; value: bigint; data: Hex }): Promise<Hex> {
   const { p, who } = await pick([from]);
   await onChain(p, chainId);
-  return (await p.request({ method: "eth_sendTransaction", params: [{ from: who, to: c.to, data: c.data, value: "0x" + c.value.toString(16) }] })) as Hex;
+  return sendTx(p, chainId, { from: who, to: c.to, data: c.data, value: "0x" + c.value.toString(16) });
 }
 
 export async function hotSign(chainId: number, safe: Address, t: SafeTx, expect: Address): Promise<Sig> {

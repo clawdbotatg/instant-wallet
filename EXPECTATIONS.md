@@ -155,7 +155,7 @@ Button sizes (11-11):
 
 - When a screen's only thing to do is type something in, the cursor is already in that box (11-16: Watch a wallet
   opened with no focus). Anywhere in the app: Watch, Recover, Send's To (then its amount), Send everything, Swap,
-  Share, Request, a drop's code, a new drop.
+  Share, Request, the daily limit, a drop's code, a new drop.
 - Not when the screen has other things to do first (a camera to scan, a settings page, a list).
 
 `node web/tools/same-check.mjs` fails a type-in screen with no `autoFocus`.

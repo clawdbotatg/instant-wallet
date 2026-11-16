@@ -104,7 +104,7 @@ for (const p of files) {
   if (/\b(ownersSend|finishOwners)\(/.test(src) && /Safe(Send|Swap|Connect)\.tsx$/.test(p) && !/<MineGo\b/.test(src)) (bad++, console.log(`${relative(root, p)}  no <MineGo>: a wallet opened to watch can't execute here from its own browser wallet`));
 }
 // a screen whose only thing to do is type: the box has the focus (Austin 11-16: Watch a wallet had none)
-for (const [f, n] of [["components/safe/SafeWelcome.tsx", 2], ["components/safe/RecoverTool.tsx", 1], ["components/safe/SafeSend.tsx", 2], ["components/safe/SendAll.tsx", 1], ["components/safe/SafeSwap.tsx", 1], ["components/safe/Share.tsx", 1], ["components/Receive.tsx", 2], ["components/Drop.tsx", 1], ["components/DropAdmin.tsx", 1], ["components/safe/Pick.tsx", 2]])
+for (const [f, n] of [["components/safe/SafeWelcome.tsx", 2], ["components/safe/RecoverTool.tsx", 1], ["components/safe/SafeSend.tsx", 2], ["components/safe/SendAll.tsx", 1], ["components/safe/SafeSwap.tsx", 1], ["components/safe/Share.tsx", 1], ["components/Receive.tsx", 2], ["components/Drop.tsx", 1], ["components/DropAdmin.tsx", 1], ["components/safe/Pick.tsx", 2], ["components/safe/Limits.tsx", 1]])
   if ((readFileSync(join(root, f), "utf8").match(/\bautoFocus\b/g) || []).length < n) (bad++, console.log(`${f}  a type-in screen with no autoFocus: the box you type in has the focus`));
 // a long list on Home shows a page of it (640px), then Show all (Austin 11-12: atg.eth's coins hid the positions)
 for (const p of files) {

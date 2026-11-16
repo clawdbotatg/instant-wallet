@@ -143,7 +143,7 @@ export function ChainLimit({ account, st, assets, onRefresh, onPoll, toast, onCl
         </div>
       ) : (
         <>
-          <AmountBox value={usdcIn} onChange={setUsdcIn} symbol="USDC" decimals={6} price={1} right="USDC a day" />
+          <AmountBox autoFocus value={usdcIn} onChange={setUsdcIn} symbol="USDC" decimals={6} price={1} right="USDC a day" />
           <AmountBox value={ethIn} onChange={setEthIn} symbol={coin} decimals={18} price={coinUsd} right={`${coin} a day`} />
           <button className="btn btn-green wide" onClick={save} disabled={busy || !usdcIn || !ethIn}>
             {busy ? stageLabel("quote") : "Save"}

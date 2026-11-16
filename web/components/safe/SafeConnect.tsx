@@ -110,6 +110,9 @@ function SafeRequest({
     }
   }
 
+  // the request on the card: what's made ready to sign is made from it, and only signed while it still is (audit 11-13)
+  const asked = `${pending.topic}:${pending.id}:${JSON.stringify(calls, (_, v) => (typeof v === "bigint" ? v.toString() : v))}`;
+  const madeFor = useRef<string | null>(null);
   // quote, nonce and hash before the tap: Face ID must start straight from it
   useEffect(() => {
     if (!st || !calls || busy || itself) return;
@@ -117,6 +120,7 @@ function SafeRequest({
     let again: ReturnType<typeof setTimeout> | undefined;
     setPrepared(null);
     setMine(null);
+    madeFor.current = asked;
     // the same tx without the fee, for your own browser wallet to send (one signer here, a browser wallet to send it)
     if (!queue && hotAvailable())
       prepareOwners({ account, state: st, calls: calls!, signers, feeToken, self: true })
@@ -140,7 +144,7 @@ function SafeRequest({
       live = false;
       clearTimeout(again);
     };
-  }, [st?.chainId, st?.nonce, signers.join(), feeToken, tick]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [st?.chainId, st?.nonce, signers.join(), feeToken, tick, asked]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // the fee follows gas while the sheet is up (EXPECTATIONS #6; Austin 11-12: it was read once, and a jump in gas
   // only showed after the tap). Every 15 s, the same tx and number with the new fee; never once signing has started.
@@ -164,6 +168,7 @@ function SafeRequest({
     quoteFailed.current = false;
     let w: Wedgie | null = null;
     const use = self ? mine : prepared;
+    if (use && madeFor.current !== asked) return setTick(t => t + 1); // made for another request: make it again, sign nothing
     try {
       if (itself && calls) {
         let told: Promise<void> | null = null;

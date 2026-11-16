@@ -32,6 +32,13 @@ import { Scanner } from "./Scanner";
 import { friendly } from "@/lib/friendly";
 import { bio } from "@/lib/passkey";
 
+// Each queued request gets its own number here, and its card is keyed by it: a site picks its own request id, and
+// two requests with one id shared a card, which could sign the first one's transaction under the second's words
+// (audit 11-13).
+const seqs = new WeakMap<object, number>();
+let seqN = 0;
+const seqOf = (p: object) => seqs.get(p) ?? (seqs.set(p, ++seqN), seqN);
+
 export type Session = { topic: string; name: string; url: string; icon?: string };
 
 /**
@@ -243,7 +250,7 @@ export function ConnectLayer({
       {toast && <div className="toast">{toast}</div>}
       {!proposal && current && (
         <Sheet onClose={() => no(current)}>
-          <div key={`${current.topic}:${current.id}`}>
+          <div key={seqOf(current)}>
             {request(current, done, () => no(current), b => void (signing.current = b))}
           </div>
         </Sheet>

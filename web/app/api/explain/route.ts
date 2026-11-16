@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse, after } from "next/server";
+import { forOf } from "@/lib/safe/intents";
 import { type Address, type Hex, decodeFunctionResult, erc20Abi } from "viem";
 import { WARN, describe } from "@/lib/safe/describe";
 import { explainFrom, explainer } from "clear-signing-safe-kit/explain";
@@ -91,5 +92,7 @@ export async function POST(req: NextRequest) {
       m.unknown || !m.amount ? undefined : m.symbol === coin.native.symbol && px ? Number(m.amount) * px : m.symbol === usdc ? Number(m.amount) : undefined;
     for (const t of told) if (t?.swap) Object.assign(t.swap, { pay: { ...t.swap.pay, usd: usd(t.swap.pay) }, get: { ...t.swap.get, usd: usd(t.swap.get) } });
   }
-  return NextResponse.json({ calls: told });
+  // each answer says which call it is for (its contract and function): the wallet drops one that isn't the call
+  // at that place (lib/safe/intents.ts heardAll)
+  return NextResponse.json({ calls: told.map((t, i) => t && { ...t, for: forOf(calls[i]) }) });
 }

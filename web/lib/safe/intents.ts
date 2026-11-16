@@ -12,7 +12,7 @@ function sentTo(c: Call): string | undefined {
 }
 
 export type Field = { label: string; value: string; address?: string };
-export type Told = { what: string; short?: string; fields: Field[]; who?: string; swap?: { pay: Move & { most?: boolean }; get: Move & { least?: boolean } }; src?: Exclude<Mark, "bot" | "raw"> } | null;
+export type Told = { for?: string; what: string; short?: string; fields: Field[]; who?: string; swap?: { pay: Move & { most?: boolean }; get: Move & { least?: boolean } }; src?: Exclude<Mark, "bot" | "raw"> } | null;
 export type Move = { symbol: string; amount: string; usd?: number; unknown?: boolean };
 
 /** Where a step's words came from (clear-signing-safe-kit MARKS: the same emoji on wedgie.dev). */
@@ -57,9 +57,12 @@ export function heard(chainId: number, safe: Address, c: Call, t: Told | undefin
   }
   return t;
 }
-/** The same for a whole answer, call by call. */
+/** Which call an answer is for: its contract and function. */
+export const forOf = (c: { to: string; data: string }) => (c.to + c.data.slice(2, 10)).toLowerCase();
+/** The same for a whole answer, call by call. An answer must be for the call at its place (/api/explain says which,
+ *  `for`): one answer too many or too few, or one for another call, and that call keeps the wallet's own words. */
 export const heardAll = (chainId: number, safe: Address, calls: Call[], told: Told[] | null): Told[] | null =>
-  told && calls.map((c, i) => heard(chainId, safe, c, told[i]));
+  told && calls.map((c, i) => (told.length === calls.length && told[i] && told[i]!.for === forOf(c) ? heard(chainId, safe, c, told[i]) : null));
 
 /**
  * What a tx is for, one line per step: clear signing's intent and who it's with ("Deposit · Steakhouse Financial"),

@@ -4,7 +4,7 @@
 //   npx tsx tools/intents-check.mts
 import { encodeFunctionData, parseAbi, type Hex } from "viem";
 import { abi, type Call, rolesAddress } from "../lib/safe/core";
-import { heardAll, intents, warnsOf } from "../lib/safe/intents";
+import { forOf, heardAll as heardRaw, intents, warnsOf } from "../lib/safe/intents";
 import { RECOVERY_DAYS } from "../lib/safe/config";
 import { LIFI_DIAMOND } from "../lib/safe/swap";
 
@@ -29,6 +29,8 @@ const more: Call = { to: usdc, value: 0n, data: encodeFunctionData({ abi: parseA
 const foo: Call = { to: unknown, value: 0n, data: "0xc2985578" };
 const swap: Call = { to: LIFI_DIAMOND, value: 0n, data: ("0x4666fc80" + "00".repeat(12) + safe.slice(2)) as Hex };
 const send = erc("transfer", friend, 10_000n);
+// as /api/explain answers: each one says which call it is for
+const heardAll = (chain: number, sf: typeof safe, calls: Call[], told: any[] | null) => heardRaw(chain, sf, calls, told && told.map((t, i) => (t && calls[i] ? { ...t, for: forOf(calls[i]) } : t)));
 const said = (calls: Call[], told: any[] | null = null, brief = true) => intents(CHAIN, safe, calls, told, brief) as { text: string; src: string; warn?: boolean; approve?: boolean }[];
 const has = (l: { text: string }[], re: RegExp) => l.some(x => re.test(x.text));
 
@@ -120,6 +122,20 @@ h = heardAll(CHAIN, safe, [guardian(attacker)], [lie("Claim your reward") as any
 ok(h?.[0] === null, "add a recovery address, the server says \"Claim your reward\": the wallet's own words", h);
 l = said([guardian(attacker)], [lie("Claim your reward")]);
 ok(has(l, /^Add recovery address 0x2222/), "…and they say so", l);
+
+// an answer must be for the call at its place (audit 11-13: answers were matched by position alone)
+const dep = { what: "Deposit", fields: [] }, wd = { what: "Withdraw", fields: [] };
+const bar: Call = { to: friend, value: 0n, data: "0x12345678" };
+let r = heardRaw(CHAIN, safe, [foo, bar], [{ ...dep, for: forOf(foo) }, { ...wd, for: forOf(bar) }] as any);
+ok(r?.[0]?.what === "Deposit" && r?.[1]?.what === "Withdraw", "answers for the right calls are used", r);
+r = heardRaw(CHAIN, safe, [foo, bar], [{ ...wd, for: forOf(bar) }, { ...dep, for: forOf(foo) }] as any);
+ok(r?.[0] === null && r?.[1] === null, "answers in the wrong order: both dropped", r);
+r = heardRaw(CHAIN, safe, [foo, bar], [dep, wd] as any);
+ok(r?.[0] === null && r?.[1] === null, "answers that don't say which call they're for: dropped", r);
+r = heardRaw(CHAIN, safe, [foo, bar], [{ ...dep, for: forOf(foo) }] as any);
+ok(r?.[0] === null && r?.[1] === null, "one answer too few: all dropped", r);
+r = heardRaw(CHAIN, safe, [foo], [{ ...dep, for: forOf(foo) }, { ...wd, for: forOf(bar) }] as any);
+ok(r?.length === 1 && r[0] === null, "one answer too many: dropped", r);
 
 if (bad) {
   console.error(`${bad} failed`);

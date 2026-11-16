@@ -1107,7 +1107,8 @@ export function AddressInput({
   }, [text]);
   const cam = useAddressScan(setText);
   return (
-    <div style={{ display: "grid", gap: 6 }}>
+    // minWidth 0: in a grid (.stack) the box must shrink to the card, or the Add button after it runs off the edge
+    <div style={{ display: "grid", gap: 6, minWidth: 0, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <div className="row" style={{ gap: 6 }}>
         <div className="input grow">
           {addr && !name && <Blockie address={addr} size={30} />}

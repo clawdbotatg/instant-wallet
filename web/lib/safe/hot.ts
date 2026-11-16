@@ -1,4 +1,4 @@
-import { type Address, type Hex, getAddress } from "viem";
+import { type Address, type Hex, formatEther, getAddress } from "viem";
 import { type SafeTx, type Sig, ecdsaSig, safeMessageTypedData, safeTxTypedData } from "./core";
 import { chainById, publicClient } from "../chains";
 
@@ -130,7 +130,10 @@ export async function hotChain(a: Address): Promise<number | null> {
  * URL to its list but keeps the old one as the default (read in metamask-extension's add-ethereum-chain.ts, 11-15;
  * tried, and it changed nothing). So: say exactly where to change it.
  */
-const nodeRefused = (e: any) => e?.code !== 4001 && /unauthorized|forbidden|\b40[13]\b|\b429\b|rate limit|failed to fetch|RPC /i.test(String(e?.message || e));
+// "gas required exceeds allowance (0)", "insufficient funds": the sender can't pay the fee; that is not the node
+// (Austin 11-16: MetaMask prefixes every node error with "RPC 0x2105 Custom", so it read as a bad Base RPC)
+const noGasMoney = (e: any) => /exceeds allowance|insufficient funds/i.test(String(e?.message || e));
+const nodeRefused = (e: any) => e?.code !== 4001 && !noGasMoney(e) && /unauthorized|forbidden|\b40[13]\b|\b429\b|rate limit|failed to fetch|RPC /i.test(String(e?.message || e));
 /**
  * The transaction goes to the wallet with its gas worked out here, through our node (Austin 11-15: MetaMask, given
  * none, asks its own node for the latest block to work it out, eth_getBlockByNumber, and his said Unauthorized;
@@ -142,11 +145,19 @@ async function sendTx(p: Provider, chainId: number, tx: { from: Address; to: Add
   const pc = publicClient(chainId);
   const hex = (n: bigint) => "0x" + n.toString(16);
   const est = await pc.estimateGas({ account: tx.from, to: tx.to, data: tx.data, value: tx.value ? BigInt(tx.value) : 0n });
-  const withGas = { ...tx, gas: hex((est * 13n) / 10n + 10_000n) };
+  const gas = (est * 13n) / 10n + 10_000n;
+  const withGas = { ...tx, gas: hex(gas) };
+  // the browser wallet pays the fee itself: with too little of the network's coin, say so before the wallet opens
+  // (Austin 11-16: 0 ETH on Base came back as "gas required exceeds allowance (0)", blamed on the RPC)
+  const [bal, fee] = await Promise.all([pc.getBalance({ address: tx.from }), pc.estimateFeesPerGas().catch(() => null)]);
+  const value = tx.value ? BigInt(tx.value) : 0n;
+  const need = gas * (fee?.maxFeePerGas ?? fee?.gasPrice ?? 0n) + value;
+  if (bal < need) throw new Error(shortOfGas(chainId, tx.from, bal, need));
   const send = (t: unknown) => p.request({ method: "eth_sendTransaction", params: [t] }) as Promise<Hex>;
   try {
     return await send(withGas);
   } catch (e: any) {
+    if (noGasMoney(e)) throw new Error(shortOfGas(chainId, tx.from, bal, need));
     if (!nodeRefused(e)) throw e;
     let first: any = e;
     try {
@@ -167,6 +178,13 @@ async function sendTx(p: Provider, chainId: number, tx: { from: Address; to: Add
         : `Your browser wallet's ${net} RPC refused this ("${String(first?.message || first).slice(0, 80)}"). In the wallet: Networks, ${net}, Edit, and pick another RPC URL. Then tap Execute again.`,
     );
   }
+}
+
+function shortOfGas(chainId: number, who: Address, bal: bigint, need: bigint) {
+  const c = chainById(chainId);
+  const sym = c?.native.symbol ?? "ETH", net = c?.name ?? "this network";
+  const n = (x: bigint) => String(Number(Number(formatEther(x)).toPrecision(2)));
+  return `Your browser wallet (${who.slice(0, 6)}…${who.slice(-4)}) has ${bal === 0n ? "no" : n(bal) + " " + sym + ", too little"} ${bal === 0n ? sym + " " : ""}on ${net} to pay the network fee. It pays the fee itself, so send it a little ${sym} on ${net}${need > 0n ? ` (at least ${n(need)} ${sym})` : ""}, then tap Execute again.`;
 }
 
 /** Send a transaction from the browser wallet itself (it pays the gas): no relay. */

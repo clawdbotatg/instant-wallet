@@ -1,6 +1,6 @@
 import { type Address, type Hex, getAddress } from "viem";
 import { type SafeTx, type Sig, ecdsaSig, safeMessageTypedData, safeTxTypedData } from "./core";
-import { chainById } from "../chains";
+import { chainById, publicClient } from "../chains";
 
 /**
  * The hot wallet: MetaMask, Rainbow, any browser wallet. It only ever signs Safe transactions and Safe messages as
@@ -131,14 +131,35 @@ export async function hotChain(a: Address): Promise<number | null> {
  * tried, and it changed nothing). So: say exactly where to change it.
  */
 const nodeRefused = (e: any) => e?.code !== 4001 && /unauthorized|forbidden|\b40[13]\b|\b429\b|rate limit|failed to fetch|RPC /i.test(String(e?.message || e));
-async function sendTx(p: Provider, chainId: number, tx: unknown): Promise<Hex> {
+/**
+ * The transaction goes to the wallet with its gas worked out here, through our node (Austin 11-15: MetaMask, given
+ * none, asks its own node for the latest block to work it out, eth_getBlockByNumber, and his said Unauthorized;
+ * with `gas` in the request MetaMask skips that read: its transaction-controller, utils/gas.ts getGas). One that
+ * would fail says so here, before the wallet opens. If the wallet's node still refuses, once more with the gas
+ * price from our node too, so the wallet has nothing left to read before it sends.
+ */
+async function sendTx(p: Provider, chainId: number, tx: { from: Address; to: Address; data: Hex; value?: Hex }): Promise<Hex> {
+  const pc = publicClient(chainId);
+  const hex = (n: bigint) => "0x" + n.toString(16);
+  const est = await pc.estimateGas({ account: tx.from, to: tx.to, data: tx.data, value: tx.value ? BigInt(tx.value) : 0n });
+  const withGas = { ...tx, gas: hex((est * 13n) / 10n + 10_000n) };
+  const send = (t: unknown) => p.request({ method: "eth_sendTransaction", params: [t] }) as Promise<Hex>;
   try {
-    return (await p.request({ method: "eth_sendTransaction", params: [tx] })) as Hex;
+    return await send(withGas);
   } catch (e: any) {
     if (!nodeRefused(e)) throw e;
+    let first: any = e;
+    try {
+      const f = await pc.estimateFeesPerGas();
+      const fees = f.maxFeePerGas ? { maxFeePerGas: hex(f.maxFeePerGas), maxPriorityFeePerGas: hex(f.maxPriorityFeePerGas ?? 0n) } : { gasPrice: hex(f.gasPrice!) };
+      return await send({ ...withGas, ...fees });
+    } catch (e2: any) {
+      if (e2?.code === 4001) throw e2;
+      if (nodeRefused(e2)) first = e2;
+    }
     const net = chainById(chainId)?.name ?? "this network";
     throw new Error(
-      `Your browser wallet can't reach ${net}: the RPC saved in it answered "${String(e?.message || e).slice(0, 80)}". In the wallet: Networks, ${net}, Edit, and pick another RPC URL. Then tap Execute again. Only you can change it; a site can't.`,
+      `Your browser wallet can't reach ${net}: the RPC saved in it answered "${String(first?.message || first).slice(0, 80)}". In the wallet: Networks, ${net}, Edit, and pick another RPC URL. Then tap Execute again. Only you can change it; a site can't.`,
     );
   }
 }
@@ -155,7 +176,7 @@ export async function hotSend(chainId: number, to: Address, data: Hex): Promise<
 export async function hotCall(chainId: number, from: Address, c: { to: Address; value: bigint; data: Hex }): Promise<Hex> {
   const { p, who } = await pick([from]);
   await onChain(p, chainId);
-  return sendTx(p, chainId, { from: who, to: c.to, data: c.data, value: "0x" + c.value.toString(16) });
+  return sendTx(p, chainId, { from: who, to: c.to, data: c.data, value: ("0x" + c.value.toString(16)) as Hex });
 }
 
 export async function hotSign(chainId: number, safe: Address, t: SafeTx, expect: Address): Promise<Sig> {

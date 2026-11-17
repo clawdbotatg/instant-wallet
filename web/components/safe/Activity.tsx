@@ -301,6 +301,14 @@ async function insOn(chainId: number, safe: Address): Promise<Row[]> {
   const rows = new Map<string, Row>();
   // what it sent itself: one row each, made once
   const mine = ((sent?.transfers ?? []) as any[]).filter(x => x.metadata?.blockTimestamp).slice(0, SHOW);
+  // the network's coin back in its own transactions (a swap to ETH): a plain address logs no SafeReceived, so moved()
+  // can't see it; only Alchemy's transfers to it say it. Tokens come from moved()'s Transfer logs.
+  const coinIn = new Map<string, bigint>();
+  for (const x of (r?.transfers ?? []) as any[])
+    if (x.category !== "erc20") {
+      const h = String(x.hash).toLowerCase();
+      coinIn.set(h, (coinIn.get(h) ?? 0n) + BigInt(x.rawContract?.value ?? "0x0"));
+    }
   const outs = mine.map(x => {
     const hash = String(x.hash).toLowerCase();
     return once(`${chainId}:${safe}:${hash}:out`, async (): Promise<Row> => {
@@ -312,6 +320,12 @@ async function insOn(chainId: number, safe: Address): Promise<Row[]> {
       const a = await moved(rpc, safe, hash, calls[0]?.value ?? 0n, info?.native.symbol ?? "ETH", token);
       const row: Row = { chainId, at: at(x), hash, link: link(hash), pay: [], get: [], words: w.length ? w : undefined };
       if (a.ok !== "ok") return { ...row, failed: true };
+      const back = coinIn.get(hash) ?? 0n;
+      if (back > 0n) {
+        const e = a.changes.find(c => c.token === "eth");
+        if (e) e.amount = String(BigInt(e.amount) + back);
+        else a.changes.push({ token: "eth", symbol: info?.native.symbol ?? "ETH", decimals: 18, amount: String(back), usd: "" });
+      }
       const m = moves(a);
       return { ...row, pay: m.pay, get: m.get, words: row.words ?? (!m.pay.length && !m.get.length ? [{ text: "Changed the wallet", src: "raw" as const }] : undefined) };
     });

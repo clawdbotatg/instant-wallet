@@ -35,7 +35,7 @@ export function Blockie({ address, size = 32 }: { address: string; size?: number
 // ENS names and avatars, kept in this browser a day (a reload paints them at once); a failed read keeps the last one
 type Named = { name: string | null; avatar: string | null; at: number };
 const NAMES = "iws.ens";
-const asked = new Map<string, Promise<Named | null>>();
+const asked = new Map<string, { p: Promise<Named | null>; at: number }>();
 /** One read per address for the whole page: every caller shares it. */
 export function named(a: string, chain?: number, fresh = false): Promise<Named | null> {
   const k = `${chain ?? 1}:${a.toLowerCase()}`;
@@ -45,10 +45,13 @@ export function named(a: string, chain?: number, fresh = false): Promise<Named |
   } catch {}
   // a name keeps a day; no name only 5 min, as the server keeps it (one may be set, or a descriptor added)
   if (!fresh && kept[k] && Date.now() - kept[k].at < (kept[k].name ? 86_400_000 : 300_000)) return Promise.resolve(kept[k]);
-  if (fresh) asked.delete(k);
+  // the page's own copy goes stale as the kept one does (no name: 5 min), or a name set or added later never shows
+  const had = asked.get(k);
+  if (fresh || (had && Date.now() - had.at > 300_000)) asked.delete(k);
   if (!asked.has(k))
-    asked.set(
-      k,
+    asked.set(k, {
+      at: Date.now(),
+      p:
       // fresh: a new URL, so the CDN's copy is skipped too
       fetch(`/api/ens?address=${a}${chain ? `&chain=${chain}` : ""}${fresh ? `&fresh=${Date.now()}` : ""}`)
         .then(r => (r.ok ? r.json() : Promise.reject()))
@@ -66,8 +69,8 @@ export function named(a: string, chain?: number, fresh = false): Promise<Named |
           asked.delete(k);
           return kept[k] ?? null;
         }),
-    );
-  return asked.get(k)!;
+    });
+  return asked.get(k)!.p;
 }
 
 /** An address's ENS name and avatar (that chain's name first, e.g. .base.eth), or nulls while unknown / none. */

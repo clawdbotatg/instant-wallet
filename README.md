@@ -53,6 +53,11 @@ To keep it running without a Terminal window, and start it every time you log in
    - **Execute from my wallet:** with MetaMask or another browser wallet, the dark gray button under Sign. No fee;
      your browser wallet pays the gas.
 
+Your node over Tor: in Settings → **Your node**, paste its `.onion` address (`http://….onion`) and Save. Reads and
+your relay's sends then go to it over Tor, from this computer (no gateway), so the node never sees your IP. The
+first call starts Tor (up to a minute); after that about a second each. A BuidlGuidl node makes its `.onion` with
+`node index.js --tor`. More: `docs/ANON-RPC.md`.
+
 More nodes: add `RPC_URL_<chainId>=<url>` lines to `web/.env.local` (`RPC_URL_8453` for Base) and run it again.
 
 Optional free keys, same file. Settings → **Off on this copy** lists the ones you're missing:

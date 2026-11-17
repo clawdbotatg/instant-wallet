@@ -467,6 +467,8 @@ export async function sendUsdc(chainId: number, key: Hex, to: Address, value: bi
  * `onSigned` gets the tx's hash and nonce before it is sent (a throw there sends nothing). `reuse`: a nonce an
  * earlier, unfinished send of the same claim took; while it's still open this send takes it too, so only one lands.
  */
+/** The most a pot pays to send ETH: a Safe's receive() is about 30k with the 1.2 pad. */
+const MAX_SEND_GAS = 100_000n;
 export async function sendEth(chainId: number, key: Hex, to: Address, value: bigint | "all", opts?: { reuse?: number; onSigned?: (hash: Hex, nonce: number) => Promise<void> }): Promise<Hex> {
   const { pc } = clients(chainId);
   const pot = privateKeyToAccount(key);
@@ -479,7 +481,9 @@ export async function sendEth(chainId: number, key: Hex, to: Address, value: big
       kv(["GET", `${P}nonce:${chainId}:${pot.address}`]),
     ]);
     // a Safe's receive() costs a little more than a plain address; an undeployed wallet is a plain address
+    // capped: a "wallet" that's a contract burning gas in receive() would have the pot pay for it (audit 11-13, IW-4)
     const gas = ((await pc.estimateGas({ account: pot.address, to, value: 1n }).catch(() => 60_000n)) * 12n) / 10n;
+    if (gas > MAX_SEND_GAS) throw new DropRefused("This wallet can't take ETH from a drop.", 400);
     const cost = gas * f.maxFeePerGas + (chainId === 1 ? 0n : 1_000_000_000_000n); // + an L2's L1 data fee
     const v = value === "all" ? bal - cost : value;
     if (v <= 0n || bal < v + cost) throw new DropRefused("The pot is empty. Ask whoever made the drop to top it up.", 410);

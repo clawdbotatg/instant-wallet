@@ -1,4 +1,5 @@
 import type { AnonRpcWorker } from "@anon-rpc/browser-harness";
+import { NODE_HEADER, isLocal } from "./local";
 
 /**
  * Your node over Tor (docs/ANON-RPC.md). A node address whose host ends in .onion (Settings → Your node) is reached
@@ -86,6 +87,9 @@ export const torFetch =
   async (input, init) => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
     if (!isOnion(url)) return fetch(input, init);
+    // a copy on your own computer: its server reaches Tor directly (app/api/local/tor), no gateway, no Tor here
+    if (isLocal())
+      return fetch(`${location.origin}/api/local/tor`, { ...init, method: "POST", headers: { "content-type": "application/json", [NODE_HEADER]: url } });
     await slot();
     try {
       const w = await tor();

@@ -60,7 +60,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cha
       const rest = cats.filter(c => c !== "erc20");
       let more: any[] = [];
       if (rest.length) {
-        const r = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...j, params: [{ ...p, category: rest }] }), cache: "no-store", signal: AbortSignal.timeout(15_000) })
+        const r = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: j.id ?? null, method: j.method, params: [{ ...p, category: rest }] }), cache: "no-store", signal: AbortSignal.timeout(15_000) })
           .then(r => r.json())
           .catch(() => null);
         if (!r?.result) return NextResponse.json(r ?? { error: "The network didn't answer." }, { status: r ? 200 : 504 });
@@ -71,7 +71,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cha
       return NextResponse.json({ jsonrpc: "2.0", id: j.id, result: { transfers } });
     }
   }
-  const res = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body, cache: "no-store", signal: AbortSignal.timeout(15_000) }).catch(() => null);
+  // what was checked is what goes: rebuilt, never the raw text ({"method":"eth_call","method":"x"} parses to one
+  // method here and maybe the other upstream: audit 11-13, IW-5)
+  const clean = list.map(x => ({ jsonrpc: "2.0", id: x.id ?? null, method: x.method, params: Array.isArray(x.params) ? x.params : [] }));
+  const res = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(Array.isArray(j) ? clean : clean[0]), cache: "no-store", signal: AbortSignal.timeout(15_000) }).catch(() => null);
   if (!res) return NextResponse.json({ error: "The network didn't answer." }, { status: 504 });
   return new NextResponse(await res.text(), { status: res.status, headers: { "content-type": "application/json" } });
 }

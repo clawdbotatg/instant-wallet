@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse, after } from "next/server";
-import { kv } from "@/lib/kv";
+import { indexerChains } from "@/lib/indexer";
 import { Capped } from "@/lib/capped";
 import { type Address, createPublicClient, erc20Abi, formatUnits, getAddress, http, isAddress } from "viem";
 import { CHAINS, ETH, chainById } from "@/lib/chains";
@@ -55,20 +55,6 @@ export async function GET(req: NextRequest) {
 }
 
 // ---- your own indexer (INDEXER_URL): which networks it reads (asked once a minute), and a wallet's coins there
-let ixChains: { at: number; v: Promise<Set<number>> } | null = null;
-async function indexerChains(): Promise<Set<number>> {
-  const url = process.env.INDEXER_URL;
-  if (!url) return new Set();
-  // Settings → Balances and prices: turned off there, Alchemy as on our site
-  if ((await kv(["GET", "local:indexer:off"]).catch(() => null)) === "1") return new Set();
-  if (ixChains && Date.now() - ixChains.at < 60_000) return ixChains.v;
-  const v = fetch(`${url}/status`, { signal: AbortSignal.timeout(3000), cache: "no-store" })
-    .then(r => r.json())
-    .then(j => new Set<number>((j.chains ?? []).map((c: { id: number }) => c.id)))
-    .catch(() => new Set<number>());
-  ixChains = { at: Date.now(), v };
-  return v;
-}
 async function indexerAssets(wallet: Address): Promise<Asset[]> {
   const j = await fetch(`${process.env.INDEXER_URL}/portfolio?address=${wallet}`, { signal: AbortSignal.timeout(10_000), cache: "no-store" }).then(r => r.json());
   if (!Array.isArray(j.assets)) throw new Error("indexer: no assets");

@@ -225,34 +225,49 @@ export async function notify(wallet: Address, c: Contacts, subject: string, text
 
 export type Request = { chainId: number; wallet: Address; executeAfter: number; newOwners: Address[] };
 
-/** Every listed wallet's running recovery, on every chain (one multicall per chain). */
+/** Every listed wallet's running recovery, on every chain. Wallets go PART at a time (a multicall each), a few at
+ * once per chain: anyone can list wallets (signing in is free), and one multicall over thousands of junk wallets
+ * would time out and stop every real alert (audit 11-13, IW-3). A part that fails is named in `failed`; the others
+ * still count. */
+const PART = 200, AT_ONCE = 4;
 export async function running(list: Address[], failed: string[] = []): Promise<Request[]> {
   const out: Request[] = [];
+  const parts: Address[][] = [];
+  for (let i = 0; i < list.length; i += PART) parts.push(list.slice(i, i + PART));
   // every chain at once, and one chain's RPC being down must not stop the alerts on the others: it's named in `failed`
-  await Promise.all(CHAINS.map(c => one(c).catch(e => failed.push(`${c.name}: ${e?.shortMessage || "couldn't read it"}`))));
+  await Promise.all(CHAINS.map(async c => {
+    const url = upstreamRpc(c.id);
+    if (!url) return;
+    const pc = createPublicClient({ chain: c.chain, transport: http(url) });
+    let next = 0;
+    await Promise.all(Array.from({ length: Math.min(AT_ONCE, parts.length) }, async () => {
+      while (next < parts.length) {
+        const k = next++;
+        await one(pc, c.id, parts[k]).catch(e =>
+          failed.push(`${c.name}${parts.length > 1 ? ` (part ${k + 1} of ${parts.length})` : ""}: ${e?.shortMessage || "couldn't read it"}`));
+      }
+    }));
+  }));
   return out;
 
-  async function one(c: (typeof CHAINS)[number]) {
-    const url = upstreamRpc(c.id);
-    if (!url || !list.length) return;
-    const pc = createPublicClient({ chain: c.chain, transport: http(url) });
+  async function one(pc: ReturnType<typeof createPublicClient>, chainId: number, ws: Address[]) {
     // every module: a 7-day request stays readable after a move off it, but only an enabled module can run it
     const mods = RECOVERY_MODULES;
     const n = mods.length * 2;
     const res = await pc.multicall({
       multicallAddress: MULTICALL3, // named, so it runs on a local fork too
-      contracts: list.flatMap(w => [
+      contracts: ws.flatMap(w => [
         ...mods.map(m => ({ address: m, abi: abi.recovery, functionName: "getRecoveryRequest", args: [w] }) as const),
         ...mods.map(m => ({ address: w, abi: abi.safe, functionName: "isModuleEnabled", args: [m] }) as const),
       ]),
       allowFailure: true,
     });
-    list.forEach((w, i) => {
+    ws.forEach((w, i) => {
       const r = res.slice(i * n, i * n + n);
       mods.forEach((_, j) => {
         const v = r[j].status === "success" ? (r[j].result as any) : null;
         if (v && Number(v.executeAfter) > 0 && r[mods.length + j].result === true)
-          out.push({ chainId: c.id, wallet: w, executeAfter: Number(v.executeAfter), newOwners: [...v.newOwners] });
+          out.push({ chainId, wallet: w, executeAfter: Number(v.executeAfter), newOwners: [...v.newOwners] });
       });
     });
   }

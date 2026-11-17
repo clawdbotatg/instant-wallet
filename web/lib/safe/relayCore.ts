@@ -3,6 +3,7 @@ import { type Hex, createPublicClient, createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { chainById } from "@/lib/chains";
 import { upstreamRpc } from "@/lib/rpcServer";
+import { nodeTransport } from "@/lib/torServer";
 import { GAS_BUDGET, GAS_TYPICAL, type Quote, type SendKind } from "@/lib/safe/fee";
 import { RELAY } from "@/lib/safe/describe";
 
@@ -27,11 +28,12 @@ export function dropRelayer() {
   return pk ? privateKeyToAccount(pk) : null;
 }
 
-export function clients(chainId: number) {
+/** `node`: Settings → Your node, sent by the page on a copy on your own computer (nodeOf); a .onion goes over Tor. */
+export function clients(chainId: number, node?: string) {
   const info = chainById(chainId);
-  const url = info && upstreamRpc(chainId);
+  const url = info && (node || upstreamRpc(chainId));
   if (!info || !url) throw new Error("chain not enabled");
-  const transport = http(url);
+  const transport = node ? nodeTransport(node) : http(url);
   return {
     info,
     pc: createPublicClient({ chain: info.chain, transport }),
@@ -77,8 +79,8 @@ export async function nativeUsd(chainId: number): Promise<number> {
   }
 }
 
-export async function quote(chainId: number, kind: SendKind, extra = 0n): Promise<Quote> {
-  const { pc } = clients(chainId);
+export async function quote(chainId: number, kind: SendKind, extra = 0n, node?: string): Promise<Quote> {
+  const { pc } = clients(chainId, node);
   const gasPrice = (await pc.getGasPrice()) + tipFloor(chainId); // what a tx pays now (base fee + tip), not the 2× max fee cap
   const usd = await nativeUsd(chainId);
   // typical gas × 1.5, + the L1 data fee on an L2 (~$0.0002 on Base today; this allows ~2.5×)

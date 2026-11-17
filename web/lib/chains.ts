@@ -1,4 +1,5 @@
 import { type Address, type Chain, type Transport, createPublicClient, http } from "viem";
+import { NODE_HEADER, isLocal } from "./local";
 import { isOnion, torFetch } from "./tor";
 import { arbitrum, arc, avalanche, base, bsc, celo, foundry, gnosis, hyperEvm, mainnet, optimism, plasma, polygon, robinhood, sonic } from "viem/chains";
 
@@ -162,6 +163,12 @@ export function rpcTransport(chainId: number): Transport {
   const own = ownRpc(chainId);
   return own && isOnion(own) ? onion(own) : http(rpcPath(chainId));
 }
+
+/** On a copy on your own computer, the relay sends to your node too (a .onion over Tor): the page tells it which. */
+export const relayHeaders = (chainId: number): Record<string, string> => {
+  const own = isLocal() && ownRpc(chainId);
+  return own ? { [NODE_HEADER]: own } : {};
+};
 
 /** Your own node, per network (Settings → Your node), kept in this browser. No fallback to ours: if it's down, reads fail. */
 const OWN = "iws.rpc";

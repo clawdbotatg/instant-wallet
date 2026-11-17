@@ -6,6 +6,8 @@ const config: NextConfig = {
   // died tracing the whole monorepo).
   outputFileTracingRoot: path.join(__dirname),
   reactStrictMode: true,
+  // tor-js loads its .wasm from beside its own file (lib/torServer.ts): leave it in node_modules, unbundled
+  serverExternalPackages: ["tor-js"],
   // the commit this page was built from (/api/version says which one is live)
   env: { NEXT_PUBLIC_BUILD: process.env.VERCEL_GIT_COMMIT_SHA ?? "dev" },
   // Vercel sends `Access-Control-Allow-Origin: *` on static pages by default; only our own site may read us

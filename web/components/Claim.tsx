@@ -6,7 +6,7 @@ import { type Address, type Hash, type Hex, createWalletClient, formatUnits, par
 import { privateKeyToAccount } from "viem/accounts";
 import { isXdai, retireBurnerKey } from "@/lib/brand";
 import { type OldSafe, findOldSafes, sweepOldSafe } from "@/lib/oldSafes";
-import { CHAINS, nativeSymbol, publicClient, rpcTransport } from "@/lib/chains";
+import { CHAINS, nativeSymbol, publicClient, relayHeaders, rpcTransport } from "@/lib/chains";
 import { AUTH_TYPES, type ClaimAuth, claimKey, usdc3009 } from "@/lib/claim";
 import { amount as fmtAmount, usd } from "@/lib/format";
 import { abi } from "@/lib/safe/core";
@@ -75,7 +75,7 @@ async function claimUsdc(key: Hex, chainId: number, balance: bigint, to: Address
   const auths = [await sign(to, balance - fee), await sign(q.relayer, fee)];
   const r = await fetch("/api/safe/relay", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...relayHeaders(chainId) },
     body: JSON.stringify({ chainId, kind: "claim", auths }),
   });
   const j = await r.json().catch(() => ({}));

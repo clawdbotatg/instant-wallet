@@ -1,4 +1,5 @@
 import type { Hash, Hex } from "viem";
+import { relayHeaders } from "../chains";
 import { callsOf } from "./describe";
 import { waitFor } from "./send";
 import { startSending } from "./sending";
@@ -18,7 +19,7 @@ export async function executeWaiting(w: Waiting, sigs: Waiting["sigs"], wedgie: 
   try {
     const r = await fetch("/api/safe/relay", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...relayHeaders(w.chainId) },
       body: JSON.stringify({ chainId: w.chainId, kind: "exec", safe: w.safe, tx: w.tx, signatures: allSignatures({ ...w, sigs }), wedgie }, (_, v) => (typeof v === "bigint" ? v.toString() : v)),
     });
     const j = await r.json().catch(() => ({}));

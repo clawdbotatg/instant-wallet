@@ -1,5 +1,5 @@
 import { type Address, type Hash, type Hex, zeroAddress } from "viem";
-import { chainById, codeOnce, publicClient } from "../chains";
+import { chainById, codeOnce, publicClient, relayHeaders } from "../chains";
 import {
   type Call,
   type SafeTx,
@@ -79,7 +79,7 @@ export function signerLabel(a: SafeAccount, st: ChainState, signers: Signer[]): 
 export type Stage = "quote" | "signing" | "signing-hot" | "signing-wedgie" | "sending" | "confirming";
 
 export async function getQuote(chainId: number, kind: SendKind, extraGas?: bigint): Promise<Quote> {
-  const r = await fetch(`/api/safe/relay?chainId=${chainId}&kind=${kind}${extraGas ? `&extra=${extraGas}` : ""}`, { cache: "no-store" });
+  const r = await fetch(`/api/safe/relay?chainId=${chainId}&kind=${kind}${extraGas ? `&extra=${extraGas}` : ""}`, { cache: "no-store", headers: relayHeaders(chainId) });
   const j = await r.json();
   if (!r.ok) throw new Error(j.error || "no quote");
   return j;
@@ -91,10 +91,10 @@ export function feeCall(q: Quote, token: FeeToken): Call {
   return transfer(zeroAddress, q.relayer, BigInt(q.feeEth));
 }
 
-async function post(body: unknown): Promise<Hash> {
+async function post(body: { chainId: number; [k: string]: unknown }): Promise<Hash> {
   const r = await fetch("/api/safe/relay", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...relayHeaders(body.chainId) },
     body: JSON.stringify(body, (_, v) => (typeof v === "bigint" ? v.toString() : v)),
   });
   const j = await r.json().catch(() => ({}));

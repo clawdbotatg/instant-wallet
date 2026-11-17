@@ -9,6 +9,10 @@ Where the build differs from the plan below:
 - The light client (Prove balances, Check it in this browser) also works over Tor: Colibri takes a custom `fetch`.
   The prover (colibri-proof.tech) is still reached directly; it serves header proofs, not your address.
 - Uses viem `http()` with `fetchFn: torFetch()` (batches of 20, at most 6 requests at once, 60 s timeout), not `custom()`.
+- **Sends on a local copy** (local.instantwallet.io, `run-local.sh`): the page sends its Settings → Your node to
+  the relay (header `x-iw-node`, `lib/local.ts` `nodeOf`), and the relay reads, quotes and sends there. A .onion
+  goes over Tor from Node (`lib/torServer.ts`, tor-js direct TCP, no gateway: ~7 s first call, ~1 s after). Our
+  public site ignores the header. On our site a send still goes through our relay or your browser wallet.
 - No line under the field (same-check: no sentences under a settings box). The button says "Starting Tor…" while it starts.
 
 A setting that sends the wallet's chain reads over Tor to a BuidlGuidl home node. No server of ours, and no

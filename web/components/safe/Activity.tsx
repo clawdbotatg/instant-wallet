@@ -43,15 +43,16 @@ function keep(key: string, rows: Row[]) {
  * the rest) and a row once made is kept, so it costs a call or two. What it's still sending sits on top, "Executing…"
  * (lib/safe/sending.ts). Money in shows the moment the balance has it (`live`: a balance read now, not last open's),
  * who from when the chain read lands. `undeployed`: networks with no Safe yet, so no logs: money in there is asked of
- * Alchemy's transfers. `onIn`: told of money in as it's seen (the receive code says it).
+ * Alchemy's transfers (`watched`: all of them, not just the ones holding something). `onIn`: told of money in as it's seen (the receive code says it).
  */
-export function Activity({ safe, chains, undeployed = [], assets, late, live, tick, onIn }: { safe: Address; chains: number[]; undeployed?: number[]; assets: Asset[]; late?: number[]; live?: boolean; tick?: number; onIn?: (got: Just[]) => void }) {
+export function Activity({ safe, chains, undeployed = [], watched, assets, late, live, tick, onIn }: { safe: Address; chains: number[]; undeployed?: number[]; watched?: boolean; assets: Asset[]; late?: number[]; live?: boolean; tick?: number; onIn?: (got: Just[]) => void }) {
   const [by, setBy] = useState<{ key: string; rows: Record<number, Row[]> }>({ key: "", rows: {} });
   const [out, setOut] = useState<Sending[]>([]);
   const [just, setJust] = useState<Just[]>([]);
   const [landed, setLanded] = useState(0);
-  // networks with no Safe that hold something: the only ones worth asking
-  const bare = undeployed.filter(c => assets.some(a => a.chainId === c));
+  // networks with no Safe that hold something: the only ones worth asking. A watched address asks them all: a plain
+  // one may have sent everything it had on a network, and its sends there are its history (Austin 11-16)
+  const bare = watched ? undeployed : undeployed.filter(c => assets.some(a => a.chainId === c));
   const key = `${safe}|${chains.join()}|${bare.join()}`;
   const later = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   // read the chain now, and again a beat later (a node can answer the receipt, or the balance, a block before its logs)

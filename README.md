@@ -52,9 +52,6 @@ To keep it running without a Terminal window, and start it every time you log in
    - **Execute from my wallet:** with MetaMask or another browser wallet, the dark gray button under Sign. No fee;
      your browser wallet pays the gas.
 
-Over Tor: in Settings → **Your node**, paste your node's `.onion` address. Reads and your relay's sends go to it
-over Tor, so the node never sees your IP (`docs/ANON-RPC.md`).
-
 More nodes: add `RPC_URL_<chainId>=<url>` lines to `web/.env.local` (`RPC_URL_8453` for Base) and run it again.
 
 Optional free keys, same file. Settings → **Off on this copy** lists the ones you're missing:

@@ -92,10 +92,16 @@ export function Activity({ safe, chains, undeployed = [], watched, assets, late,
   const got = by.key === safe ? by.rows : {};
   const waiting = (!chains.length && !undeployed.length) || [...chains, ...bare].some(c => !(c in got));
   const all = [...Object.values(got).flat(), ...(waiting ? saved.filter(r => !(r.chainId in got)) : [])];
-  // money in from a lookalike of someone this wallet paid (same start and end, not the same address): address
-  // poisoning, a fake made so the next send copies it from history. Never shown (Austin 11-17).
+  // a small amount (under $1, or under 0.01 with no price) in from a lookalike of someone this wallet paid (same
+  // start and end, not the same address): address poisoning, a fake made so the next send copies it from history.
+  // Never shown (Austin 11-17).
   const paid = new Set(all.flatMap(r => (r.words ?? []).flatMap(l => l.text.match(/0x[0-9a-fA-F]{40}/g) ?? [])).map(a => a.toLowerCase()));
-  const rows = all.filter(r => !r.from || paid.has(r.from.toLowerCase()) || ![...paid].some(a => lookalike(r.from!, a))).sort((a, b) => (a.at < b.at ? 1 : -1)).slice(0, SHOW);
+  const small = (r: Row) =>
+    r.get.every(m => {
+      const a = assets.find(x => x.chainId === r.chainId && x.asset.toLowerCase() === (m.token === "eth" ? zeroAddress : m.token));
+      return a?.price ? a.price * Number(m.amount) < 1 : Number(m.amount) < 0.01;
+    });
+  const rows = all.filter(r => !r.from || paid.has(r.from.toLowerCase()) || !small(r) || ![...paid].some(a => lookalike(r.from!, a))).sort((a, b) => (a.at < b.at ? 1 : -1)).slice(0, SHOW);
   const list = JSON.stringify(rows);
   useEffect(() => {
     if (!waiting) keep(safe, JSON.parse(list));

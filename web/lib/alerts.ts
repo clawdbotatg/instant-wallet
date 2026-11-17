@@ -117,9 +117,10 @@ export async function authorize(wallet: Address, change: string, s: Signed, host
   // an owner on a chain where the wallet is deployed; only a wallet deployed nowhere goes by its counterfactual
   // address (else a passkey a recovery replaced would keep its say here forever)
   const signer = signerAddress(s.qx, s.qy);
-  // every chain at once (it was 14 chains one after another, before every alerts change and every drop claim)
+  // Base decides, as for a passkey login (passkeyAuth.ts): "an owner on any chain" let a removed passkey back in on a
+  // chain where someone deployed the wallet's first setup (audit 11-13, IW-16)
   const on = await Promise.all(
-    CHAINS.map(async c => {
+    CHAINS.filter(c => c.id === 8453).map(async c => {
       const url = upstreamRpc(c.id);
       if (!url) return "none";
       const pc = createPublicClient({ transport: http(url) });

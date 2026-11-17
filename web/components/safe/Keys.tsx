@@ -876,7 +876,7 @@ export function Keys({
 
       {local && (
         <Step title="Balances and prices" key="indexer">
-          <LocalIndexer toast={toast} />
+          <LocalIndexer chainId={chainId} toast={toast} />
         </Step>
       )}
 

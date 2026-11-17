@@ -92,7 +92,7 @@ export function Activity({ safe, chains, undeployed = [], watched, assets, late,
   const got = by.key === safe ? by.rows : {};
   const waiting = (!chains.length && !undeployed.length) || [...chains, ...bare].some(c => !(c in got));
   const all = [...Object.values(got).flat(), ...(waiting ? saved.filter(r => !(r.chainId in got)) : [])];
-  // dust (under a cent, or under 0.0001 with no price: the one Austin saw was 0.000053 USDC) in from a lookalike of someone this wallet paid (same
+  // dust (under a cent, or under 0.0001 with no price: the one Austin saw was 0.000053 USDC) in from a lookalike of this wallet or of someone it paid (same
   // start and end, not the same address): address poisoning, a fake made so the next send copies it from history.
   // Never shown (Austin 11-17).
   const paid = new Set(all.flatMap(r => (r.words ?? []).flatMap(l => l.text.match(/0x[0-9a-fA-F]{40}/g) ?? [])).map(a => a.toLowerCase()));
@@ -101,7 +101,7 @@ export function Activity({ safe, chains, undeployed = [], watched, assets, late,
       const a = assets.find(x => x.chainId === r.chainId && x.asset.toLowerCase() === (m.token === "eth" ? zeroAddress : m.token));
       return a?.price ? a.price * Number(m.amount) < 0.01 : Number(m.amount) < 0.0001;
     });
-  const rows = all.filter(r => !r.from || paid.has(r.from.toLowerCase()) || !small(r) || ![...paid].some(a => lookalike(r.from!, a))).sort((a, b) => (a.at < b.at ? 1 : -1)).slice(0, SHOW);
+  const rows = all.filter(r => !r.from || paid.has(r.from.toLowerCase()) || !small(r) || ![safe, ...paid].some(a => lookalike(r.from!, a))).sort((a, b) => (a.at < b.at ? 1 : -1)).slice(0, SHOW);
   const list = JSON.stringify(rows);
   useEffect(() => {
     if (!waiting) keep(safe, JSON.parse(list));
@@ -325,8 +325,8 @@ async function insOn(chainId: number, safe: Address): Promise<Row[]> {
     const hash = String(x.hash).toLowerCase();
     if (ours.has(hash)) continue; // its own transaction: that row says what came back
     const dec = tok ? tok.decimals : 18;
-    // dust (under a millionth) from a lookalike of this wallet: address poisoning
-    if (lookalike(x.from, safe) || (dec > 6 && v < 10n ** BigInt(dec - 6))) continue;
+    // dust (under a millionth): never shown. A lookalike's dust is hidden with the rest, in Activity
+    if (dec > 6 && v < 10n ** BigInt(dec - 6)) continue;
     const row: Row = rows.get(hash) ?? { chainId, at: at(x), hash, link: link(hash), pay: [], get: [], from: x.from === zeroAddress ? null : x.from };
     row.get.push({ token: tok ? String(x.rawContract.address).toLowerCase() : "eth", symbol: tok ? tok.symbol : (info?.native.symbol ?? "ETH"), amount: formatUnits(v, dec) } as Move);
     rows.set(hash, row);

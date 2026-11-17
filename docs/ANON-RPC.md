@@ -207,6 +207,8 @@ These don't go through `publicClient()`, so they still reach our servers or othe
 
 ## Open
 
+The plan for these, in order: `docs/ANON-RPC-NEXT.md`.
+
 1. **Our own gateway.** One box with a fixed public IP and one open UDP port (12298). Runbook: `~/anonrpc/GATEWAY-RUNBOOK.md`.
 2. **More nodes.** `node index.js --tor` in buidlguidl-client sets up Tor + the filter and shows the node's `.onion`
    ([PR #70](https://github.com/BuidlGuidl/buidlguidl-client/pull/70), open; bgnodetest3 runs it).

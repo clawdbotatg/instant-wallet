@@ -21,6 +21,11 @@ const config: NextConfig = {
       { source: "/:path*", headers: [{ key: "Content-Security-Policy", value: "frame-ancestors 'none'" }, { key: "X-Frame-Options", value: "DENY" }] },
     ];
   },
+  // xdai.io's front page is its own route, so its links unfurl with its own share card (app/xdai-home). Only "/":
+  // every other page is the same on both sites.
+  async rewrites() {
+    return { beforeFiles: [{ source: "/", has: [{ type: "host", value: "xdai.io" }], destination: "/xdai-home" }], afterFiles: [], fallback: [] };
+  },
   // the Safe build moved from /safe to / (2026-10-06)
   async redirects() {
     return [

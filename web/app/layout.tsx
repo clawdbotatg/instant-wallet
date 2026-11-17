@@ -2,24 +2,18 @@ import type { Metadata, Viewport } from "next";
 import { DM_Mono, Outfit } from "next/font/google";
 import { NetBar } from "@/components/NetBar";
 import { BRAND_SCRIPT } from "@/lib/brand";
+import { description, shareCard } from "@/lib/share";
 import "./globals.css";
 
 // Outfit: the wordmark's look (og4.png)
 const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" });
 const mono = DM_Mono({ subsets: ["latin"], weight: ["500"], variable: "--font-mono" });
 
-const description =
-  "Instant Wallet: an Ethereum wallet in seconds that will last forever. No seed phrase. Social recovery. Backed by Safe. It holds your coins on Ethereum, Base, Arbitrum and more, in your browser or the iPhone app. You can run it all on your own computer.";
-
 export const metadata: Metadata = {
-  // share cards need absolute image URLs
-  metadataBase: new URL("https://instantwallet.io"),
+  ...shareCard("https://instantwallet.io", "/og4.png"),
   title: "Instant Wallet — an Ethereum wallet in seconds that will last forever",
   description,
   keywords: ["Instant Wallet", "Ethereum wallet", "passkey wallet", "smart wallet", "no seed phrase", "social recovery", "self-hosted wallet", "Base", "Safe", "crypto wallet"],
-  alternates: { canonical: "/" },
-  openGraph: { title: "Instant Wallet", description, url: "/", siteName: "Instant Wallet", images: [{ url: "/og4.png", width: 1200, height: 630 }] },
-  twitter: { card: "summary_large_image", title: "Instant Wallet", description, images: ["/og4.png"] },
   // no `capable`: iOS opens the home-screen icon in Safari (same storage); see manifest.ts
   appleWebApp: { title: "Instant Wallet" },
   // Safari's Smart App Banner: "Open" / "Get" for the App Store app

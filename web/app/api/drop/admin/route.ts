@@ -64,7 +64,10 @@ export async function POST(req: NextRequest) {
       if (!d) throw new DropRefused("No such drop.", 404);
       return d;
     };
-    // any admin sees every drop; only the wallet that made one changes it or takes its money back
+    // any admin sees every drop; only the wallet that made one sees its codes (a code is the money: audit 11-13,
+    // IW-17, one admin key could claim every card of every drop), changes it or takes its money back
+    const own = (d: { admin: string }) => d.admin.toLowerCase() === me.toLowerCase();
+    const shown = <D extends { admin: string; code?: string }>(d: D) => (own(d) ? d : { ...d, code: undefined });
     const mine = async () => {
       const d = await one();
       if (d.admin.toLowerCase() !== me.toLowerCase()) throw new DropRefused("Only the wallet that made this drop can change it.", 403);
@@ -75,14 +78,14 @@ export async function POST(req: NextRequest) {
         const drops = await listDrops();
         return NextResponse.json({
           chains: DROP_CHAINS,
-          drops: await Promise.all(drops.map(async d => ({ ...d, mine: d.admin.toLowerCase() === me.toLowerCase(), claimed: await claimedCount(d.id), pot: potAddress(d.id) }))),
+          drops: await Promise.all(drops.map(async d => ({ ...shown(d), mine: own(d), claimed: await claimedCount(d.id), pot: potAddress(d.id) }))),
         });
       }
       case "get": {
         const d = await one();
-        const codes = d.kind === "cards" ? await cardCodes(d.id) : [];
+        const codes = d.kind === "cards" && own(d) ? await cardCodes(d.id) : [];
         const [claimed, pot, log, used] = await Promise.all([claimedCount(d.id), potBalances(d), claims(d.id), usedCards(codes)]);
-        return NextResponse.json({ drop: d, mine: d.admin.toLowerCase() === me.toLowerCase(), claimed, pot, claims: log, codes: codes.map((code, i) => ({ code, used: used[i] })) });
+        return NextResponse.json({ drop: shown(d), mine: own(d), claimed, pot, claims: log, codes: codes.map((code, i) => ({ code, used: used[i] })) });
       }
       case "create":
         return NextResponse.json({ drop: await createDrop(me, b.drop ?? {}) });

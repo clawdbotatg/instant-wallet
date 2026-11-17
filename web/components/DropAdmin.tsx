@@ -121,7 +121,7 @@ export function DropAdmin() {
             <span className="stack" style={{ gap: 2 }}>
               <b>{d.name}</b>
               <span className="fine">
-                {d.kind === "cards" ? `${d.cap} cards` : `crowd · ${d.code}`} × {amt(d)} · <Net chainId={d.chainId} />
+                {d.kind === "cards" ? `${d.cap} cards` : `crowd${d.code ? ` · ${d.code}` : ""}`} × {amt(d)} · <Net chainId={d.chainId} />
               </span>
             </span>
             <span className="fine" style={{ textAlign: "right" }}>

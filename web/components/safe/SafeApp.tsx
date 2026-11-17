@@ -617,7 +617,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
               <div className="grow">
                 <div className="sym">{a.symbol}</div>
                 <div className="fine">
-                  {a.name === a.symbol ? "" : `${a.name} · `}
+                  {a.name === a.symbol || a.name === chainById(a.chainId)?.name ? "" : `${a.name} · ` /* POL on Polygon: say Polygon once */}
                   {chainById(a.chainId)?.name /* in the token icon */}
                 </div>
               </div>

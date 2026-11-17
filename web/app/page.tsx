@@ -8,8 +8,9 @@ export default function Page() {
       <div className="sr-only">
         <h1>Instant Wallet</h1>
         <p>
-          Make an Ethereum smart wallet in seconds with Face ID or your fingerprint (a passkey). No seed phrase. Works in your
-          browser or the iPhone app. Send, receive, and swap on Base. Built on Safe; a wedgie (DIY hardware wallet) guards the big money.
+          An Ethereum wallet in seconds that will last forever. No seed phrase: Face ID or your fingerprint (a passkey) signs.
+          Social recovery. Backed by Safe. It holds your coins on Ethereum, Base, Arbitrum and more, in your browser or the
+          iPhone app. You can run it all on your own computer. A wedgie (DIY hardware wallet) guards the big money.
         </p>
       </div>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
@@ -25,6 +26,6 @@ const jsonLd = {
   url: "https://instantwallet.io/",
   applicationCategory: "FinanceApplication",
   operatingSystem: "Any (web browser)",
-  description: "An Ethereum smart wallet you make in seconds with Face ID or your fingerprint. No seed phrase.",
+  description: "An Ethereum wallet in seconds that will last forever. No seed phrase. Social recovery. Backed by Safe.",
   offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
 };

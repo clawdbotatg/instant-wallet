@@ -9,14 +9,14 @@ const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" });
 const mono = DM_Mono({ subsets: ["latin"], weight: ["500"], variable: "--font-mono" });
 
 const description =
-  "Instant Wallet: an Ethereum smart wallet you make in seconds with Face ID or your fingerprint. No seed phrase. Works in your browser or the iPhone app. Send, receive, and swap on Base; a wedgie (DIY hardware wallet) guards the big money.";
+  "Instant Wallet: an Ethereum wallet in seconds that will last forever. No seed phrase. Social recovery. Backed by Safe. It holds your coins on Ethereum, Base, Arbitrum and more, in your browser or the iPhone app. You can run it all on your own computer.";
 
 export const metadata: Metadata = {
   // share cards need absolute image URLs
   metadataBase: new URL("https://instantwallet.io"),
-  title: "Instant Wallet — Ethereum wallet with Face ID, no seed phrase",
+  title: "Instant Wallet — an Ethereum wallet in seconds that will last forever",
   description,
-  keywords: ["Instant Wallet", "Ethereum wallet", "passkey wallet", "smart wallet", "Face ID wallet", "Base", "Safe", "crypto wallet"],
+  keywords: ["Instant Wallet", "Ethereum wallet", "passkey wallet", "smart wallet", "no seed phrase", "social recovery", "self-hosted wallet", "Base", "Safe", "crypto wallet"],
   alternates: { canonical: "/" },
   openGraph: { title: "Instant Wallet", description, url: "/", siteName: "Instant Wallet", images: [{ url: "/og4.png", width: 1200, height: 630 }] },
   twitter: { card: "summary_large_image", title: "Instant Wallet", description, images: ["/og4.png"] },

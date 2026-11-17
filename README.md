@@ -39,7 +39,8 @@ your history); Settings → **Balances and prices** shows it and turns it off. P
 app reads and sends through it too. It copies the transaction words (the EF
 clear-signing registry, ours, and what a wedgie shows: about 300 MB) to your computer, and updates them each run. Then it builds and opens
 https://local.instantwallet.io. Leave the Terminal window open; Ctrl+C stops it. Next time: `./run-local.sh` again.
-To update: `git pull`, then `./run-local.sh` again (it installs and builds each run).
+To update: stop it (Ctrl+C), `git pull`, `./run-local.sh` (it installs and builds what changed). Kept running with
+`--install`: `git pull`, then `./run-local.sh --install` again.
 
 To keep it running without a Terminal window, and start it every time you log in: `./run-local.sh --install`
 (`--uninstall` stops that; its log is `~/.instantwallet-local/run.log`).

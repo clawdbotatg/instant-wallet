@@ -39,6 +39,7 @@ your history); Settings → **Balances and prices** shows it and turns it off. P
 app reads and sends through it too. It copies the transaction words (the EF
 clear-signing registry, ours, and what a wedgie shows: about 300 MB) to your computer, and updates them each run. Then it builds and opens
 https://local.instantwallet.io. Leave the Terminal window open; Ctrl+C stops it. Next time: `./run-local.sh` again.
+To update: `git pull`, then `./run-local.sh` again (it installs and builds each run).
 
 To keep it running without a Terminal window, and start it every time you log in: `./run-local.sh --install`
 (`--uninstall` stops that; its log is `~/.instantwallet-local/run.log`).
@@ -50,6 +51,9 @@ To keep it running without a Terminal window, and start it every time you log in
      gas. Its key stays in `web/.env.local` on your computer.
    - **Execute from my wallet:** with MetaMask or another browser wallet, the dark gray button under Sign. No fee;
      your browser wallet pays the gas.
+
+Over Tor: in Settings → **Your node**, paste your node's `.onion` address. Reads and your relay's sends go to it
+over Tor, so the node never sees your IP (`docs/ANON-RPC.md`).
 
 More nodes: add `RPC_URL_<chainId>=<url>` lines to `web/.env.local` (`RPC_URL_8453` for Base) and run it again.
 

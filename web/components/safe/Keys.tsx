@@ -12,7 +12,7 @@ import { type ReactNode, useCallback, useEffect, useRef, useState } from "react"
 import { type Address, type Hex, encodeFunctionData, formatUnits, zeroAddress } from "viem";
 import { brainKey, isXdai, oldBurnerKey } from "@/lib/brand";
 import { claimKey } from "@/lib/claim";
-import { CHAINS, chainById, moneyChain, explorerAddress, ETH, nativeSymbol, publicClient } from "@/lib/chains";
+import { HOME_CHAIN, chainById, moneyChain, explorerAddress, ETH, nativeSymbol, publicClient } from "@/lib/chains";
 import { amount, short, feeText, usd } from "@/lib/format";
 import { DAO, FEE_ALLOWANCE, RECOVERY_14D, RECOVERY_60D, VERIFIERS, VERIFIERS_SLOT2 } from "@/lib/safe/config";
 import { type Call, DEFAULT_BUDGET, abi, signerAddress, budgetCalls, deploySignerCall, feeAllowanceCalls, guardianListCalls, recoveryLayoutCalls, selfCall } from "@/lib/safe/core";
@@ -64,7 +64,7 @@ export function Keys({
   onShare: (chainId: number) => void; // Share crypto (QR / NFC card), on the network picked here
 }) {
 
-  const [chainId, setChainIdRaw] = useState(CHAINS[0].id);
+  const [chainId, setChainIdRaw] = useState(HOME_CHAIN);
   const features = useFeatures(); // no alert keys on this server (a copy on your own computer): no alerts box
   const [local, setLocal] = useState(false); // a copy on your own computer: its own settings (lib/local.ts)
   useEffect(() => setLocal(isLocal()), []);

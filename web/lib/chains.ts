@@ -82,10 +82,13 @@ const xdai = typeof document !== "undefined" && document.documentElement.dataset
 export const CHAINS: ChainInfo[] = xdai ? [...enabled.filter(c => c.id === 100), ...enabled.filter(c => c.id !== 100)] : enabled;
 export const DEFAULT_CHAIN = CHAINS[0];
 
-/** The network with the most dollars on it: the one Settings opens on, and the one the gear's "2/4" counts. null: no money anywhere. */
+/** Where Settings opens with no money anywhere, and who wins a tie: Ethereum (Gnosis on xdai.io). */
+export const HOME_CHAIN = (CHAINS.find(c => c.id === (xdai ? 100 : mainnet.id)) ?? CHAINS[0]).id;
+
+/** The network with the most dollars on it: the one Settings opens on, and the one the gear's "2/4" counts. A tie goes to HOME_CHAIN. null: no money anywhere. */
 export function moneyChain(assets: { chainId: number; usd?: number | null }[]): number | null {
   const usdOn = (id: number) => assets.filter(a => a.chainId === id).reduce((t, a) => t + (a.usd ?? 0), 0);
-  const best = [...CHAINS].sort((x, y) => usdOn(y.id) - usdOn(x.id))[0];
+  const best = [...CHAINS].sort((x, y) => usdOn(y.id) - usdOn(x.id) || (y.id === HOME_CHAIN ? 1 : 0) - (x.id === HOME_CHAIN ? 1 : 0))[0];
   return best && usdOn(best.id) > 0 ? best.id : null;
 }
 

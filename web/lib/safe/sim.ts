@@ -1,13 +1,14 @@
 import type { Address } from "viem";
 import { SIM_DEFAULT, type SafeTxLike, type SimAnswer, simulate as run } from "clear-signing-safe-kit";
 import { chainById, nativeSymbol, rpcPath } from "@/lib/chains";
+import { isLocal } from "@/lib/local";
 import { nativeUsd, tokensUsd } from "@/lib/price";
 import { LIGHT_CHAINS, PROVER, WRAPPED, lightRun, lightWarm } from "./light";
 
 /**
- * What a Safe tx moves in and out, from clear-sim (the simulator wedgie.dev and the wedgie use), through
+ * What a Safe tx moves in and out, from iw-sim (clawdbotatg/iw-sim; the wedgie uses it too), through
  * clear-signing-safe-kit: asked from the browser, its signed answer checked against the key pinned per simulator.
- * Settings → Simulator points it at your own.
+ * Settings → Simulator points it at your own. A copy on your own computer asks the one run-local.sh started first.
  */
 export { SIM_DEFAULT, asSafeTx, moves, type Moves as Sim, type Move, type SimAnswer } from "clear-signing-safe-kit";
 const KEY = "iws.sim";
@@ -25,6 +26,24 @@ export function setSimUrl(u: string | null) {
     else localStorage.removeItem(KEY);
   } catch {}
 }
+
+/** The simulator run-local.sh started on this computer (app/api/local/sim), if it's there: asked once a page. */
+export const LOCAL_SIM = "/api/local/sim";
+let localUp: Promise<boolean> | null = null;
+export function localSim(): Promise<boolean> {
+  if (!isLocal()) return Promise.resolve(false);
+  return (localUp ??= fetch(LOCAL_SIM, { signal: AbortSignal.timeout(4000) })
+    .then(r => r.json())
+    .then(k => k?.name === "clear-sim" && !!k?.x)
+    .catch(() => false));
+}
+const mine = () => {
+  try {
+    return !!localStorage.getItem(KEY);
+  } catch {
+    return false;
+  }
+};
 
 /** Settings → Simulator: the wedgie shows the coins too. It asks clear-sim (the only answer it can check), so
  * off = the transaction goes to no simulator before you sign, and the wedgie shows the words only. */
@@ -87,8 +106,14 @@ async function light(chainId: number, safe: Address, tx: SafeTxLike): Promise<Si
 }
 
 /** Run it: in this browser where the light client is on (it throws when it can't prove its answer: never the
- * unchecked one, never clear-sim instead), else on this browser's simulator. null: no answer we can trust. */
-export function simulate(chainId: number, safe: Address, tx: SafeTxLike): Promise<SimAnswer | null> {
+ * unchecked one, never the simulator instead), else the one set in Settings → Simulator, else the one on this
+ * computer and only if it has no answer the hosted one. null: no answer we can trust. */
+export async function simulate(chainId: number, safe: Address, tx: SafeTxLike): Promise<SimAnswer | null> {
   if (lightOn(chainId)) return light(chainId, safe, tx);
-  return run({ chain: chainId, safe, tx, url: simUrl(), store: "iws.simKeys" });
+  const ask = (url: string) => run({ chain: chainId, safe, tx, url, store: "iws.simKeys" });
+  if (!mine() && (await localSim())) {
+    const a = await ask(location.origin + LOCAL_SIM).catch(() => null);
+    if (a) return a;
+  }
+  return ask(simUrl());
 }

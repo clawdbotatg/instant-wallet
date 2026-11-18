@@ -167,8 +167,35 @@ else
   echo "Your indexer needs Node 22.18 or newer (brew upgrade node); coins come from Alchemy for now."
 fi
 
+# 4e. your own simulator (github.com/clawdbotatg/iw-sim): what a transaction moves, before you sign it. Reads your
+# nodes (RPC_<chainId>, if they have debug_traceCall), Alchemy for the rest and for prices. The wallet asks it first and
+# sim.wedgie.dev only when it has no answer. Its key stays in iw-sim/.sim-key. Needs Node 24+.
+SIMDIR="$DIR/iw-sim"
+SIM=""
+SIMENV=""
+for kv in $IXENV; do
+  id="${kv%%=*}"; id="${id#RPC_URL_}"; url="${kv#*=}"
+  # a node without the debug API can't run it: that network goes to Alchemy
+  if curl -sf -m 5 -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"debug_traceCall","params":[{"to":"0x0000000000000000000000000000000000000000"},"latest",{"tracer":"callTracer"}]}' "$url" | grep -q '"result"'; then
+    SIMENV="$SIMENV RPC_$id=$url"
+  else
+    echo "Your node for network $id has no debug_traceCall (turn on its debug API): your simulator uses Alchemy there."
+  fi
+done
+if node -e 'process.exit(Number(process.versions.node.split(".")[0])>=24?0:1)'; then
+  if [ -d "$SIMDIR" ]; then
+    (git -C "$SIMDIR" fetch -q --depth 1 origin HEAD && git -C "$SIMDIR" reset -q --hard FETCH_HEAD) 2>/dev/null || echo "Couldn't update the simulator (offline?); using the copy you have."
+  else
+    say "Getting your simulator"
+    git clone -q --depth 1 https://github.com/clawdbotatg/iw-sim.git "$SIMDIR" || echo "Couldn't get the simulator; sim.wedgie.dev runs your transactions."
+  fi
+  [ -f "$SIMDIR/server.ts" ] && { [ -n "$SIMENV" ] || [ -n "$AK" ]; } && SIM=1
+else
+  echo "Your simulator needs Node 24 or newer (brew upgrade node); sim.wedgie.dev runs your transactions for now."
+fi
+
 # 5. build
-for p in "$PORT" 443; do
+for p in "$PORT" 443 ${SIM:+8645}; do
   if lsof -iTCP:"$p" -sTCP:LISTEN >/dev/null 2>&1; then echo "Port $p is in use. Stop what's on it (or IW_PORT=3001 ./run-local.sh)."; exit 1; fi
 done
 # build only when the code changed since the last build (git's commit and any edits)
@@ -184,7 +211,7 @@ fi
 # 6. run: the app on $PORT, https on 443 in front of it
 say "Starting"
 # the store (shared tx queue, names, limits) in a file, so a restart keeps it
-(cd web && exec env KV_FILE="$DIR/store.json" $CLEAR ${IX:+INDEXER_URL=http://127.0.0.1:4100} npx next start -p "$PORT") &
+(cd web && exec env KV_FILE="$DIR/store.json" $CLEAR ${IX:+INDEXER_URL=http://127.0.0.1:4100} ${SIM:+SIM_URL=http://127.0.0.1:8645} npx next start -p "$PORT") &
 APP=$!
 IXP=""
 if [ -n "$IX" ]; then
@@ -192,9 +219,14 @@ if [ -n "$IX" ]; then
   (cd "$IXDIR" && while :; do env $IXENV DB="$DIR/indexer.db" INDEXER_PORT=4100 node src/main.ts; sleep 1; done) >"$DIR/indexer.log" 2>&1 &
   IXP=$!
 fi
+SIMP=""
+if [ -n "$SIM" ]; then
+  (cd "$SIMDIR" && while :; do env $SIMENV ${AK:+ALCHEMY_API_KEY=$AK} PORT=8645 node server.ts; sleep 1; done) >"$DIR/sim.log" 2>&1 &
+  SIMP=$!
+fi
 npx -y local-ssl-proxy@2.0.5 --source 443 --target "$PORT" --cert "$DIR/$NAME.pem" --key "$DIR/$NAME-key.pem" >/dev/null 2>&1 &
 PROXY=$!
-trap '[ -n "$IXP" ] && pkill -P $IXP 2>/dev/null; kill $APP $PROXY $IXP 2>/dev/null; echo; echo "Stopped."' EXIT INT TERM
+trap '[ -n "$IXP" ] && pkill -P $IXP 2>/dev/null; [ -n "$SIMP" ] && pkill -P $SIMP 2>/dev/null; kill $APP $PROXY $IXP $SIMP 2>/dev/null; echo; echo "Stopped."' EXIT INT TERM
 
 for _ in $(seq 1 60); do curl -sf "http://127.0.0.1:$PORT/api/version" >/dev/null && break; sleep 1; done
 say "Running at https://$NAME   (Ctrl+C to stop)"

@@ -2,14 +2,20 @@
 
 import { useEffect, useState } from "react";
 import { TimedBar } from "../bits";
-import { SIM_DEFAULT, setSimUrl, setWedgieSim, simUrl, wedgieSim } from "@/lib/safe/sim";
+import { SIM_DEFAULT, localSim, setSimUrl, setWedgieSim, simUrl, wedgieSim } from "@/lib/safe/sim";
 
-/** Settings → Simulator: which clear-sim works out what a transaction moves (lib/safe/sim.ts). Yours, if you run one. */
+/** Settings → Simulator: which iw-sim works out what a transaction moves (lib/safe/sim.ts). Yours, if you run one;
+ * on a copy on your own computer, the one run-local.sh started, then the hosted one. */
 export function SimSetting({ toast }: { toast: (m: string) => void }) {
   const [url, setUrl] = useState("");
   const [onWedgie, setOnWedgie] = useState(true);
   const [checking, setChecking] = useState(false);
-  useEffect(() => (setUrl(simUrl() === SIM_DEFAULT ? "" : simUrl()), setOnWedgie(wedgieSim())), []);
+  const [here, setHere] = useState(false);
+  useEffect(() => {
+    setUrl(simUrl() === SIM_DEFAULT ? "" : simUrl());
+    setOnWedgie(wedgieSim());
+    localSim().then(setHere);
+  }, []);
   const save = async () => {
     const u = url.trim().replace(/\/$/, "");
     if (u) {
@@ -22,12 +28,12 @@ export function SimSetting({ toast }: { toast: (m: string) => void }) {
       if (k?.name !== "clear-sim" || !k?.x) return toast("That isn't a clear-sim");
     }
     setSimUrl(u || null);
-    toast(u ? "Using your simulator" : "Using sim.wedgie.dev");
+    toast(u ? "Using your simulator" : here ? "Using the simulator on this computer" : "Using " + SIM_DEFAULT.replace("https://", ""));
   };
   return (
     <div className="stack" style={{ gap: 8 }}>
       <div className="row" style={{ gap: 8 }}>
-        <div className="input grow"><input value={url} onChange={e => setUrl(e.target.value)} placeholder={SIM_DEFAULT} inputMode="url" autoCapitalize="off" autoCorrect="off" /></div>
+        <div className="input grow"><input value={url} onChange={e => setUrl(e.target.value)} placeholder={here ? "The one on this computer" : SIM_DEFAULT} inputMode="url" autoCapitalize="off" autoCorrect="off" /></div>
         <button className="btn btn-sm" onClick={save} disabled={checking}>
           {checking ? "Checking…" : "Save"}
         </button>

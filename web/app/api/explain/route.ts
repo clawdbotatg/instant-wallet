@@ -1,3 +1,4 @@
+import { tooMany } from "@/lib/limit";
 import { NextRequest, NextResponse, after } from "next/server";
 import { forOf } from "@/lib/safe/intents";
 import { type Address, type Hex, decodeFunctionResult, erc20Abi } from "viem";
@@ -47,6 +48,7 @@ const explain = explainer({
 });
 
 export async function POST(req: NextRequest) {
+  if (await tooMany(req, "explain", 600, 3600)) return Response.json({ error: "Too many. Wait a bit." }, { status: 429 }); // paid reads, per IP (audit 11-13, IW-6)
   let b: any;
   try {
     b = await req.json();

@@ -14,6 +14,7 @@ export const dynamic = "force-dynamic";
  * Taking a contact away (or swapping the email) tells the old contacts first.
  */
 export async function GET(req: NextRequest) {
+  if (await tooMany(req, "alerts-get", 600, 3600)) return Response.json({ error: "Too many. Wait a bit." }, { status: 429 }); // paid reads, per IP (audit 11-13, IW-6)
   const w = req.nextUrl.searchParams.get("wallet") ?? "";
   if (!isAddress(w)) return NextResponse.json({ error: "wallet?" }, { status: 400 });
   return NextResponse.json({ channels: channels(), contacts: masked(await getContacts(getAddress(w)), true) });

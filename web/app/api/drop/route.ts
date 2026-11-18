@@ -1,3 +1,4 @@
+import { tooMany } from "@/lib/limit";
 import { NextRequest, NextResponse } from "next/server";
 import { getAddress, isAddress } from "viem";
 import { type Signed, authorize } from "@/lib/alerts";
@@ -15,6 +16,7 @@ export const maxDuration = 120;
  *   POST { code, wallet, sig }               → { hash }   sig: the wallet's passkey over "claim <CODE>" (scope "drops")
  */
 export async function GET(req: NextRequest) {
+  if (await tooMany(req, "drop-get", 600, 3600)) return Response.json({ error: "Too many. Wait a bit." }, { status: 429 }); // paid reads, per IP (audit 11-13, IW-6)
   const f = await byCode(req.nextUrl.searchParams.get("code") ?? "");
   if (!f) return NextResponse.json({ error: "That code isn't one of ours. Check it." }, { status: 404 });
   const { drop: d, code } = f;

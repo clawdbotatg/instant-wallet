@@ -1,3 +1,4 @@
+import { tooMany } from "@/lib/limit";
 import { NextRequest, NextResponse } from "next/server";
 import { type Address, decodeFunctionResult, encodeFunctionData, getAddress, isAddress, parseAbi, zeroAddress } from "viem";
 import { chainById } from "@/lib/chains";
@@ -45,6 +46,7 @@ async function read(chainId: number, address: Address, fn: "decimals" | "symbol"
 }
 
 export async function GET(req: NextRequest) {
+  if (await tooMany(req, "swap-tokens", 300, 3600)) return Response.json({ error: "Too many. Wait a bit." }, { status: 429 }); // paid reads, per IP (audit 11-13, IW-6)
   const chainId = Number(req.nextUrl.searchParams.get("chain"));
   const q = (req.nextUrl.searchParams.get("q") || "").trim();
   try {

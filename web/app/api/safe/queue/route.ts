@@ -82,6 +82,7 @@ function live(q: Queue, nonce: bigint): Queue {
 
 export async function GET(req: NextRequest) {
   try {
+    if (await tooMany(req, "queue-get", 1200, 3600)) throw new Error("Too many. Try again later.");
     const chainId = Number(req.nextUrl.searchParams.get("chainId"));
     const safe = req.nextUrl.searchParams.get("safe") || "";
     if (!isAddress(safe)) throw new Error("safe?");
@@ -170,6 +171,7 @@ const deleteRequest = (chainId: number, safe: Hex, hash: Hex, totp: bigint) => (
 
 export async function DELETE(req: NextRequest) {
   try {
+    if (await tooMany(req, "queue-del", 120, 3600)) throw new Error("Too many. Try again later."); // RPC reads before the check (audit 11-13, IW-6)
     const b = JSON.parse((await req.text()).slice(0, 8000));
     const chainId = Number(b.chainId);
     if (!isAddress(b.safe)) throw new Error("safe?");

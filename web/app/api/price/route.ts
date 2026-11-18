@@ -1,3 +1,4 @@
+import { tooMany } from "@/lib/limit";
 import { NextResponse } from "next/server";
 import { isAddress } from "viem";
 import { alchemyNetwork } from "@/lib/rpcServer";
@@ -9,6 +10,7 @@ export const dynamic = "force-dynamic";
 /** `GET /api/price?chain=<id>` -> `{usd}`: the chain's native coin in dollars (POL, BNB, xDAI, …), 0 when not known.
  * `&tokens=0x…,0x…` (25 at most) -> `{usd: {address: dollars}}` from Alchemy; a token it doesn't price is left out. */
 export async function GET(req: Request) {
+  if (await tooMany(req, "price", 1200, 3600)) return Response.json({ error: "Too many. Wait a bit." }, { status: 429 }); // paid reads, per IP (audit 11-13, IW-6)
   const id = Number(new URL(req.url).searchParams.get("chain"));
   if (!chainById(id)) return NextResponse.json({ error: "unknown chain" }, { status: 400 });
   const tokens = new URL(req.url).searchParams.get("tokens");

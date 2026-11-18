@@ -1,3 +1,4 @@
+import { tooMany } from "@/lib/limit";
 import { NextRequest, NextResponse } from "next/server";
 import { Capped } from "@/lib/capped";
 import { type Address, getAddress, isAddress } from "viem";
@@ -18,6 +19,7 @@ const cache = new Capped<string, { at: number; v: Nft[] }>(2_000);
  * which often have no image. Everything else passes the same checks as always.
  */
 export async function GET(req: NextRequest) {
+  if (await tooMany(req, "nfts", 300, 3600)) return Response.json({ error: "Too many. Wait a bit." }, { status: 429 }); // paid reads, per IP (audit 11-13, IW-6)
   const a = req.nextUrl.searchParams.get("address");
   if (!a || !isAddress(a)) return NextResponse.json({ error: "address required" }, { status: 400 });
   const wallet = getAddress(a);

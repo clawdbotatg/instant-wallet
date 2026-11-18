@@ -1,3 +1,4 @@
+import { tooMany } from "@/lib/limit";
 import { NextRequest, NextResponse } from "next/server";
 import { type Address, getAddress, isAddress, isHex, zeroAddress } from "viem";
 import { chainById } from "@/lib/chains";
@@ -15,6 +16,7 @@ export const dynamic = "force-dynamic";
  */
 const NOBODY = "0x1111111111111111111111111111111111111111";
 export async function GET(req: NextRequest) {
+  if (await tooMany(req, "swap-quote", 600, 3600)) return Response.json({ error: "Too many. Wait a bit." }, { status: 429 }); // paid reads, per IP (audit 11-13, IW-6)
   const q = req.nextUrl.searchParams;
   try {
     const fromChain = Number(q.get("fromChain"));

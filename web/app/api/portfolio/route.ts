@@ -1,3 +1,4 @@
+import { tooMany } from "@/lib/limit";
 import { NextRequest, NextResponse, after } from "next/server";
 import { indexerChains } from "@/lib/indexer";
 import { Capped } from "@/lib/capped";
@@ -22,6 +23,7 @@ export const dynamic = "force-dynamic";
  * indexer (clawdbotatg/iw-indexer) for the networks it reads, from your node.
  */
 export async function GET(req: NextRequest) {
+  if (await tooMany(req, "portfolio", 600, 3600)) return Response.json({ error: "Too many. Wait a bit." }, { status: 429 }); // paid reads, per IP (audit 11-13, IW-6)
   const a = req.nextUrl.searchParams.get("address");
   if (!a || !isAddress(a)) return NextResponse.json({ error: "address required" }, { status: 400 });
   const wallet = getAddress(a);

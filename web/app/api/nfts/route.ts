@@ -5,6 +5,7 @@ import { type Address, getAddress, isAddress } from "viem";
 import { CHAINS } from "@/lib/chains";
 import { alchemyNetwork } from "@/lib/rpcServer";
 import type { Nft } from "@/lib/types";
+import { indexerChains } from "@/lib/indexer";
 
 export const dynamic = "force-dynamic";
 
@@ -28,10 +29,21 @@ export async function GET(req: NextRequest) {
   const hit = cache.get(ck);
   if (hit && Date.now() - hit.at < CACHE_MS) return NextResponse.json({ nfts: hit.v });
   const late = () => new Promise<Nft[]>(r => setTimeout(() => r([]), 8_000));
-  const perChain = await Promise.all(CHAINS.map(c => Promise.race([chainNfts(c.id, wallet, all).catch(() => [] as Nft[]), late()])));
+  // the local copy with your indexer: its networks from it, once it has read the wallet's whole history; else Alchemy
+  const ix = all ? new Set<number>() : await indexerChains();
+  const one = async (chainId: number) => (ix.has(chainId) && (await indexerNfts(chainId, wallet).catch(() => null))) || chainNfts(chainId, wallet, all);
+  const perChain = await Promise.all(CHAINS.map(c => Promise.race([one(c.id).catch(() => [] as Nft[]), late()])));
   const nfts = perChain.flat();
   cache.set(ck, { at: Date.now(), v: nfts });
   return NextResponse.json({ nfts });
+}
+
+/** A wallet's NFTs on one network from your own indexer (clawdbotatg/iw-indexer, the local copy only): null until
+ * it has read the wallet's whole history. It drops airdrops and NFTs with no image; the same bait words as below. */
+async function indexerNfts(chainId: number, wallet: Address): Promise<Nft[] | null> {
+  const j = await fetch(`${process.env.INDEXER_URL}/nfts?address=${wallet}&chain=${chainId}`, { signal: AbortSignal.timeout(6_000), cache: "no-store" }).then(r => r.json());
+  if (!j?.complete || !Array.isArray(j.nfts)) return null;
+  return (j.nfts as Nft[]).filter(x => !BAIT.test(`${x.name} ${x.collection}`)).map(x => ({ ...x, contract: getAddress(x.contract) }));
 }
 
 /** The old Burner Wallet's badges on Gnosis: never spam, often no image. */

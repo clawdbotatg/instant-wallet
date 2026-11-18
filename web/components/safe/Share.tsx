@@ -12,7 +12,7 @@ import { type FeeToken, type Stage, Shared, budgetSend, feeCall, getQuote, owner
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { Net, AmountBox, DoneBar, ExecutedLine, Proven, Qr, Words, stageLabel } from "../bits";
+import { Net, AmountBox, DoneBar, ExecutedLine, Proven, Qr, Words, stageLabel, openFocus } from "../bits";
 import { WhatItDoes } from "./WhatItDoes";
 import { ChainSelect, Select, assetOpt } from "./Pick";
 import { ErrorLine } from "./WedgieButton";
@@ -326,7 +326,7 @@ export function Share({ account, states, assets, chainId: startChain, onDone }: 
         {asset && (
           <AmountBox
             key={keyOf(asset)}
-            autoFocus
+            autoFocus={openFocus}
             value={amountIn}
             onChange={setAmountIn}
             symbol={asset.symbol}

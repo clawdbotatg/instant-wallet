@@ -5,7 +5,7 @@ import { type Address, type Hex, encodeFunctionData } from "viem";
 import { CHAINS, chainById, explorerTx, publicClient } from "@/lib/chains";
 import { DAO, RECOVERY_7D, RECOVERY_DAYS, RECOVERY_MODULES, SAFE_FACTORY } from "@/lib/safe/config";
 import { abi, deploySafeCall, safeAddress } from "@/lib/safe/core";
-import { Eject, Net, AddressInput, Band, Who, Words, copy, useToast } from "../bits";
+import { Eject, Net, AddressInput, Band, Who, Words, copy, useToast, openFocus } from "../bits";
 import { when as when_ } from "@/lib/format";
 import { ErrorLine } from "./WedgieButton";
 import { ChainSelect } from "./Pick";
@@ -112,7 +112,7 @@ export function RecoverTool() {
       <ChainSelect value={chainId} onChange={setChainId} />
       <div className="field">
         <label>The wallet</label>
-        <AddressInput autoFocus={!q?.get("wallet")} initial={q?.get("wallet") ?? ""} onChange={setW} chain={chainId} />
+        <AddressInput autoFocus={openFocus && !q?.get("wallet")} initial={q?.get("wallet") ?? ""} onChange={setW} chain={chainId} />
       </div>
       {info && (
         <p className="fine">

@@ -8,7 +8,7 @@ import { chainById } from "@/lib/chains";
 import { type DropInfo, clearStash, dropAmount, dropSig, normCode, stashCode, stashedCode } from "@/lib/dropClient";
 import { usd } from "@/lib/format";
 import { type SafeAccount, loadAccount, saveAccount } from "@/lib/safe/state";
-import { Money, Net, TimedBar, openFocus } from "./bits";
+import { Money, Net, TimedBar } from "./bits";
 import { ErrorLine } from "./safe/WedgieButton";
 import { SafeWelcome } from "./safe/SafeWelcome";
 import { friendly } from "@/lib/friendly";
@@ -70,7 +70,7 @@ export function Drop() {
         setCode(c);
       }}
     >
-      <input autoFocus={openFocus} className="mono center" placeholder="Your code" value={typed} onChange={e => setTyped(e.target.value)} autoCapitalize="characters" autoCorrect="off" spellCheck={false} />
+      <input autoFocus className="mono center" placeholder="Your code" value={typed} onChange={e => setTyped(e.target.value)} autoCapitalize="characters" autoCorrect="off" spellCheck={false} />
       <button className="btn btn-green wide" disabled={normCode(typed).length < 4}>Go</button>
     </form>
   );

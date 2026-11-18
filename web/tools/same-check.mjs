@@ -106,9 +106,8 @@ for (const p of files) {
 // a screen whose only thing to do is type: the box has the focus (Austin 11-16: Watch a wallet had none)
 for (const [f, n] of [["components/safe/SafeWelcome.tsx", 2], ["components/safe/RecoverTool.tsx", 1], ["components/safe/SafeSend.tsx", 2], ["components/safe/SendAll.tsx", 1], ["components/safe/SafeSwap.tsx", 1], ["components/safe/Share.tsx", 1], ["components/Receive.tsx", 2], ["components/Drop.tsx", 1], ["components/DropAdmin.tsx", 1], ["components/safe/Pick.tsx", 2], ["components/safe/Limits.tsx", 1]])
   if ((readFileSync(join(root, f), "utf8").match(/\bautoFocus\b/g) || []).length < n) (bad++, console.log(`${f}  a type-in screen with no autoFocus: the box you type in has the focus`));
-// ...but not on a phone: a screen that opens with the keyboard up is covered before it's read (Austin 11-17: Send everything)
-for (const f of ["components/safe/SafeWelcome.tsx", "components/safe/RecoverTool.tsx", "components/safe/SafeSend.tsx", "components/safe/SendAll.tsx", "components/safe/SafeSwap.tsx", "components/safe/Share.tsx", "components/safe/Limits.tsx", "components/Drop.tsx", "components/DropAdmin.tsx"])
-  if (/\bautoFocus(?!=\{openFocus\b)/.test(readFileSync(join(root, f), "utf8"))) (bad++, console.log(`${f}  autoFocus without openFocus: on a phone the keyboard waits for a tap on the box`));
+// the one exception: Send everything on a phone opens with no keyboard, it covered the list of what goes (Austin 11-17)
+if (!/autoFocus=\{openFocus\}/.test(readFileSync(join(root, "components/safe/SendAll.tsx"), "utf8"))) (bad++, console.log(`components/safe/SendAll.tsx  autoFocus without openFocus: on a phone its keyboard waits for a tap on the box`));
 // a long list on Home shows a page of it (640px), then Show all (Austin 11-12: atg.eth's coins hid the positions)
 for (const p of files) {
   const src = readFileSync(p, "utf8");

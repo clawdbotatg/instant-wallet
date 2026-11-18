@@ -13,7 +13,7 @@ import { uniswapRoute } from "@/lib/safe/uniswap";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import { hotAvailable } from "@/lib/safe/hot";
 import type { Asset } from "@/lib/types";
-import { Net, AmountBox, DoneBar, Eject, Money, Proven, SendOrSwap, TimedBar, TokenIcon, Who, FromMine, MineGo, stageLabel, openFocus } from "../bits";
+import { Net, AmountBox, DoneBar, Eject, Money, Proven, SendOrSwap, TimedBar, TokenIcon, Who, FromMine, MineGo, stageLabel } from "../bits";
 import { ChainSelect, type Opt, Select, SignerChoice, assetOpt } from "./Pick";
 import { Progress, TimeBar } from "./Progress";
 import { friendly } from "@/lib/friendly";
@@ -438,7 +438,7 @@ export function SafeSwap({
           <>
             <AmountBox
               key={assetOpt(from).key}
-              autoFocus={openFocus}
+              autoFocus
               value={amountIn}
               onChange={setAmountIn}
               symbol={from.symbol}

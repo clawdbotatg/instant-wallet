@@ -10,7 +10,7 @@ import { type Prepared, Shared, finishOwners, getQuote, ownerSigners, prepareOwn
 import { type ChainState, type SafeAccount, readChain } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { AmountBox, Net, TimedBar, Words, stageLabel } from "../bits";
+import { AmountBox, Net, TimedBar, Words, stageLabel, openFocus } from "../bits";
 import { friendly } from "@/lib/friendly";
 import { ErrorLine } from "./WedgieButton";
 
@@ -143,7 +143,7 @@ export function ChainLimit({ account, st, assets, onRefresh, onPoll, toast, onCl
         </div>
       ) : (
         <>
-          <AmountBox autoFocus value={usdcIn} onChange={setUsdcIn} symbol="USDC" decimals={6} price={1} right="USDC a day" />
+          <AmountBox autoFocus={openFocus} value={usdcIn} onChange={setUsdcIn} symbol="USDC" decimals={6} price={1} right="USDC a day" />
           <AmountBox value={ethIn} onChange={setEthIn} symbol={coin} decimals={18} price={coinUsd} right={`${coin} a day`} />
           <button className="btn btn-green wide" onClick={save} disabled={busy || !usdcIn || !ethIn}>
             {busy ? stageLabel("quote") : "Save"}

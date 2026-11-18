@@ -151,16 +151,16 @@ Button sizes (11-11):
 
 `node web/tools/same-check.mjs` fails on a list re-read slower than every 30 seconds.
 
-## 7. The box you type in has the focus
+## 7. The box you type in has the focus, when it's all there is
 
-- When a screen's only thing to do is type something in, the cursor is already in that box (11-16: Watch a wallet
-  opened with no focus). Anywhere in the app: Watch, Recover, Send's To (then its amount), Send everything, Swap,
-  Share, Request, the daily limit, a drop's code, a new drop.
-- Not when the screen has other things to do first (a camera to scan, a settings page, a list).
-- One exception: Send everything on a phone (11-17: the keyboard covered the list of what goes). There the keyboard
-  waits for a tap on the To box (`openFocus`). On a computer the cursor is still in it.
+- A screen that is nothing but one box to type in opens with the cursor in it (11-16: Watch a wallet opened with no
+  focus): Watch, Recover, a drop's code.
+- A screen with more on it does not open a phone's keyboard (11-17: it makes the screen smaller and hides what you
+  read first). Send, Send everything, Swap, Share, Request, the daily limit, a new drop: the keyboard waits for a tap
+  on the box (`openFocus`). On a computer the cursor is still in the box, nothing is hidden there.
+- A box you tapped to open (a picker's filter, a name) gets the focus.
 
-`node web/tools/same-check.mjs` fails a type-in screen with no `autoFocus`.
+`node web/tools/same-check.mjs` fails a type-in screen with no `autoFocus`, and one of those with no `openFocus`.
 
 ## Known gaps (2026-10-29)
 

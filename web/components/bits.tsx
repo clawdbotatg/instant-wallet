@@ -18,6 +18,10 @@ import { useProven } from "@/lib/safe/proven";
 import type { Asset } from "@/lib/types";
 import { Scanner } from "./Scanner";
 
+// a screen that opens on a type-in box: the cursor is in it, but not on a phone, where the keyboard would cover the
+// screen before you've read it; there a tap on the box brings it (Austin 11-17: Send everything)
+export const openFocus = typeof window !== "undefined" && !window.matchMedia("(pointer: coarse)").matches;
+
 export function Band() {
   return (
     <div className="band" aria-hidden>

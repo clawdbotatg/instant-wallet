@@ -24,7 +24,7 @@ import {
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { Net, AddressInput, DoneBar, ExecutedLine, Money, Proven, ProvenMark, TokenIcon, FROM_MINE, stageLabel } from "../bits";
+import { Net, AddressInput, DoneBar, ExecutedLine, Money, Proven, ProvenMark, TokenIcon, FROM_MINE, stageLabel, openFocus } from "../bits";
 import { friendly } from "@/lib/friendly";
 import { Progress } from "./Progress";
 import { ErrorLine } from "./WedgieButton";
@@ -175,7 +175,7 @@ export function SendAll({
       <div className="field">
         <label>To</label>
         <AddressInput
-          autoFocus
+          autoFocus={openFocus}
           onChange={(a, name) => (setTo(a), setToName(name ?? null), setRows({}))}
         />
         {self && <span className="err">That&apos;s this wallet.</span>}

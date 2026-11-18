@@ -5,7 +5,7 @@ import { type Address, formatUnits } from "viem";
 import { chainById, explorerTx } from "@/lib/chains";
 import { cardsPdf } from "@/lib/claimBatch";
 import { type DropInfo, dropAmount, dropUrl } from "@/lib/dropClient";
-import { Net, CopyAddress, CopyLink, Eject, Qr, TimedBar, When, Who, copy, useToast, openFocus } from "./bits";
+import { Net, CopyAddress, CopyLink, Eject, Qr, TimedBar, When, Who, copy, useToast } from "./bits";
 import { ErrorLine } from "./safe/WedgieButton";
 import { AdminLogin, SESSION } from "./AdminLogin";
 import { friendly } from "@/lib/friendly";
@@ -206,7 +206,7 @@ function NewDrop({ onMade }: { onMade: (d: Drop) => void }) {
         ["crowd", "Crowd code"],
         ["cards", "Cards"],
       ])}
-      {field("Name (only you see it)", <div className="input"><input autoFocus={openFocus} value={name} placeholder={kind === "crowd" ? "ETHDenver talk" : "Business cards"} onChange={e => setName(e.target.value)} /></div>)}
+      {field("Name (only you see it)", <div className="input"><input autoFocus value={name} placeholder={kind === "crowd" ? "ETHDenver talk" : "Business cards"} onChange={e => setName(e.target.value)} /></div>)}
       {seg(chainId, setChainId, [
         [8453, <Net key={8453} chainId={8453} />],
         [1, <Net key={1} chainId={1} />],

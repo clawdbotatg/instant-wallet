@@ -17,7 +17,7 @@ import { hotAvailable } from "@/lib/safe/hot";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { Net, AddressInput, AmountBox, DoneBar, Money, NameMoved, Proven, SendOrSwap, TokenIcon, Who, FromMine, MineGo, stageLabel, useSheetBack, openFocus } from "../bits";
+import { Net, AddressInput, AmountBox, DoneBar, Money, NameMoved, Proven, SendOrSwap, TokenIcon, Who, FromMine, MineGo, stageLabel, useSheetBack } from "../bits";
 import { Scanner } from "../Scanner";
 import { Select, assetOpt } from "./Pick";
 import { friendly } from "@/lib/friendly";
@@ -355,7 +355,7 @@ export function SafeSend({
           onChange={(a, name) => (setResolved(a), setToName(name ?? null))}
           chain={chainId}
           scan={!scanning}
-          autoFocus={openFocus && !scanning && !toInput}
+          autoFocus={!scanning && !toInput}
           onScan={() => (setScanFromForm(true), setScanning(true))}
           onEnter={scanning ? leaveScan : undefined}
         />
@@ -395,7 +395,7 @@ export function SafeSend({
               {/* the shared box: dollars first, the pill switches to the coin (the same in Swap, Share, Request, Limits) */}
               <AmountBox
                 key={`${key(asset)}:${asCoin}`}
-                autoFocus={openFocus && !!toInput}
+                autoFocus={!!toInput}
                 value={amountIn}
                 onChange={setAmountIn}
                 symbol={asset.symbol}

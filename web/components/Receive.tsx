@@ -9,7 +9,7 @@ import { requestLink, requestUri } from "@/lib/parse";
 import { nativeUsd } from "@/lib/price";
 import { loadRequestLink, saveRequestLink } from "@/lib/store";
 import type { Account } from "@/lib/types";
-import { AmountBox, CopyIcon, Money, Net, PencilIcon, Qr, SwitchIcon, TokenIcon, WhatFor, Who, copy, stageLabel, openFocus } from "./bits";
+import { AmountBox, CopyIcon, Money, Net, PencilIcon, Qr, SwitchIcon, TokenIcon, WhatFor, Who, copy, stageLabel } from "./bits";
 import { ErrorLine } from "./safe/WedgieButton";
 import { ChainSelect } from "./safe/Pick";
 
@@ -129,7 +129,7 @@ export function Receive({
         <>
           <AmountBox
             key={`${chainId}:${tok}`}
-            autoFocus={openFocus}
+            autoFocus
             value={amount}
             onChange={setAmount}
             symbol={tok === "ETH" ? chain.native.symbol : tok}

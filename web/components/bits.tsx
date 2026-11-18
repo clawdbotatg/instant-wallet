@@ -18,8 +18,8 @@ import { useProven } from "@/lib/safe/proven";
 import type { Asset } from "@/lib/types";
 import { Scanner } from "./Scanner";
 
-// a screen that opens on a type-in box: the cursor is in it, but not on a phone, where the keyboard would cover the
-// screen before you've read it; there a tap on the box brings it (Austin 11-17: Send everything)
+// Send everything only: the cursor is in its To box when it opens, but not on a phone, where the keyboard covered the
+// list of what goes; there a tap on the box brings it (Austin 11-17). Every other type-in screen takes the focus.
 export const openFocus = typeof window !== "undefined" && !window.matchMedia("(pointer: coarse)").matches;
 
 export function Band() {

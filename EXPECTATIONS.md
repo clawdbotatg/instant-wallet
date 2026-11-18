@@ -157,10 +157,10 @@ Button sizes (11-11):
   opened with no focus). Anywhere in the app: Watch, Recover, Send's To (then its amount), Send everything, Swap,
   Share, Request, the daily limit, a drop's code, a new drop.
 - Not when the screen has other things to do first (a camera to scan, a settings page, a list).
-- Not on a phone when a screen opens (11-17: Send everything opened with the keyboard over it). There the keyboard
-  waits for a tap on the box (`openFocus`). A box you tapped to open (a picker's filter, a name) still gets it.
+- One exception: Send everything on a phone (11-17: the keyboard covered the list of what goes). There the keyboard
+  waits for a tap on the To box (`openFocus`). On a computer the cursor is still in it.
 
-`node web/tools/same-check.mjs` fails a type-in screen with no `autoFocus`, and one that opens with it on a phone.
+`node web/tools/same-check.mjs` fails a type-in screen with no `autoFocus`.
 
 ## Known gaps (2026-10-29)
 

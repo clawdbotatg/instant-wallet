@@ -51,13 +51,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cha
   if (!list.length || list.length > 50 || list.some(x => !ALLOW.has(x?.method))) return NextResponse.json({ error: "not allowed" }, { status: 403 });
   const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || "?";
   if (over(ip, list.length)) return NextResponse.json({ error: "Too many reads. Wait a minute." }, { status: 429 });
-  // the local copy with your indexer: a wallet's token moves come from it; only the rest (ETH moves) from the node
+  // the local copy with your indexer: what it can answer (token moves; ETH moves from an archive node of your own)
+  // comes from it, only the rest from the node
   if (!Array.isArray(j) && j.method === "alchemy_getAssetTransfers") {
     const p = j.params?.[0] ?? {};
     const cats: string[] = Array.isArray(p.category) ? p.category : [];
-    const ix = cats.includes("erc20") ? await indexerTransfers(chainId, p).catch(() => null) : null;
+    const ix = await indexerTransfers(chainId, p).catch(() => null);
     if (ix) {
-      const rest = cats.filter(c => c !== "erc20");
+      const rest = cats.filter(c => !ix.done.includes(c));
       let more: any[] = [];
       if (rest.length) {
         const r = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: j.id ?? null, method: j.method, params: [{ ...p, category: rest }] }), cache: "no-store", signal: AbortSignal.timeout(15_000) })
@@ -67,7 +68,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cha
         more = r.result.transfers ?? [];
       }
       const up = p.order === "asc" ? 1 : -1;
-      const transfers = [...more, ...ix].sort((a, b) => up * (Number(a.blockNum) - Number(b.blockNum))).slice(0, Number(p.maxCount ?? "0x3e8"));
+      const transfers = [...more, ...ix.transfers].sort((a, b) => up * (Number(a.blockNum) - Number(b.blockNum))).slice(0, Number(p.maxCount ?? "0x3e8"));
       return NextResponse.json({ jsonrpc: "2.0", id: j.id, result: { transfers } });
     }
   }

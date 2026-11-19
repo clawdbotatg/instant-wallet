@@ -662,6 +662,9 @@ export function Keys({
                   <div key={i.id} className="keyrow" style={{ padding: 0, justifyContent: "flex-start", gap: 8 }}>
                     <RemoveX onClick={() => dismiss(i.id)} label="Remove this invite" />
                     {who ? (
+                      <span className="stack" style={{ gap: 6 }}>
+                      {/* anyone who sees the link first can answer it, with any name: compare with them (audit 11-13, WEB-7) */}
+                      <span className="fine">Ask them: same picture, ends {passkeyHome(i.answer!).slice(-4)}?</span>
                       <span className="row" style={{ gap: 8 }}>
                         <Addr a={passkeyHome(i.answer!)} signer={who} name={i.answer!.name} chainId={chainId} />
                         {/* one Face ID first: it tells this wallet's other devices they are a person, not a wedgie */}
@@ -681,8 +684,9 @@ export function Keys({
                             }
                           }}
                         >
-                          {telling === i.id ? stageLabel("signing") : "Add"}
+                          {telling === i.id ? stageLabel("signing") : "It matches: Add"}
                         </button>
+                      </span>
                       </span>
                     ) : (
                       <>

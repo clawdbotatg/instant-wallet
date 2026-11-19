@@ -70,6 +70,8 @@ export function Join() {
         <p>
           {inv?.from ?? "They"} adds you next. Then you sign their links with this {bio()}.
         </p>
+        {/* they compare this before Add: an invite link can be answered by whoever sees it first (audit 11-13, WEB-7) */}
+        <p className="fine">They&apos;ll ask you: this picture, ends <b>{done.wallet.slice(-4)}</b>.</p>
         <p className="fine">
           You sign as <Who address={done.signer} size={14} plain inline />
         </p>

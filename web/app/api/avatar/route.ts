@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createPublicClient, http } from "viem";
 import { mainnet } from "viem/chains";
 import { avatarUrl } from "clear-signing-safe-kit";
-import { isLocalHost } from "@/lib/local";
+import { fromLocalCopy } from "@/lib/local";
 import { mustRpc } from "@/lib/rpcServer";
 
 export const dynamic = "force-dynamic";
@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
       type = m[1];
       body = new Uint8Array(m[2] ? Buffer.from(m[3], "base64") : Buffer.from(decodeURIComponent(m[3]))).buffer;
     } else {
-      if (!process.env.VERCEL && isLocalHost((req.headers.get("host") || "").split(":")[0])) return none(404);
+      if (fromLocalCopy(req)) return none(404);
       const u = new URL(url);
       // a name's owner picks this address: only a public https host, never a bare IP or this machine
       if (u.protocol !== "https:" || /^[\d.]+$|^\[|^localhost$|\.local$|\.internal$/i.test(u.hostname)) return none(404);

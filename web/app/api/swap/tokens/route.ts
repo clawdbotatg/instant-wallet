@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { type Address, decodeFunctionResult, encodeFunctionData, getAddress, isAddress, parseAbi, zeroAddress } from "viem";
 import { chainById } from "@/lib/chains";
 import { rpc } from "@/lib/rpcServer";
+import { fromLocalCopy } from "@/lib/local";
 import { POPULAR } from "@/lib/safe/swap";
 import { poolUsd } from "@/lib/pool";
 
@@ -53,7 +54,8 @@ export async function GET(req: NextRequest) {
     if (!chainById(chainId)) throw new Error("chain not enabled");
     if (q.length < 2) return NextResponse.json({ tokens: [] });
     const f = q.toLowerCase();
-    const [list, pairs] = await Promise.all([lifiList(chainId).catch(() => []), dexSearch(chainId, q).catch(() => [])]);
+    // the local copy asks no LI.FI (its token list), only DexScreener
+    const [list, pairs] = await Promise.all([fromLocalCopy(req) ? [] : lifiList(chainId).catch(() => []), dexSearch(chainId, q).catch(() => [])]);
 
     const found = new Map<string, Found>();
     const add = (t: Partial<Found> & { address: string }, liq = 0) => {

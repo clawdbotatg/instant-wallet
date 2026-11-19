@@ -17,6 +17,7 @@ import { Net, AmountBox, DoneBar, Eject, Money, Proven, SendOrSwap, TimedBar, To
 import { ChainSelect, type Opt, Select, SignerChoice, assetOpt } from "./Pick";
 import { Progress, TimeBar } from "./Progress";
 import { friendly } from "@/lib/friendly";
+import { isLocal } from "@/lib/local";
 import { ErrorLine } from "./WedgieButton";
 import { WhatItDoes } from "./WhatItDoes";
 
@@ -246,8 +247,13 @@ export function SafeSwap({
       };
       // when Uniswap can answer too, LI.FI is asked for a price with no wallet address: it learns the wallet only
       // on a swap it wins (then it's asked again, for the tx to sign)
-      const compare = sameChain && !force;
-      let [uni, lifi] = await Promise.all([uniP, force === "uniswap" ? Promise.resolve<SwapRoute | string>("off") : askLifi(compare)]);
+      // the local copy, on one network: Uniswap from your node, and LI.FI only when Uniswap has no route. Across
+      // networks only LI.FI can do it, so it's asked (and the screen says so)
+      const bunker = isLocal() && sameChain && !force;
+      const compare = sameChain && !force && !bunker;
+      let [uni, lifi] = await Promise.all([uniP, force === "uniswap" || bunker ? Promise.resolve<SwapRoute | string>("off") : askLifi(compare)]);
+      if (!live) return;
+      if (bunker && !uni) lifi = await askLifi(false);
       if (!live) return;
       if (compare && (!uni || (typeof lifi !== "string" && BigInt(lifi.toAmount) > BigInt(uni.toAmount)))) lifi = await askLifi(false);
       if (!live) return;
@@ -509,6 +515,7 @@ export function SafeSwap({
                 <>
                   {route.via === "uniswap" ? "Uniswap" : `LI.FI · ${route.tool}`}
                   {other && <span className="fine"> (beat {other.via === "uniswap" ? "Uniswap" : "LI.FI"})</span>}
+                  {route.via === "lifi" && isLocal() && <span className="fine"> (sees your wallet)</span>}
                 </>
               ) : (
                 "—"

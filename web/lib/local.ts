@@ -5,6 +5,10 @@
 export const isLocalHost = (host: string) => /^local\.|^localhost$|^127\.0\.0\.1$/.test(host);
 export const isLocal = () => typeof window !== "undefined" && isLocalHost(window.location.hostname);
 
+/** A request to a copy on your own computer (never our site). It skips the extras that would see your IP and that
+ * your node can't stand in for: ENS avatar hosts, LI.FI. */
+export const fromLocalCopy = (req: { headers: Headers }) => !process.env.VERCEL && isLocalHost((req.headers.get("host") || "").split(":")[0]);
+
 /** The header a local copy's page sends its Settings → Your node in (chains.ts relayHeaders). */
 export const NODE_HEADER = "x-iw-node";
 /**

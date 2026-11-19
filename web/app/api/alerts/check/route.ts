@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dailySummary } from "@/lib/rpcWatch";
 import { forget, getContacts, notify, once, recoveryText, running, wallets } from "@/lib/alerts";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +14,7 @@ export const maxDuration = 60;
  */
 export async function GET() {
   if (!(await once("run", 50))) return NextResponse.json({ skipped: "ran under 50 s ago" });
+  await dailySummary().catch(() => {}); // yesterday's RPC use, once a day (lib/rpcWatch.ts)
   const list = await wallets();
   const now = Math.floor(Date.now() / 1000);
   const sent: string[] = [];

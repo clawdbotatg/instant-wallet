@@ -1,4 +1,4 @@
-import { tooMany } from "@/lib/limit";
+import { rpcCheck } from "@/lib/rpcWatch";
 import { NextRequest, NextResponse } from "next/server";
 import { upstreamRpc } from "@/lib/rpcServer";
 import { chainById } from "@/lib/chains";
@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 /**
  * JSON-RPC passthrough for the enabled chains, so the RPC key stays on the server. Not an open relay on our Alchemy key
  * (as wedgie.dev's api/rpc.ts): only the reads (and gas/fee asks, and signed txs: a claim card or old key pays its own gas) the wallet makes, single or
- * batched, and a per-IP limit (kept per instance: each Vercel instance counts on its own).
+ * batched, with per-IP limits (lib/rpcWatch.ts).
  */
 const ALLOW = new Set([
   "eth_call", "eth_getCode", "eth_getBalance", "eth_getStorageAt", "eth_getLogs", "eth_blockNumber", "eth_chainId",
@@ -18,23 +18,10 @@ const ALLOW = new Set([
   "eth_getProof", "eth_createAccessList", // the light client (lib/safe/light.ts): the proofs it checks
   "alchemy_getTokenBalances", "alchemy_getTokenMetadata", "alchemy_getAssetTransfers",
 ]);
-// a page that waits reads every second or two; past these, the IP waits (the key costs money)
-const PER_MIN = 600;
-const PER_DAY = 20_000;
-let min = "";
-let day = "";
-const m = new Map<string, number>();
-const d = new Map<string, number>();
-function over(ip: string, n: number) {
-  const t = new Date().toISOString();
-  if (t.slice(0, 16) !== min) (min = t.slice(0, 16)), m.clear();
-  if (t.slice(0, 10) !== day) (day = t.slice(0, 10)), d.clear();
-  const a = (m.get(ip) ?? 0) + n;
-  const b = (d.get(ip) ?? 0) + n;
-  m.set(ip, a);
-  d.set(ip, b);
-  return a > PER_MIN || b > PER_DAY;
-}
+// per IP per minute, hour and day, and the site watched: lib/rpcWatch.ts. Plus a few seconds' memory of the reads
+// every page asks again and again, so a rush of people doesn't mean a rush of Alchemy calls.
+const SHORT: Record<string, number> = { eth_chainId: 3600_000, net_version: 3600_000, eth_blockNumber: 2000, eth_gasPrice: 4000, eth_maxPriorityFeePerGas: 4000 };
+const recent = new Map<string, { at: number; text: string }>();
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ chain: string }> }) {
   const chainId = Number((await params).chain);
@@ -50,10 +37,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cha
   }
   const list = Array.isArray(j) ? j : [j];
   if (!list.length || list.length > 50 || list.some(x => !ALLOW.has(x?.method))) return NextResponse.json({ error: "not allowed" }, { status: 403 });
-  const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || "?";
-  if (over(ip, list.length)) return NextResponse.json({ error: "Too many reads. Wait a minute." }, { status: 429 });
-  // and across every instance (the count above is per instance: many instances, many times the limit)
-  if (await tooMany(req, "rpc-day", PER_DAY, 86400, list.length)) return NextResponse.json({ error: "Too many reads today." }, { status: 429 });
+  const no = await rpcCheck(req, list.map(x => x.method));
+  if (no) return NextResponse.json({ error: no }, { status: 429 });
+  const ttl = !Array.isArray(j) ? SHORT[j.method] : undefined;
+  const ck = `${chainId}:${j.method}`;
+  const hit = ttl ? recent.get(ck) : undefined;
+  if (hit && Date.now() - hit.at < ttl!) return new NextResponse(hit.text.replace(/^\{"jsonrpc":"2.0","id":[^,]*,/, `{"jsonrpc":"2.0","id":${JSON.stringify(j.id ?? null)},`), { headers: { "content-type": "application/json" } });
   // the local copy with your indexer: what it can answer (token moves; ETH moves from an archive node of your own)
   // comes from it, only the rest from the node
   if (!Array.isArray(j) && j.method === "alchemy_getAssetTransfers") {
@@ -80,5 +69,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cha
   const clean = list.map(x => ({ jsonrpc: "2.0", id: x.id ?? null, method: x.method, params: Array.isArray(x.params) ? x.params : [] }));
   const res = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(Array.isArray(j) ? clean : clean[0]), cache: "no-store", signal: AbortSignal.timeout(15_000) }).catch(() => null);
   if (!res) return NextResponse.json({ error: "The network didn't answer." }, { status: 504 });
-  return new NextResponse(await res.text(), { status: res.status, headers: { "content-type": "application/json" } });
+  const text = await res.text();
+  if (ttl && res.ok && /"result"/.test(text)) {
+    const r = JSON.parse(text);
+    if (r?.result !== undefined && !r.error) recent.set(ck, { at: Date.now(), text: JSON.stringify({ jsonrpc: "2.0", id: null, result: r.result }) });
+  }
+  return new NextResponse(text, { status: res.status, headers: { "content-type": "application/json" } });
 }

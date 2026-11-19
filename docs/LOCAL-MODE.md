@@ -59,7 +59,7 @@ with a passkey made on the real site. If it does, everything below is plumbing.
    (LaunchAgent io.instantwallet.local); a run with nothing changed skips the build. Tested by `web/tools/local-e2e.mjs`.
 2. **The store in a file**: done. `KV_FILE` (`lib/kv.ts`) keeps the in-memory store in `~/.instantwallet-local/store.json`;
    `run-local.sh` sets it.
-3. **A "Local" mark**: done. "Local copy, running on this computer" at the top of the wallet (`lib/local.ts`).
+3. **A "Local" mark**: none (Austin, 11-19). The address bar says it.
 4. **Hide what can't work locally**: done, by keys, not by name (`/api/features`, `lib/features.ts`): no Coinbase keys →
    Deposit opens Receive; no alert keys → no Recovery alerts box; no `NAME_SIGNER_KEY` → no name pencil. Drops: not done.
 5. **Your own relay**: done. Settings → Your relay (only on a local copy, `components/safe/LocalRelay.tsx`,

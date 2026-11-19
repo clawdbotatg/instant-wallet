@@ -125,7 +125,6 @@ try {
   await page.getByText("Deposit", { exact: true }).waitFor({ timeout: 30000 });
   const creds = (await cdp.send("WebAuthn.getCredentials", { authenticatorId })).credentials;
   ok(creds.length === 1 && creds[0].rpId === "instantwallet.io", `passkey made for instantwallet.io (got ${creds.map(c => c.rpId)})`);
-  ok(await page.getByText("Local copy, running on this computer").isVisible(), "says it's the local copy");
   const acct = await page.evaluate(() => JSON.parse(localStorage.getItem("iws.account")));
   console.log("wallet", acct.address);
 

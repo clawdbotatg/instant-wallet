@@ -103,7 +103,8 @@ function memory(cmd: string[]): any {
 export async function kv(cmd: (string | number)[]): Promise<any> {
   const c = cmd.map(String);
   if (!URL_ || !TOKEN) {
-    if (process.env.VERCEL_ENV === "production") throw new Error("storage not configured");
+    // every Vercel deploy, previews too: memory per instance would mean no once, no bans, no limits (audit 11-13, IW-13)
+    if (process.env.VERCEL) throw new Error("storage not configured");
     const out = memory(c);
     if (!READS.has(c[0])) save();
     return out;

@@ -15,7 +15,7 @@ export function relayer() {
   const a = privateKeyToAccount(pk);
   // the wallet (and the wedgie's fee rule) reads a payment to RELAY as the fee. A key for another address would
   // make every fee read as a plain send: stop here, not after people sign. (A fork or a test runs its own key.)
-  if (process.env.VERCEL_ENV === "production" && a.address.toLowerCase() !== RELAY) throw new Error("relay key doesn't match the fee address");
+  if (process.env.VERCEL && a.address.toLowerCase() !== RELAY) throw new Error("relay key doesn't match the fee address");
   return a;
 }
 

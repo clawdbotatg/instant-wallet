@@ -77,7 +77,7 @@ export class DropRefused extends Error {
 function secret(): Uint8Array {
   const s = process.env.DROP_SECRET;
   if (!s) {
-    if (process.env.VERCEL_ENV === "production") throw new Error("drops not configured");
+    if (process.env.VERCEL) throw new Error("drops not configured");
     return new TextEncoder().encode("instant-wallet local dev drops");
   }
   return new TextEncoder().encode(s);
@@ -221,7 +221,7 @@ async function bump(key: string, ttl: number) {
 }
 
 /** A claim that hasn't finished after this long was killed (the routes run 120 s): the next try may take it over. */
-const STALE = () => (process.env.DROP_TEST && process.env.VERCEL_ENV !== "production" ? 2_000 : 150_000);
+const STALE = () => (process.env.DROP_TEST && !process.env.VERCEL ? 2_000 : 150_000);
 
 /** A USDC claim's two EIP-3009 nonces come from its hold, so a second pay of the same claim reverts on chain. */
 const authNonces = (hold: string): [Hex, Hex] => [keccak256(toHex(`${hold}:pay`)), keccak256(toHex(`${hold}:fee`))];
@@ -268,7 +268,7 @@ export async function claim(code: string, d: Drop, wallet: Address, ip: string, 
     throw e;
   }
 }
-const IP_FAILS = process.env.DROP_TEST && process.env.VERCEL_ENV !== "production" ? 5 : 300;
+const IP_FAILS = process.env.DROP_TEST && !process.env.VERCEL ? 5 : 300;
 
 async function pay(code: string, d: Drop, wallet: Address, die?: string): Promise<{ hash?: Hex }> {
   const hold = d.kind === "cards" ? `${P}u:${code}` : `${P}w:${d.id}:${wallet.toLowerCase()}`;
@@ -361,7 +361,7 @@ class Killed extends Error {}
 /** Tests only (DROP_TEST, a fork): what a mempool watcher can do with a claim's signed payout, sent first from a
  *  throwaway account, so the claim's own tx reverts (audit 11-13, IW-15). */
 async function frontRun(chainId: number, a: ClaimAuth) {
-  if (!process.env.DROP_TEST || process.env.VERCEL_ENV === "production") return;
+  if (!process.env.DROP_TEST || process.env.VERCEL) return;
   const { pc } = clients(chainId);
   const acct = privateKeyToAccount(toHex(crypto.getRandomValues(new Uint8Array(32))));
   await pc.request({ method: "anvil_setBalance" as any, params: [acct.address, "0x8ac7230489e80000"] as any });
@@ -545,7 +545,7 @@ export async function takeBack(d: Drop, to: Address): Promise<Hex[]> {
 /** DROP_ADMINS: wallet addresses, comma-separated. Unset in local dev = anyone. */
 export function isAdmin(w: Address): boolean {
   const list = process.env.DROP_ADMINS;
-  if (!list) return process.env.VERCEL_ENV !== "production" && process.env.NODE_ENV !== "production";
+  if (!list) return !process.env.VERCEL && process.env.NODE_ENV !== "production";
   return list.split(",").some(a => a.trim().toLowerCase() === w.toLowerCase());
 }
 export async function newSession(w: Address): Promise<string> {

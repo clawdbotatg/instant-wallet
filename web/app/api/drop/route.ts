@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
     const bad = await authorize(wallet, `claim ${f.code}`, b.sig as Signed, req.headers.get("host") || "", "drops");
     if (bad) throw new DropRefused(bad, 403);
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "?";
-    const die = process.env.DROP_TEST && process.env.VERCEL_ENV !== "production" && typeof b.die === "string" ? b.die : undefined; // tools/drop-check.mts
+    const die = process.env.DROP_TEST && !process.env.VERCEL && typeof b.die === "string" ? b.die : undefined; // tools/drop-check.mts
     return NextResponse.json(await claim(f.code, f.drop, wallet, ip, die));
   } catch (e: any) {
     return NextResponse.json({ error: e?.shortMessage || e?.message || String(e) }, { status: e instanceof DropRefused ? e.status : 500 });

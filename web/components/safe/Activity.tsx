@@ -55,6 +55,7 @@ export function Activity({ safe, chains, undeployed = [], watched, assets, late,
   const bare = watched ? undeployed : undeployed.filter(c => assets.some(a => a.chainId === c));
   const key = `${safe}|${chains.join()}|${bare.join()}`;
   const later = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const asked = useRef<{ round: string; got: Map<string, Promise<Row[]>> }>({ round: "", got: new Map() });
   // read the chain now, and again a beat later (a node can answer the receipt, or the balance, a block before its logs)
   const read = () => {
     setLanded(n => n + 1);
@@ -78,8 +79,21 @@ export function Activity({ safe, chains, undeployed = [], watched, assets, late,
     // each network shows as it answers; one that fails keeps what it showed
     // (a failed read still counts as an answer, or the list would wait for it for good)
     const put = (c: number, r?: Row[]) => on && setBy(b => ({ key: safe, rows: { ...(b.key === safe ? b.rows : {}), [c]: r ?? (b.key === safe ? b.rows[c] : undefined) ?? [] } }));
-    for (const c of chains) rowsOn(c, safe).then(r => put(c, r), () => put(c));
-    for (const c of bare) insOn(c, safe).then(r => put(c, r), () => put(c));
+    // a network already asked in this round (same refresh, same landed send) isn't asked again when the list of
+    // networks grows: they're found one by one, and each find used to read them all again
+    const round = `${safe}|${tick}|${landed}`;
+    if (asked.current.round !== round) asked.current = { round, got: new Map() };
+    const got = asked.current.got;
+    const one = (k: string, make: () => Promise<Row[]>) => {
+      let p = got.get(k);
+      if (!p) {
+        got.set(k, (p = make()));
+        p.catch(() => got.delete(k));
+      }
+      return p;
+    };
+    for (const c of chains) one(`ran:${c}`, () => rowsOn(c, safe)).then(r => put(c, r), () => put(c));
+    for (const c of bare) one(`in:${c}`, () => insOn(c, safe)).then(r => put(c, r), () => put(c));
     return () => {
       on = false;
     };
@@ -294,8 +308,14 @@ async function insOn(chainId: number, safe: Address): Promise<Row[]> {
       method: "alchemy_getAssetTransfers" as any,
       params: [{ fromBlock: "0x0", toBlock: "latest", ...side, category, excludeZeroValue: zero, withMetadata: true, order: "desc", maxCount: "0x32" }] as any,
     }) as Promise<any>;
-  const [r, sent]: any[] = await Promise.all([ask({ toAddress: safe }, ["external", "erc20", ...(chainId === 1 || chainId === 137 ? ["internal"] : [])], true), ask({ fromAddress: safe }, ["external"], false)]);
   const rpc = (method: string, params: unknown[]) => publicClient(chainId).request({ method: method as any, params: params as any });
+  // an address that never sent a transaction here (a Safe not made yet, always) has no sends to list: one cheap read
+  // instead of a search of the chain's history. Not known (the read failed): asked as before.
+  const sends = rpc("eth_getTransactionCount", [safe, "latest"]).then((n: any) => BigInt(n) > 0n, () => true);
+  const [r, sent]: any[] = await Promise.all([
+    ask({ toAddress: safe }, ["external", "erc20", ...(chainId === 1 || chainId === 137 ? ["internal"] : [])], true),
+    sends.then(yes => (yes ? ask({ fromAddress: safe }, ["external"], false) : { transfers: [] })),
+  ]);
   const link = (h: string) => (info?.explorer ? `${info.explorer}/tx/${h}` : undefined);
   const at = (x: any) => String(x.metadata.blockTimestamp).replace(".000Z", "Z");
   const rows = new Map<string, Row>();

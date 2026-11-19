@@ -17,7 +17,7 @@ What Instant Wallet must always do. If a change breaks one, it doesn't ship. In 
   `<Raw>`: a small "Raw" link under every signing screen, closed until tapped, with the exact bytes and the hashes
   the keys sign (ERC-8213), so anyone can check them against another tool or the wedgie.
 - Money out is red with a −. Money in is green with a +. Dollars next to it.
-- The coins come from the simulator (clear-sim, sim.wedgie.dev), its answer checked. You can point the
+- The coins come from the simulator (iw-sim, sim.instantwallet.io), its answer checked. You can point the
   wallet at your own simulator (Settings → Simulator).
 - On Ethereum and Gnosis you can have this browser work the coins out itself (a light client: the node proves
   every answer). It says "Checked in this browser". If it can't prove an answer it says so in red: never the
@@ -39,7 +39,7 @@ What Instant Wallet must always do. If a change breaks one, it doesn't ship. In 
 - A site's typed message (EIP-712) never says "moves no money": a signature can be a permit. A permit says who may
   spend what, in red. Anything else typed says it can move money. Only the fields that are signed are shown.
   `tools/typed-check.mts`.
-- The wedgie shows the same thing on its own screen. Its coins come from clear-sim only (the one answer it can
+- The wedgie shows the same thing on its own screen. Its coins come from iw-sim only (the one answer it can
   check). Turn that off (Settings → Simulator) and it shows the words, no coins, and no simulator is asked.
 
 Where it lives: `WhatItDoes`, `<Money>`, `<Proven>`, clear-signing-safe-kit (`dangers`, `simulate`, the explainer).

@@ -169,7 +169,7 @@ fi
 
 # 4e. your own simulator (github.com/clawdbotatg/iw-sim): what a transaction moves, before you sign it. Reads your
 # nodes (RPC_<chainId>, if they have debug_traceCall), Alchemy for the rest and for prices. The wallet asks it first and
-# sim.wedgie.dev only when it has no answer. Its key stays in iw-sim/.sim-key. Needs Node 24+.
+# sim.instantwallet.io only when it has no answer. Its key stays in iw-sim/.sim-key. Needs Node 24+.
 SIMDIR="$DIR/iw-sim"
 SIM=""
 SIMENV=""
@@ -187,11 +187,11 @@ if node -e 'process.exit(Number(process.versions.node.split(".")[0])>=24?0:1)'; 
     (git -C "$SIMDIR" fetch -q --depth 1 origin HEAD && git -C "$SIMDIR" reset -q --hard FETCH_HEAD) 2>/dev/null || echo "Couldn't update the simulator (offline?); using the copy you have."
   else
     say "Getting your simulator"
-    git clone -q --depth 1 https://github.com/clawdbotatg/iw-sim.git "$SIMDIR" || echo "Couldn't get the simulator; sim.wedgie.dev runs your transactions."
+    git clone -q --depth 1 https://github.com/clawdbotatg/iw-sim.git "$SIMDIR" || echo "Couldn't get the simulator; sim.instantwallet.io runs your transactions."
   fi
   [ -f "$SIMDIR/server.ts" ] && { [ -n "$SIMENV" ] || [ -n "$AK" ]; } && SIM=1
 else
-  echo "Your simulator needs Node 24 or newer (brew upgrade node); sim.wedgie.dev runs your transactions for now."
+  echo "Your simulator needs Node 24 or newer (brew upgrade node); sim.instantwallet.io runs your transactions for now."
 fi
 
 # 5. build

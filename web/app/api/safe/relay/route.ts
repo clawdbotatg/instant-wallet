@@ -284,11 +284,15 @@ export async function POST(req: NextRequest) {
         const gotUsdc = rc.logs
           .filter(l => !!info.usdc && l.address.toLowerCase() === info.usdc.toLowerCase() && l.topics[0] === TRANSFER_EVENT && l.topics[2]?.toLowerCase() === me32)
           .reduce((t, l) => t + BigInt(l.data), 0n);
-        const paidUp = landed && (feeUsdc === 0n || gotUsdc >= feeUsdc);
-        if (paidUp) return void (await sentFine(safe));
-        // a send that landed and didn't pay is never an honest swap that slipped
-        await reverted(safe, ip, landed ? false : swap, fresh);
         const wei = rc.gasUsed * rc.effectiveGasPrice + BigInt((rc as any).l1Fee ?? 0);
+        // and enough for what it really cost: the gas limit is 1.3x the estimate, the check before only 1.05x, so a
+        // call that does more on chain than in the estimate ran on us (audit 11-13, IW-11). 10% slack for honest drift.
+        const gotWei = feeUsdc > 0n ? BigInt(Math.floor((Number(gotUsdc) / 1e6 / q.ethUsd) * 1e18)) : paid.eth;
+        const covered = gotWei * 110n >= wei * 100n;
+        const paidUp = landed && (feeUsdc === 0n || gotUsdc >= feeUsdc) && covered;
+        if (paidUp) return void (await sentFine(safe));
+        // a send that landed and didn't pay (or paid short) is never an honest swap that slipped
+        await reverted(safe, ip, landed ? false : swap, fresh);
         await lost(chainId, (Number(wei) / 1e18) * (await nativeUsd(chainId).catch(() => q.ethUsd)) * 100);
       } catch {
         // the look is bookkeeping: it must never throw into the platform

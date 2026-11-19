@@ -56,12 +56,21 @@ export async function rpcCheck(req: Request, methods: string[]): Promise<string 
       }
     }
     const [m, h, d, sh] = n;
+    // what asked: each method's count in this request, and the page it came from (path only), so an alert names the screen
+    const n2: Record<string, number> = {};
+    for (const x of methods) n2[x] = (n2[x] ?? 0) + 1;
+    let from = "";
+    try {
+      const u = new URL(req.headers.get("referer") ?? "");
+      from = ` From ${u.host}${u.pathname.replace(/0x[0-9a-fA-F]{6,}/g, "0x…")}.`; // never which wallet
+    } catch {}
+    const what = `${Object.entries(n2).map(([k, v]) => `${k} ×${v}`).join(", ")}.${from}`;
     const over = m > L.min ? "minute" : h > L.hour ? "hour" : d > L.day ? "day" : "";
     const half = m > L.min / 2 || h > L.hour / 2 || d > L.day / 2;
     if (over && (await first(`blocked:${ip}:${day}`, 90000)))
-      void tell(`🚫 RPC: ${ip} blocked (over the ${over} limit). Today ${d} of ${L.day}; this hour ${h} of ${L.hour}.`);
+      void tell(`🚫 RPC: ${ip} blocked (over the ${over} limit). Today ${d} of ${L.day}; this hour ${h} of ${L.hour}. Asked now: ${what}`);
     else if (half && (await first(`half:${ip}:${day}`, 90000)))
-      void tell(`⚠️ RPC: ${ip} past half a limit. This minute ${m}/${L.min}, hour ${h}/${L.hour}, day ${d}/${L.day}. Methods now: ${[...new Set(methods)].join(", ")}`);
+      void tell(`⚠️ RPC: ${ip} past half a limit. This minute ${m}/${L.min}, hour ${h}/${L.hour}, day ${d}/${L.day}. Asked now: ${what}`);
     if (sh > L.siteHour && (await first(`sitehot:${hour}`, 7200)))
       void tell(`📈 RPC: the whole site is at ${sh} this hour (watch line ${L.siteHour}). Not blocking anyone.`);
     return over ? `Too many reads this ${over}. Wait a bit.` : null;

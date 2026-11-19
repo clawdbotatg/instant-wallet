@@ -187,6 +187,40 @@ try {
   const relayInfo = await ask("/api/local/relay");
   ok(relayInfo.address?.toLowerCase() === relay.toLowerCase(), "Your relay shows the relay's address");
   ok(fs.existsSync(store) && fs.readFileSync(store, "utf8").length > 2, "the store is kept in a file");
+
+  // ---- 4. Settings → No external traffic: a send through your relay, and nothing leaves but calls to your node
+  const set = await ask("/api/local/noext", { on: true });
+  ok(set.on === true && set.chains?.includes(8453), `No external traffic is on, Base has your node (${JSON.stringify(set)})`);
+  const out = new Set(); // the page's requests to anywhere but this copy
+  page.on("request", r => {
+    const u = new URL(r.url());
+    if (/^https?:$/.test(u.protocol) && u.hostname !== NAME) out.add(u.hostname);
+  });
+  // the server: its connections to anywhere but this computer, sampled while it works
+  const pid = execSync("lsof -ti tcp:3101 -sTCP:LISTEN", { encoding: "utf8" }).trim().split("\n")[0];
+  const far = new Set();
+  const watch = setInterval(() => {
+    try {
+      for (const l of execSync(`lsof -a -p ${pid} -i -n -P`, { encoding: "utf8" }).split("\n")) {
+        const m = l.match(/->(\[?[0-9a-f.:]+\]?):(\d+)/i);
+        if (m && !/^(127\.|\[?::1\]?$)/.test(m[1])) far.add(`${m[1]}:${m[2]}`);
+      }
+    } catch {}
+  }, 150);
+  await new Promise(r => setTimeout(r, 8000)); // connections kept open from before close
+  far.clear();
+  await page.goto(`${APP}/`);
+  await page.waitForTimeout(4000); // the page learns it's on and reloads once
+  await page.locator(".asset", { has: page.locator(".sym", { hasText: /^USDC$/ }) }).first().waitFor({ timeout: 30000 });
+  const DAVE = rand();
+  await review("USDC", DAVE, "5");
+  await page.screenshot({ path: `${OUT}/4-review.png` });
+  await page.locator(".confirm .btn-green").tap();
+  await executed("4");
+  clearInterval(watch);
+  ok(usdcOf(DAVE) === 5_000_000n, "No external traffic: relay send arrived");
+  ok(out.size === 0, `No external traffic: the page asked nothing outside (${[...out].join(", ") || "none"})`);
+  ok(far.size === 0, `No external traffic: the server connected nowhere outside (${[...far].join(", ") || "none"})`);
 } catch (e) {
   fails++;
   console.log("FAIL", e.message.split("\n")[0]);

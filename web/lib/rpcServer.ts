@@ -1,5 +1,6 @@
 import "server-only";
 import { knownChain } from "./chains";
+import { noExternal } from "./noext";
 
 /**
  * Upstream JSON-RPC URL per chain (server only; the Alchemy key never reaches a browser). RPC_URL_<chainId> (e.g.
@@ -9,6 +10,9 @@ import { knownChain } from "./chains";
 export function upstreamRpc(chainId: number): string | undefined {
   const key = process.env.ALCHEMY_API_KEY;
   const own = process.env[`RPC_URL_${chainId}`];
+  // Settings → No external traffic: your node or nothing
+  const shut = noExternal();
+  if (shut) return own || shut.nodes[chainId] || (chainId === 31337 ? process.env.LOCAL_RPC_URL || "http://127.0.0.1:8545" : undefined);
   if (own) return own;
   if (chainId === 31337) return process.env.LOCAL_RPC_URL || "http://127.0.0.1:8545";
   if (chainId === 8453 && process.env.BASE_RPC_URL) return process.env.BASE_RPC_URL;

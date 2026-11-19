@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isLocalHost } from "@/lib/local";
+import { noExternal } from "@/lib/noext";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,7 @@ export const dynamic = "force-dynamic";
 const local = (req: NextRequest) =>
   !process.env.VERCEL &&
   !!process.env.SIM_URL &&
+  !noExternal() && // (it reads Alchemy for what your node can't trace: off with No external traffic)
   isLocalHost((req.headers.get("host") || "").split(":")[0]);
 const pass = (r: Response) =>
   new NextResponse(r.body, {

@@ -17,7 +17,7 @@ import { Net, AmountBox, DoneBar, Eject, Money, Proven, SendOrSwap, TimedBar, To
 import { ChainSelect, type Opt, Select, SignerChoice, assetOpt } from "./Pick";
 import { Progress, TimeBar } from "./Progress";
 import { friendly } from "@/lib/friendly";
-import { isLocal } from "@/lib/local";
+import { isLocal, noExt } from "@/lib/local";
 import { ErrorLine } from "./WedgieButton";
 import { WhatItDoes } from "./WhatItDoes";
 
@@ -236,6 +236,8 @@ export function SafeSwap({
       });
       // LI.FI gets a few seconds when Uniswap can answer too (it's the decentralized fallback); longer across chains
       const askLifi = (anon: boolean): Promise<SwapRoute | string> => {
+        // Settings → No external traffic: LI.FI is never asked (no swaps between networks)
+        if (noExt()) return Promise.resolve(sameChain ? "No Uniswap route from your node" : "Off: No external traffic is on");
         const p = new URLSearchParams(qs);
         if (anon) p.delete("safe");
         return fetch(`/api/swap/quote?${p}`, { signal: AbortSignal.timeout(sameChain ? 6_000 : 15_000) })

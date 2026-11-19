@@ -1,7 +1,7 @@
 import type { Address } from "viem";
 import { SIM_DEFAULT, type SafeTxLike, type SimAnswer, simulate as run } from "clear-signing-safe-kit";
 import { chainById, nativeSymbol, rpcPath } from "@/lib/chains";
-import { isLocal } from "@/lib/local";
+import { isLocal, noExt } from "@/lib/local";
 import { nativeUsd, tokensUsd } from "@/lib/price";
 import { LIGHT_CHAINS, PROVER, WRAPPED, lightRun, lightWarm } from "./light";
 
@@ -110,6 +110,8 @@ async function light(chainId: number, safe: Address, tx: SafeTxLike): Promise<Si
  * computer and only if it has no answer the hosted one. null: no answer we can trust. */
 export async function simulate(chainId: number, safe: Address, tx: SafeTxLike): Promise<SimAnswer | null> {
   if (lightOn(chainId)) return light(chainId, safe, tx);
+  // No external traffic: no simulator can read this without Alchemy yet (your node has no tracing)
+  if (noExt()) return null;
   const ask = (url: string) => run({ chain: chainId, safe, tx, url, store: "iws.simKeys" });
   if (!mine() && (await localSim())) {
     const a = await ask(location.origin + LOCAL_SIM).catch(() => null);

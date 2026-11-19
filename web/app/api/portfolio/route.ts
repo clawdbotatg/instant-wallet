@@ -1,9 +1,10 @@
 import { tooMany } from "@/lib/limit";
 import { NextRequest, NextResponse, after } from "next/server";
 import { indexerChains } from "@/lib/indexer";
+import { noExternal } from "@/lib/noext";
 import { Capped } from "@/lib/capped";
 import { type Address, createPublicClient, erc20Abi, formatUnits, getAddress, http, isAddress } from "viem";
-import { CHAINS, ETH, chainById } from "@/lib/chains";
+import { CHAINS as ALL_CHAINS, ETH, chainById } from "@/lib/chains";
 import { alchemyNetwork, rpc, mustRpc } from "@/lib/rpcServer";
 import type { Asset, Portfolio } from "@/lib/types";
 import { POPULAR } from "@/lib/safe/swap";
@@ -38,6 +39,9 @@ export async function GET(req: NextRequest) {
   const scan = req.nextUrl.searchParams.get("scan") === "1";
   // the networks your own indexer (INDEXER_URL, clawdbotatg/iw-indexer) reads come from it; if it fails, Alchemy as before
   const ix = await indexerChains();
+  // Settings → No external traffic: only the networks you have a node for
+  const shut = noExternal();
+  const CHAINS = shut ? ALL_CHAINS.filter(c => shut.nodes[c.id]) : ALL_CHAINS;
   const fromIx = ix.size ? indexerAssets(wallet) : null;
   const one = (id: number) => (ix.has(id) ? fromIx!.then(l => l!.filter(x => x.chainId === id)).catch(() => chainAssets(id, wallet, scan)) : chainAssets(id, wallet, scan));
   const work = CHAINS.map(c => one(c.id).catch((): Asset[] | null => LATE));

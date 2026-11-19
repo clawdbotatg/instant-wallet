@@ -1,5 +1,7 @@
 "use client";
 
+import { viaHome } from "@/lib/local";
+
 /* eslint-disable @next/next/no-img-element */
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -971,7 +973,9 @@ export function TokenIcon({
     TW_CHAIN[chainId] && !/^0x0+$/.test(asset)
       ? `https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/${TW_CHAIN[chainId]}/assets/${getAddress(asset)}/logo.png`
       : undefined,
-  ].filter((s): s is string => !!s);
+  ]
+    .filter((s): s is string => !!s)
+    .map(s => viaHome(s)!); // No external traffic: through this copy, over Tor
   const [i, setI] = useState(0);
   const badge = Math.round(size * 0.42);
   return (

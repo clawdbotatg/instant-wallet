@@ -2,7 +2,8 @@ import { rpcCheck } from "@/lib/rpcWatch";
 import { NextRequest, NextResponse } from "next/server";
 import { upstreamRpc } from "@/lib/rpcServer";
 import { chainById } from "@/lib/chains";
-import { indexerTransfers } from "@/lib/indexer";
+import { indexerTokenMeta, indexerTransfers } from "@/lib/indexer";
+import { noExternal } from "@/lib/noext";
 
 export const dynamic = "force-dynamic";
 
@@ -45,12 +46,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cha
   if (hit && Date.now() - hit.at < ttl!) return new NextResponse(hit.text.replace(/^\{"jsonrpc":"2.0","id":[^,]*,/, `{"jsonrpc":"2.0","id":${JSON.stringify(j.id ?? null)},`), { headers: { "content-type": "application/json" } });
   // the local copy with your indexer: what it can answer (token moves; ETH moves from an archive node of your own)
   // comes from it, only the rest from the node
+  // (Settings → No external traffic: only what it answers; your node knows no alchemy_ method)
+  const shut = !!noExternal();
+  if (shut && !Array.isArray(j) && j.method === "alchemy_getTokenMetadata") {
+    const m = await indexerTokenMeta(chainId, String(j.params?.[0] ?? "")).catch(() => null);
+    return NextResponse.json(m ? { jsonrpc: "2.0", id: j.id ?? null, result: m } : { jsonrpc: "2.0", id: j.id ?? null, error: { code: -32000, message: "Your indexer doesn't know this coin." } });
+  }
   if (!Array.isArray(j) && j.method === "alchemy_getAssetTransfers") {
     const p = j.params?.[0] ?? {};
     const cats: string[] = Array.isArray(p.category) ? p.category : [];
-    const ix = await indexerTransfers(chainId, p).catch(() => null);
+    const ix = (await indexerTransfers(chainId, p).catch(() => null)) ?? (shut ? { transfers: [], done: cats } : null);
     if (ix) {
-      const rest = cats.filter(c => !ix.done.includes(c));
+      const rest = shut ? [] : cats.filter(c => !ix.done.includes(c));
       let more: any[] = [];
       if (rest.length) {
         const r = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: j.id ?? null, method: j.method, params: [{ ...p, category: rest }] }), cache: "no-store", signal: AbortSignal.timeout(15_000) })

@@ -4,6 +4,7 @@ import { recoveryChecked } from "./RecoveryAlert";
 import { RpcSetting } from "./RpcSetting";
 import { LocalRelay } from "./LocalRelay";
 import { LocalIndexer } from "./LocalIndexer";
+import { NoExternal } from "./NoExternal";
 import { LocalOff } from "./LocalOff";
 import { isLocal } from "@/lib/local";
 import { useFeatures } from "@/lib/features";
@@ -877,6 +878,12 @@ export function Keys({
       <Step title={<>Your node on <Net chainId={chainId} /></>} key={`rpc${chainId}`}>
         <RpcSetting chainId={chainId} toast={toast} />
       </Step>
+
+      {local && (
+        <Step title="No external traffic" key="noext">
+          <NoExternal toast={toast} />
+        </Step>
+      )}
 
       {local && (
         <Step title="Balances and prices" key="indexer">

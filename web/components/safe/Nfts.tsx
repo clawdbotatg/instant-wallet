@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { chainById } from "@/lib/chains";
 import { loadHiddenNfts, saveHiddenNfts } from "@/lib/store";
+import { viaHome } from "@/lib/local";
 import type { Nft } from "@/lib/types";
 import { Fold, Net, Sheet } from "../bits";
 
@@ -58,7 +59,7 @@ export function NftGrid({ address }: { address: string }) {
     <div className="nft-grid">
       {list.filter(n => !broken.includes(idOf(n))).map(n => (
         <button key={idOf(n)} className="nft" aria-label={n.name} onClick={() => setOpen(n)}>
-          <img src={n.thumb} alt="" loading="lazy" onError={() => setBroken(b => [...b, idOf(n)])} />
+          <img src={viaHome(n.thumb)} alt="" loading="lazy" onError={() => setBroken(b => [...b, idOf(n)])} />
         </button>
       ))}
     </div>
@@ -84,7 +85,7 @@ export function NftGrid({ address }: { address: string }) {
       {open && createPortal(
         <Sheet onClose={() => setOpen(null)}>
           <div className="stack">
-            <img className="nft-big" src={open.image} alt={open.name} />
+            <img className="nft-big" src={viaHome(open.image)} alt={open.name} />
             <div>
               <h2>{open.name}</h2>
               <p className="fine">

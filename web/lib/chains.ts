@@ -1,5 +1,5 @@
 import { type Address, type Chain, type Transport, createPublicClient, http } from "viem";
-import { NODE_HEADER, isLocal } from "./local";
+import { NODE_HEADER, isLocal, noExt, syncNoExt } from "./local";
 import { isOnion, torFetch } from "./tor";
 import { arbitrum, arc, avalanche, base, bsc, celo, foundry, gnosis, hyperEvm, mainnet, optimism, plasma, polygon, robinhood, sonic } from "viem/chains";
 
@@ -80,7 +80,11 @@ const wanted = (process.env.NEXT_PUBLIC_CHAINS || ALL.filter(c => c.id !== found
 const enabled = wanted.map(id => ALL.find(c => c.id === id)).filter((c): c is ChainInfo => !!c);
 // xdai.io (lib/brand.ts sets data-brand before any module runs): Gnosis first, so it's the default network there
 const xdai = typeof document !== "undefined" && document.documentElement.dataset.brand === "xdai";
-export const CHAINS: ChainInfo[] = xdai ? [...enabled.filter(c => c.id === 100), ...enabled.filter(c => c.id !== 100)] : enabled;
+const every: ChainInfo[] = xdai ? [...enabled.filter(c => c.id === 100), ...enabled.filter(c => c.id !== 100)] : enabled;
+// Settings → No external traffic (a copy on your own computer): only the networks you have a node for
+const shut = typeof window !== "undefined" ? noExt() : null;
+export const CHAINS: ChainInfo[] = shut && every.some(c => shut.chains.includes(c.id)) ? every.filter(c => shut.chains.includes(c.id)) : every;
+if (typeof window !== "undefined") void syncNoExt();
 export const DEFAULT_CHAIN = CHAINS[0];
 
 /** Where Settings opens with no money anywhere, and who wins a tie: Ethereum (Gnosis on xdai.io). */
@@ -179,7 +183,8 @@ function ownRpcs(): Record<string, string> {
     return {};
   }
 }
-export const ownRpc = (chainId: number): string | undefined => ownRpcs()[chainId] || undefined;
+// (No external traffic: the page talks only to this copy, which reads your node for it)
+export const ownRpc = (chainId: number): string | undefined => (noExt() ? undefined : ownRpcs()[chainId] || undefined);
 export function setOwnRpc(chainId: number, url: string | null) {
   const all = ownRpcs();
   if (url) all[chainId] = url;

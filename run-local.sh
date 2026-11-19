@@ -13,6 +13,8 @@ ROOT="$PWD"
 
 NAME=local.instantwallet.io
 DIR="$HOME/.instantwallet-local"
+# Next.js sends usage counts to Vercel by default: not from your computer
+export NEXT_TELEMETRY_DISABLED=1
 ENV=web/.env.local
 PORT="${IW_PORT:-3000}"
 

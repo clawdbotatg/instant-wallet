@@ -16,6 +16,13 @@ export async function indexerChains(): Promise<Set<number>> {
   return v;
 }
 
+/** A coin's name, symbol and decimals from your indexer (read from your node), in alchemy_getTokenMetadata's shape. */
+export async function indexerTokenMeta(chainId: number, token: string): Promise<{ name: string; symbol: string; decimals: number; logo: null } | null> {
+  if (!/^0x[0-9a-fA-F]{40}$/.test(token) || !(await indexerChains()).has(chainId)) return null;
+  const j = await fetch(`${process.env.INDEXER_URL}/meta?chain=${chainId}&token=${token}`, { signal: AbortSignal.timeout(10_000), cache: "no-store" }).then(r => (r.ok ? r.json() : null));
+  return j && typeof j.decimals === "number" ? { name: j.name ?? j.symbol ?? "", symbol: j.symbol ?? "", decimals: j.decimals, logo: null } : null;
+}
+
 const hex = (n: bigint | number) => "0x" + BigInt(n).toString(16);
 
 /** An alchemy_getAssetTransfers ask answered by your indexer, in Alchemy's shape, as far as it can:

@@ -6,6 +6,7 @@ import { CHAINS } from "@/lib/chains";
 import { alchemyNetwork } from "@/lib/rpcServer";
 import type { Nft } from "@/lib/types";
 import { indexerChains } from "@/lib/indexer";
+import { noExternal } from "@/lib/noext";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +42,8 @@ export async function GET(req: NextRequest) {
     indexing = Math.min(indexing ?? 1, r.progress);
     return [];
   };
-  const perChain = await Promise.all(CHAINS.map(c => Promise.race([one(c.id).catch(() => [] as Nft[]), late()])));
+  const shut = noExternal(); // Settings → No external traffic: only the networks you have a node for
+  const perChain = await Promise.all(CHAINS.filter(c => !shut || shut.nodes[c.id]).map(c => Promise.race([one(c.id).catch(() => [] as Nft[]), late()])));
   const nfts = perChain.flat();
   if (indexing !== null) return NextResponse.json({ nfts, indexing });
   cache.set(ck, { at: Date.now(), v: nfts });

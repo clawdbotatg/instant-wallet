@@ -1,3 +1,4 @@
+import { tooMany } from "@/lib/limit";
 import { NextRequest, NextResponse } from "next/server";
 import { createPublicClient, http, isAddress } from "viem";
 import { mainnet } from "viem/chains";
@@ -18,6 +19,7 @@ export const dynamic = "force-dynamic";
  * neither: who its clear-signing descriptor says it is ("LI.FI"), so a spender reads as a name, not hex (Austin 11-16).
  */
 export async function GET(req: NextRequest) {
+  if (await tooMany(req, "ens", 600, 3600)) return Response.json({ error: "Too many. Wait a bit." }, { status: 429 }); // per IP, every instance
   const name = req.nextUrl.searchParams.get("name");
   const address = req.nextUrl.searchParams.get("address");
   const chain = Number(req.nextUrl.searchParams.get("chain") || 0) || undefined;

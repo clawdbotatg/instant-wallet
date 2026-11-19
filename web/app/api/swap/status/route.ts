@@ -1,9 +1,11 @@
+import { tooMany } from "@/lib/limit";
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
 /** A cross-chain swap's progress: `GET /api/swap/status?hash=0x…&fromChain=8453&toChain=1` → LI.FI's status, trimmed. */
 export async function GET(req: NextRequest) {
+  if (await tooMany(req, "swap-status", 600, 3600)) return Response.json({ error: "Too many. Wait a bit." }, { status: 429 }); // per IP, every instance
   const q = req.nextUrl.searchParams;
   const hash = q.get("hash") || "";
   if (!/^0x[0-9a-fA-F]{64}$/.test(hash)) return NextResponse.json({ error: "hash?" }, { status: 400 });

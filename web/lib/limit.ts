@@ -9,11 +9,11 @@ export const ipOf = (req: Request) => req.headers.get("x-forwarded-for")?.split(
  * cost us money or storage. The limits sit far above what a person does (a room on one Wi-Fi shares an IP).
  * If the store is down, nobody is limited: the route keeps working.
  */
-export async function tooMany(req: Request, name: string, max: number, sec: number): Promise<boolean> {
+export async function tooMany(req: Request, name: string, max: number, sec: number, n = 1): Promise<boolean> {
   const k = `iws:lim:${name}:${ipOf(req)}`;
   try {
     await kv(["SET", k, 0, "EX", sec, "NX"]); // the life first, then the count: a counter is never left without a life
-    return Number(await kv(["INCR", k])) > max;
+    return Number(await kv(["INCRBY", k, n])) > max;
   } catch {
     return false;
   }

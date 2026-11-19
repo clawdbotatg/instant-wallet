@@ -1,3 +1,4 @@
+import { tooMany } from "@/lib/limit";
 import { generateJwt } from "@coinbase/cdp-sdk/auth";
 import { NextRequest, NextResponse } from "next/server";
 import { onrampChallenge } from "@/lib/onramp";
@@ -13,6 +14,7 @@ export const dynamic = "force-dynamic";
  * CDP_API_KEY_SECRET (portal.cdp.coinbase.com, a Secret API key with Onramp).
  */
 export async function POST(req: NextRequest) {
+  if (await tooMany(req, "onramp", 60, 3600)) return Response.json({ error: "Too many. Wait a bit." }, { status: 429 }); // per IP, every instance
   const b = await req.json().catch(() => ({}));
   const asset = b.asset === "ETH" ? "ETH" : "USDC";
   const who = await passkeyOwner(req, b, "onramp", (address, ts) => onrampChallenge(address, asset, ts));

@@ -1,3 +1,4 @@
+import { tooMany } from "@/lib/limit";
 import { NextRequest, NextResponse } from "next/server";
 import { createPublicClient, http } from "viem";
 import { mainnet } from "viem/chains";
@@ -17,6 +18,7 @@ const MAX = 3_000_000;
  * else the page shows the blockie.
  */
 export async function GET(req: NextRequest) {
+  if (await tooMany(req, "avatar", 600, 3600)) return Response.json({ error: "Too many. Wait a bit." }, { status: 429 }); // per IP, every instance
   const name = req.nextUrl.searchParams.get("name") || "";
   const none = (status: number) => new NextResponse(null, { status, headers: { "Cache-Control": "public, s-maxage=300" } });
   if (!/^[^\s./]+(\.[^\s./]+)+$/.test(name) || name.length > 255) return none(400);

@@ -1,3 +1,4 @@
+import { tooMany } from "@/lib/limit";
 import { NextRequest, NextResponse } from "next/server";
 import { isAddress } from "viem";
 
@@ -29,6 +30,7 @@ const ownerOf = (path: string) => {
 const spaced = (s: string) => s.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/_/g, " ").trim();
 
 export async function GET(req: NextRequest) {
+  if (await tooMany(req, "spender", 600, 3600)) return Response.json({ error: "Too many. Wait a bit." }, { status: 429 }); // per IP, every instance
   const chain = Number(req.nextUrl.searchParams.get("chain"));
   const address = req.nextUrl.searchParams.get("address") || "";
   if (!Number.isInteger(chain) || chain <= 0 || !isAddress(address)) return NextResponse.json({ error: "chain and address" }, { status: 400 });

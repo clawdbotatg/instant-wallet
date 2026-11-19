@@ -1,3 +1,4 @@
+import { tooMany } from "@/lib/limit";
 import { NextRequest, NextResponse } from "next/server";
 import { createPublicClient, getAddress, http, isAddress, parseAbi } from "viem";
 import { mainnet } from "viem/chains";
@@ -18,6 +19,7 @@ type Chunk = Record<string, { index: number; amount: string; proof: string[] }>;
 const chunks = new Capped<string, Chunk>(8); // the files never change: kept, not downloaded on every call
 
 export async function GET(req: NextRequest) {
+  if (await tooMany(req, "uni", 600, 3600)) return Response.json({ error: "Too many. Wait a bit." }, { status: 429 }); // per IP, every instance
   const a = req.nextUrl.searchParams.get("address");
   if (!a || !isAddress(a)) return NextResponse.json({ error: "address required" }, { status: 400 });
   const addr = a.toLowerCase();

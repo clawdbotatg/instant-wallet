@@ -1,3 +1,4 @@
+import { tooMany } from "@/lib/limit";
 import { NextRequest, NextResponse } from "next/server";
 import { upstreamRpc } from "@/lib/rpcServer";
 import { chainById } from "@/lib/chains";
@@ -51,6 +52,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cha
   if (!list.length || list.length > 50 || list.some(x => !ALLOW.has(x?.method))) return NextResponse.json({ error: "not allowed" }, { status: 403 });
   const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || "?";
   if (over(ip, list.length)) return NextResponse.json({ error: "Too many reads. Wait a minute." }, { status: 429 });
+  // and across every instance (the count above is per instance: many instances, many times the limit)
+  if (await tooMany(req, "rpc-day", PER_DAY, 86400, list.length)) return NextResponse.json({ error: "Too many reads today." }, { status: 429 });
   // the local copy with your indexer: what it can answer (token moves; ETH moves from an archive node of your own)
   // comes from it, only the rest from the node
   if (!Array.isArray(j) && j.method === "alchemy_getAssetTransfers") {

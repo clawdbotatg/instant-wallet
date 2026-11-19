@@ -15,12 +15,20 @@ export function NftGrid({ address }: { address: string }) {
   const [hidden, setHiddenState] = useState<string[]>([]);
   const [showHidden, setShowHidden] = useState(false);
   const [broken, setBroken] = useState<string[]>([]); // images that failed to load: dropped from the grid
+  // the local copy's own indexer, reading a wallet for the first time: how far, 0 to 1 (null: done)
+  const [indexing, setIndexing] = useState<number | null>(null);
   useEffect(() => {
     setHiddenState(loadHiddenNfts());
+    let soon: ReturnType<typeof setTimeout> | undefined;
     const load = () =>
       fetch(`/api/nfts?address=${address}`, { cache: "no-store" })
         .then(r => r.json())
-        .then(j => j?.nfts && setNfts(j.nfts))
+        .then(j => {
+          if (j?.nfts) setNfts(j.nfts);
+          setIndexing(typeof j?.indexing === "number" ? j.indexing : null);
+          clearTimeout(soon);
+          if (typeof j?.indexing === "number") soon = setTimeout(load, 3_000);
+        })
         .catch(() => {});
     load();
     window.addEventListener("instantwallet:refresh", load);
@@ -31,6 +39,7 @@ export function NftGrid({ address }: { address: string }) {
     document.addEventListener("visibilitychange", back);
     return () => {
       clearInterval(t);
+      clearTimeout(soon);
       document.removeEventListener("visibilitychange", back);
       window.removeEventListener("instantwallet:refresh", load);
     };
@@ -40,7 +49,8 @@ export function NftGrid({ address }: { address: string }) {
     setHiddenState(h);
   };
   const keyOf = (n: Nft) => `${n.chainId}:${n.contract}`.toLowerCase();
-  if (!nfts?.length) return null;
+  if (!nfts?.length && indexing === null) return null;
+  if (!nfts) return null;
   const shown = nfts.filter(n => !hidden.includes(keyOf(n)));
   const hiddenOnes = nfts.filter(n => hidden.includes(keyOf(n)));
   const idOf = (n: Nft) => `${n.chainId}:${n.contract}:${n.tokenId}`;
@@ -56,6 +66,14 @@ export function NftGrid({ address }: { address: string }) {
   const isHidden = open && hidden.includes(keyOf(open));
   return (
     <div className="card nfts">
+      {indexing !== null && (
+        <div className="stack">
+          <p className="fine">Indexing your NFTs…</p>
+          <div className="progress">
+            <div style={{ width: `${Math.max(2, Math.round(indexing * 100))}%` }} />
+          </div>
+        </div>
+      )}
       {shown.length > 0 && <Fold count={shown.length}>{grid(shown)}</Fold>}
       {hiddenOnes.length > 0 && (
         <button className="hidden-link fine" onClick={() => setShowHidden(!showHidden)}>

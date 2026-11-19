@@ -29,21 +29,31 @@ export async function GET(req: NextRequest) {
   const hit = cache.get(ck);
   if (hit && Date.now() - hit.at < CACHE_MS) return NextResponse.json({ nfts: hit.v });
   const late = () => new Promise<Nft[]>(r => setTimeout(() => r([]), 8_000));
-  // the local copy with your indexer: its networks from it, once it has read the wallet's whole history; else Alchemy
+  // the local copy with your indexer: its networks from it only, never Alchemy (your address stays home). The first
+  // look at a wallet takes a while (its whole history read): `indexing` says how far, 0 to 1, and the page shows a bar.
+  // Other networks: Alchemy (no node of yours there)
   const ix = all ? new Set<number>() : await indexerChains();
-  const one = async (chainId: number) => (ix.has(chainId) && (await indexerNfts(chainId, wallet).catch(() => null))) || chainNfts(chainId, wallet, all);
+  let indexing: number | null = null;
+  const one = async (chainId: number): Promise<Nft[]> => {
+    if (!ix.has(chainId)) return chainNfts(chainId, wallet, all);
+    const r = await indexerNfts(chainId, wallet);
+    if (r.nfts) return r.nfts;
+    indexing = Math.min(indexing ?? 1, r.progress);
+    return [];
+  };
   const perChain = await Promise.all(CHAINS.map(c => Promise.race([one(c.id).catch(() => [] as Nft[]), late()])));
   const nfts = perChain.flat();
+  if (indexing !== null) return NextResponse.json({ nfts, indexing });
   cache.set(ck, { at: Date.now(), v: nfts });
   return NextResponse.json({ nfts });
 }
 
-/** A wallet's NFTs on one network from your own indexer (clawdbotatg/iw-indexer, the local copy only): null until
- * it has read the wallet's whole history. It drops airdrops and NFTs with no image; the same bait words as below. */
-async function indexerNfts(chainId: number, wallet: Address): Promise<Nft[] | null> {
+/** A wallet's NFTs on one network from your own indexer (clawdbotatg/iw-indexer, the local copy only): until it has
+ * read the wallet's whole history, how far along it is. It drops airdrops and NFTs with no image; the same bait words. */
+async function indexerNfts(chainId: number, wallet: Address): Promise<{ nfts: Nft[] | null; progress: number }> {
   const j = await fetch(`${process.env.INDEXER_URL}/nfts?address=${wallet}&chain=${chainId}`, { signal: AbortSignal.timeout(6_000), cache: "no-store" }).then(r => r.json());
-  if (!j?.complete || !Array.isArray(j.nfts)) return null;
-  return (j.nfts as Nft[]).filter(x => !BAIT.test(`${x.name} ${x.collection}`)).map(x => ({ ...x, contract: getAddress(x.contract) }));
+  if (!j?.complete || !Array.isArray(j.nfts)) return { nfts: null, progress: Number(j?.progress) || 0 };
+  return { nfts: (j.nfts as Nft[]).filter(x => !BAIT.test(`${x.name} ${x.collection}`)).map(x => ({ ...x, contract: getAddress(x.contract) })), progress: 1 };
 }
 
 /** The old Burner Wallet's badges on Gnosis: never spam, often no image. */

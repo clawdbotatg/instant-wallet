@@ -7,11 +7,13 @@ import { ipOf } from "./limit";
  * Per IP, per minute, hour and day, in weight: a costly call (logs, transfer history, proofs) counts HEAVY.
  * The whole site is only watched, never blocked: a launch-day rush of real people must not lock everyone out.
  * The numbers live in the store (iws:rpc:limits, JSON), so they change in seconds, no deploy:
- *   kv SET iws:rpc:limits '{"min":600,"hour":12000,"day":60000,"heavy":5,"siteHour":200000}'
+ *   kv SET iws:rpc:limits '{"min":2000,"hour":24000,"day":120000,"heavy":5,"siteHour":200000}'
  * Telegram (OPS_TELEGRAM_CHAT, with the alerts bot): an IP past half a limit or blocked, once a day each; the site
  * past siteHour, once an hour; a daily summary (dailySummary, from the alerts watcher).
  */
-export const DEFAULTS = { min: 300, hour: 6000, day: 30_000, heavy: 5, siteHour: 100_000 };
+// One load of a wallet's home page is about 200 in its first 10 seconds (measured 11-19: Austin's own page, two
+// loads in a minute, was blocked at 300). So the minute takes 5 loads, the hour 60, the day 300.
+export const DEFAULTS = { min: 1000, hour: 12_000, day: 60_000, heavy: 5, siteHour: 100_000 };
 type Limits = typeof DEFAULTS;
 const HEAVY = new Set(["eth_getLogs", "alchemy_getAssetTransfers", "alchemy_getTokenBalances", "eth_getProof", "eth_createAccessList"]);
 const P = "iws:rpc:";

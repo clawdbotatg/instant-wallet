@@ -35,6 +35,10 @@ export function RecoverTool() {
   const [chainId, setChainId] = useState(CHAINS[0].id);
   const [w, setW] = useState<Address | null>(null); // the wallet
   const [newKey, setNewKey] = useState<Address | null>(null);
+  // the new signer is whoever's key this is: a link (?owner=) can come from anyone, recovery addresses are public.
+  // Start waits until they've checked it with the owner by voice (audit 11-13, WEB-6)
+  const [voiced, setVoiced] = useState<string | null>(null);
+  const checked = !!newKey && voiced === newKey;
   const [original, setOriginal] = useState<Address | null>(null);
   type Mod = { module: Address; guardians: Address[]; executeAfter: number; newOwners: Address[] };
   const [info, setInfo] = useState<{ deployed: boolean; mods: Mod[] } | null>(null);
@@ -146,12 +150,24 @@ export function RecoverTool() {
       <div className="card stack">
         <b>1. Start the recovery</b>
         <AddressInput initial={q?.get("owner") ?? ""} onChange={setNewKey} placeholder="Their new signer: 0x… or name.eth" chain={chainId} />
+        {newKey && (
+          <div className="stack" style={{ gap: 6 }}>
+            <Who plain address={newKey} chain={chainId} />
+            <p className={checked ? "fine" : "err"}>
+              {q?.get("owner") && q.get("owner")!.toLowerCase() === newKey.toLowerCase() ? "From a link. " : ""}
+              This key gets the wallet. Call the owner: check the picture and {newKey.slice(-4)} by voice.
+            </p>
+            <button className="btn wide" disabled={checked} onClick={() => setVoiced(newKey)}>
+              {checked ? "Checked" : "I checked it by voice"}
+            </button>
+          </div>
+        )}
         {info?.mods.map((m, i) => (
-          <button key={m.module} className={`btn ${i === 0 && info.deployed && !due ? "btn-green" : ""} wide`} disabled={running || !startData || !info.deployed} onClick={() => startData && run(m.module, startData, "Start")}>
+          <button key={m.module} className={`btn ${i === 0 && info.deployed && !due && checked ? "btn-green" : ""} wide`} disabled={running || !startData || !info.deployed || !checked} onClick={() => startData && run(m.module, startData, "Start")}>
             Start as {names(m.guardians, " or ")} ({RECOVERY_DAYS[m.module]} days)
           </button>
         ))}
-        {startData && info?.mods.some(m => m.guardians.some(g => g.toLowerCase() === DAO.toLowerCase())) && (
+        {startData && checked && info?.mods.some(m => m.guardians.some(g => g.toLowerCase() === DAO.toLowerCase())) && (
           <button
             className="pill"
             onClick={async () => setToast((await copy(`chain ${chainById(chainId)?.name} (${chainId})\nto ${info.mods.find(m => m.guardians.some(g => g.toLowerCase() === DAO.toLowerCase()))!.module}\nvalue 0\ndata ${startData}`)) ? "Copied" : "Couldn't copy")}

@@ -49,18 +49,19 @@ d.innerHTML=(old?(ios?"<b>Update your iPhone to use the new version.</b><p style
 setTimeout(function(){if(errs.length)show()},6000);setTimeout(show,15000)})();`;
 
 // Plausible: page visits only, no cookies. The URL it gets is the page's kind, never what's in it: no query or #,
-// no address, no pay or claim link (/tx/… → /tx, a pay link → /link). The privacy page says so.
-const PLAUSIBLE_SCRIPT = `window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
+// no address, no pay or claim link (/tx/… → /tx, a pay link → /link). The privacy page says so. A copy on your own
+// computer (local.*, localhost) loads none of it: nothing to count, and plausible.io would see your IP.
+const PLAUSIBLE_SCRIPT = `if(!/^local\\.|^localhost$|^127\\.0\\.0\\.1$/.test(location.hostname)){var ps=document.createElement("script");ps.async=true;ps.src="https://plausible.io/js/pa-GFtCLbOE4UoerqR3ISRki.js";document.head.appendChild(ps);
+window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
 plausible.init({transformRequest:function(p){try{var u=new URL(p.u),s=u.pathname.split("/")[1]||"";
 var known=["","claim","d","drops","join","paper","pk","pq","privacy","recover","terms","tx"];
-p.u=u.origin+"/"+(known.indexOf(s)<0?"link":s==="claim"&&u.pathname.indexOf("/claim/new")===0?"claim/new":s)}catch(e){return null}return p}});`;
+p.u=u.origin+"/"+(known.indexOf(s)<0?"link":s==="claim"&&u.pathname.indexOf("/claim/new")===0?"claim/new":s)}catch(e){return null}return p}})}`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${outfit.variable} ${mono.variable}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: CRASH_SCRIPT }} />
-        <script async src="https://plausible.io/js/pa-GFtCLbOE4UoerqR3ISRki.js" />
         <script dangerouslySetInnerHTML={{ __html: PLAUSIBLE_SCRIPT }} />
       </head>
       <body>

@@ -14,7 +14,9 @@ export const metadata: Metadata = {
   ...shareCard("https://instantwallet.io", "/og4.png"),
   title: "Instant Wallet — an Ethereum wallet in seconds that will last forever",
   description,
-  keywords: ["Instant Wallet", "Ethereum wallet", "passkey wallet", "smart wallet", "no seed phrase", "social recovery", "self-hosted wallet", "Base", "Safe", "crypto wallet"],
+  authors: [{ name: "Austin Griffith", url: "https://x.com/austingriffith" }],
+  creator: "Austin Griffith",
+  keywords: ["passkey Ethereum wallet", "Safe wallet", "Austin Griffith", "Instant Wallet", "Ethereum wallet", "passkey wallet", "smart wallet", "no seed phrase", "social recovery", "self-hosted wallet", "Base", "Safe", "crypto wallet"],
   // no `capable`: iOS opens the home-screen icon in Safari (same storage); see manifest.ts
   appleWebApp: { title: "Instant Wallet" },
   // Safari's Smart App Banner: "Open" / "Get" for the App Store app

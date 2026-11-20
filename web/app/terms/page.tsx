@@ -1,5 +1,5 @@
 /** Terms of service (ramps need one). Plain words; keep it true when the app changes. */
-export const metadata = { title: "Terms · Instant Wallet" };
+export const metadata = { title: "Terms · Instant Wallet", description: "The terms for using Instant Wallet, the passkey Ethereum wallet.", alternates: { canonical: "/terms" } };
 
 export default function Terms() {
   return (

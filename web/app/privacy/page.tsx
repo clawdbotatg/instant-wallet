@@ -1,5 +1,5 @@
 /** Privacy policy (the App Store needs one). Plain words; keep it true when the app changes. */
-export const metadata = { title: "Privacy · Instant Wallet" };
+export const metadata = { title: "Privacy · Instant Wallet", description: "What Instant Wallet knows about you: page visits only, no cookies, no data sold or shared.", alternates: { canonical: "/privacy" } };
 
 export default function Privacy() {
   return (

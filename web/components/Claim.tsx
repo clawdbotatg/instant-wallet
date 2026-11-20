@@ -6,11 +6,12 @@ import { type Address, type Hash, type Hex, createWalletClient, formatUnits, par
 import { privateKeyToAccount } from "viem/accounts";
 import { isXdai, retireBurnerKey } from "@/lib/brand";
 import { type OldSafe, findOldSafes, sweepOldSafe } from "@/lib/oldSafes";
-import { CHAINS, nativeSymbol, publicClient, relayHeaders, rpcTransport } from "@/lib/chains";
+import { CHAINS, nativeSymbol, publicClient, rpcTransport } from "@/lib/chains";
 import { AUTH_TYPES, type ClaimAuth, claimKey, usdc3009 } from "@/lib/claim";
 import { amount as fmtAmount, usd } from "@/lib/format";
 import { abi } from "@/lib/safe/core";
 import { getQuote, waitFor } from "@/lib/safe/send";
+import { relayJson } from "@/lib/safe/relayFund";
 import { createPasskey } from "@/lib/passkey";
 import { type SafeAccount, accountFor, loadAccount, saveAccount } from "@/lib/safe/state";
 import type { Asset, Nft } from "@/lib/types";
@@ -73,13 +74,12 @@ async function claimUsdc(key: Hex, chainId: number, balance: bigint, to: Address
     };
   };
   const auths = [await sign(to, balance - fee), await sign(q.relayer, fee)];
-  const r = await fetch("/api/safe/relay", {
+  const { ok, status, j } = await relayJson(chainId, "/api/safe/relay", {
     method: "POST",
-    headers: { "content-type": "application/json", ...relayHeaders(chainId) },
+    headers: { "content-type": "application/json" },
     body: JSON.stringify({ chainId, kind: "claim", auths }),
   });
-  const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(j.error === "fee too low" ? "Gas went up. Try again." : j.error || `relay: ${r.status}`);
+  if (!ok) throw new Error(j.error === "fee too low" ? "Gas went up. Try again." : j.error || `relay: ${status}`);
   await waitFor(chainId, j.hash);
   return balance - fee;
 }

@@ -47,6 +47,8 @@ const RULES = [
   { re: /stageLabel\((stage|step)\) : (step === "unfunded" \? "Try again" : )?"(Send|Swap|Fund it)"/, say: "the tap that signs says Sign, or 'Sign to …'" },
   { re: /["`>][^"`<{]*( [Gg]uardians?\b|\b[Gg]uardians? )[^"`<{]*["`<]/, say: "'guardian' in words a user reads: say 'recovery address'", skip: ["components/safe/RecoverTool.tsx", "components/safe/SafeWelcome.tsx"] }, // code that reads getGuardians
   { re: /Execute it myself|your wallet pays the gas|I pay gas\)|^\s*Execute from my wallet|"Execute from my wallet/, say: "said one way, on one line: <FromMine> (or FROM_MINE in a checkbox or a link). Never '(no fee, I pay gas)' on a button", skip: [SHARED] },
+  // a copy on your own computer, its relay empty: every request to the relay can open Fund your relay (11-19)
+  { re: /fetch\((`|")\/api\/safe\/relay/, say: "the relay asked by hand: relayJson() (lib/safe/relayFund.ts), so an empty local relay opens Fund your relay", skip: ["components/safe/FundRelay.tsx"] }, // the sheet's own look at what the relay needs
   { re: /Connect my wallet/, say: "a watched plain address executes from its own browser wallet: <MineGo>", skip: [SHARED] },
   { re: /^\s*✓ (Executed|Funded)\b|Card written ✓/, say: "a tx that ran, said by hand: <ExecutedLine href> (and <DoneBar> on a finished screen)" },
   { re: /^\s*[A-Z][^<>{}=;]* [Gg]uardians?\b/, say: "'guardian' in words a user reads: say 'recovery address'" },

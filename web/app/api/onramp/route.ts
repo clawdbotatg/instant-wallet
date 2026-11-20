@@ -25,7 +25,10 @@ export async function POST(req: NextRequest) {
   const apiKeySecret = process.env.CDP_API_KEY_SECRET?.replace(/\\n/g, "\n");
   if (!apiKeyId || !apiKeySecret) return NextResponse.json({ error: "Deposits aren't set up yet" }, { status: 503 });
   // Vercel sets x-real-ip itself (a client can't spoof it there)
-  const clientIp = req.headers.get("x-real-ip") || req.headers.get("x-forwarded-for")?.split(",")[0].trim() || undefined;
+  // A copy on your own computer sees you as 127.0.0.1 or a home address: Coinbase refuses those ("private IP
+  // addresses are not allowed"), so none is sent.
+  const ip = (req.headers.get("x-real-ip") || req.headers.get("x-forwarded-for")?.split(",")[0].trim() || "").replace(/^::ffff:/i, "");
+  const clientIp = !ip || /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.|0\.|::1$|f[cd][0-9a-f]{2}:|fe[89ab][0-9a-f]:)/i.test(ip) ? undefined : ip;
   try {
     const jwt = await generateJwt({ apiKeyId, apiKeySecret, requestMethod: "POST", requestHost: "api.developer.coinbase.com", requestPath: "/onramp/v1/token" });
     const r = await fetch("https://api.developer.coinbase.com/onramp/v1/token", {

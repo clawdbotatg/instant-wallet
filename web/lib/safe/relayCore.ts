@@ -79,6 +79,23 @@ export async function nativeUsd(chainId: number): Promise<number> {
   }
 }
 
+/**
+ * The relay must hold enough of the network's coin to send this, or the answer is words that say so. Asked with the
+ * quote, before anyone signs (11-19: a local copy's relay was empty, and after two signatures the node's own words
+ * came back: "gas required exceeds allowance (0)"). Twice the fee: a send's max fee is about 2x the gas price.
+ */
+export async function relayFunded(chainId: number, q: Quote, node?: string) {
+  const { info, pc } = clients(chainId, node);
+  const bal = await pc.getBalance({ address: q.relayer });
+  if (bal >= BigInt(q.feeEth) * 2n) return;
+  const coin = info.native.symbol;
+  throw new Error(
+    process.env.VERCEL
+      ? `The relay is out of ${coin} on ${info.name}. Execute from your wallet.`
+      : `Your relay has no ${coin} on ${info.name}. Send some to ${q.relayer}.`,
+  );
+}
+
 export async function quote(chainId: number, kind: SendKind, extra = 0n, node?: string): Promise<Quote> {
   const { pc } = clients(chainId, node);
   const gasPrice = (await pc.getGasPrice()) + tipFloor(chainId); // what a tx pays now (base fee + tip), not the 2× max fee cap

@@ -29,7 +29,7 @@ import {
 import { GAS_BUDGET, type SendKind, feePaid, rolesCalls, unpackMultiSend } from "@/lib/safe/fee";
 import { authCall, validAuth } from "@/lib/claim";
 import { MAX_DATA, l1Fee, l1Owed } from "@/lib/safe/l1fee";
-import { L1_ALLOWANCE, clients, nativeUsd, quote, tipFloor } from "@/lib/safe/relayCore";
+import { L1_ALLOWANCE, clients, nativeUsd, quote, relayFunded, tipFloor } from "@/lib/safe/relayCore";
 import { tooMany } from "@/lib/limit";
 import { nodeOf } from "@/lib/local";
 import {
@@ -70,7 +70,9 @@ export async function GET(req: NextRequest) {
     const kind = (req.nextUrl.searchParams.get("kind") || "exec") as SendKind;
     if (!(kind in GAS_BUDGET)) return NextResponse.json({ error: "bad kind" }, { status: 400 });
     const extra = BigInt(/^\d{1,9}$/.test(req.nextUrl.searchParams.get("extra") || "") ? req.nextUrl.searchParams.get("extra")! : 0);
-    return NextResponse.json(await quote(chainId, kind, extra, nodeOf(req)));
+    const q = await quote(chainId, kind, extra, nodeOf(req));
+    await relayFunded(chainId, q, nodeOf(req));
+    return NextResponse.json(q);
   } catch (e: any) {
     // shortMessage first: viem's full message prints the RPC URL, and that has the Alchemy key in it
     return NextResponse.json({ error: e?.shortMessage || e?.message || String(e) }, { status: 400 });
@@ -218,6 +220,7 @@ export async function POST(req: NextRequest) {
 
     // the fee must cover this send at today's gas price, with the same margins as the quote (+ L1 data on L2s)
     const q = await quote(chainId, kind, 0n, node);
+    await relayFunded(chainId, q, node); // an empty relay's estimate fails with the node's words, not ours
     // the fees this send will really carry, worked out before the estimate: the estimate used a tip of 1 wei, the
     // send didn't, and a contract could tell the two apart (pass here, fail on chain: audit IW-9)
     const floor = tipFloor(chainId);

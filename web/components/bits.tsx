@@ -1215,7 +1215,7 @@ export function AddressInput({
           fixed quietly: say so, offer a look at where it leads, and let the user take it anyway (Austin 11-20) */}
       {!addr && isAddress(nameIn(text), { strict: false }) && (
         <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
-          <span className="err grow">Checksum failed. Double-check this address.</span>
+          <span className="err" style={{ flexBasis: "100%" }}>Checksum failed. Double-check this address.</span>
           <Eject href={`https://address.vision/${getAddress(nameIn(text).toLowerCase())}`} title="Look it up on address.vision">
             Look it up
           </Eject>

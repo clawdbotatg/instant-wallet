@@ -42,6 +42,10 @@ r = await authorize(wallet, change, sign("https://xdai.io", "xdai.io", 5), "xdai
 ok(r === null, "xdai.io to xdai.io: " + (r ?? "allowed"));
 r = await authorize(wallet, change, sign("http://localhost:3100", "localhost", 5), "localhost:3100");
 ok(r === null, "localhost with a port: " + (r ?? "allowed"));
+r = await authorize(wallet, change, sign("https://local.instantwallet.io", H, 5), "local.instantwallet.io");
+ok(r === null, "the local copy, with the instantwallet.io passkey: " + (r ?? "allowed"));
+r = await authorize(wallet, change, sign("https://local.instantwallet.io", H, 5), H);
+ok(r === "Wrong site.", "signed on the local copy, sent to instantwallet.io: " + r);
 const good = sign("https://instantwallet.io", H, 5);
 r = await authorize(wallet, change, good, H);
 ok(r === null, "the right site, with Face ID: " + (r ?? "allowed"));

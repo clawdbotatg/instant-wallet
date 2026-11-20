@@ -10,6 +10,7 @@ import {
   encodeWebAuthnSignature,
   hexToBytes,
   parseDerSignature,
+  passkeyDomain,
 } from "./webauthn";
 
 /**
@@ -66,9 +67,7 @@ async function ceremony<T>(run: () => Promise<T>): Promise<T> {
   }
 }
 
-// local.instantwallet.io (your own copy, docs/LOCAL-MODE.md) signs with the instantwallet.io passkey: a page may use
-// its parent domain as the passkey's domain. Same for local.xdai.io.
-const rpId = () => window.location.hostname.replace(/^local\./, "");
+const rpId = () => passkeyDomain(window.location.hostname);
 const random32 = () => crypto.getRandomValues(new Uint8Array(32));
 
 export function credentialIdHash(credentialId: string): Hex {

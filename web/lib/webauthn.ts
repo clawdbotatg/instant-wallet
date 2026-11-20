@@ -10,6 +10,13 @@ import { type Hex, encodeAbiParameters } from "viem";
  * with these six parameter types produces exactly that layout (no leading struct offset).
  */
 
+/**
+ * The passkey's domain for a page's host. local.instantwallet.io (your own copy, docs/LOCAL-MODE.md) signs with the
+ * instantwallet.io passkey: a page may use its parent domain as the passkey's domain. Same for local.xdai.io.
+ * The page (lib/passkey.ts) and the server's checks (lib/passkeyAuth.ts, lib/alerts.ts) must agree on this.
+ */
+export const passkeyDomain = (host: string) => host.split(":")[0].replace(/^local\./, "");
+
 export const P256_N = 0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551n;
 
 export type WebAuthnAuth = {

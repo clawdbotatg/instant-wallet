@@ -7,7 +7,7 @@ import { base } from "viem/chains";
 import { mustRpc } from "./rpcServer";
 import { abi, safeAddress, signerAddress } from "./safe/core";
 import { once } from "./safe/relayGuard";
-import { P256_N, base64urlToBytes, hexToBytes } from "./webauthn";
+import { P256_N, base64urlToBytes, hexToBytes, passkeyDomain } from "./webauthn";
 
 const MAX_AGE_S = 120;
 
@@ -38,7 +38,7 @@ export async function passkeyOwner(req: Request, b: any, use: string, want: (add
   }
   if (typeof cd.challenge !== "string" || bytesHex(base64urlToBytes(cd.challenge)) !== want(address, ts).toLowerCase()) return bad("Signature is for a different request");
   const authData = hexToBytes(b.authenticatorData);
-  if (bytesHex(authData.slice(0, 32)) !== bytesHex(sha256(new TextEncoder().encode(host.split(":")[0])))) return bad("Wrong site");
+  if (bytesHex(authData.slice(0, 32)) !== bytesHex(sha256(new TextEncoder().encode(passkeyDomain(host))))) return bad("Wrong site");
   if (!(authData[32] & 0x04)) return bad("Face ID or fingerprint required");
   const msg = sha256(concatBytes(authData, sha256(new TextEncoder().encode(b.clientDataJSON))));
   if (!verifyP256(b.qx, b.qy, b.r, b.s, msg)) return bad("Bad signature");

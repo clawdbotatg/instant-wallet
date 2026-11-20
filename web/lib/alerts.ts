@@ -11,7 +11,7 @@ import { kv } from "./kv";
 import { MULTICALL3, RECOVERY_MODULES } from "./safe/config";
 import { abi, safeAddress, signerAddress } from "./safe/core";
 import { withLock } from "./safe/relayGuard";
-import { bytesToBase64url, hexToBytes } from "./webauthn";
+import { bytesToBase64url, hexToBytes, passkeyDomain } from "./webauthn";
 
 /**
  * Recovery alerts (Austin 10-14): a recovery that starts on a wallet reaches its owner even with the app closed.
@@ -101,7 +101,7 @@ export async function authorize(wallet: Address, change: string, s: Signed, host
   try {
     origin = new URL(JSON.parse(json).origin).host;
   } catch {}
-  const rp = sha256(new TextEncoder().encode(host.split(":")[0]));
+  const rp = sha256(new TextEncoder().encode(passkeyDomain(host)));
   if (!host || origin !== host || authData.length < 37 || !rp.every((x, i) => x === authData[i])) return "Wrong site.";
   if (!(authData[32] & 0x04)) return "Your passkey didn't check it was you. Try again.";
   const msg = sha256(new Uint8Array([...authData, ...sha256(new TextEncoder().encode(json))]));

@@ -5,7 +5,8 @@ import { type Hex, createPublicClient, http } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { CHAINS } from "@/lib/chains";
 import { upstreamRpc } from "@/lib/rpcServer";
-import { isLocalHost } from "@/lib/local";
+import { isLocalHost, nodeOf } from "@/lib/local";
+import { clients } from "@/lib/safe/relayCore";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,7 @@ export const dynamic = "force-dynamic";
  * Your own relay, on a copy of the wallet running on your own computer (README: "Run it fully local"). Never on our
  * site: Vercel, or any name that isn't local.*, localhost or 127.0.0.1, gets a 404.
  *
- *   GET  /api/local/relay  → { address: null } or { address, balances: [{ chainId, wei }] }
+ *   GET  /api/local/relay  → { address: null } or { address, balances: [{ chainId, wei }] }  (?chainId=8453: that one only)
  *   POST /api/local/relay  → makes the relay key once, saves it in web/.env.local, uses it at once (no restart)
  *
  * The key never leaves this server. Same as `npm run relay-key`.
@@ -29,6 +30,16 @@ export async function GET(req: NextRequest) {
   if (!local(req)) return NextResponse.json({ error: "not here" }, { status: 404 });
   const a = address();
   if (!a) return NextResponse.json({ address: null });
+  // one network (the Fund your relay sheet, every few seconds): read from the node the relay itself sends through
+  const one = Number(req.nextUrl.searchParams.get("chainId"));
+  if (one) {
+    try {
+      const wei = await clients(one, nodeOf(req)).pc.getBalance({ address: a });
+      return NextResponse.json({ address: a, balances: [{ chainId: one, wei: wei.toString() }] });
+    } catch (e: any) {
+      return NextResponse.json({ error: e?.shortMessage || e?.message || String(e) }, { status: 400 });
+    }
+  }
   const balances = await Promise.all(
     CHAINS.map(async c => {
       const url = upstreamRpc(c.id);

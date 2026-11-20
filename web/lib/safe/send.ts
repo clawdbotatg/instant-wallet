@@ -1,5 +1,6 @@
 import { type Address, type Hash, type Hex, zeroAddress } from "viem";
-import { chainById, codeOnce, publicClient, relayHeaders } from "../chains";
+import { chainById, codeOnce, publicClient } from "../chains";
+import { relayJson } from "./relayFund";
 import {
   type Call,
   type SafeTx,
@@ -79,9 +80,8 @@ export function signerLabel(a: SafeAccount, st: ChainState, signers: Signer[]): 
 export type Stage = "quote" | "signing" | "signing-hot" | "signing-wedgie" | "sending" | "confirming";
 
 export async function getQuote(chainId: number, kind: SendKind, extraGas?: bigint): Promise<Quote> {
-  const r = await fetch(`/api/safe/relay?chainId=${chainId}&kind=${kind}${extraGas ? `&extra=${extraGas}` : ""}`, { cache: "no-store", headers: relayHeaders(chainId) });
-  const j = await r.json();
-  if (!r.ok) throw new Error(j.error || "no quote");
+  const { ok, j } = await relayJson(chainId, `/api/safe/relay?chainId=${chainId}&kind=${kind}${extraGas ? `&extra=${extraGas}` : ""}`);
+  if (!ok) throw new Error(j.error || "no quote");
   return j;
 }
 
@@ -92,13 +92,12 @@ export function feeCall(q: Quote, token: FeeToken): Call {
 }
 
 async function post(body: { chainId: number; [k: string]: unknown }): Promise<Hash> {
-  const r = await fetch("/api/safe/relay", {
+  const { ok, status, j } = await relayJson(body.chainId, "/api/safe/relay", {
     method: "POST",
-    headers: { "content-type": "application/json", ...relayHeaders(body.chainId) },
+    headers: { "content-type": "application/json" },
     body: JSON.stringify(body, (_, v) => (typeof v === "bigint" ? v.toString() : v)),
   });
-  const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(j.error === "fee too low" ? "Gas went up while you signed. Try again." : j.error || `relay: ${r.status}`);
+  if (!ok) throw new Error(j.error === "fee too low" ? "Gas went up while you signed. Try again." : j.error || `relay: ${status}`);
   return j.hash;
 }
 

@@ -9,7 +9,7 @@ import { type FeeToken, type Prepared, type Signer, type Stage, Shared, asItself
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { type Pending, type Siwe, remember, respond } from "@/lib/walletconnect";
 import { signInCheck } from "@/lib/signin";
-import { Net, Raw, Who, Words, FromMine, MineGo, stageLabel } from "../bits";
+import { Net, Raw, Who, Words, FromMine, MineGo, stageLabel, useOfferMine } from "../bits";
 import { messageRows } from "@/lib/safe/raw";
 import type { TypedCard } from "@/lib/safe/typed";
 import { ConnectLayer, DappHead, type Session } from "../WalletConnect";
@@ -248,6 +248,7 @@ function SafeRequest({
   const fee = prepared ? BigInt(feeToken === "usdc" ? prepared.fee.feeUsdc : prepared.fee.feeEth) : null;
   const feeLabel = prepared ? feeText(prepared.fee, feeToken, nativeSymbol(pending.chainId)) : "…";
   const ready = !!st && !refused && (pending.kind === "sign" || !!prepared);
+  useOfferMine(!refused && !busy && pending.kind === "calls" && mine ? () => go(true) : null);
 
   return (
     <div className="stack confirm">

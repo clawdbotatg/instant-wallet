@@ -1,5 +1,5 @@
 import type { Hash, Hex } from "viem";
-import { relayHeaders } from "../chains";
+import { relayJson } from "./relayFund";
 import { callsOf } from "./describe";
 import { waitFor } from "./send";
 import { startSending } from "./sending";
@@ -17,13 +17,12 @@ export async function executeWaiting(w: Waiting, sigs: Waiting["sigs"], wedgie: 
   onStage("sending");
   const out = startSending(w.chainId, w.safe, callsOf(w.tx));
   try {
-    const r = await fetch("/api/safe/relay", {
+    const { ok, status, j } = await relayJson(w.chainId, "/api/safe/relay", {
       method: "POST",
-      headers: { "content-type": "application/json", ...relayHeaders(w.chainId) },
+      headers: { "content-type": "application/json" },
       body: JSON.stringify({ chainId: w.chainId, kind: "exec", safe: w.safe, tx: w.tx, signatures: allSignatures({ ...w, sigs }), wedgie }, (_, v) => (typeof v === "bigint" ? v.toString() : v)),
     });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(j.error || `relay: ${r.status}`);
+    if (!ok) throw new Error(j.error || `relay: ${status}`);
     sentOut(w.hash, j.hash);
     out.hash(j.hash);
     onStage("confirming", j.hash);

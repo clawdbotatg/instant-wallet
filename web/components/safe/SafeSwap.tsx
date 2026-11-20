@@ -13,7 +13,7 @@ import { uniswapRoute } from "@/lib/safe/uniswap";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import { hotAvailable } from "@/lib/safe/hot";
 import type { Asset } from "@/lib/types";
-import { Net, AmountBox, DoneBar, Eject, Money, Proven, SendOrSwap, TimedBar, TokenIcon, Who, FromMine, MineGo, stageLabel, openFocus } from "../bits";
+import { Net, AmountBox, DoneBar, Eject, Money, Proven, SendOrSwap, TimedBar, TokenIcon, Who, FromMine, MineGo, stageLabel, openFocus, useOfferMine, useRelayFunded } from "../bits";
 import { ChainSelect, type Opt, Select, SignerChoice, assetOpt } from "./Pick";
 import { Progress, TimeBar } from "./Progress";
 import { friendly } from "@/lib/friendly";
@@ -286,9 +286,11 @@ export function SafeSwap({
   const ethHeld = assets.find(a => a.chainId === chainId && a.asset === zeroAddress);
   const fromUsdc = !!from && from.asset.toLowerCase() === usdcAddr?.toLowerCase();
   const fromEth = from?.asset === zeroAddress;
+  const funded = useRelayFunded(); // a copy on your own computer: its relay just got its money, ask for the fee again
   useEffect(() => {
     if (!route || !st || itself) return;
     let live = true;
+    if (funded) setError(null);
     (async () => {
       const k = await sendKind(account, st, "owners", signers, { swapGas: BigInt(route.gas) });
       const q = await getQuote(chainId, k, BigInt(route.gas));
@@ -297,7 +299,7 @@ export function SafeSwap({
     return () => {
       live = false;
     };
-  }, [route?.tx.data, signers.join(), itself]);
+  }, [route?.tx.data, signers.join(), itself, funded]);
   const feeToken: FeeToken = pickFee(fee, fromEth ? "eth" : fromUsdc ? "usdc" : null, { usdc: BigInt(usdcHeld?.balance ?? "0"), eth: BigInt(ethHeld?.balance ?? "0") }, base ?? 0n);
   const feeAmt = fee ? BigInt(feeToken === "usdc" ? fee.feeUsdc : fee.feeEth) : 0n;
   const feeLabel = fee ? feeText(fee, feeToken, nativeSymbol(chainId)) : "…";
@@ -320,6 +322,8 @@ export function SafeSwap({
   // your own browser wallet (MetaMask...) sends it and pays the gas: no relay, no fee
   const [canSelf, setCanSelf] = useState(false);
   useEffect(() => setCanSelf(hotAvailable()), [stage]);
+
+  useOfferMine(stage === "form" && !itself && canSelf && st?.deployed && route && !needsComputer && !quoting ? () => swap(true) : null);
 
   async function swap(self = false) {
     if (!route || !st || (!fee && !self && !itself)) return;

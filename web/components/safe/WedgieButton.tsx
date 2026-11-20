@@ -21,6 +21,7 @@ import {
   WEDGIE_TAKEN,
 } from "@/lib/safe/wedgie";
 import { Blockie, Who, Words } from "../bits";
+import { type Short, askFund, shortFor } from "@/lib/safe/relayFund";
 
 /** The wedgie, drawn after the device render (design/brand/device-mark.png): white shell, a bill and a card behind, knob, screen, four buttons. */
 export function WedgieIcon({ size = 44, sad = false }: { size?: number; sad?: boolean }) {
@@ -57,8 +58,24 @@ export function WedgieIcon({ size = 44, sad = false }: { size?: number; sad?: bo
   );
 }
 
+function FundLine({ text, short }: { text: string; short: Short }) {
+  const [funded, setFunded] = useState(false);
+  if (funded) return null;
+  return (
+    <>
+      <p className="err"><Words text={text} /></p>
+      <button className="btn btn-green wide" onClick={() => askFund(short).then(setFunded)}>
+        {short.address ? "Fund your relay" : "Make your relay"}
+      </button>
+    </>
+  );
+}
+
 /** An error line; "the wedgie is busy in another tab" gets the sad wedgie. */
 export function ErrorLine({ text }: { text: string }) {
+  // the relay of a copy on your own computer can't pay: the line gets the button that opens Fund your relay
+  const short = shortFor(text);
+  if (short) return <FundLine text={text} short={short} />;
   if (!text.includes(WEDGIE_TAKEN)) return <p className="err"><Words text={text} /></p>;
   return (
     <div className="row" style={{ gap: 14 }}>

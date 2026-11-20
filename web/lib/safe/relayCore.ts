@@ -9,9 +9,10 @@ import { RELAY } from "@/lib/safe/describe";
 
 /** The relay's key, chains, and fee quote: shared by /api/safe/relay and drops (lib/drops.ts). */
 
+const NO_RELAY = "No relay here";
 export function relayer() {
   const pk = process.env.RELAYER_PRIVATE_KEY as Hex | undefined;
-  if (!pk) throw new Error("No relay here: make yours in Settings → Your relay.");
+  if (!pk) throw new Error(`${NO_RELAY}: make yours in Settings → Your relay.`);
   const a = privateKeyToAccount(pk);
   // the wallet (and the wedgie's fee rule) reads a payment to RELAY as the fee. A key for another address would
   // make every fee read as a plain send: stop here, not after people sign. (A fork or a test runs its own key.)
@@ -84,17 +85,34 @@ export async function nativeUsd(chainId: number): Promise<number> {
  * quote, before anyone signs (11-19: a local copy's relay was empty, and after two signatures the node's own words
  * came back: "gas required exceeds allowance (0)"). Twice the fee: a send's max fee is about 2x the gas price.
  */
-export async function relayFunded(chainId: number, q: Quote, node?: string) {
-  const { info, pc } = clients(chainId, node);
-  const bal = await pc.getBalance({ address: q.relayer });
-  if (bal >= BigInt(q.feeEth) * 2n) return;
+export type RelayShortInfo = { chainId: number; address: string | null; have?: string; need?: string; usd?: number };
+/** The relay can't pay. `relay` is what a copy on your own computer draws its Fund your relay sheet from. */
+export class RelayShort extends Error {
+  relay: RelayShortInfo;
+  constructor(message: string, relay: RelayShortInfo) {
+    super(message);
+    this.relay = relay;
+  }
+}
+/** The one way to say the relay can't pay: it has `have` of the network's coin and needs `need` to send this. */
+export function relayShort(chainId: number, relay: string, have: bigint, need: bigint, usd: number) {
+  const info = chainById(chainId)!;
   const coin = info.native.symbol;
-  throw new Error(
+  return new RelayShort(
     process.env.VERCEL
       ? `The relay is out of ${coin} on ${info.name}. Execute from your wallet.`
-      : `Your relay has no ${coin} on ${info.name}. Send some to ${q.relayer}.`,
+      : `Your relay ${have === 0n ? "has no" : "is low on"} ${coin} on ${info.name}. Send some to ${relay}.`,
+    { chainId, address: relay, have: have.toString(), need: need.toString(), usd },
   );
 }
+export async function relayFunded(chainId: number, q: Quote, node?: string) {
+  const bal = await clients(chainId, node).pc.getBalance({ address: q.relayer });
+  const need = BigInt(q.feeEth) * 2n;
+  if (bal < need) throw relayShort(chainId, q.relayer, bal, need, q.ethUsd);
+}
+/** For a copy on your own computer: why its relay can't send (empty, or not made yet), or undefined. */
+export const relayShortOf = (e: unknown, chainId: number): RelayShortInfo | undefined =>
+  e instanceof RelayShort ? e.relay : !process.env.RELAYER_PRIVATE_KEY && String((e as any)?.message).startsWith(NO_RELAY) ? { chainId, address: null } : undefined;
 
 export async function quote(chainId: number, kind: SendKind, extra = 0n, node?: string): Promise<Quote> {
   const { pc } = clients(chainId, node);

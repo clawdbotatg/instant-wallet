@@ -17,7 +17,7 @@ import { hotAvailable } from "@/lib/safe/hot";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
-import { Net, AddressInput, AmountBox, DoneBar, Money, NameMoved, Proven, SendOrSwap, TokenIcon, Who, FromMine, MineGo, stageLabel, useSheetBack, openFocus } from "../bits";
+import { Net, AddressInput, AmountBox, DoneBar, Money, NameMoved, Proven, SendOrSwap, TokenIcon, Who, FromMine, MineGo, stageLabel, useSheetBack, openFocus, useOfferMine, useRelayFunded } from "../bits";
 import { Scanner } from "../Scanner";
 import { Select, assetOpt } from "./Pick";
 import { friendly } from "@/lib/friendly";
@@ -265,6 +265,13 @@ export function SafeSend({
   }
 
   const what = asset && amountIn ? `${fmtAmount(amountIn)} ${asset.symbol}` : "";
+  // a copy on your own computer, its relay empty (Fund your relay): its dark button executes from my wallet, and
+  // once it's funded the fee is asked for again
+  useOfferMine(stage === "review" && !itself && canSelf && st?.deployed && p ? () => send(true) : null);
+  const funded = useRelayFunded();
+  useEffect(() => {
+    if (funded && stage === "review" && !quote) review();
+  }, [funded]); // eslint-disable-line react-hooks/exhaustive-deps
 
 
   if (stage === "done" && resolved) {

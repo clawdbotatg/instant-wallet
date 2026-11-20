@@ -17,7 +17,7 @@ import { startSending } from "@/lib/safe/sending";
 import { executeWaiting, sentOut } from "@/lib/safe/execute";
 import { type ChainState, keyFromCode, loadAccount, loadSigners, readChain, wedgieHome, wedgieSigners } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
-import { Net, BioSigner, Blockie, CopyLink, Eject, ExecutedLine, RemoveX, Who, Words, useToast, FROM_MINE, stageLabel } from "../bits";
+import { Net, BioSigner, Blockie, CopyLink, Eject, ExecutedLine, RemoveX, Who, Words, useToast, FROM_MINE, stageLabel, useOfferMine } from "../bits";
 import { friendly } from "@/lib/friendly";
 import { Progress, useSendProgress } from "./Progress";
 import { ErrorLine } from "./WedgieButton";
@@ -294,6 +294,8 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
       setStage(null);
     }
   });
+  // Fund your relay's dark button, only while Execute is what opened it (Reject's must never execute this tx)
+  useOfferMine(busy === "send" && hotAvailable() ? () => setTimeout(sendSelf, 200) : null);
 
   if (removed)
     return (

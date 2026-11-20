@@ -29,9 +29,9 @@ import {
 import { GAS_BUDGET, type SendKind, feePaid, rolesCalls, unpackMultiSend } from "@/lib/safe/fee";
 import { authCall, validAuth } from "@/lib/claim";
 import { MAX_DATA, l1Fee, l1Owed } from "@/lib/safe/l1fee";
-import { L1_ALLOWANCE, clients, nativeUsd, quote, relayFunded, tipFloor } from "@/lib/safe/relayCore";
+import { L1_ALLOWANCE, clients, nativeUsd, quote, relayFunded, relayShort, relayShortOf, tipFloor } from "@/lib/safe/relayCore";
 import { tooMany } from "@/lib/limit";
-import { nodeOf } from "@/lib/local";
+import { fromLocalCopy, nodeOf } from "@/lib/local";
 import {
   RelayRefused,
   admit,
@@ -75,9 +75,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(q);
   } catch (e: any) {
     // shortMessage first: viem's full message prints the RPC URL, and that has the Alchemy key in it
-    return NextResponse.json({ error: e?.shortMessage || e?.message || String(e) }, { status: 400 });
+    return NextResponse.json({ error: e?.shortMessage || e?.message || String(e), ...shortRelay(req, e, Number(req.nextUrl.searchParams.get("chainId"))) }, { status: 400 });
   }
 }
+
+// a copy on your own computer: its page opens Fund your relay from this (the relay's address, what it has and needs)
+const shortRelay = (req: NextRequest, e: unknown, chainId: number) => {
+  const relay = fromLocalCopy(req) && !(e instanceof RelayRefused) ? relayShortOf(e, chainId) : undefined;
+  return relay ? { relay } : {};
+};
 
 const hex = (v: unknown): v is Hex => typeof v === "string" && isHex(v);
 const TRANSFER_EVENT = toEventSelector("Transfer(address,address,uint256)");
@@ -242,7 +248,12 @@ export async function POST(req: NextRequest) {
     const estimate = () => pc.estimateGas({ account: me, to, data, ...(fees ?? { maxFeePerGas: BigInt(q.gasPrice), maxPriorityFeePerGas: 1n }) });
     const gas = await estimate()
       .catch(() => new Promise(r => setTimeout(r, 3000)).then(estimate))
-      .catch((e: any) => {
+      .catch(async (e: any) => {
+        // the relay's own money, not the transaction: a node answers an estimate it can't afford with words like
+        // "gas required exceeds allowance". With less than this kind's whole budget at the max fee, say that instead
+        const top = GAS_BUDGET[kind] * (fees && "maxFeePerGas" in fees ? fees.maxFeePerGas : BigInt(q.gasPrice) * 2n);
+        const bal = await pc.getBalance({ address: me }).catch(() => top);
+        if (bal < top) throw relayShort(chainId, me, bal, top, q.ethUsd);
         throw new Error(`it would fail on chain: ${e?.shortMessage || e?.message || e}`);
       });
     if (gas > GAS_BUDGET[kind]) throw new RelayRefused("That's bigger than a normal Instant Wallet send.", 400);
@@ -306,6 +317,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ hash });
   } catch (e: any) {
     if (turn) await forget(turn); // nothing went out: the wallet's turn is free again
-    return NextResponse.json({ error: e?.shortMessage || e?.message || String(e) }, { status: e instanceof RelayRefused ? e.status : 400 });
+    return NextResponse.json({ error: e?.shortMessage || e?.message || String(e), ...shortRelay(req, e, Number(body.chainId)) }, { status: e instanceof RelayRefused ? e.status : 400 });
   }
 }

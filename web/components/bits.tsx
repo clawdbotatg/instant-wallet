@@ -15,6 +15,7 @@ import { parse } from "@/lib/parse";
 import { homeOf } from "@/lib/safe/state";
 import { connectHot, hotChain, hotDrop, hotName, hotSwitch } from "@/lib/safe/hot";
 import { friendly } from "@/lib/friendly";
+import { RELAY_FUNDED, offerMine } from "@/lib/safe/relayFund";
 import { bio } from "@/lib/passkey";
 import { useProven } from "@/lib/safe/proven";
 import type { Asset } from "@/lib/types";
@@ -356,7 +357,11 @@ export function Sheet({ onClose, children }: { onClose: () => void; children: Re
     };
   }, []);
   useEffect(() => {
-    const k = (e: KeyboardEvent) => e.key === "Escape" && dismissRef.current();
+    // only the sheet on top: Escape on Fund your relay must not close the Send sheet under it too
+    const k = (e: KeyboardEvent) => {
+      const all = document.querySelectorAll(".sheet-bg");
+      if (e.key === "Escape" && all[all.length - 1] === bgRef.current) dismissRef.current();
+    };
     window.addEventListener("keydown", k);
     return () => window.removeEventListener("keydown", k);
   }, []);
@@ -1241,6 +1246,24 @@ export function FromMine({ onClick }: { onClick: () => void }) {
       {FROM_MINE}
     </button>
   );
+}
+
+/** While `fn` is set, the Fund your relay sheet (a copy on your own computer, its relay empty) has this screen's
+ * "Execute from my wallet" as its dark button. */
+export function useOfferMine(fn: (() => void) | null | false | undefined) {
+  const ref = useRef(fn);
+  ref.current = fn;
+  useEffect(() => offerMine(() => ref.current || null), []);
+}
+/** Counts up each time the relay of a copy on your own computer gets funded: a screen asks for its fee again. */
+export function useRelayFunded() {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    const f = () => setN(x => x + 1);
+    window.addEventListener(RELAY_FUNDED, f);
+    return () => window.removeEventListener(RELAY_FUNDED, f);
+  }, []);
+  return n;
 }
 
 // A wallet opened to watch that is a plain address (send.ts asItself): the green button at the bottom. "Connect my

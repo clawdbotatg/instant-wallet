@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { DM_Mono, Outfit } from "next/font/google";
 import { NetBar } from "@/components/NetBar";
+import { FundRelayHost } from "@/components/safe/FundRelayHost";
 import { BRAND_SCRIPT } from "@/lib/brand";
 import { description, shareCard } from "@/lib/share";
 import "./globals.css";
@@ -69,6 +70,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: BRAND_SCRIPT }} />
         <NetBar />
         {children}
+        <FundRelayHost />
       </body>
     </html>
   );

@@ -64,7 +64,7 @@ process.on("SIGINT", () => process.exit(1));
 run("anvil", ["--fork-url", `https://base-mainnet.g.alchemy.com/v2/${env.ALCHEMY_API_KEY}`, "--network", "optimism", "--port", "8546", "--silent"]); // optimism: Base's P-256 precompile (the passkey check)
 await up(RPC);
 hot = JSON.parse(cast("rpc eth_accounts"))[0];
-cast(`rpc anvil_setBalance ${relay} 0x8ac7230489e80000`); // 10 ETH for the relay's gas
+// the relay starts empty: the first send opens Fund your relay, and the "MetaMask" funds it there
 const store = path.join(OUT, "store.json");
 run("npx", ["next", "start", "-p", "3101"], {
   RPC_URL_8453: RPC,
@@ -156,8 +156,29 @@ try {
   // ---- 1. through your own relay: it deploys the wallet, sends, and is paid the fee
   const BOB = rand();
   const r0 = usdcOf(relay);
+  // ---- 0. the relay is empty: Review opens Fund your relay. Closed, the error line has the button that opens it again.
+  // Funded from the browser wallet, it closes itself and the fee is there to sign
   await review("USDC", BOB, "25");
+  const fund = page.getByRole("heading", { name: "Fund your relay", exact: true });
+  ok(await fund.isVisible(), "an empty relay: Review opens Fund your relay");
+  ok(await page.locator(".sheet .qr img.code").last().isVisible(), "it shows the relay's address as a QR code");
+  ok(/It has\s*0 ETH/.test(await page.locator(".sheet").last().innerText()), "it says what the relay has: 0 ETH");
+  await page.screenshot({ path: `${OUT}/0-fund.png` });
+  await page.keyboard.press("Escape");
+  await fund.waitFor({ state: "hidden", timeout: 5000 });
+  ok(await page.getByRole("button", { name: "Sign", exact: true }).isDisabled(), "closed unfunded: nothing to sign");
+  const again = page.getByRole("button", { name: "Fund your relay" });
+  ok(await again.isVisible(), "the error line has a Fund your relay button");
+  await page.screenshot({ path: `${OUT}/0-closed.png` });
+  await again.tap();
+  await fund.waitFor({ timeout: 5000 });
+  await page.getByRole("button", { name: /^Send \$[0-9.]+ from my wallet$/ }).tap();
+  await fund.waitFor({ state: "hidden", timeout: 30000 });
+  ok(ethOf(relay) > 0n, `the browser wallet funded the relay: ${Number(ethOf(relay)) / 1e18} ETH`);
+  await page.locator(".confirm .btn-green:not([disabled])").waitFor({ timeout: 20000 });
+  ok((await page.locator(".err").count()) === 0, "funded: the sheet closed itself, the fee is there, no error left");
   await page.screenshot({ path: `${OUT}/1-review.png` });
+  cast(`rpc anvil_setBalance ${relay} 0x8ac7230489e80000`); // 10 ETH: anvil wants a whole block's gas in the bank to estimate
   await page.locator(".confirm .btn-green").tap();
   await executed("1");
   ok(usdcOf(BOB) === 25_000_000n, "relay send arrived (deploy + send)");
@@ -176,6 +197,20 @@ try {
   ok(u0 - usdcOf(acct.address) === 10_000_000n, "no fee taken from the wallet");
   ok(usdcOf(relay) === rl0, "the relay wasn't used");
   ok(ethOf(hot) < h0, "the browser wallet paid the gas");
+
+  // ---- 2b. the relay runs dry: Fund your relay has Execute from my wallet, and that executes it with no relay
+  const ERIN = rand();
+  cast(`rpc anvil_setBalance ${relay} 0x0`);
+  await review("USDC", ERIN, "3");
+  await fund.waitFor({ timeout: 5000 });
+  const dark = page.locator(".sheet").last().getByText("Execute from my wallet");
+  ok(await dark.isVisible(), "Fund your relay has the dark gray Execute from my wallet button");
+  await page.screenshot({ path: `${OUT}/2b-fund.png` });
+  await dark.tap();
+  await executed("2b");
+  ok(usdcOf(ERIN) === 3_000_000n, "from Fund your relay: the browser wallet executed it");
+  ok(ethOf(relay) === 0n, "the empty relay wasn't used");
+  cast(`rpc anvil_setBalance ${relay} 0x8ac7230489e80000`);
 
   // ---- 3. Settings: your relay, and what's off here
   await page.goto(`${APP}/`);

@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { assertChallenge, bio } from "@/lib/passkey";
 import { onrampChallenge } from "@/lib/onramp";
 import type { SafeAccount } from "@/lib/safe/state";
 import { Net, ReceiveIcon, TokenIcon, stageLabel } from "../bits";
 
 /**
- * Buy USDC or ETH on Base with Apple Pay (or a card), straight into this wallet: Coinbase Pay, through /api/onramp.
+ * Buy USDC or ETH on Base with a card (or Apple Pay, in Safari), straight into this wallet: Coinbase Pay, through /api/onramp.
  * Face ID signs the request (the server only mints a link for the wallet's own passkey), then a second tap opens
  * Coinbase: a fresh tap, so Safari doesn't block the new tab. "Send in crypto" opens Receive (the address QR).
  */
@@ -16,6 +16,13 @@ export function Deposit({ account, onReceive }: { account: SafeAccount; onReceiv
   const [busy, setBusy] = useState<string | null>(null);
   const [ready, setReady] = useState<{ asset: string; url: string } | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  // Coinbase shows Apple Pay only where the browser has it (Safari). Elsewhere the button says card only.
+  const [applePay, setApplePay] = useState(false);
+  useEffect(() => {
+    try {
+      setApplePay(!!(window as any).ApplePaySession?.canMakePayments());
+    } catch {}
+  }, []);
   async function go(asset: "USDC" | "ETH") {
     setErr(null);
     setReady(null);
@@ -65,7 +72,7 @@ export function Deposit({ account, onReceive }: { account: SafeAccount; onReceiv
         </a>
       ) : (
         <button className="btn btn-green wide" disabled={!!busy} onClick={() => go(asset)}>
-          {busy ? stageLabel("signing") : `Coinbase · Apple Pay, card`}
+          {busy ? stageLabel("signing") : applePay ? "Coinbase · Apple Pay, card" : "Coinbase · card"}
         </button>
       )}
       {!ready && (

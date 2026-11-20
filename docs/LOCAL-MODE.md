@@ -61,7 +61,7 @@ with a passkey made on the real site. If it does, everything below is plumbing.
    `run-local.sh` sets it.
 3. **A "Local" mark**: none (Austin, 11-19). The address bar says it.
 4. **Hide what can't work locally**: done, by keys, not by name (`/api/features`, `lib/features.ts`): no Coinbase keys →
-   Deposit opens Receive; no alert keys → no Recovery alerts box; no `NAME_SIGNER_KEY` → no name pencil. Drops: not done.
+   Deposit opens Receive; no alert keys → no Recovery alerts box; no `NAME_SIGNER_KEY` → no name pencil. Drops: /d and /drops are not found on a local copy, and a scanned drop code is not read as one.
 5. **Your own relay**: done. Settings → Your relay (only on a local copy, `components/safe/LocalRelay.tsx`,
    `app/api/local/relay`), or `npm run relay-key`. Makes the key in `.env.local`, shows its address and balances.
 6. **Offline words**: done. run-local.sh clones the EF registry and clear-descriptors into ~/.instantwallet-local

@@ -7,6 +7,7 @@ import { amount as fmtAmount, usd, feeText, addressIn } from "@/lib/format";
 import { isClaimLink } from "@/lib/claim";
 import { isXdai } from "@/lib/brand";
 import { dropCode } from "@/lib/dropClient";
+import { isLocal } from "@/lib/local";
 import { rememberPaid } from "@/lib/names";
 import { parse } from "@/lib/parse";
 import { openWalletConnect } from "@/lib/walletconnect";
@@ -191,7 +192,7 @@ export function SafeSend({
 
   function onScan(text: string) {
     setScanning(false);
-    const drop = dropCode(text);
+    const drop = !isLocal() && dropCode(text); // a copy on your own computer has no drops
     if (drop) return void (window.location.href = `/d#${drop}`); // a drop's QR (any host): claim it into this wallet
     if (isClaimLink(text)) return void (window.location.href = `/claim${new URL(text.trim()).hash}`); // a claim card (any host): claim it into this wallet
     const r = parse(text);

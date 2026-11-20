@@ -1211,8 +1211,19 @@ export function AddressInput({
         {after}
       </div>
       {looking && <span className="fine">Looking up {text}…</span>}
-      {/* 40 hex characters that fail the checksum: a wrong letter or a wrong capital. Say so, or Send just stays off (Austin 11-20) */}
-      {!addr && isAddress(nameIn(text), { strict: false }) && <span className="err">This address has a typo. Copy it again.</span>}
+      {/* 40 hex characters that fail the checksum: a wrong capital, or a wrong character (the two look the same). Never
+          fixed quietly: say so, offer a look at where it leads, and let the user take it anyway (Austin 11-20) */}
+      {!addr && isAddress(nameIn(text), { strict: false }) && (
+        <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
+          <span className="err grow">Checksum failed. Double-check this address.</span>
+          <Eject href={`https://address.vision/${getAddress(nameIn(text).toLowerCase())}`} title="Look it up on address.vision">
+            Look it up
+          </Eject>
+          <button type="button" className="pill" onClick={() => setText(getAddress(nameIn(text).toLowerCase()))}>
+            Use it anyway
+          </button>
+        </div>
+      )}
       {addr && name && <Who address={addr} chain={chain} label={text.includes(".") ? undefined : name} />}
       {addr && name && <NameMoved name={name} address={addr} />}
       {cam.camera}

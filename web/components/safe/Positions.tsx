@@ -2,6 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 import { useEffect, useMemo, useRef, useState } from "react";
+import { type AppEntry, appFor } from "@/lib/apps";
 import { chainById } from "@/lib/chains";
 import { usd } from "@/lib/format";
 import type { Asset, Position } from "@/lib/types";
@@ -13,7 +14,8 @@ const TYPE: Record<string, string> = { deposit: "Deposit", staked: "Staked", rew
 const AFTER_MOVE_MS = [5_000, 10_000, 15_000, 30_000, 60_000];
 
 /**
- * DeFi positions (pools, vaults, stakes) under the coins, from Zerion; their sum goes into the big total. Tap one to open its app.
+ * DeFi positions (pools, vaults, stakes) under the coins, from Zerion; their sum goes into the big total. Tap one to open its app:
+ * ours or one from the Apps list in the frame (`appFor`, `onOpen`), any other its website (↗).
  * Hidden when there are none. `onReceipts` gets the tokens the positions stand for (aBasUSDC for an Aave deposit), so the coin
  * list drops them instead of showing the same money twice.
  *
@@ -27,11 +29,13 @@ export function PositionList({
   assets,
   onTotal,
   onReceipts,
+  onOpen,
 }: {
   address: string;
   assets?: Asset[];
   onTotal: (usd: number) => void;
   onReceipts: (keys: string[]) => void;
+  onOpen: (a: AppEntry) => void;
 }) {
   const [list, setList] = useState<Position[] | null>(null);
   const assetsRef = useRef(assets);
@@ -117,20 +121,32 @@ export function PositionList({
   return (
     <div className="card assets">
       <Fold count={shown.length} rows>
-      {shown.map(p => (
-        <a key={p.id} className="asset" href={p.url} target="_blank" rel="noopener noreferrer">
-          <div className="logo">{p.icon ? <img src={p.icon} alt="" /> : p.protocol.slice(0, 1)}</div>
-          <div className="grow">
-            <div className="sym">{p.name} ↗</div>
-            <div className="fine">
-              {TYPE[p.type] ?? p.type} · <Net chainId={p.chainId} />{p.tokens.length ? ` · ${p.tokens.join(" + ")}` : ""}
+      {shown.map(p => {
+        const app = appFor(p);
+        const body = (
+          <>
+            <div className="logo">{p.icon ? <img src={p.icon} alt="" /> : p.protocol.slice(0, 1)}</div>
+            <div className="grow">
+              <div className="sym">{p.name}{app ? "" : " ↗"}</div>
+              <div className="fine">
+                {TYPE[p.type] ?? p.type} · <Net chainId={p.chainId} />{p.tokens.length ? ` · ${p.tokens.join(" + ")}` : ""}
+              </div>
             </div>
-          </div>
-          <div className="right">
-            <div className="sym">{usd(p.usd)}</div>
-          </div>
-        </a>
-      ))}
+            <div className="right">
+              <div className="sym">{usd(p.usd)}</div>
+            </div>
+          </>
+        );
+        return app ? (
+          <button key={p.id} className="asset" onClick={() => onOpen(app)}>
+            {body}
+          </button>
+        ) : (
+          <a key={p.id} className="asset" href={p.url} target="_blank" rel="noopener noreferrer">{/* its name, in body, ends with ↗ */}
+            {body}
+          </a>
+        );
+      })}
       </Fold>
     </div>
   );

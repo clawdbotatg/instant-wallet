@@ -176,6 +176,11 @@ for (const p of files) {
   for (const m of readFileSync(p, "utf8").matchAll(/<a\b[^>]*className="(?:asset|grow)"[^>]*target="_blank"[^>]*>[\s\S]{0,400}/g))
     if (!m[0].includes("↗")) (bad++, console.log(`${relative(root, p)}  a row that leaves the wallet: ↗ after its name`));
 }
+// a position opens in the app that knows it (Austin 11-20): a file that links a position's website asks appFor() first
+for (const p of files) {
+  const src = readFileSync(p, "utf8");
+  if (/\bPosition\b/.test(src) && /href=\{\w+\.url\}/.test(src) && !/\bappFor\(/.test(src)) (bad++, console.log(`${relative(root, p)}  a position that only leaves for its website: appFor() first, our app in the frame`));
+}
 // a wait of ~5 s or more gets a bar: a file that sends a tx draws one (<Progress>, or <TimedBar>/<TimeBar> for a wait it only knows the length of)
 for (const p of files) {
   const src = readFileSync(p, "utf8");

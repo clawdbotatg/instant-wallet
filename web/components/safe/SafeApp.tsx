@@ -662,7 +662,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
               </div>
             ))}
         </div>}
-        <PositionList address={account.address} assets={fresh ? portfolio?.assets : undefined} onTotal={setPosUsd} onReceipts={setReceipts} />
+        <PositionList address={account.address} assets={fresh ? portfolio?.assets : undefined} onTotal={setPosUsd} onReceipts={setReceipts} onOpen={setApp} />
         <NftGrid address={account.address} />
         <Activity safe={account.address} chains={states.filter(s => s.deployed).map(s => s.chainId)} undeployed={states.filter(s => !s.deployed).map(s => s.chainId)} watched={account.credentialId === WATCH} assets={portfolio?.assets ?? []} late={portfolio?.late} live={fresh} tick={actTick} onIn={j => receiving.current && setGot(g => [...j, ...g])} />
       </div>

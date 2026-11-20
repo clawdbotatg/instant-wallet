@@ -64,7 +64,7 @@ export function AppList({ onOpen }: { onOpen: (a: AppEntry) => void }) {
  * one network (it can't switch: pick another and it reloads). Swap and Revoke are ours: their screen is `children`.
  */
 export function AppFrame({ app, account, states, onClose, children }: { app: AppEntry; account: SafeAccount; states: ChainState[]; onClose: () => void; children?: React.ReactNode }) {
-  const [chainId, setChainId] = useState(app.chains[0]);
+  const [chainId, setChainId] = useState(app.chainId ?? app.chains[0]);
   const ref = useRef<HTMLIFrameElement>(null);
   const statesRef = useRef(states);
   statesRef.current = states;

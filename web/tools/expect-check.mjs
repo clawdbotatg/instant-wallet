@@ -7,7 +7,7 @@
 import { chromium } from "playwright-core";
 
 const APP = process.env.APP || "https://instantwallet.io";
-const SAFE = process.env.SAFE || "0xcF589969582dD70544978114C9E5521F61fBe8E5"; // Austin's
+const SAFE = process.env.SAFE || "0xcF589969582dD70544978114c9e5521F61fBe8E5"; // Austin's
 const CHROME = process.env.CHROME || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 let fails = 0;
 const say = (good, what) => {

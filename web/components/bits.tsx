@@ -1211,6 +1211,8 @@ export function AddressInput({
         {after}
       </div>
       {looking && <span className="fine">Looking up {text}…</span>}
+      {/* 40 hex characters that fail the checksum: a wrong letter or a wrong capital. Say so, or Send just stays off (Austin 11-20) */}
+      {!addr && isAddress(nameIn(text), { strict: false }) && <span className="err">This address has a typo. Copy it again.</span>}
       {addr && name && <Who address={addr} chain={chain} label={text.includes(".") ? undefined : name} />}
       {addr && name && <NameMoved name={name} address={addr} />}
       {cam.camera}

@@ -108,6 +108,9 @@ Words:
 - A signer is shown the same in Settings and on a tx's page: the name you gave it, else what it is (Wedgie, Browser wallet).
 - A working button says what `stageLabel` says: Getting the fee…, Signing…, Executing….
 - Dollars are cents ($0.25), four places only under a cent.
+- A warning or a hint is one short line. No new buttons under it (11-20): the app does the obvious thing by itself, and
+  where there is something to look at, the words are the link. An address that fails its checksum is used anyway, with
+  "Checksum failed. Double-check this address." under the box.
 
 Button colors (10-30):
 - Green = the one obvious action.

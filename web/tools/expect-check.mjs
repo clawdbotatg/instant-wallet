@@ -38,6 +38,9 @@ async function check(url, name) {
 }
 
 await check(`${APP}/?watch=${SAFE}`, "home");
+// the wallet itself, not the welcome page: a SAFE with a wrong checksum opened the welcome page, and every check
+// passed on it for weeks (found 11-20)
+say(!/Create wallet/.test(await page.evaluate(() => document.body.innerText)), "home: a wallet is showing, not the welcome page");
 const txs = [...new Set(await page.$$eval("a[href*='/tx/']", (as, app) => as.map(a => a.href).filter(h => h.startsWith(app)), APP))].slice(0, 5);
 for (const [i, u] of txs.entries()) await check(u, `tx page ${i + 1}`);
 await browser.close();

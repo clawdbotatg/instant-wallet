@@ -55,9 +55,11 @@ export function Activity({ safe, chains, undeployed = [], watched, assets, late,
   const bare = watched ? undeployed : undeployed.filter(c => assets.some(a => a.chainId === c));
   const key = `${safe}|${chains.join()}|${bare.join()}`;
   const later = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const asked = useRef<{ round: string; got: Map<string, Promise<Row[]>> }>({ round: "", got: new Map() });
-  // read the chain now, and again a beat later (a node can answer the receipt, or the balance, a block before its logs)
-  const read = () => {
+  const asked = useRef<{ safe: string; tick?: number; landed: number; got: Map<string, { at: number; p: Promise<Row[]> }> }>({ safe: "", landed: 0, got: new Map() });
+  const hot = useRef(new Set<number>()); // the networks the last read() was for
+  // read these networks now, and again a beat later (a node can answer the receipt, or the balance, a block before its logs)
+  const read = (on: number[]) => {
+    hot.current = new Set(on);
     setLanded(n => n + 1);
     clearTimeout(later.current);
     later.current = setTimeout(() => setLanded(n => n + 1), 5_000);
@@ -65,7 +67,7 @@ export function Activity({ safe, chains, undeployed = [], watched, assets, late,
   useEffect(() => {
     const off = onSending(l => {
       setOut(sendingNow());
-      if (l) read();
+      if (l) read(sendingNow().map(s => s.chainId));
     });
     // sends this browser kept from before a reload (read here, after the page is up, not while it first draws)
     setOut(sendingNow());
@@ -79,16 +81,26 @@ export function Activity({ safe, chains, undeployed = [], watched, assets, late,
     // each network shows as it answers; one that fails keeps what it showed
     // (a failed read still counts as an answer, or the list would wait for it for good)
     const put = (c: number, r?: Row[]) => on && setBy(b => ({ key: safe, rows: { ...(b.key === safe ? b.rows : {}), [c]: r ?? (b.key === safe ? b.rows[c] : undefined) ?? [] } }));
-    // a network already asked in this round (same refresh, same landed send) isn't asked again when the list of
-    // networks grows: they're found one by one, and each find used to read them all again
-    const round = `${safe}|${tick}|${landed}`;
-    if (asked.current.round !== round) asked.current = { round, got: new Map() };
-    const got = asked.current.got;
+    // What's asked again, and when (11-20: a few sends and sheets in a minute cost 500: each one read every network,
+    // twice). A send that landed or money that came in: only its network. A refresh (a sheet closed, a pull, back to
+    // the app): a network with a Safe unless it answered in the last 4 s; one without a Safe (a search of the
+    // chain's whole history, the costly read) unless it answered in the last 30 s. More networks found: only those.
+    const a = asked.current;
+    if (a.safe !== safe) Object.assign(a, { safe, got: new Map() });
+    const now = Date.now();
+    for (const [k, v] of [...a.got]) {
+      const again = (a.landed !== landed && hot.current.has(Number(k.split(":")[1]))) || (a.tick !== tick && now - v.at > (k.startsWith("in:") ? 30_000 : 4_000));
+      if (again) a.got.delete(k);
+    }
+    a.tick = tick;
+    a.landed = landed;
     const one = (k: string, make: () => Promise<Row[]>) => {
-      let p = got.get(k);
+      let p = a.got.get(k)?.p;
       if (!p) {
-        got.set(k, (p = make()));
-        p.catch(() => got.delete(k));
+        const made = make();
+        a.got.set(k, { at: now, p: made });
+        made.catch(() => a.got.get(k)?.p === made && a.got.delete(k));
+        p = made;
       }
       return p;
     };
@@ -160,7 +172,7 @@ export function Activity({ safe, chains, undeployed = [], watched, assets, late,
     if (!add.length) return;
     setJust(j => [...add, ...j]);
     onIn?.(add); // the receive code, if it's up, says so too
-    read();
+    read(add.map(j => j.chainId));
   }, [assets, late, live, safe]); // eslint-disable-line react-hooks/exhaustive-deps
   // shown until the chain's own row for it is in the list (one on that network from about then), ten minutes at most
   const fresh = just.filter(j => Date.now() - j.at < 600_000 && !rows.some(r => r.chainId === j.chainId && Date.parse(r.at) >= j.at - 120_000));

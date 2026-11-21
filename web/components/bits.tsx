@@ -1130,7 +1130,8 @@ export function AddressInput({
       setName(n);
       tell.current(a, n ?? undefined);
     };
-    if (isAddress(v)) return set(getAddress(v), null);
+    // capitals that fail the checksum are taken anyway, set right; the red line under the box says so (Austin 11-20)
+    if (isAddress(v, { strict: false })) return set(getAddress(v.toLowerCase()), null);
     const lookup = nameTyped(v, true);
     const before = lookup ? lookedUp.get(lookup) : undefined;
     set(before ?? null, before && lookup ? lookup : null);
@@ -1157,7 +1158,7 @@ export function AddressInput({
   // the box isn't being edited: a tap, a key or a selection shows the whole text again; a paste or a scan shortens it.
   const [focused, setFocused] = useState(false);
   const [tidy, setTidy] = useState(true);
-  const full = isAddress(text.trim()) ? text.trim() : null;
+  const full = isAddress(text.trim(), { strict: false }) ? text.trim() : null;
   const field = useRef<HTMLInputElement>(null);
   const shortView = useMiddleCut(field, full);
   const showShort = !!shortView && (!focused || tidy);
@@ -1211,18 +1212,16 @@ export function AddressInput({
         {after}
       </div>
       {looking && <span className="fine">Looking up {text}…</span>}
-      {/* 40 hex characters that fail the checksum: a wrong capital, or a wrong character (the two look the same). Never
-          fixed quietly: say so, offer a look at where it leads, and let the user take it anyway (Austin 11-20) */}
-      {!addr && isAddress(nameIn(text), { strict: false }) && (
-        <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
-          <span className="err" style={{ flexBasis: "100%" }}>Checksum failed. Double-check this address.</span>
-          <Eject href={`https://address.vision/${getAddress(nameIn(text).toLowerCase())}`} title="Look it up on address.vision">
-            Look it up
-          </Eject>
-          <button type="button" className="pill" onClick={() => setText(getAddress(nameIn(text).toLowerCase()))}>
-            Use it anyway
-          </button>
-        </div>
+      {/* 40 hex characters that fail the checksum: a wrong capital, or a wrong character (the two look the same). It is
+          used anyway; one red line says so, and its link shows where the address leads. No buttons (Austin 11-20) */}
+      {addr && !name && !isAddress(nameIn(text)) && (
+        <span className="err">
+          Checksum failed.{" "}
+          <a href={`https://address.vision/${addr}`} target="_blank" rel="noopener noreferrer" style={{ color: "inherit", textDecoration: "underline" }}>
+            Double-check this address
+          </a>
+          .
+        </span>
       )}
       {addr && name && <Who address={addr} chain={chain} label={text.includes(".") ? undefined : name} />}
       {addr && name && <NameMoved name={name} address={addr} />}

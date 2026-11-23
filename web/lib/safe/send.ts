@@ -19,7 +19,7 @@ import {
 import { type Quote, type SendKind } from "./fee";
 import { connectHot, hotAvailable, hotBatch, hotCall, hotSend, hotSign } from "./hot";
 import { passkeySign, passkeySignRaw } from "./sign";
-import { type ChainState, type SafeAccount, loadAccount, loadSigners, salt, wedgieSigners } from "./state";
+import { type ChainState, type SafeAccount, hasPasskey, loadAccount, loadSigners, salt, wedgieSigners } from "./state";
 import { Wedgie, wedgieSupported } from "./wedgie";
 import { type Waiting, openTx, readWaiting, shareTx, sigHex } from "./share";
 import { bio } from "@/lib/passkey";
@@ -60,6 +60,16 @@ export function howSigns(a: SafeAccount, st: ChainState, s: Signer): How {
   if (st.wedgieSlots.some(w => eq(w, s))) return "wedgie";
   return "wallet";
 }
+/** The signer this browser signs as by itself on this network: this phone's passkey, else the browser wallet
+ * connected here (a Safe opened by its address). null: neither is a signer there. */
+export function own(a: SafeAccount, st: ChainState): Signer | null {
+  const is = (x?: Address) => !!x && st.owners.some(o => eq(o, x));
+  return is(a.burnerSigner) ? a.burnerSigner : is(a.me) ? a.me! : null;
+}
+/** Can this browser sign for the wallet on screen? Its own wallet: yes. A Safe opened by its address: once one of
+ * its signers is found here (a passkey, a connected browser wallet, a wedgie plugged in). */
+export const canSign = (a: SafeAccount, states: ChainState[]) =>
+  !a.watch || states.some(st => st.deployed && (!!own(a, st) || (!!a.wedgie && st.wedgieSlots.some(s => wedgieSigners(a.wedgie!).some(w => eq(w, s))))));
 export const usesWedgie = (a: SafeAccount, st: ChainState, signers: Signer[]) => signers.some(s => howSigns(a, st, s) === "wedgie");
 /** The fee is for the signatures it's executed with: one that others finish (signers short of the threshold) may be
  * finished by the wedgie, whose second key verifies P-256 in Solidity (10-31: quoted for Face ID alone, then the
@@ -141,6 +151,8 @@ export type Prepared = { opts: OwnersOpts; t: SafeTx; h: Hex; fee: Quote };
 export async function prepareOwners(opts: OwnersOpts): Promise<Prepared> {
   const { account: a, state: st, signers } = opts;
   const chainId = st.chainId;
+  // a Safe opened by its address is only where it was deployed: we can't set one up that we didn't make
+  if (a.watch && !st.deployed) throw new Error(`This wallet isn't on ${chainById(chainId)?.name ?? "this network"}.`);
   const signerCode = signers.some(s => eq(s, a.burnerSigner)) ? await codeOnce(chainId, a.burnerSigner).catch(() => undefined) : "0x01";
   const fresh = !st.deployed || !signerCode || signerCode === "0x"; // the relay deploys the Safe and/or the burner's signer too
   const kind = ownersKind(fresh, feeWedgie(a, st, signers), opts);
@@ -304,7 +316,7 @@ export async function finishOwners(p: Prepared): Promise<Hash> {
  * for it; the browser wallet that holds that address can (Austin 11-15: "a lot of times I'll be watching a wallet
  * that I have as a browser wallet").
  */
-export const asItself = (a: SafeAccount, st?: ChainState) => a.credentialId === "watch" && !!st && !st.deployed;
+export const asItself = (a: SafeAccount, st?: ChainState) => !hasPasskey(a) && !!st && !st.deployed;
 
 /** Thrown by `itselfSend`'s `check`: what was agreed went out of date between two of its transactions. */
 export class Stale extends Error {}
@@ -486,8 +498,9 @@ export function signerOptions(st: ChainState, a: SafeAccount): SignerOption[] {
     out.push({ signers, label: signerLabel(a, st, signers), threshold: t, of: st.owners.length, ready: !why, why, later });
   }
   // always one more way: sign here, and the other signers sign from a link (wallets with other people on them)
-  if (t > 1 && st.deployed && st.owners.some(o => eq(o, a.burnerSigner)))
-    out.push({ signers: [a.burnerSigner], label: `${bio()}, then share`, threshold: t, of: st.owners.length, ready: true, later: "the others sign from a link", share: true });
+  const mine = own(a, st);
+  if (t > 1 && st.deployed && mine)
+    out.push({ signers: [mine], label: `${signerLabel(a, st, [mine])}, then share`, threshold: t, of: st.owners.length, ready: true, later: "the others sign from a link", share: true });
   const face = (o: SignerOption) => Number(o.signers.some(s => eq(s, a.burnerSigner)));
   return out.sort(
     (x, y) =>
@@ -495,14 +508,18 @@ export function signerOptions(st: ChainState, a: SafeAccount): SignerOption[] {
   );
 }
 
-/** A wallet that needs 2+ signatures: this phone signs with Face ID, then the transaction's page (wedgie, or share). */
-export const signThenQueue = (st: ChainState, a: SafeAccount) => st.threshold > 1 && st.deployed && st.owners.some(o => eq(o, a.burnerSigner));
+/** A wallet that needs 2+ signatures: this browser's signer signs (Face ID, or its browser wallet), then the transaction's page (wedgie, or share). */
+export const signThenQueue = (st: ChainState, a: SafeAccount) => st.threshold > 1 && st.deployed && !!own(a, st);
+
+/** Under "Signed by", when this browser's signer signs and the rest sign after (signThenQueue). */
+export const queueNote = (st: ChainState, a: SafeAccount) => (!signThenQueue(st, a) ? undefined : st.wedgieSlots.length ? "then the wedgie or the others" : "then the others");
 
 /** The keys to ask for by default: Face ID then the queue; or, `inline` (a site waiting for the answer), the first
  * option this device can sign. */
 export function ownerSigners(st: ChainState, a: SafeAccount, inline = false): Signer[] {
-  if (!inline && signThenQueue(st, a)) return [a.burnerSigner];
-  if (st.threshold <= 1 && (!st.deployed || st.owners.some(o => eq(o, a.burnerSigner)))) return [a.burnerSigner];
+  const mine = own(a, st);
+  if (!inline && signThenQueue(st, a)) return [mine!];
+  if (st.threshold <= 1 && (!st.deployed || mine)) return [mine ?? a.burnerSigner];
   return signerOptions(st, a)[0]?.signers ?? [a.burnerSigner];
 }
 

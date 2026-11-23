@@ -195,8 +195,8 @@ export function SafeWelcome({ onReady, initialConfirm }: { onReady: (a: SafeAcco
     );
 
   if (watching) {
-    // the wallet opens at /?watch=0x…: read only, never saved
-    const go = () => (wallet ? window.location.assign(`/?watch=${wallet}`) : setError("Paste the wallet's address or name."));
+    // the wallet opens at /0x…: never saved (SafeApp works out what this browser can sign for it)
+    const go = () => (wallet ? window.location.assign(`/${wallet}`) : setError("Paste the wallet's address or name."));
     return (
       <div className="app">
         <div className="welcome">

@@ -192,14 +192,14 @@ export function Select({
 }
 
 /** Which owners sign, when there's more than one way: "Face ID + Wedgie 2/3", "Face ID + 0x12ab…cdef 2/3", … */
-export function SignerChoice({ options, value, onChange, disabled, note }: { options: SignerOption[]; value: Signer[]; onChange: (s: Signer[]) => void; disabled?: boolean; note?: string }) {
+export function SignerChoice({ options, value, onChange, disabled, note, label }: { options: SignerOption[]; value: Signer[]; onChange: (s: Signer[]) => void; disabled?: boolean; note?: string; label?: string /* who signs, in words (signerLabel): a browser wallet is its address, not Face ID */ }) {
   const same = (a: Signer[], b: Signer[]) => a.length === b.length && a.every(k => b.some(x => x.toLowerCase() === k.toLowerCase()));
   const on = options.find(o => same(o.signers, value));
   const later = note ?? on?.later;
   if (options.length < 2)
     return (
       <span className="stack" style={{ gap: 2, justifyItems: "end" }}>
-        <span>{on ? <Words text={on.label} /> : value.length === 1 ? bio() : "…"}</span>
+        <span>{on ? <Words text={on.label} /> : label ? <Words text={label} /> : value.length === 1 ? bio() : "…"}</span>
         {later && <span className="fine">{later}</span>}
       </span>
     );

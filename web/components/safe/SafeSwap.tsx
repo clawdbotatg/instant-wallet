@@ -6,7 +6,7 @@ import { CHAINS, chainById, explorerAddress, explorerTx, publicClient, nativeSym
 import { amount as fmtAmount, compactUsd, usd, feeText } from "@/lib/format";
 import { abi } from "@/lib/safe/core";
 import type { Quote } from "@/lib/safe/fee";
-import { type FeeToken, type Signer, type Stage, Shared, Stale, asItself, feeCall, getQuote, itselfSend, ownerSigners, ownersSend, pickFee, sendKind, signThenQueue, signerOptions, usesWedgie } from "@/lib/safe/send";
+import { type FeeToken, type Signer, type Stage, Shared, Stale, asItself, feeCall, getQuote, itselfSend, ownerSigners, ownersSend, pickFee, sendKind, queueNote, signThenQueue, signerLabel, signerOptions, usesWedgie } from "@/lib/safe/send";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { POPULAR, type SwapRoute, type Token, swapCalls } from "@/lib/safe/swap";
 import { uniswapRoute } from "@/lib/safe/uniswap";
@@ -544,7 +544,7 @@ export function SafeSwap({
           )}
           <div className="line">
             <span>Signed by</span>
-            {itself ? <span>Browser wallet</span> : <SignerChoice options={options} value={signers} onChange={setChosen} disabled={busy} note={st && signThenQueue(st, account) ? "then the wedgie or the others" : undefined} />}
+            {itself ? <span>Browser wallet</span> : <SignerChoice options={options} value={signers} onChange={setChosen} disabled={busy} label={st && signers.length ? signerLabel(account, st, signers) : undefined} note={st ? queueNote(st, account) : undefined} />}
           </div>
           {!st?.deployed && !itself && (
             <div className="line">

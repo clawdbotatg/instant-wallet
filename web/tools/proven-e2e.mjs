@@ -99,7 +99,7 @@ const totalFull = async state => {
 };
 
 // ---- 1. switch off
-await page.goto(`${APP}/?watch=${WALLET}`);
+await page.goto(`${APP}/${WALLET}`);
 await page.evaluate(() => localStorage.removeItem("iws.proven"));
 await page.reload();
 await until(async () => new Set((await rows()).map(x => x.net)).size === 3 && (await total()).cls === "big", 120_000, "Home's fresh rows, all three networks");

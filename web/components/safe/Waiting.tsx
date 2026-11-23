@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { chainById } from "@/lib/chains";
 import { callsOf, relayFee } from "@/lib/safe/describe";
-import { type FeeToken, type Prepared, Shared, finishOwners, ownerSigners, prepareOwners } from "@/lib/safe/send";
+import { type FeeToken, type Prepared, Shared, finishOwners, own, ownerSigners, prepareOwners } from "@/lib/safe/send";
 import { passkeySign } from "@/lib/safe/sign";
 import { executeWaiting } from "@/lib/safe/execute";
 import {
@@ -18,7 +18,7 @@ import {
   txLink,
   headline,
 } from "@/lib/safe/share";
-import type { ChainState, SafeAccount } from "@/lib/safe/state";
+import { type ChainState, type SafeAccount, hasPasskey } from "@/lib/safe/state";
 import { ErrorLine } from "./WedgieButton";
 import { friendly } from "@/lib/friendly";
 import { Net, CopyLink, Eject, RemoveX, Words, stageLabel } from "../bits";
@@ -30,10 +30,12 @@ export function WaitingCards({
   account,
   states,
   feeTokenOn,
+  can = true,
 }: {
   account: SafeAccount;
   states: ChainState[];
   feeTokenOn: (chainId: number) => FeeToken;
+  can?: boolean; // this browser holds one of the wallet's signers (lib/safe/send.ts canSign): else no Reject, no ✕
 }) {
   const [list, setList] = useState<{ w: Waiting; need: number; next: bigint }[]>([]);
   const [removing, setRemoving] = useState<string | null>(null);
@@ -172,7 +174,7 @@ export function WaitingCards({
         // says Signed: the others sign next (the copy link beside it is how they get it)
         const st = states.find(x => x.chainId === w.chainId);
         const has = (o: string) => w.sigs.some(x => x.owner.toLowerCase() === o.toLowerCase());
-        const mineLeft = !st || !has(account.burnerSigner) || (st.hasWedgie && (!st.wedgie || !has(st.wedgie)));
+        const mineLeft = !st || !has(own(account, st) ?? account.burnerSigner) || (st.hasWedgie && (!st.wedgie || !has(st.wedgie)));
         // nothing to reject: it is a Reject, or one is already waiting at its number
         const rejectable = !isReject(w) && !list.some(x => x.w.chainId === w.chainId && x.w.tx.nonce === w.tx.nonce && isReject(x.w));
         const r = rejecting?.hash === w.hash ? rejecting : null;
@@ -196,8 +198,9 @@ export function WaitingCards({
               <WhatItDoes chainId={w.chainId} safe={w.safe} calls={callsOf(w.tx)} tx={w.tx} />
             </div>
             <div style={{ display: "flex", gap: 8 }}>
-              <RemoveX disabled={!!removing} busy={removing === w.hash} onClick={() => remove(w)} />
-              {rejectable && (
+              {/* Safe's delete message is signed by this phone's passkey: only where it is a signer (one never signed is only in this browser) */}
+              {can && (!w.sigs.length || (hasPasskey(account) && !!st && own(account, st) === account.burnerSigner)) && <RemoveX disabled={!!removing} busy={removing === w.hash} onClick={() => remove(w)} />}
+              {rejectable && can && (
                 <button className="btn btn-sm" style={{ flex: "none" }} disabled={!!rejecting && !r?.ready} onClick={() => reject(w)}>
                   {r ? (r.ready ? "Sign to reject" : stageLabel("quote")) : "Reject"}
                 </button>

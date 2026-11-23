@@ -15,7 +15,17 @@ export type SafeAccount = {
   wedgie?: { x: Hex; y: Hex }; // the wedgie's key, once paired
   paper?: Address; // the paper seed's address, once it's the recovery address
   recovered?: boolean; // a new phone taking over an existing wallet: `address` is that wallet, not this key's own
+  watch?: boolean; // a Safe opened by its address (/0x…, /name.eth), not this browser's own wallet: never saved
+  me?: Address; // the signer a browser wallet here holds (found connected, or after Connect)
 };
+
+/** credentialId of an account with no passkey here: a Safe opened by its address. */
+export const WATCH = "watch";
+export const hasPasskey = (a: SafeAccount) => a.credentialId !== WATCH;
+/** Any Safe by its address. It signs with whatever this browser turns out to hold (lib/safe/send.ts `own`). */
+export const watchAccount = (address: Address): SafeAccount => ({ credentialId: WATCH, qx: "0x", qy: "0x", burnerSigner: zeroAddress, address: getAddress(address), watch: true });
+/** A Safe opened by its address that one of this browser's passkeys is a signer on: that passkey signs for it. */
+export const watchWith = (k: SafeAccount, address: Address): SafeAccount => ({ ...accountFor(k.credentialId, k.qx, k.qy, address), wedgie: k.wedgie, watch: true });
 
 export function accountFor(credentialId: string, qx: Hex, qy: Hex, recovering?: Address): SafeAccount {
   const burnerSigner = signerAddress(qx, qy);
@@ -211,16 +221,17 @@ export async function readChain(chainId: number, a: SafeAccount): Promise<ChainS
     return {
       chainId,
       deployed,
-      owners: a.recovered ? [] : [a.burnerSigner],
+      // (a Safe opened by its address that isn't on this network: nothing here, not a new Instant Wallet's setup)
+      owners: a.recovered || a.watch ? [] : [a.burnerSigner],
       threshold: 1,
       nonce: 0n,
-      guardians: [DAO],
+      guardians: a.watch ? null : [DAO],
       recoveryModule: RECOVERY_7D,
       recoveryDays: 7,
-      recoveries: [{ module: RECOVERY_7D, days: 7, guardians: [DAO], request: null }],
-      stored: { [RECOVERY_7D]: [DAO] },
+      recoveries: a.watch ? [] : [{ module: RECOVERY_7D, days: 7, guardians: [DAO], request: null }],
+      stored: a.watch ? null : { [RECOVERY_7D]: [DAO] },
       has60,
-      modules: [RECOVERY_7D],
+      modules: a.watch ? [] : [RECOVERY_7D],
       strangers: [],
       guard: null,
       recovery: null,

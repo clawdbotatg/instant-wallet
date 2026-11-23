@@ -28,7 +28,10 @@ const RULES = [
   // an address box keeps only the address (Austin 11-12: a pasted "0x….", a space, words around it)
   // one address box, everywhere (Austin 11-12: adding a signer didn't look names up the way Send does)
   { re: /<input.*placeholder="[^"]*0x/, say: "an address box by hand: use <AddressInput>" },
-  { re: /\bnameTyped\(|\buseAddressScan\(|\/api\/ens\?name=/, say: "a name looked up or an address scanned by hand: use <AddressInput>", skip: ["components/safe/SafeApp.tsx"] }, // ?watch=name.eth in the link: no box
+  { re: /\bnameTyped\(|\buseAddressScan\(|\/api\/ens\?name=/, say: "a name looked up or an address scanned by hand: use <AddressInput>", skip: ["components/safe/SafeApp.tsx"] }, // /name.eth in the link: no box
+  // any Safe by its address (Austin 11-23): one rule says what this browser may do with it, and one link opens it
+  { re: /credentialId\s*[!=]==\s*("watch"|WATCH)/, say: "a watched wallet checked by hand: account.watch, hasPasskey(), canSign()", skip: ["lib/safe/state.ts"] },
+  { re: /[`"'][^`"']*\/\?watch=/, say: "a ?watch= link: a wallet's link is /0x… or /name.eth" },
   // a link is copied, never shared (Austin 11-12: an invite showed its whole link and a Share button)
   { re: /^\s*Share\s*$|>\s*Share\s*<|navigator\.share\(\{ url/, say: "a Share button: a link is copied with <CopyLink>" },
   { re: /<AddressInput[^>]*\bbare\b/, say: "<AddressInput> has no modes: every box takes a word alone" },

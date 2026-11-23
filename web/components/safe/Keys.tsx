@@ -18,8 +18,8 @@ import { amount, short, feeText, usd } from "@/lib/format";
 import { DAO, FEE_ALLOWANCE, RECOVERY_14D, RECOVERY_60D, VERIFIERS, VERIFIERS_SLOT2 } from "@/lib/safe/config";
 import { type Call, DEFAULT_BUDGET, abi, signerAddress, budgetCalls, deploySignerCall, feeAllowanceCalls, guardianListCalls, recoveryLayoutCalls, selfCall } from "@/lib/safe/core";
 import { openTx } from "@/lib/safe/share";
-import { type FeeToken, type Prepared, Shared, type Signer, finishOwners, keepUnsigned, getQuote, howSigns, ownerSigners, prepareOwners, signerLabel, usesWedgie } from "@/lib/safe/send";
-import { type ChainState, type SafeAccount, type SignerInfo, daoDays, keyFromCode, loadSigners, signerGroups, signersKey, loadWalletName, passkeyHome, readChain, rememberHome, saveSigner, wedgieHome, wedgieSigners, shownAs } from "@/lib/safe/state";
+import { type FeeToken, type Prepared, Shared, type Signer, canSign, finishOwners, keepUnsigned, getQuote, howSigns, ownerSigners, prepareOwners, signerLabel, usesWedgie } from "@/lib/safe/send";
+import { type ChainState, type SafeAccount, type SignerInfo, daoDays, hasPasskey, keyFromCode, loadSigners, signerGroups, signersKey, loadWalletName, passkeyHome, readChain, rememberHome, saveSigner, wedgieHome, wedgieSigners, shownAs } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
 import { WhatItDoes } from "./WhatItDoes";
@@ -107,8 +107,9 @@ export function Keys({
     const u = chainById(chainId)?.usdc;
     return u ? feeAllowanceCalls(account.address, u, (await getQuote(chainId, "setup")).relayer, FEE_ALLOWANCE[chainId] ?? 1_000_000n, now()) : [];
   };
+  // (never on a wallet opened by its address: the daily limit is an Instant Wallet's, set up for its own passkey)
   const budgetFirst = async (s: ChainState): Promise<Call[]> =>
-    s.threshold <= 1
+    s.threshold <= 1 && !account.watch
       ? [
           ...budgetCalls(account.address, chainById(chainId)?.usdc, account.burnerSigner, { usdc: DEFAULT_BUDGET.usdc, eth: chainById(chainId)?.nativeBudget ?? DEFAULT_BUDGET.eth }, now(), {
             rolesDeployed: s.rolesDeployed,
@@ -544,6 +545,11 @@ export function Keys({
   const mine = (st?.stored?.[RECOVERY_14D] ?? []).filter(g => !same(g, DAO)); // your own guardians (14 days)
   const daoWait = st ? daoDays(st) : null;
   const idle = !!busy || !!pending || !!wait || !canPay;
+  // A wallet opened by its address (Austin 11-23): only what that Safe has. No daily limit, no recovery, no recovery
+  // alerts, no invites unless they are on it; nothing to edit until this browser holds one of its signers.
+  const ours = !account.watch;
+  const can = canSign(account, states);
+  const hasRecovery = !!st?.recoveries.some(r => r.guardians?.length);
   // why a step's button is grey, said under it (a green button that does nothing is a bug report)
   const blocked = busy ? null
     : !canPay ? <>Needs gas on <Net chainId={chainId} /> first.</>
@@ -555,7 +561,7 @@ export function Keys({
 
   return (
     <div className="stack">
-      <h2>Instant Wallet is a Safe multisig</h2>
+      <h2>{ours ? "Instant Wallet is a Safe multisig" : "Safe multisig"}</h2>
       <ChainSelect value={chainId} onChange={setChainId} />
       {st && (
         <Summary
@@ -632,7 +638,7 @@ export function Keys({
             </div>
           ))}
           {wedgieOpen && st.hasWedgie && <WedgiePanel account={account} states={states} onStatus={setWedgieLook} />}
-          {!keysEdit ? (
+          {!can ? null : !keysEdit ? (
             <button className="btn btn-sm" onClick={() => setKeysEdit(true)}>
               Edit signers
             </button>
@@ -698,13 +704,16 @@ export function Keys({
                   </div>
                 );
               })}
-              <p className="fine">
-                No address?{" "}
-                <a href="#" onClick={e => (e.preventDefault(), invite())}>
-                  Copy an invite link
-                </a>
-                .
-              </p>
+              {/* an invite is answered with a passkey and told to this wallet's devices with Face ID: an Instant Wallet's own */}
+              {ours && (
+                <p className="fine">
+                  No address?{" "}
+                  <a href="#" onClick={e => (e.preventDefault(), invite())}>
+                    Copy an invite link
+                  </a>
+                  .
+                </p>
+              )}
               {error?.what === "invite" && <ErrorLine text={error.msg} />}
               {count > 1 && (
                 <div className="row" style={{ gap: 8 }}>
@@ -788,7 +797,7 @@ export function Keys({
       )}
 
       {!st && <p className="fine">Loading…</p>}
-      {!canPay ? (
+      {!can ? null : !canPay ? (
         <div className="card stack" style={{ gap: 8 }}>
           <p className="fine">No gas on <Net chainId={chainId} /> for changes.</p>
           {assets.some(a => a.chainId !== chainId && (a.usd ?? 0) >= 0.5) ? (
@@ -800,12 +809,12 @@ export function Keys({
           )}
         </div>
       ) : (
-        st && !st.deployed && <p className="fine">The first change on <Net chainId={chainId} /> also sets up the wallet there.</p>
+        st && !st.deployed && ours && <p className="fine">The first change on <Net chainId={chainId} /> also sets up the wallet there.</p>
       )}
 
 
 
-      <div className="card stack" style={{ gap: 10 }}>
+      {(ours || hasRecovery) && <div className="card stack" style={{ gap: 10 }}>
         {st?.recoveries
           .filter(r => r.guardians?.length)
           .map(r => (
@@ -818,7 +827,7 @@ export function Keys({
               </span>
             </div>
           ))}
-        {!recEdit ? (
+        {!can ? null : !recEdit ? (
           <button className="btn btn-sm" onClick={() => setRecEdit(true)}>
             Edit / learn more
           </button>
@@ -867,9 +876,10 @@ export function Keys({
             </button>
           </>
         )}
-      </div>
+      </div>}
 
-      {features.alerts && (
+      {/* signed up for with this wallet's own passkey */}
+      {features.alerts && ours && (
         <Step title="Recovery alerts" key="alerts">
           <Alerts account={account} toast={toast} />
         </Step>
@@ -896,7 +906,7 @@ export function Keys({
       </Step>
 
       {/* the address behind this device's passkey: the signer rows show only Touch ID / Face ID */}
-      <div className="card stack" style={{ gap: 8 }}>
+      {hasPasskey(account) && <div className="card stack" style={{ gap: 8 }}>
         <span className="row" style={{ gap: 8 }}>
           <BioIcon />
           <b>{bio()} signs as</b>
@@ -905,14 +915,14 @@ export function Keys({
           <Addr a={account.burnerSigner} chainId={chainId} plain />
           <CopyAddress address={account.burnerSigner} label={null} />
         </div>
-      </div>
+      </div>}
 
 
       <OldBurner toast={toast} />
 
-      <button className="btn btn-green wide" onClick={() => onShare(chainId)}>
+      {ours && <button className="btn btn-green wide" onClick={() => onShare(chainId)}>
         Share crypto on <Net chainId={chainId} />
-      </button>
+      </button>}
 
       <LocalRelay />
       <LocalOff />

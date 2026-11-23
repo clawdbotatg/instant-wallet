@@ -1,5 +1,5 @@
 // EXPECTATIONS.md, checked on the live site after every push (.github/workflows/expect.yaml): a real wallet, read-only
-// (?watch=), its home and every tx page it links to. Fails on:
+// (/0x…), its home and every tx page it links to. Fails on:
 //   - hex on the screen (rule 1): 0x and more than 40 hex digits (calldata, a hash). An address alone is allowed.
 //   - more than one green button on a page (rule 4), not counting Sign buttons (one per signer you hold).
 //   - money in a tx's lines without a red − or green + (rule 1): an amount and a coin with no sign in front.
@@ -37,7 +37,7 @@ async function check(url, name) {
   say(!r.unsigned.length, `${name}: money has − or +${r.unsigned.length ? ` (${r.unsigned.join(" | ")})` : ""}`);
 }
 
-await check(`${APP}/?watch=${SAFE}`, "home");
+await check(`${APP}/${SAFE}`, "home");
 // the wallet itself, not the welcome page: a SAFE with a wrong checksum opened the welcome page, and every check
 // passed on it for weeks (found 11-20)
 say(!/Create wallet/.test(await page.evaluate(() => document.body.innerText)), "home: a wallet is showing, not the welcome page");

@@ -13,7 +13,7 @@ import { parse } from "@/lib/parse";
 import { openWalletConnect } from "@/lib/walletconnect";
 import { transfer } from "@/lib/safe/core";
 import type { Quote } from "@/lib/safe/fee";
-import { type FeeToken, type Signer, type Stage, Shared, asItself, budgetSend, feeCall, getQuote, itselfSend, ownersSend, pickFee, plan, sendKind, signThenQueue, signerOptions, usesWedgie } from "@/lib/safe/send";
+import { type FeeToken, type Signer, type Stage, Shared, asItself, budgetSend, feeCall, getQuote, itselfSend, ownersSend, pickFee, plan, sendKind, queueNote, signThenQueue, signerLabel, signerOptions, usesWedgie } from "@/lib/safe/send";
 import { hotAvailable } from "@/lib/safe/hot";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
@@ -319,7 +319,7 @@ export function SafeSend({
           )}
           <div className="line">
             <span>Signed by</span>
-            {itself ? <span>Browser wallet</span> : p ? <SignerChoice options={options} value={signers} onChange={setChosen} disabled={busy} note={p.path === "budget" ? "daily limit" : st && signThenQueue(st, account) ? "then the wedgie or the others" : undefined} /> : <span>…</span>}
+            {itself ? <span>Browser wallet</span> : p ? <SignerChoice options={options} value={signers} onChange={setChosen} disabled={busy} label={st && signers.length ? signerLabel(account, st, signers) : undefined} note={p.path === "budget" ? "daily limit" : st ? queueNote(st, account) : undefined} /> : <span>…</span>}
           </div>
           {!st?.deployed && !itself && (
             <div className="line">

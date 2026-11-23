@@ -16,25 +16,32 @@ import { nativeUsd } from "@/lib/price";
  * A payment request opened as a web link (<origin>/ethereum:…, a phone camera's scan of a Receive QR, lib/parse.ts
  * requestLink). A wallet on this phone: it opens with Send filled in. None: what's asked, an "Open in a wallet app"
  * button (the bare ethereum: request, which MetaMask, Rainbow and others take), the address to copy, and a way to
- * make an Instant Wallet. Old v3 links (/base:0x…;0.01, /0x…, /name.eth) land here too and open Send the same way.
+ * make an Instant Wallet. Old v3 links with a network or an amount (/base:0x…;0.01) land here too and open Send the
+ * same way. /send/0x… and /send/name.eth open Send to them. A bare /0x… or /name.eth is that wallet itself
+ * (SafeApp works out what this browser can sign for it).
  */
 export function PayLink() {
   const [href, setHref] = useState<string>();
   const [hasWallet, setHasWallet] = useState<boolean>();
+  const [watch, setWatch] = useState<string>(); // /0x… or /name.eth alone: look at that wallet
   useEffect(() => {
     // anything else under / that isn't a page: the wallet
     // (a missing /apple-touch-icon.png parses as a name: only addresses and .eth names count)
     // an old Burner Wallet link with the key in the path (xdai.io/<key>): a claim
     const k = claimKey(window.location.pathname.replace(/^\//, ""));
     if (k) return void window.location.replace(`/pk#${k}`);
-    const p = parse(window.location.href);
+    // /send/<who>: pay them (what a bare /<who> meant before it became that wallet's own page)
+    const send = /^\/+send\//i.test(window.location.pathname);
+    const here = send ? `${window.location.origin}/${window.location.pathname.replace(/^\/+send\/+/i, "")}${window.location.search}${window.location.hash}` : window.location.href;
+    const p = parse(here);
     if (p.kind !== "pay" || !(p.to.startsWith("0x") || p.to.endsWith(".eth"))) return void window.location.replace("/");
-    setHref(window.location.href);
+    const path = decodeURIComponent(window.location.pathname).replace(/^\/+/, "");
+    if (!send && path.toLowerCase() === p.to.toLowerCase()) return setWatch(p.to);
+    setHref(here);
     setHasWallet(!!loadAccount());
   }, []);
   useEffect(() => {
-    // the wallet takes over; the address bar goes back to the wallet's own
-    if (hasWallet) window.history.replaceState(null, "", "/");
+    // the wallet takes over (it puts its own address in the address bar)
   }, [hasWallet]);
   const [ethPx, setEthPx] = useState(0); // the request's chain's own coin in dollars
   const payChain = href ? (() => { const q = parse(href); return q.kind === "pay" ? q.chainId : undefined; })() : undefined;
@@ -42,6 +49,7 @@ export function PayLink() {
     nativeUsd(payChain ?? 1).then(setEthPx);
   }, [payChain]);
 
+  if (watch) return <SafeApp watch={watch} />;
   if (!href || hasWallet === undefined) return null;
   if (hasWallet) return <SafeApp link={href} />;
 

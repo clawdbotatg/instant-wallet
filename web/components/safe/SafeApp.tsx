@@ -5,13 +5,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { type Address, getAddress, isAddress, zeroAddress } from "viem";
 import { CHAINS, chainById, moneyChain } from "@/lib/chains";
 import { amount, compactUsd, short, usd, nameIn } from "@/lib/format";
-import { type ChainState, type SafeAccount, signerGroups, forgetKnown, loadAccount, loadWalletName, readAll, saveAccount, saveWalletName } from "@/lib/safe/state";
+import { type ChainState, type SafeAccount, signerGroups, forgetKnown, hasPasskey, knownAccounts, loadAccount, loadWalletName, readAll, saveAccount, saveWalletName, watchAccount, watchWith, wedgieSigners } from "@/lib/safe/state";
 import { type Asset, type Portfolio, keepLate } from "@/lib/types";
 import { loadHidden, loadPortfolio, loadShown, saveHidden, savePortfolio, saveShown } from "@/lib/store";
 import { dropOtherBudgetsCalls } from "@/lib/safe/core";
-import { type Prepared, Shared, finishOwners, ownerSigners, prepareOwners } from "@/lib/safe/send";
+import { type Prepared, Shared, canSign, finishOwners, ownerSigners, prepareOwners } from "@/lib/safe/send";
+import { connectHot, hotAvailable, hotHas } from "@/lib/safe/hot";
+import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import { friendly } from "@/lib/friendly";
-import { AppsIcon, Blockie, ChainIcon, Net, DepositIcon, GearIcon, SendIcon, SendScanIcon, Fold, Proven, ProvenMark, provenCoin, Sheet, sheetOpen, TokenIcon, TrashIcon, CopyLink, SiteRow, Who, named, useName, useToast } from "../bits";
+import { AppsIcon, BioSigner, Blockie, ChainIcon, Net, DepositIcon, GearIcon, SendIcon, SendScanIcon, Fold, Proven, ProvenMark, provenCoin, Sheet, sheetOpen, TokenIcon, TrashIcon, CopyLink, SiteRow, Who, named, useName, useToast } from "../bits";
 import { see, useProven } from "@/lib/safe/proven";
 import { Receive } from "../Receive";
 import { onSending, sendingNow } from "@/lib/safe/sending";
@@ -26,7 +28,7 @@ import { SafeSwap } from "./SafeSwap";
 import { AppFrame, AppList } from "./Apps";
 import type { AppEntry } from "@/lib/apps";
 import { type Confirm, SafeWelcome, signIn } from "./SafeWelcome";
-import { WedgieProgress } from "./WedgieButton";
+import { ErrorLine, WedgieIcon, WedgieProgress } from "./WedgieButton";
 import { Progress, useSendProgress } from "./Progress";
 import { TxPage } from "./TxPage";
 import { WaitingCards } from "./Waiting";
@@ -43,7 +45,6 @@ import { disconnect } from "@/lib/walletconnect";
 import type { Session } from "../WalletConnect";
 import { useFeatures } from "@/lib/features";
 
-const WATCH = "watch"; // credentialId of a ?watch= view
 
 /** JSON.stringify's replacer for a chain's state (it has bigints). */
 const big = (_: string, v: unknown) => (typeof v === "bigint" ? `${v}n` : v);
@@ -51,7 +52,7 @@ const big = (_: string, v: unknown) => (typeof v === "bigint" ? `${v}n` : v);
 type View = { kind: "home" } | { kind: "send"; asset?: Asset; amount?: string; to?: string; scanned?: string } | { kind: "swap"; fund?: number; asset?: Asset; amount?: string; to?: string } | { kind: "apps" } | { kind: "receive" } | { kind: "deposit" } | { kind: "keys" } | { kind: "share"; chainId: number } | { kind: "sendAll" } | { kind: "tx"; chainId: number; safe: Address; code: string };
 
 /** Instant Wallet on a Safe: a big balance, Deposit / Apps, the connected sites above the coins, the address pill opens Receive, settings bottom left (signatures needed / signers; the wedgie lives in there), a send button on each asset, a green send button that opens on the scanner (addresses, claim cards, WalletConnect QRs). */
-export function SafeApp({ link }: { link?: string } = {}) {
+export function SafeApp({ link, watch: watchAt }: { link?: string; watch?: string } = {}) {
   const [account, setAccountState] = useState<SafeAccount | null | undefined>(undefined);
   const features = useFeatures(); // a part this server has no key for is hidden, not broken
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
@@ -81,17 +82,28 @@ export function SafeApp({ link }: { link?: string } = {}) {
   useEffect(() => setDropCode(stashedCode()), []);
 
   useEffect(() => {
-    // ?watch=0x…: view any wallet, read only (the welcome's Watch a wallet goes here). Never saved, never signs.
-    // ?watch=atg.eth works too (resolved on Ethereum).
-    const w = nameIn(new URLSearchParams(window.location.search).get("watch") ?? "");
-    const watch = (a: string) => setAccountState({ credentialId: WATCH, qx: "0x", qy: "0x", burnerSigner: zeroAddress, address: getAddress(a) });
-    if (w && isAddress(w)) watch(w);
+    // /0x… or /name.eth: that wallet (PayLink hands it here; the welcome's Watch a wallet goes there). One of this
+    // browser's own opens as itself. Any other is never saved; what this browser can sign for it is worked out
+    // below, once its signers are read. The old ?watch= still works (and takes a name that isn't .eth).
+    const w = watchAt ?? nameIn(new URLSearchParams(window.location.search).get("watch") ?? "");
+    // one of this browser's own wallets by its name: on screen at once, no wait for the name to be looked up
+    const quick = w && !isAddress(w) ? urlNames()[w.toLowerCase()] : undefined;
+    const known = quick && knownAccounts().find(k => k.address.toLowerCase() === quick.toLowerCase());
+    const open = (addr: string) => {
+      const cur = loadAccount();
+      const mine = [...(cur ? [cur] : []), ...knownAccounts()].find(k => k.address.toLowerCase() === addr.toLowerCase());
+      if (mine && mine !== cur) saveAccount(mine); // its own link opens it, the same as Switch account
+      setAccountState(mine ?? watchAccount(getAddress(addr)));
+    };
+    const none = () => setAccountState(loadAccount()); // no such name: your own wallet (the address bar follows it)
+    if (w && isAddress(w)) open(w);
+    else if (known) open(known.address);
     else if (w?.includes("."))
       fetch(`/api/ens?name=${encodeURIComponent(w)}`)
         .then(r => r.json())
-        .then(j => (j?.address && isAddress(j.address) ? watch(j.address) : setAccountState(loadAccount())))
-        .catch(() => setAccountState(loadAccount()));
-    else setAccountState(loadAccount());
+        .then(j => (j?.address && isAddress(j.address) ? open(j.address) : none()))
+        .catch(none);
+    else none();
     setHiddenState(loadHidden());
     setShownState(loadShown());
   }, []);
@@ -103,16 +115,8 @@ export function SafeApp({ link }: { link?: string } = {}) {
     saveShown(h);
     setShownState(h);
   };
-  // signing out or opening another wallet leaves the watched one: ?watch= comes out of the link, or the reload
-  // (and every later one) opens the watched wallet again (Austin 11-15)
-  const dropWatch = () => {
-    const u = new URL(window.location.href);
-    if (!u.searchParams.has("watch")) return;
-    u.searchParams.delete("watch");
-    window.history.replaceState(null, "", u.pathname + u.search + u.hash);
-  };
+  // (signing out or opening another wallet leaves a watched one: the address bar follows the open wallet, below)
   const setAccount = (a: SafeAccount | null) => {
-    dropWatch();
     saveAccount(a);
     setAccountState(a);
     if (a) setSwitchConfirm(null);
@@ -123,9 +127,8 @@ export function SafeApp({ link }: { link?: string } = {}) {
   const [switchConfirm, setSwitchConfirm] = useState<Confirm | null>(null);
   const [switching, setSwitching] = useState(false); // covers the old wallet from the passkey prompt to the reload
   const openAccount = (a: SafeAccount) => {
-    dropWatch();
     saveAccount(a);
-    window.location.reload();
+    window.location.assign("/"); // not a reload: the address bar names the last wallet (it follows the open one)
   };
   const anotherPasskey = async () => {
     setSwitching(true);
@@ -144,6 +147,55 @@ export function SafeApp({ link }: { link?: string } = {}) {
       setToast(friendly(e));
     }
   };
+
+  // A Safe opened by its address (Austin 11-23: any Safe works here): which of its signers does this browser hold?
+  // One of its passkeys, then a browser wallet already connected (asked quietly, no popup). Found: it works like
+  // your own. Not found: Connect, on Home (as on a tx page’s signer rows).
+  useEffect(() => {
+    if (!account?.watch || !states.length || canSign(account, states)) return;
+    const on = states.filter(s => s.deployed);
+    const k = knownAccounts().find(k => on.some(s => s.owners.some(o => o.toLowerCase() === k.burnerSigner.toLowerCase())));
+    if (k) return setAccountState(watchWith(k, account.address));
+    // (not dropped when the wallet is read again meanwhile: an unchanged read doesn't run this a second time)
+    const safe = account.address;
+    (async () => {
+      for (const o of [...new Set(on.flatMap(s => s.wallets))])
+        if (await hotHas(o).catch(() => false)) return setAccountState(a => (a?.watch && !a.me && a.address === safe ? { ...a, me: o } : a));
+    })();
+  }, [account, states]);
+  const [connecting, setConnecting] = useState(false);
+  const [connectErr, setConnectErr] = useState<string | null>(null);
+  const connect = (how: "wallet" | "wedgie") => async () => {
+    if (!account || connecting) return;
+    setConnecting(true);
+    setConnectErr(null);
+    try {
+      const on = states.filter(s => s.deployed);
+      if (how === "wallet") {
+        const me = await connectHot([...new Set(on.flatMap(s => s.wallets))]).catch(e => {
+          throw /^Switch your wallet/.test(e?.message ?? "") ? new Error("That browser wallet isn't a signer on this wallet. Switch it to one that is.") : e;
+        });
+        setAccountState({ ...account, me });
+      } else {
+        const wd = await Wedgie.connect();
+        try {
+          const key = await wd.key();
+          const slots = wedgieSigners(key).map(x => x.toLowerCase());
+          if (!on.some(s => s.owners.some(o => slots.includes(o.toLowerCase())))) throw new Error("This wedgie isn't a signer on this wallet.");
+          setAccountState({ ...account, wedgie: key });
+        } finally {
+          await wd.close();
+        }
+      }
+    } catch (e: any) {
+      setConnectErr(friendly(e));
+    } finally {
+      setConnecting(false);
+    }
+  };
+  // this browser has a wallet of its own to go back to (a wallet opened by its address shows the way)
+  const [haveOwn, setHaveOwn] = useState(false);
+  useEffect(() => setHaveOwn(!!loadAccount()), [account]);
 
   const same = (a: unknown, b: unknown) => JSON.stringify(a, big) === JSON.stringify(b, big);
   // the balance shows as soon as it lands; the keys read (slower, several calls per network) never holds it up
@@ -288,7 +340,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
   // synced across the passkey's devices (lib/walletName.ts): theirs wins; one saved before sync goes up
   useEffect(() => {
     setCustomName(account ? loadWalletName(account.address) : null);
-    if (!account || account.credentialId === WATCH) return;
+    if (!account || account.watch || !hasPasskey(account)) return;
     let live = true;
     pullWalletName(account.credentialId, account.address).then(n => {
       if (!live) return;
@@ -352,6 +404,15 @@ export function SafeApp({ link }: { link?: string } = {}) {
   const ownEns = ensName && !ourLabel(ensName) ? ensName : null;
   const publicName = ownEns ?? instName ?? ensName;
   const title = publicName ?? customName;
+  // the address bar is the open wallet: /0x… at once, /name.eth once its name is known (Austin 11-23). A link to it
+  // opens the same wallet anywhere. No wallet (the sign-in screen): back to /.
+  const urlName = publicName && /\.eth$/i.test(publicName) ? publicName : null;
+  useEffect(() => {
+    if (account === undefined) return;
+    const path = account ? `/${urlName ?? account.address}` : "/";
+    if (decodeURIComponent(window.location.pathname) !== path || window.location.search) window.history.replaceState(null, "", path);
+    if (account && urlName && !account.watch) rememberUrlName(urlName, account.address);
+  }, [account, urlName]);
   useEffect(() => {
     if (!account) return;
     setEns(undefined);
@@ -363,7 +424,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
     };
   }, [account]);
   useEffect(() => {
-    if (!account || account.credentialId === WATCH || !fresh || posUsd === null || rough === null || ens === undefined) return;
+    if (!account || account.watch || !hasPasskey(account) || !fresh || posUsd === null || rough === null || ens === undefined) return;
     let last: { name: string } | null = null;
     try {
       last = JSON.parse(localStorage.getItem(namedKey) || "null");
@@ -407,7 +468,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
   // a payment request link (/[...link]): Send opens on it once the balance is known, so it can pick the token
   const [pendingLink, setPendingLink] = useState(link);
   useEffect(() => {
-    if (!pendingLink || !account || !portfolio) return;
+    if (!pendingLink || !account || !portfolio || account.watch) return;
     setView({ kind: "send", scanned: pendingLink });
     setPendingLink(undefined);
   }, [pendingLink, account, portfolio]);
@@ -462,7 +523,13 @@ export function SafeApp({ link }: { link?: string } = {}) {
   // gear showed one network's number while others had other signers). Only networks with coins on them (all of them
   // was too many); one not set up yet shows what it will be set up as (1 of 1). A watched address: only where it is a
   // Safe on chain, so a plain or 7702 account shows nothing (Austin 11-15). Most money first.
-  const groups = signerGroups(states, assets, account.credentialId === WATCH); // readChain drops a network whose code isn't a Safe: 7702 too
+  // A Safe opened by its address with none of its signers found here yet: look, don't touch (no Send, Swap, Apps)
+  // until one is connected. A plain address (no Safe anywhere) is its own browser wallet's: each sheet's green
+  // button connects it (<MineGo>).
+  const isSafe = states.some(s => s.deployed);
+  const can = account.watch && !states.length ? false : !isSafe || canSign(account, states);
+  const signsAs = account.watch && account.me && states.some(s => s.deployed && s.owners.some(o => o.toLowerCase() === account.me!.toLowerCase())) ? account.me : null;
+  const groups = signerGroups(states, assets, !!account.watch); // readChain drops a network whose code isn't a Safe: 7702 too
   const feeTokenOn = (chainId: number): "usdc" | "eth" => {
     const usdcAddr = chainById(chainId)?.usdc?.toLowerCase();
     // USDC only when there's plenty for a fee there (Ethereum fees are dollars); else ETH
@@ -502,6 +569,17 @@ export function SafeApp({ link }: { link?: string } = {}) {
   return (
     <>
       <div className="app">
+        {account.watch && (haveOwn || (can && isSafe)) && (
+          <div className="fine row" style={{ justifyContent: "space-between", gap: 8 }}>
+            {haveOwn ? <a href="/">← My wallet</a> : <span />}
+            {/* which of its signers this browser holds: what Sign will ask */}
+            {can && isSafe && (
+              <span className="row" style={{ gap: 6 }}>
+                Signs as {signsAs ? <Who flat address={signsAs} /> : hasPasskey(account) ? <BioSigner /> : <><WedgieIcon size={22} /> Wedgie</>}
+              </span>
+            )}
+          </div>
+        )}
         <div className="top">
           <div className="brand">
             <img src="/mark-160.png" alt="" height={30} />
@@ -514,7 +592,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
           </button>
         </div>
 
-        {dropCode && (
+        {dropCode && !account.watch && (
           <div className="card stack">
             <b>You have money to claim</b>
             <p className="fine">The code {dropCode} is waiting for this wallet.</p>
@@ -540,7 +618,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
               </div>
             ),
         )}
-        {account.recovered && !states.some(s => s.owners.some(o => o.toLowerCase() === account.burnerSigner.toLowerCase())) && (
+        {account.recovered && !account.watch && !states.some(s => s.owners.some(o => o.toLowerCase() === account.burnerSigner.toLowerCase())) && (
           <div className="card stack">
             <b>Waiting for recovery</b>
             <p className="fine">
@@ -559,7 +637,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
               {portfolio ? (showUsd ? usd(total ?? 0) : "******") : <span className="loading-bar" aria-label="Loading" />}
             </div>
             {portfolio && (!fresh || pulling) && <span className="spinner" aria-label="Updating" />}
-            {fresh && !pulling && assets.length > 0 && (
+            {fresh && !pulling && can && assets.length > 0 && (
               <button className="send-all" aria-label="Send everything" onClick={() => setView({ kind: "sendAll" })}>
                 <SendIcon size={16} />
               </button>
@@ -579,18 +657,38 @@ export function SafeApp({ link }: { link?: string } = {}) {
               ))}
             </div>
           )}
-          <div className="actions">
-            {/* no Coinbase keys here (a copy on your own computer): Deposit is sending crypto in */}
-            <button className="btn" onClick={() => setView({ kind: features.deposit ? "deposit" : "receive" })}>
-              <DepositIcon /> Deposit
-            </button>
-            <button className="btn" onClick={() => setView({ kind: "apps" })}>
-              <AppsIcon /> Apps
-            </button>
-          </div>
+          {can ? (
+            <div className="actions">
+              {/* no Coinbase keys here (a copy on your own computer): Deposit is sending crypto in. The same for a
+                  wallet opened by its address: Coinbase mints a link for the wallet's own passkey only */}
+              <button className="btn" onClick={() => setView({ kind: features.deposit && !account.watch ? "deposit" : "receive" })}>
+                <DepositIcon /> Deposit
+              </button>
+              <button className="btn" onClick={() => setView({ kind: "apps" })}>
+                <AppsIcon /> Apps
+              </button>
+            </div>
+          ) : (
+            // one of its signers, to send or sign from here: a browser wallet, or its wedgie
+            isSafe && (
+              <div className="actions">
+                {hotAvailable() && states.some(s => s.wallets.length > 0) && (
+                  <button className="btn btn-green" onClick={connect("wallet")} disabled={connecting}>
+                    {connecting ? "Connecting…" : "Connect"}
+                  </button>
+                )}
+                {wedgieSupported() && states.some(s => s.wedgieSlots.length > 0) && (
+                  <button className="btn" onClick={connect("wedgie")} disabled={connecting}>
+                    <WedgieIcon size={34} /> Connect a wedgie
+                  </button>
+                )}
+              </div>
+            )
+          )}
+          {connectErr && <ErrorLine text={connectErr} />}
         </div>
 
-        <WaitingCards account={account} states={states} feeTokenOn={feeTokenOn} />
+        <WaitingCards account={account} states={states} feeTokenOn={feeTokenOn} can={can} />
 
         {sites.length > 0 && (
           <div className="card assets sites">
@@ -605,9 +703,9 @@ export function SafeApp({ link }: { link?: string } = {}) {
           {!portfolio && <div className="loading-bar row" />}
           <Fold count={assets.length} rows>
           {assets.map(a => {
-            const Row = isDust(a) ? "div" : "button";
+            const Row = isDust(a) || !can ? "div" : "button";
             return (
-            <Row key={`${a.chainId}:${a.asset}`} className="asset" {...(isDust(a) ? {} : { "aria-label": `Send ${a.symbol}`, onClick: () => setView({ kind: "send", asset: a }) })}>
+            <Row key={`${a.chainId}:${a.asset}`} className="asset" {...(isDust(a) || !can ? {} : { "aria-label": `Send ${a.symbol}`, onClick: () => setView({ kind: "send", asset: a }) })}>
               <TokenIcon symbol={a.symbol} asset={a.asset} chainId={a.chainId} logo={a.logo} />
               <div className="grow">
                 <div className="sym">{a.symbol}</div>
@@ -664,15 +762,17 @@ export function SafeApp({ link }: { link?: string } = {}) {
         </div>}
         <PositionList address={account.address} assets={fresh ? portfolio?.assets : undefined} onTotal={setPosUsd} onReceipts={setReceipts} onOpen={setApp} />
         <NftGrid address={account.address} />
-        <Activity safe={account.address} chains={states.filter(s => s.deployed).map(s => s.chainId)} undeployed={states.filter(s => !s.deployed).map(s => s.chainId)} watched={account.credentialId === WATCH} assets={portfolio?.assets ?? []} late={portfolio?.late} live={fresh} tick={actTick} onIn={j => receiving.current && setGot(g => [...j, ...g])} />
+        <Activity safe={account.address} chains={states.filter(s => s.deployed).map(s => s.chainId)} undeployed={states.filter(s => !s.deployed).map(s => s.chainId)} watched={!!account.watch} assets={portfolio?.assets ?? []} late={portfolio?.late} live={fresh} tick={actTick} onIn={j => receiving.current && setGot(g => [...j, ...g])} />
       </div>
 
       <button className="fab fab-settings" aria-label="Settings" onClick={() => setView({ kind: "keys" })}>
         <GearIcon />
       </button>
-      <button className="fab" aria-label="Send or scan" onClick={() => setView({ kind: "send" })}>
-        <SendScanIcon />
-      </button>
+      {can && (
+        <button className="fab" aria-label="Send or scan" onClick={() => setView({ kind: "send" })}>
+          <SendScanIcon />
+        </button>
+      )}
 
       {view.kind !== "home" && (
         <Sheet onClose={close}>
@@ -690,7 +790,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
               onSeen={() => setGot([])}
               name={title ?? (ens === undefined ? "…" : null)}
               start={instName ? (ourLabel(instName) ?? "") : labelIn(customName ?? "").replace(/^-+|-+$/g, "").slice(0, 32)}
-              onClaim={account.credentialId === WATCH || ownEns || !features.names ? undefined : claim}
+              onClaim={account.watch || ownEns || !features.names ? undefined : claim}
               onSwitch={anotherPasskey}
               onSignOut={() => {
                 setAccount(null);
@@ -723,7 +823,7 @@ export function SafeApp({ link }: { link?: string } = {}) {
           {app.id === "revoke" && <Revoke account={account} assets={assets} states={states} bare onDone={closeApp} />}
         </AppFrame>
       )}
-      <SafeConnectLayer account={account} states={states} feeTokenOn={feeTokenOn} onSent={refresh} onSessions={setSites} />
+      {can && <SafeConnectLayer account={account} states={states} feeTokenOn={feeTokenOn} onSent={refresh} onSessions={setSites} />}
       {toast && <div className="toast">{toast}</div>}
       {switching && (
         <div className="switching">
@@ -734,6 +834,22 @@ export function SafeApp({ link }: { link?: string } = {}) {
       <WedgieProgress />
     </>
   );
+}
+
+// name in the address bar → the wallet of this browser's it opened (so a reload shows it at once)
+const URL_NAMES = "iws.urlNames";
+function urlNames(): Record<string, string> {
+  try {
+    return JSON.parse(localStorage.getItem(URL_NAMES) || "{}");
+  } catch {
+    return {};
+  }
+}
+function rememberUrlName(name: string, address: string) {
+  try {
+    const m = urlNames();
+    if (m[name.toLowerCase()] !== address) localStorage.setItem(URL_NAMES, JSON.stringify({ ...m, [name.toLowerCase()]: address }));
+  } catch {}
 }
 
 /** The last rough balance while the real one is within 15% of it (and under $1 for 0), else a new one. */

@@ -21,6 +21,8 @@ import { Deposit } from "./Deposit";
 import { Keys } from "./Keys";
 import { Share } from "./Share";
 import { AddonAlert, RecoveryAlert, RecoveryCheck } from "./RecoveryAlert";
+import { Recover } from "./Recover";
+import { type Party, partyWallets, recoveryParties, viaFor } from "@/lib/safe/recover";
 import { SafeSend } from "./SafeSend";
 import { SendAll } from "./SendAll";
 import { Revoke } from "./Revoke";
@@ -49,7 +51,7 @@ import { useFeatures } from "@/lib/features";
 /** JSON.stringify's replacer for a chain's state (it has bigints). */
 const big = (_: string, v: unknown) => (typeof v === "bigint" ? `${v}n` : v);
 
-type View = { kind: "home" } | { kind: "send"; asset?: Asset; amount?: string; to?: string; scanned?: string } | { kind: "swap"; fund?: number; asset?: Asset; amount?: string; to?: string } | { kind: "apps" } | { kind: "receive" } | { kind: "deposit" } | { kind: "keys" } | { kind: "share"; chainId: number } | { kind: "sendAll" } | { kind: "tx"; chainId: number; safe: Address; code: string };
+type View = { kind: "home" } | { kind: "send"; asset?: Asset; amount?: string; to?: string; scanned?: string } | { kind: "swap"; fund?: number; asset?: Asset; amount?: string; to?: string } | { kind: "apps" } | { kind: "receive" } | { kind: "deposit" } | { kind: "keys" } | { kind: "share"; chainId: number } | { kind: "sendAll" } | { kind: "recover" } | { kind: "tx"; chainId: number; safe: Address; code: string };
 
 /** Instant Wallet on a Safe: a big balance, Deposit / Apps, the connected sites above the coins, the address pill opens Receive, settings bottom left (signatures needed / signers; the wedgie lives in there), a send button on each asset, a green send button that opens on the scanner (addresses, claim cards, WalletConnect QRs). */
 export function SafeApp({ link, watch: watchAt }: { link?: string; watch?: string } = {}) {
@@ -163,6 +165,27 @@ export function SafeApp({ link, watch: watchAt }: { link?: string; watch?: strin
         if (await hotHas(o).catch(() => false)) return setAccountState(a => (a?.watch && !a.me && a.address === safe ? { ...a, me: o } : a));
     })();
   }, [account, states]);
+  // Recover this wallet (Austin 11-23): this browser holds one of its recovery addresses (one of its own wallets, a
+  // browser wallet already connected, or a signer of a Safe that is one: the DAO), or came by the owner's recovery
+  // link (?recover=<their new signer>). Home gets one red button.
+  const [parties, setParties] = useState<Party[]>([]);
+  const [recVia, setRecVia] = useState(false);
+  const [recoverTo, setRecoverTo] = useState<string | null>(null);
+  useEffect(() => setRecoverTo(new URLSearchParams(window.location.search).get("recover")), []);
+  useEffect(() => {
+    if (!account?.watch || !states.length) return (setParties([]), setRecVia(false));
+    let live = true;
+    (async () => {
+      const ps = await recoveryParties(states);
+      if (!live) return;
+      setParties(old => (JSON.stringify(old, big) === JSON.stringify(ps, big) ? old : ps));
+      const vs = await Promise.all(ps.map(viaFor));
+      if (live) setRecVia(vs.some(Boolean));
+    })().catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [account, states]);
   const [connecting, setConnecting] = useState(false);
   const [connectErr, setConnectErr] = useState<string | null>(null);
   const connect = (how: "wallet" | "wedgie") => async () => {
@@ -172,7 +195,8 @@ export function SafeApp({ link, watch: watchAt }: { link?: string; watch?: strin
     try {
       const on = states.filter(s => s.deployed);
       if (how === "wallet") {
-        const me = await connectHot([...new Set(on.flatMap(s => s.wallets))]).catch(e => {
+        // (or one that holds a recovery address: Home then has Recover this wallet)
+        const me = await connectHot([...new Set([...on.flatMap(s => s.wallets), ...partyWallets(parties)])]).catch(e => {
           throw /^Switch your wallet/.test(e?.message ?? "") ? new Error("That browser wallet isn't a signer on this wallet. Switch it to one that is.") : e;
         });
         setAccountState({ ...account, me });
@@ -627,7 +651,7 @@ export function SafeApp({ link, watch: watchAt }: { link?: string; watch?: strin
             <span className="fine">
               new signer <Who plain inline size={18} address={account.burnerSigner} />
             </span>
-            <CopyLink link={`${window.location.origin}/recover?wallet=${account.address}&owner=${account.burnerSigner}`} message="Link copied" label="Copy the recovery link" />
+            <CopyLink link={`${window.location.origin}/${account.address}?recover=${account.burnerSigner}`} message="Link copied" label="Copy the recovery link" />
           </div>
         )}
 
@@ -672,7 +696,7 @@ export function SafeApp({ link, watch: watchAt }: { link?: string; watch?: strin
             // one of its signers, to send or sign from here: a browser wallet, or its wedgie
             isSafe && (
               <div className="actions">
-                {hotAvailable() && states.some(s => s.wallets.length > 0) && (
+                {hotAvailable() && !recVia && (states.some(s => s.wallets.length > 0) || parties.length > 0) && (
                   <button className="btn btn-green" onClick={connect("wallet")} disabled={connecting}>
                     {connecting ? "Connecting…" : "Connect"}
                   </button>
@@ -686,6 +710,11 @@ export function SafeApp({ link, watch: watchAt }: { link?: string; watch?: strin
             )
           )}
           {connectErr && <ErrorLine text={connectErr} />}
+          {account.watch && parties.length > 0 && (recVia || recoverTo) && (
+            <button className="btn btn-red wide" onClick={() => setView({ kind: "recover" })}>
+              Recover this wallet
+            </button>
+          )}
         </div>
 
         <WaitingCards account={account} states={states} feeTokenOn={feeTokenOn} can={can} />
@@ -779,6 +808,7 @@ export function SafeApp({ link, watch: watchAt }: { link?: string; watch?: strin
           {view.kind === "send" && <SafeSend account={account} assets={assets} states={states} start={view.asset} amount={view.amount} to={view.to} scanned={view.scanned} onSwap={(asset, amount, to) => setView({ kind: "swap", asset, amount, to })} onDone={close} />}
           {view.kind === "tx" && <TxPage key={view.code} chainId={view.chainId} safe={view.safe} code={view.code} />}
           {view.kind === "sendAll" && <SendAll account={account} assets={assets} states={states} onDone={close} />}
+          {view.kind === "recover" && <Recover account={account} parties={parties} newSigner={recoverTo} onRefresh={refresh} />}
           {view.kind === "apps" && <AppList onOpen={a => (setApp(a), close())} />}
           {view.kind === "swap" && <SafeSwap account={account} assets={assets} states={states} start={view.asset} amount={view.amount} fund={view.fund} onSend={(asset, amount) => setView({ kind: "send", asset, amount, to: view.to ?? "" })} onDone={close} />}
           {view.kind === "deposit" && <Deposit account={account} onReceive={() => setView({ kind: "receive" })} />}

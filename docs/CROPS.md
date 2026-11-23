@@ -237,6 +237,9 @@ the guesses below with what it finds.
 ## Order
 
 1. **Run crops-lab on Instant Wallet.** Real numbers for section 3, and it tests the rig.
+   Since 11-23 there is a live version too: **Free Trapper** (github.com/austintgriffith/free-trapper), the local
+   copy in a VM that stays up, with a page showing every host it reaches and what broke. Its `FINDINGS.md` is the
+   running list of leaks and what's left to make local.
 2. **Send without our relay + the exit drill** (gas key, relay URL). The biggest Must we miss.
 3. **Light client on by default, balances proven, unverified mark.**
 4. **Revoke screen** and the browser record of approvals.

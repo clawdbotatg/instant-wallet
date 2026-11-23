@@ -9,6 +9,7 @@ import {
   batch,
   encodeSignatures,
   execData,
+  feeAllowanceCalls,
   moduleTxHash,
   rolesAddress,
   rolesSpendCall,
@@ -23,6 +24,7 @@ import { type ChainState, type SafeAccount, hasPasskey, loadAccount, loadSigners
 import { Wedgie, wedgieSupported } from "./wedgie";
 import { type Waiting, openTx, readWaiting, shareTx, sigHex } from "./share";
 import { bio } from "@/lib/passkey";
+import { isLocal } from "../local";
 import { startSending } from "./sending";
 
 /** Thrown by a send this device signed but that needs more signers: it's shared (lib/safe/share.ts) and its page opens. */
@@ -89,12 +91,40 @@ export function signerLabel(a: SafeAccount, st: ChainState, signers: Signer[]): 
 }
 export type Stage = "quote" | "signing" | "signing-hot" | "signing-wedgie" | "sending" | "confirming";
 
+/**
+ * A copy on your own computer with no relay made (Settings → Your relay) and a browser wallet here: that wallet
+ * executes and pays the gas, no fee (Austin 11-23: the default when you run it locally). Never on our site. A relay
+ * you made stays the default: you chose it.
+ */
+let noRelay: { at: number; v: Promise<boolean> } | null = null;
+export function selfFirst(chainId: number): Promise<boolean> {
+  if (!isLocal() || !hotAvailable()) return Promise.resolve(false);
+  if (!noRelay || Date.now() - noRelay.at > 5000)
+    noRelay = {
+      at: Date.now(),
+      v: fetch(`/api/local/relay?chainId=${chainId}`, { cache: "no-store" })
+        .then(r => r.json())
+        .then(j => j?.address === null, () => false),
+    };
+  return noRelay.v;
+}
+// the relay sets a wallet up on a new network, and pays out a claim: those can't go without one
+const needsRelay = (kind: SendKind) => kind.startsWith("first") || kind === "claim";
+
 export async function getQuote(chainId: number, kind: SendKind, extraGas?: bigint): Promise<Quote> {
+  if (!needsRelay(kind) && (await selfFirst(chainId))) return selfQuote(chainId, kind);
   const { ok, j } = await relayJson(chainId, `/api/safe/relay?chainId=${chainId}&kind=${kind}${extraGas ? `&extra=${extraGas}` : ""}`);
   if (!ok) throw new Error(j.error || "no quote");
   return j;
 }
 
+/** The relay's own small daily USDC allowance, so its fee doesn't come off the daily limit. None when no relay takes a fee. */
+export async function feeApartCalls(chainId: number, safe: Address, usdc: Address, perDay: bigint, now: bigint): Promise<Call[]> {
+  const q = await getQuote(chainId, "setup");
+  return q.self ? [] : feeAllowanceCalls(safe, usdc, q.relayer, perDay, now);
+}
+/** The fee as calls to add to a batch: none when no relay takes one (a `self` quote). */
+export const feeCalls = (q: Quote, token: FeeToken): Call[] => (q.self ? [] : [feeCall(q, token)]);
 export function feeCall(q: Quote, token: FeeToken): Call {
   const usdc = chainById(q.chainId)?.usdc;
   if (token === "usdc" && usdc) return transfer(usdc, q.relayer, BigInt(q.feeUsdc));
@@ -156,6 +186,7 @@ export async function prepareOwners(opts: OwnersOpts): Promise<Prepared> {
   const signerCode = signers.some(s => eq(s, a.burnerSigner)) ? await codeOnce(chainId, a.burnerSigner).catch(() => undefined) : "0x01";
   const fresh = !st.deployed || !signerCode || signerCode === "0x"; // the relay deploys the Safe and/or the burner's signer too
   const kind = ownersKind(fresh, feeWedgie(a, st, signers), opts);
+  if (!opts.self && !fresh && (await selfFirst(chainId))) opts = { ...opts, self: true };
   if (opts.self) {
     // anyone can send a signed Safe transaction; the relay only adds deploying the wallet on a new network
     if (fresh) throw new Error("Execute one with the fee first on this network. That sets the wallet up there.");
@@ -383,7 +414,7 @@ export async function itselfSend(opts: { account: SafeAccount; state: ChainState
 
 /** No relay, no fee: a quote of zero, so the UI can keep reading `fee`. */
 const selfQuote = (chainId: number, kind: SendKind): Quote =>
-  ({ chainId, relayer: zeroAddress, kind, gasPrice: "0", ethUsd: 0, feeEth: "0", feeUsdc: "0", until: Date.now() + 5 * 60_000 });
+  ({ chainId, relayer: zeroAddress, kind, gasPrice: "0", ethUsd: 0, feeEth: "0", feeUsdc: "0", until: Date.now() + 5 * 60_000, self: true });
 
 /**
  * An owner transaction: `calls` + the relay's fee as one batch, signed by `signers` (enough for the threshold),
@@ -445,6 +476,7 @@ export async function budgetSend(opts: {
   const { account: a, state: st } = opts;
   const stage = opts.onStage ?? (() => {});
   stage("quote");
+  if (!opts.self && st.deployed && (await selfFirst(st.chainId))) opts = { ...opts, self: true };
   if (opts.self && !st.deployed) throw new Error("Execute one with the fee first on this network. That sets the wallet up there.");
   if (opts.self && !hotAvailable()) throw new Error("No browser wallet here to execute it.");
   const q = opts.self ? null : opts.quote && opts.quote.kind === "roles" && opts.quote.until > Date.now() + 30_000 ? opts.quote : await getQuote(st.chainId, "roles");

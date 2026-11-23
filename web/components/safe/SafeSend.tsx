@@ -13,7 +13,7 @@ import { parse } from "@/lib/parse";
 import { openWalletConnect } from "@/lib/walletconnect";
 import { transfer } from "@/lib/safe/core";
 import type { Quote } from "@/lib/safe/fee";
-import { type FeeToken, type Signer, type Stage, Shared, asItself, budgetSend, feeCall, getQuote, itselfSend, ownersSend, pickFee, plan, sendKind, queueNote, signThenQueue, signerLabel, signerOptions, usesWedgie } from "@/lib/safe/send";
+import { type FeeToken, type Signer, type Stage, Shared, asItself, budgetSend, feeCalls, getQuote, itselfSend, ownersSend, pickFee, plan, sendKind, queueNote, signThenQueue, signerLabel, signerOptions, usesWedgie } from "@/lib/safe/send";
 import { hotAvailable } from "@/lib/safe/hot";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
@@ -301,7 +301,7 @@ export function SafeSend({
         </h2>
         <div className="card">
           {/* only while you decide: once it's signed the run has nothing left to say */}
-          {ran && quote && !busy && <WhatItDoes quiet same={`${asset.asset}|${base}|${resolved}`} chainId={chainId} safe={account.address} calls={[transfer(asset.asset as Address, resolved, base), feeCall(quote, feeToken)]} />}
+          {ran && quote && !busy && <WhatItDoes quiet same={`${asset.asset}|${base}|${resolved}`} chainId={chainId} safe={account.address} calls={[transfer(asset.asset as Address, resolved, base), ...feeCalls(quote, feeToken)]} />}
           <div className="line">
             <span>To</span>
             <Who address={resolved} chain={chainId} label={toName ?? undefined} />
@@ -337,7 +337,7 @@ export function SafeSend({
             {busy ? stageLabel(stage) : "Sign"}
           </button>
         )}
-        {!busy && canSelf && st?.deployed && p && (
+        {!busy && canSelf && st?.deployed && p && !quote?.self && (
           <FromMine onClick={() => send(true)} />
         )}
         <Progress stage={stage} chainId={chainId} hash={hash} />

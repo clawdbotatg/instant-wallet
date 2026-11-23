@@ -55,6 +55,7 @@ export type Quote = {
   feeEth: string; // wei
   feeUsdc: string; // 6 decimals
   until: number; // ms
+  self?: boolean; // no relay, no fee: your browser wallet executes it and pays the gas (send.ts selfFirst)
 };
 
 /** Unpack a MultiSendCallOnly payload into calls. */

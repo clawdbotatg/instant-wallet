@@ -16,9 +16,9 @@ import { claimKey } from "@/lib/claim";
 import { HOME_CHAIN, chainById, moneyChain, explorerAddress, ETH, nativeSymbol, publicClient } from "@/lib/chains";
 import { amount, short, feeText, usd } from "@/lib/format";
 import { DAO, FEE_ALLOWANCE, RECOVERY_14D, RECOVERY_60D, VERIFIERS, VERIFIERS_SLOT2 } from "@/lib/safe/config";
-import { type Call, DEFAULT_BUDGET, abi, signerAddress, budgetCalls, deploySignerCall, feeAllowanceCalls, guardianListCalls, recoveryLayoutCalls, selfCall } from "@/lib/safe/core";
+import { type Call, DEFAULT_BUDGET, abi, signerAddress, budgetCalls, deploySignerCall, guardianListCalls, recoveryLayoutCalls, selfCall } from "@/lib/safe/core";
 import { openTx } from "@/lib/safe/share";
-import { type FeeToken, type Prepared, Shared, type Signer, canSign, finishOwners, keepUnsigned, getQuote, howSigns, ownerSigners, prepareOwners, signerLabel, usesWedgie } from "@/lib/safe/send";
+import { type FeeToken, type Prepared, Shared, type Signer, canSign, finishOwners, keepUnsigned, feeApartCalls, howSigns, ownerSigners, prepareOwners, signerLabel, usesWedgie } from "@/lib/safe/send";
 import { type ChainState, type SafeAccount, type SignerInfo, daoDays, hasPasskey, keyFromCode, loadSigners, signerGroups, signersKey, loadWalletName, passkeyHome, readChain, rememberHome, saveSigner, wedgieHome, wedgieSigners, shownAs } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
@@ -105,7 +105,7 @@ export function Keys({
   // (no USDC on this chain: fees are in its native coin, there's no USDC fee to keep apart)
   const feeApart = async () => {
     const u = chainById(chainId)?.usdc;
-    return u ? feeAllowanceCalls(account.address, u, (await getQuote(chainId, "setup")).relayer, FEE_ALLOWANCE[chainId] ?? 1_000_000n, now()) : [];
+    return u ? feeApartCalls(chainId, account.address, u, FEE_ALLOWANCE[chainId] ?? 1_000_000n, now()) : [];
   };
   // (never on a wallet opened by its address: the daily limit is an Instant Wallet's, set up for its own passkey)
   const budgetFirst = async (s: ChainState): Promise<Call[]> =>

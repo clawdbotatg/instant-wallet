@@ -21,7 +21,8 @@ export function amount(formatted: string, max = 6): string {
 
 /** A relay fee in words, dollars beside the coin: "0.00004 ETH ($0.15)" or "0.03 USDC". The quote's feeUsdc is the
  * same fee in dollars (the relay prices it), so no other price is needed. */
-export function feeText(fee: { feeUsdc: string | bigint; feeEth: string | bigint }, token: "usdc" | "eth", coin: string): string {
+export function feeText(fee: { feeUsdc: string | bigint; feeEth: string | bigint; self?: boolean }, token: "usdc" | "eth", coin: string): string {
+  if (fee.self) return "None"; // your browser wallet executes it and pays the gas
   const dollars = Number(BigInt(fee.feeUsdc)) / 1e6;
   return feeWords(token === "usdc" ? dollars : Number(BigInt(fee.feeEth)) / 1e18, token === "usdc" ? "USDC" : coin, dollars);
 }

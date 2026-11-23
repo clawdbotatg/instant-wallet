@@ -6,7 +6,7 @@ import { CHAINS, chainById, explorerAddress, explorerTx, publicClient, nativeSym
 import { amount as fmtAmount, compactUsd, usd, feeText } from "@/lib/format";
 import { abi } from "@/lib/safe/core";
 import type { Quote } from "@/lib/safe/fee";
-import { type FeeToken, type Signer, type Stage, Shared, Stale, asItself, feeCall, getQuote, itselfSend, ownerSigners, ownersSend, pickFee, sendKind, queueNote, signThenQueue, signerLabel, signerOptions, usesWedgie } from "@/lib/safe/send";
+import { type FeeToken, type Signer, type Stage, Shared, Stale, asItself, feeCalls, getQuote, itselfSend, ownerSigners, ownersSend, pickFee, sendKind, queueNote, signThenQueue, signerLabel, signerOptions, usesWedgie } from "@/lib/safe/send";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { POPULAR, type SwapRoute, type Token, swapCalls } from "@/lib/safe/swap";
 import { uniswapRoute } from "@/lib/safe/uniswap";
@@ -495,7 +495,7 @@ export function SafeSwap({
         <div className={`card confirm${route ? "" : " pending"}`}>
           <div className="stack" style={{ gap: 4, paddingBottom: 8 }}>
             {ran && route && fee && from && to ? (
-              <WhatItDoes quiet chainId={chainId} safe={account.address} calls={[...swapCalls(route), feeCall(fee, feeToken)]} same={`${from.asset}|${to.address}|${amountIn}`} else={quoted} />
+              <WhatItDoes quiet chainId={chainId} safe={account.address} calls={[...swapCalls(route), ...feeCalls(fee, feeToken)]} same={`${from.asset}|${to.address}|${amountIn}`} else={quoted} />
             ) : route ? (
               quoted
             ) : (
@@ -578,7 +578,7 @@ export function SafeSwap({
           {busy ? stageLabel(stage) : "Sign to swap"}
         </button>
       )}
-      {!busy && canSelf && st?.deployed && route && !needsComputer && !quoting && (
+      {!busy && canSelf && st?.deployed && route && !needsComputer && !quoting && !fee?.self && (
         <FromMine onClick={() => swap(true)} />
       )}
       <Progress stage={stage} chainId={chainId} hash={hash} />

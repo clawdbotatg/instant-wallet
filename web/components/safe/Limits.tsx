@@ -5,8 +5,8 @@ import { formatUnits, parseUnits, zeroAddress } from "viem";
 import { amount as fmtAmount, feeText, usd } from "@/lib/format";
 import { chainById, ETH, nativeSymbol } from "@/lib/chains";
 import { FEE_ALLOWANCE } from "@/lib/safe/config";
-import { feeAllowanceCalls, setBudgetCalls } from "@/lib/safe/core";
-import { type Prepared, Shared, finishOwners, getQuote, ownerSigners, prepareOwners, signerLabel, usesWedgie } from "@/lib/safe/send";
+import { setBudgetCalls } from "@/lib/safe/core";
+import { type Prepared, Shared, feeApartCalls, finishOwners, ownerSigners, prepareOwners, signerLabel, usesWedgie } from "@/lib/safe/send";
 import { type ChainState, type SafeAccount, readChain } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
@@ -68,7 +68,7 @@ export function ChainLimit({ account, st, assets, onRefresh, onPoll, toast, onCl
       const now = BigInt(Math.floor(Date.now() / 1000));
       const u = chainById(chainId)?.usdc;
       // the fee rule is set once (with the budget): re-send it only on a wallet from before it existed
-      const feeApart = fresh.budget.feeUsdc === null && u ? feeAllowanceCalls(account.address, u, (await getQuote(chainId, "setup")).relayer, FEE_ALLOWANCE[chainId] ?? 1_000_000n, now) : [];
+      const feeApart = fresh.budget.feeUsdc === null && u ? await feeApartCalls(chainId, account.address, u, FEE_ALLOWANCE[chainId] ?? 1_000_000n, now) : [];
       const calls = [...setBudgetCalls(account.address, { usdc, eth }, now), ...feeApart];
       const p = await prepareOwners({ account, state: fresh, calls, signers, feeToken: haveUsdc || !haveEth ? "usdc" : "eth", setup: true, wedgie: w, label: "Change the daily limit" });
       const ww = w;

@@ -1,7 +1,9 @@
 import type { Hash, Hex } from "viem";
 import { relayJson } from "./relayFund";
 import { callsOf } from "./describe";
-import { waitFor } from "./send";
+import { selfFirst, waitFor } from "./send";
+import { execData } from "./core";
+import { hotSend } from "./hot";
 import { startSending } from "./sending";
 import { type Waiting, allSignatures } from "./share";
 
@@ -17,17 +19,23 @@ export async function executeWaiting(w: Waiting, sigs: Waiting["sigs"], wedgie: 
   onStage("sending");
   const out = startSending(w.chainId, w.safe, callsOf(w.tx));
   try {
-    const { ok, status, j } = await relayJson(w.chainId, "/api/safe/relay", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ chainId: w.chainId, kind: "exec", safe: w.safe, tx: w.tx, signatures: allSignatures({ ...w, sigs }), wedgie }, (_, v) => (typeof v === "bigint" ? v.toString() : v)),
-    });
-    if (!ok) throw new Error(j.error || `relay: ${status}`);
-    sentOut(w.hash, j.hash);
-    out.hash(j.hash);
-    onStage("confirming", j.hash);
-    await waitFor(w.chainId, j.hash);
-    return j.hash;
+    const signatures = allSignatures({ ...w, sigs });
+    let hash: Hash;
+    if (await selfFirst(w.chainId)) hash = await hotSend(w.chainId, w.safe, execData(w.tx, signatures));
+    else {
+      const { ok, status, j } = await relayJson(w.chainId, "/api/safe/relay", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ chainId: w.chainId, kind: "exec", safe: w.safe, tx: w.tx, signatures, wedgie }, (_, v) => (typeof v === "bigint" ? v.toString() : v)),
+      });
+      if (!ok) throw new Error(j.error || `relay: ${status}`);
+      hash = j.hash;
+    }
+    sentOut(w.hash, hash);
+    out.hash(hash);
+    onStage("confirming", hash);
+    await waitFor(w.chainId, hash);
+    return hash;
   } finally {
     out.done();
   }

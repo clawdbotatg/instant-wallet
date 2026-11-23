@@ -46,7 +46,8 @@ To keep it running without a Terminal window, and start it every time you log in
 (`--uninstall` stops that; its log is `~/.instantwallet-local/run.log`).
 
 1. Tap "Select existing passkey" and use your passkey. Your wallet opens.
-2. To send, pay the gas one of two ways:
+2. To send, pay the gas one of two ways. With a browser wallet and no relay made, the browser wallet is used by
+   itself: Sign executes from it.
    - **Your relay:** Settings, at the bottom, **Your relay** → **Make my relay**. Send it a little ETH on each
      network you use (Base: $1 is plenty, Ethereum: about $5). Each send's fee goes back to it, so you only pay the
      gas. Its key stays in `web/.env.local` on your computer.

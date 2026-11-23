@@ -8,7 +8,7 @@ import { claimUrl } from "@/lib/claim";
 import { cardsPdfBlob } from "@/lib/claimBatch";
 import { amount as fmtAmount, feeText, usd } from "@/lib/format";
 import { transfer } from "@/lib/safe/core";
-import { type FeeToken, type Stage, Shared, budgetSend, feeCall, getQuote, ownersSend, plan, sendKind, signerLabel, usesWedgie } from "@/lib/safe/send";
+import { type FeeToken, type Stage, Shared, budgetSend, feeCalls, getQuote, ownersSend, plan, sendKind, signerLabel, usesWedgie } from "@/lib/safe/send";
 import type { ChainState, SafeAccount } from "@/lib/safe/state";
 import { Wedgie, wedgieSupported } from "@/lib/safe/wedgie";
 import type { Asset } from "@/lib/types";
@@ -251,7 +251,7 @@ export function Share({ account, states, assets, chainId: startChain, onDone }: 
           <>
             {pre && !funding && st && (
               <div className="card confirm" style={{ textAlign: "left", width: "100%" }}>
-                <WhatItDoes quiet chainId={chainId} safe={account.address} calls={[...pre.calls, feeCall(pre.q, pre.feeToken)]} />
+                <WhatItDoes quiet chainId={chainId} safe={account.address} calls={[...pre.calls, ...feeCalls(pre.q, pre.feeToken)]} />
                 <div className="line">
                   <span>Network</span>
                   <span><Net chainId={chainId} /></span>

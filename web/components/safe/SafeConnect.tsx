@@ -311,7 +311,7 @@ function SafeRequest({
           {busy ? stageLabel(stage) : pending.kind === "calls" ? (prepared ? "Sign" : "Getting the fee…") : "Sign"}
         </button>
       )}
-      {!refused && !busy && pending.kind === "calls" && mine && (
+      {!refused && !busy && pending.kind === "calls" && mine && !prepared?.opts.self && (
         <FromMine onClick={() => go(true)} />
       )}
       <Progress stage={stage} chainId={pending.chainId} hash={hash} />

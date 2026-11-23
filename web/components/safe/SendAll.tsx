@@ -103,8 +103,9 @@ export function SendAll({
       );
       if (prev && !feeMoved(prev.fee, q)) return;
       // the fee in USDC when there's enough of it, else ETH
-      const feeToken: FeeToken | null =
-        usdcA && BigInt(usdcA.balance) > BigInt(q.feeUsdc)
+      const feeToken: FeeToken | null = q.self
+        ? "usdc" // no fee to pay: every coin goes out whole
+        : usdcA && BigInt(usdcA.balance) > BigInt(q.feeUsdc)
           ? "usdc"
           : ethA && BigInt(ethA.balance) > BigInt(q.feeEth)
             ? "eth"

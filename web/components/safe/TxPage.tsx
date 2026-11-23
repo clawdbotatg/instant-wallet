@@ -9,7 +9,7 @@ import { type Call, type Sig, abi, batch, execData, safeTxHash, signerAddress } 
 import { callsOf, relayFee } from "@/lib/safe/describe";
 import { unpackMultiSend } from "@/lib/safe/fee";
 import { connectHot, hotAvailable, hotHas, hotSend, hotSign } from "@/lib/safe/hot";
-import { type Prepared, Shared, feeCall, finishOwners, getQuote, ownerSigners, ownersSend, prepareOwners, usesWedgie, waitFor } from "@/lib/safe/send";
+import { type Prepared, Shared, feeCalls, finishOwners, getQuote, ownerSigners, ownersSend, prepareOwners, usesWedgie, waitFor } from "@/lib/safe/send";
 import { signForSite } from "@/lib/safe/connect";
 import { type Waiting, allSignatures, checkSigs, deleteHash, dropTx, forgetLocal, fromLink, headline, openTx, readWaiting, safeAppTxLink, shareTx, sigHex, txLink } from "@/lib/safe/share";
 import { passkeySign } from "@/lib/safe/sign";
@@ -362,7 +362,7 @@ export function TxPage({ chainId, safe, code: inWallet }: { chainId: number; saf
         return;
       }
       const q = await getQuote(chainId, chain.passkeys.length > 1 ? "exec-wedgie" : "exec");
-      const t = batch([feeCall(q, fees.find(Boolean)?.token === "eth" ? "eth" : "usdc")], w.tx.nonce);
+      const t = batch(feeCalls(q, fees.find(Boolean)?.token === "eth" ? "eth" : "usdc"), w.tx.nonce);
       const r: Waiting = { chainId, safe, tx: t, hash: safeTxHash(chainId, safe, t), sigs: [], label: `Reject: ${w.label ?? "transaction"}` };
       await shareTx(r);
       openTx(r);

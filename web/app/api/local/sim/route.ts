@@ -1,17 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isLocalHost } from "@/lib/local";
-import { noExternal } from "@/lib/noext";
 
 export const dynamic = "force-dynamic";
 
 /**
  * Your own simulator (clawdbotatg/iw-sim, started by run-local.sh on SIM_URL), passed through as it is: the page
- * checks its signed answer (lib/safe/sim.ts). Never on our site (404).
+ * checks its signed answer (lib/safe/sim.ts). Never on our site (404). On with Settings → No external traffic too:
+ * it then reads only your nodes, and prices from your indexer (run-local.sh: PRICES_URL, NO_EXTERNAL_FILE).
  */
 const local = (req: NextRequest) =>
   !process.env.VERCEL &&
   !!process.env.SIM_URL &&
-  !noExternal() && // (it reads Alchemy for what your node can't trace: off with No external traffic)
   isLocalHost((req.headers.get("host") || "").split(":")[0]);
 const pass = (r: Response) =>
   new NextResponse(r.body, {

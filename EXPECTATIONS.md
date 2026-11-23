@@ -19,6 +19,8 @@ What Instant Wallet must always do. If a change breaks one, it doesn't ship. In 
 - Money out is red with a −. Money in is green with a +. Dollars next to it.
 - The coins come from the simulator (iw-sim, sim.instantwallet.io), its answer checked. You can point the
   wallet at your own simulator (Settings → Simulator).
+- A copy on your own computer with No external traffic on still shows the coins: the simulator on that computer
+  runs it, from your node, with prices from your indexer. Never the hosted one.
 - On Ethereum and Gnosis you can have this browser work the coins out itself (a light client: the node proves
   every answer). It says "Checked in this browser". If it can't prove an answer it says so in red: never the
   unchecked answer, never the simulator instead.

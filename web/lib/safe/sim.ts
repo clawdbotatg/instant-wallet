@@ -110,9 +110,10 @@ async function light(chainId: number, safe: Address, tx: SafeTxLike): Promise<Si
  * computer and only if it has no answer the hosted one. null: no answer we can trust. */
 export async function simulate(chainId: number, safe: Address, tx: SafeTxLike): Promise<SimAnswer | null> {
   if (lightOn(chainId)) return light(chainId, safe, tx);
-  // No external traffic: no simulator can read this without Alchemy yet (your node has no tracing)
-  if (noExt()) return null;
   const ask = (url: string) => run({ chain: chainId, safe, tx, url, store: "iws.simKeys" });
+  // No external traffic: the simulator on this computer only (it reads your node, and prices from your indexer).
+  // No answer from it (a node without debug_traceCall): none, never the hosted one
+  if (noExt()) return (await localSim()) ? ask(location.origin + LOCAL_SIM).catch(() => null) : null;
   if (!mine() && (await localSim())) {
     const a = await ask(location.origin + LOCAL_SIM).catch(() => null);
     if (a) return a;

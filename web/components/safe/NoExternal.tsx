@@ -24,7 +24,7 @@ export function NoExternal({ toast }: { toast: (m: string) => void }) {
         No external traffic
       </label>
       {on ? (
-        <span className="fine">On. Only {on.chains.map(c => chainById(c)?.name ?? c).join(", ")} (your node). Pictures over Tor. No simulation, no swaps between networks.</span>
+        <span className="fine">On. Only {on.chains.map(c => chainById(c)?.name ?? c).join(", ")} (your node). Pictures over Tor. No swaps between networks.</span>
       ) : (
         <span className="fine">Only your own nodes. You won&apos;t see networks you don&apos;t run a node for.</span>
       )}

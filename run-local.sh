@@ -170,7 +170,8 @@ else
 fi
 
 # 4e. your own simulator (github.com/clawdbotatg/iw-sim): what a transaction moves, before you sign it. Reads your
-# nodes (RPC_<chainId>, if they have debug_traceCall), Alchemy for the rest and for prices. The wallet asks it first and
+# nodes (RPC_<chainId>, if they have debug_traceCall), Alchemy for the rest. Prices: your indexer first, then Alchemy.
+# With Settings → No external traffic on, only your nodes and your indexer. The wallet asks it first and
 # sim.instantwallet.io only when it has no answer. Its key stays in iw-sim/.sim-key. Needs Node 24+.
 SIMDIR="$DIR/iw-sim"
 SIM=""
@@ -223,7 +224,7 @@ if [ -n "$IX" ]; then
 fi
 SIMP=""
 if [ -n "$SIM" ]; then
-  (cd "$SIMDIR" && while :; do env $SIMENV ${AK:+ALCHEMY_API_KEY=$AK} PORT=8645 node server.ts; sleep 1; done) >"$DIR/sim.log" 2>&1 &
+  (cd "$SIMDIR" && while :; do env $SIMENV ${AK:+ALCHEMY_API_KEY=$AK} ${IX:+PRICES_URL=http://127.0.0.1:4100} NO_EXTERNAL_FILE="$DIR/no-external.json" PORT=8645 node server.ts; sleep 1; done) >"$DIR/sim.log" 2>&1 &
   SIMP=$!
 fi
 npx -y local-ssl-proxy@2.0.5 --source 443 --target "$PORT" --cert "$DIR/$NAME.pem" --key "$DIR/$NAME-key.pem" >/dev/null 2>&1 &

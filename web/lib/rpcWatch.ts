@@ -35,7 +35,22 @@ const SCRIPT = `local w=tonumber(ARGV[1])
 local function bump(k,ttl) local n=redis.call('INCRBY',k,w) if n==w then redis.call('EXPIRE',k,ttl) end return n end
 local r={bump(KEYS[1],70),bump(KEYS[2],3700),bump(KEYS[3],90000),bump(KEYS[4],7200),bump(KEYS[5],180000)}
 redis.call('ZINCRBY',KEYS[6],w,ARGV[2]) redis.call('EXPIRE',KEYS[6],180000)
+if ARGV[3]~='' then redis.call('HSETNX',KEYS[7],ARGV[2],ARGV[3]) redis.call('EXPIRE',KEYS[7],180000) end
 return r`;
+
+/** Where an IP is, from the host's own headers (Vercel): "Denver, CO, US, AS7922". No lookup service: an IP never leaves us. */
+function whereOf(req: Request): string {
+  const h = (k: string) => {
+    const v = req.headers.get("x-vercel-ip-" + k) ?? "";
+    try {
+      return decodeURIComponent(v).slice(0, 60);
+    } catch {
+      return v.slice(0, 60);
+    }
+  };
+  const as = h("as-number");
+  return [h("city"), h("country-region"), h("country"), as && "AS" + as].filter(Boolean).join(", ");
+}
 
 /** Counts this call; a reason when this IP is over a limit (the call is refused), else null. Never throws. */
 export async function rpcCheck(req: Request, methods: string[]): Promise<string | null> {
@@ -44,10 +59,11 @@ export async function rpcCheck(req: Request, methods: string[]): Promise<string 
     const w = methods.reduce((a, m) => a + (HEAVY.has(m) ? L.heavy : 1), 0);
     const ip = ipOf(req);
     const t = new Date().toISOString(), day = t.slice(0, 10), hour = t.slice(0, 13);
-    const keys = [`${P}m:${ip}:${t.slice(0, 16)}`, `${P}h:${ip}:${hour}`, `${P}d:${ip}:${day}`, `${P}site:${hour}`, `${P}site:${day}`, `${P}top:${day}`];
+    const keys = [`${P}m:${ip}:${t.slice(0, 16)}`, `${P}h:${ip}:${hour}`, `${P}d:${ip}:${day}`, `${P}site:${hour}`, `${P}site:${day}`, `${P}top:${day}`, `${P}where:${day}`];
+    const where = whereOf(req), at = where ? ` (${where})` : "";
     let n: number[];
     try {
-      n = (await kv(["EVAL", SCRIPT, keys.length, ...keys, w, ip])).map(Number);
+      n = (await kv(["EVAL", SCRIPT, keys.length, ...keys, w, ip, where])).map(Number);
     } catch {
       n = []; // no scripts (local memory store): plain counts, no top list
       for (const [i, ttl] of [70, 3700, 90000, 7200, 180000].entries()) {
@@ -68,9 +84,9 @@ export async function rpcCheck(req: Request, methods: string[]): Promise<string 
     const over = m > L.min ? "minute" : h > L.hour ? "hour" : d > L.day ? "day" : "";
     const half = m > L.min / 2 || h > L.hour / 2 || d > L.day / 2;
     if (over && (await first(`blocked:${ip}:${day}`, 90000)))
-      void tell(`🚫 RPC: ${ip} blocked (over the ${over} limit). Today ${d} of ${L.day}; this hour ${h} of ${L.hour}. Asked now: ${what}`);
+      void tell(`🚫 RPC: ${ip}${at} blocked (over the ${over} limit). Today ${d} of ${L.day}; this hour ${h} of ${L.hour}. Asked now: ${what}`);
     else if (half && (await first(`half:${ip}:${day}`, 90000)))
-      void tell(`⚠️ RPC: ${ip} past half a limit. This minute ${m}/${L.min}, hour ${h}/${L.hour}, day ${d}/${L.day}. Asked now: ${what}`);
+      void tell(`⚠️ RPC: ${ip}${at} past half a limit. This minute ${m}/${L.min}, hour ${h}/${L.hour}, day ${d}/${L.day}. Asked now: ${what}`);
     if (sh > L.siteHour && (await first(`sitehot:${hour}`, 7200)))
       void tell(`📈 RPC: the whole site is at ${sh} this hour (watch line ${L.siteHour}). Not blocking anyone.`);
     return over ? `Too many reads this ${over}. Wait a bit.` : null;
@@ -101,7 +117,9 @@ export async function dailySummary() {
   const top: string[] = await kv(["ZREVRANGE", `${P}top:${y}`, 0, 4, "WITHSCORES"]).catch(() => []);
   const ips = Number(await kv(["ZCARD", `${P}top:${y}`]).catch(() => 0));
   const L = await limits();
+  const ipList = (top ?? []).filter((_, i) => i % 2 === 0);
+  const where: (string | null)[] = ipList.length ? await kv(["HMGET", `${P}where:${y}`, ...ipList]).catch(() => []) : [];
   const lines = [];
-  for (let i = 0; i + 1 < (top?.length ?? 0); i += 2) lines.push(`  ${top[i]}: ${top[i + 1]}${Number(top[i + 1]) > L.day ? " (blocked)" : ""}`);
+  for (let i = 0; i + 1 < (top?.length ?? 0); i += 2) lines.push(`  ${top[i]}${where?.[i / 2] ? ` (${where[i / 2]})` : ""}: ${top[i + 1]}${Number(top[i + 1]) > L.day ? " (blocked)" : ""}`);
   await tell(`📊 RPC on ${y}: ${total} (weighted) from ${ips} IPs. Limits per IP: ${L.min}/min, ${L.hour}/hour, ${L.day}/day.\nTop:\n${lines.join("\n") || "  none"}`);
 }

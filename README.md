@@ -93,6 +93,7 @@ mkcert's root certificate can vouch for any site on your computer. Its key never
 
 - `EXPECTATIONS.md`: what the wallet must always do. Read it first.
 - `docs/FIX-LIST.md`: what's known to be wrong, to fix one at a time.
+- `docs/MODES.md`: mountain man (your own computer, as CROPS as possible) and finance bro (our site, smooth).
 - `docs/CROPS.md`: the plan from quick sends to full self-custody, against EF's high-CROPS wallet criteria.
 - `docs/SAFE-APP.md`: what's built, the relay, the tests.
 - `docs/CUSTODY.md`, `docs/MULTI-SIGNER.md`: signers, daily limit, shared transactions.

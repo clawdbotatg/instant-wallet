@@ -4,7 +4,7 @@ Home shows each balance at once, as today. A light client (Colibri) proves it in
 faded until its proof lands, then full. A proof that contradicts the number turns the row red. Ethereum and Gnosis.
 This is `docs/CROPS.md` §6 "Read" and "Indexing", done without slowing Home.
 
-Built 11-13, steps 1 to 4, behind Settings → Your node (off by default): `<Proven>` in `components/bits.tsx`,
+Built 11-13, steps 1 to 4, behind Settings → Your node (11-24: on by default in mountain man mode, off on our site, `docs/MODES.md`): `<Proven>` in `components/bits.tsx`,
 `tools/proven-e2e.mjs` in a browser. Step 0 measured on a laptop only (`tools/proven-measure.mts`), not yet on a phone.
 
 ## What exists

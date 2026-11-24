@@ -1,3 +1,4 @@
+import { proveByDefault } from "../mode";
 import type { Address } from "viem";
 import { SIM_DEFAULT, type SafeTxLike, type SimAnswer, simulate as run } from "clear-signing-safe-kit";
 import { chainById, nativeSymbol, rpcPath } from "@/lib/chains";
@@ -74,7 +75,8 @@ function lights(): Light {
   }
 }
 export const canLight = (chainId: number) => LIGHT_CHAINS.includes(chainId);
-export const lightOn = (chainId: number) => canLight(chainId) && !!lights()[chainId]?.on;
+// not set by hand, it follows the mode (lib/mode.ts): on in mountain man mode
+export const lightOn = (chainId: number) => canLight(chainId) && (lights()[chainId]?.on ?? proveByDefault());
 export const lightProver = (chainId: number) => lights()[chainId]?.prover || PROVER[chainId];
 export function setLight(chainId: number, on: boolean, prover?: string) {
   const all = lights();

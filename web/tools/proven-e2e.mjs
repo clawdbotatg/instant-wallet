@@ -100,7 +100,8 @@ const totalFull = async state => {
 
 // ---- 1. switch off
 await page.goto(`${APP}/${WALLET}`);
-await page.evaluate(() => localStorage.removeItem("iws.proven"));
+// a dev server is a local copy: mountain man mode, proving on by default. This test is the switch by hand.
+await page.evaluate(() => (localStorage.setItem("iws.mode", "bro"), localStorage.removeItem("iws.proven"), localStorage.removeItem("iws.proven.off")));
 await page.reload();
 await until(async () => new Set((await rows()).map(x => x.net)).size === 3 && (await total()).cls === "big", 120_000, "Home's fresh rows, all three networks");
 let r = await rows();
@@ -207,7 +208,7 @@ if (red) {
 }
 
 // ---- and off again: drawn as before at once
-await page.evaluate(() => localStorage.removeItem("iws.proven"));
+await page.evaluate(() => (localStorage.removeItem("iws.proven"), localStorage.removeItem("iws.proven.off")));
 await page.reload();
 await until(async () => (await rows()).length > 0 && (await total()).cls === "big", 60_000, "Home again");
 ok((await page.$$(".proven, .proven-mark")).length === 0, "off again: no .proven anywhere");

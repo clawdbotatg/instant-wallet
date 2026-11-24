@@ -173,6 +173,17 @@ Button sizes (11-11):
 
 `node web/tools/same-check.mjs` fails a type-in screen with no `autoFocus`, and one of those with no `openFocus`.
 
+## 8. Mountain man on your own computer, finance bro on our site
+
+- A copy on your own computer checks everything and trusts no server, by default, even when that is slow or costs
+  many calls to your node (11-24). CROPS work lands there first.
+- Our site and the app stay smooth: a change never adds a wait, a red screen that hangs on someone else's server, or
+  node calls that eat our limits. They still do every cypherpunk thing that is free.
+- A mode only picks defaults. Every switch can be flipped by hand in either mode, and stays as it was left.
+  Settings → Mode.
+
+`docs/MODES.md`, `web/lib/mode.ts`, `npx tsx web/tools/mode-check.mts`.
+
 ## Known gaps (2026-10-29)
 
 - `<Money>` shows the coin first, dollars after; dollars-first not decided.

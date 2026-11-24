@@ -1,6 +1,7 @@
 import type { Address } from "viem";
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import { LIGHT_CHAINS, LIGHT_CHUNK, lightBalances } from "./light";
+import { proveByDefault } from "../mode";
 
 /**
  * Home's balances, proven in the background (docs/PROVEN-BALANCES.md). Home draws what our server says at once; this
@@ -140,24 +141,37 @@ export function stateOf(t: Table, a: { chainId: number; asset: string }): Proven
 
 // ---- in the page ----
 
-/** Settings → Your node, on a network with a light client: prove its balances in this browser. Off by default, per
- * network. No network given: is any on. A network that isn't being proven (its switch off, or no light client:
- * Base) is drawn as always, never faded (Austin 11-14). */
+/** Settings → Your node, on a network with a light client: prove its balances in this browser, per network. No
+ * network given: is any on. Not set by hand, it follows the mode (lib/mode.ts): on in mountain man mode, off in
+ * finance bro mode (a round costs about a node call per coin). A network that isn't being proven (its switch off, or
+ * no light client: Base) is drawn as always, never faded (Austin 11-14).
+ * KEY holds the networks turned on by hand, OFF the ones turned off by hand. */
 const KEY = "iws.proven";
-function ons(): number[] {
+const OFF = "iws.proven.off";
+function list(k: string): number[] {
   try {
-    const v = localStorage.getItem(KEY);
+    const v = localStorage.getItem(k);
     if (v === "on") return LIGHT_CHAINS; // the first switch was one for both
     return (JSON.parse(v || "[]") as number[]).filter(canProve);
   } catch {
     return [];
   }
 }
+function ons(): number[] {
+  const on = list(KEY);
+  if (!proveByDefault()) return on;
+  const off = list(OFF);
+  return LIGHT_CHAINS.filter(c => on.includes(c) || !off.includes(c));
+}
 export const provenOn = (chainId?: number): boolean => (chainId === undefined ? ons().length > 0 : ons().includes(chainId));
 export function setProven(chainId: number, on: boolean) {
-  const all = ons().filter(c => c !== chainId);
+  const put = (k: string, add: boolean) => {
+    const all = list(k).filter(c => c !== chainId);
+    localStorage.setItem(k, JSON.stringify(add ? [...all, chainId] : all));
+  };
   try {
-    localStorage.setItem(KEY, JSON.stringify(on ? [...all, chainId] : all));
+    put(KEY, on);
+    put(OFF, !on);
   } catch {}
   reset(wallet);
 }

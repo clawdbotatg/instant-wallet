@@ -9,6 +9,7 @@ import { LocalOff } from "./LocalOff";
 import { isLocal } from "@/lib/local";
 import { useFeatures } from "@/lib/features";
 import { SimSetting } from "./SimSetting";
+import { ModeSetting } from "./ModeSetting";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { type Address, type Hex, encodeFunctionData, formatUnits, zeroAddress } from "viem";
 import { brainKey, isXdai, oldBurnerKey } from "@/lib/brand";
@@ -903,6 +904,10 @@ export function Keys({
 
       <Step title="Simulator" key="sim">
         <SimSetting toast={toast} />
+      </Step>
+
+      <Step title="Mode" key="mode">
+        <ModeSetting />
       </Step>
 
       {/* the address behind this device's passkey: the signer rows show only Touch ID / Face ID */}

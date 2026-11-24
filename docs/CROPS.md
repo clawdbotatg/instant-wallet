@@ -6,6 +6,9 @@
 
 CROPS = Censorship Resistance, Open source, Privacy, Security.
 
+**11-24: read `docs/MODES.md` first.** The levels below became two modes: a copy on your own computer is where we
+score CROPS (everything on by default); our site stays smooth.
+
 ## The idea
 
 One wallet, one address, six levels. Level 1 is easy and trusts us. Level 6 trusts nobody. The app shows your

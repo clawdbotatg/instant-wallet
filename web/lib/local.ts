@@ -35,6 +35,20 @@ export function noExt(): { chains: number[] } | null {
     return null;
   }
 }
+/**
+ * The networks where this copy reaches your node's consensus side too (run-local.sh: BEACON_URL_<chainId>): there the
+ * light client builds its own proofs from your node, through this copy, and asks no prover (lib/safe/light.ts).
+ * Never on our site.
+ */
+const BEACON = "iws.beacon";
+export function ownBeacon(chainId: number): string | undefined {
+  if (!isLocal()) return undefined;
+  try {
+    return (JSON.parse(localStorage.getItem(BEACON) || "[]") as number[]).includes(chainId) ? `${window.location.origin}/api/beacon/${chainId}` : undefined;
+  } catch {
+    return undefined;
+  }
+}
 /** Ask this copy whether it's on (each page load; Settings flips it): a change reloads the page into the new mode. */
 export async function syncNoExt(set?: boolean): Promise<string | undefined> {
   if (!isLocal()) return;
@@ -42,6 +56,9 @@ export async function syncNoExt(set?: boolean): Promise<string | undefined> {
     .then(r => r.json())
     .catch(() => null);
   if (!r || r.error) return r?.error ?? "No answer.";
+  try {
+    localStorage.setItem(BEACON, JSON.stringify(Array.isArray(r.beacon) ? r.beacon : []));
+  } catch {}
   const now = r.on ? JSON.stringify({ chains: r.chains }) : "null";
   if (now === JSON.stringify(noExt())) return;
   try {

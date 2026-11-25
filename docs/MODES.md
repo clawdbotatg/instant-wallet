@@ -42,8 +42,12 @@ CROPS = Censorship Resistance, Open source, Privacy, Security. The plan against 
 | Prove balances (Settings → Your node; Ethereum, Gnosis) | on | off | about a node call per coin per round, ≈600 an hour on our Alchemy key |
 | Run a light client for the signing preview (same place) | on | off | if the prover is down, every signing there is red with no coins; not timed on a phone |
 
-With **No external traffic** on, both stay off unless turned on by hand: a proof needs a prover and Colibri's is
-outside. Set your own prover and turn them on.
+**No prover (11-25):** a local copy that reaches your node's consensus side (its beacon API: `BEACON_URL_<chainId>`,
+found by `run-local.sh` beside your node) builds the proofs in the browser from your node alone. No prover, no
+checkpoint server. Lighthouse must run with its light client server on.
+
+With **No external traffic** on, both stay on only on those networks. Elsewhere they stay off unless turned on by
+hand: a proof needs a prover and Colibri's is outside. Set your own prover and turn them on.
 
 ## What only a local copy can do (needs its own server, not a mode switch)
 

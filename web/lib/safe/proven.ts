@@ -159,9 +159,8 @@ function list(k: string): number[] {
 }
 function ons(): number[] {
   const on = list(KEY);
-  if (!proveByDefault()) return on;
   const off = list(OFF);
-  return LIGHT_CHAINS.filter(c => on.includes(c) || !off.includes(c));
+  return LIGHT_CHAINS.filter(c => on.includes(c) || (proveByDefault(c) && !off.includes(c)));
 }
 export const provenOn = (chainId?: number): boolean => (chainId === undefined ? ons().length > 0 : ons().includes(chainId));
 export function setProven(chainId: number, on: boolean) {
@@ -249,8 +248,8 @@ async function round(chainId: number) {
   busy.add(chainId);
   try {
     // the same node and prover as the preview's light client (sim.ts): your own node when you set one, never ours instead
-    const [{ rpcPath }, { lightProver, WASM }] = await Promise.all([import("@/lib/chains"), import("./sim")]);
-    const r = await lightBalances({ chainId, wallet: w as Address, coins: coins as Address[], rpc: rpcPath(chainId), prover: lightProver(chainId), wasm: WASM });
+    const [{ rpcPath }, { lightFrom, WASM }] = await Promise.all([import("@/lib/chains"), import("./sim")]);
+    const r = await lightBalances({ chainId, wallet: w as Address, coins: coins as Address[], rpc: rpcPath(chainId), ...lightFrom(chainId), wasm: WASM });
     if (w !== wallet) return;
     apply({ kind: "proved", chainId, ...r, at: Date.now() });
     fails.delete(chainId);

@@ -38,6 +38,16 @@ mem.set("iws.noext", JSON.stringify({ chains: [1] }));
 ok(!provenOn(1) && !lightOn(1), "local with No external traffic: no proving by default (the prover is outside)");
 setLight(1, true);
 ok(lightOn(1), "…but on by hand works");
+mem.clear();
+mem.set("iws.noext", JSON.stringify({ chains: [1, 100] }));
+mem.set("iws.beacon", "[1]");
+ok(provenOn(1) && lightOn(1), "local with No external traffic and your node's consensus side: proving on (no prover needed)");
+ok(!provenOn(100) && !lightOn(100), "…only on that network");
+setProven(1, false);
+ok(!provenOn(1) && lightOn(1), "…and a switch turned off by hand stays off");
+at("instantwallet.io");
+mem.set("iws.beacon", "[1]");
+ok(!provenOn(1) && !lightOn(1), "our site: never from a node's consensus side");
 
 at("localhost");
 mem.set("iws.proven", "on");

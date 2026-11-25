@@ -153,6 +153,28 @@ if ! grep -q '^RPC_URL_1=' "$ENV" 2>/dev/null && curl -sf -m 2 -H 'content-type:
   echo "Found your Ethereum node at 127.0.0.1:8545: your indexer reads from it."
 fi
 AK="$( (grep '^ALCHEMY_API_KEY=' "$ENV" || true) | cut -d= -f2-)"
+# your node's consensus side (its beacon API), on Ethereum and Gnosis: with it the light client in your browser
+# builds its own proofs from your node and asks no prover (web/app/api/beacon). Looked for beside the node, on the
+# usual ports (Lighthouse 5052, Prysm 3500, Teku 5051, Lodestar 9596, Nimbus 5052); or set BEACON_URL_<chainId>
+# in web/.env.local yourself. It must serve light client data.
+for kv in $IXENV; do
+  id="${kv%%=*}"; id="${id#RPC_URL_}"; url="${kv#*=}"
+  case "$id" in 1|100) ;; *) continue;; esac
+  grep -q "^BEACON_URL_$id=" "$ENV" 2>/dev/null && continue
+  host="$(printf '%s' "$url" | sed -E 's#^[a-z]+://([^/:]+).*#\1#')"
+  seen=""
+  for port in 5052 3500 5051 9596; do
+    b="http://$host:$port"
+    curl -sf -m 3 --connect-timeout 1 "$b/eth/v1/node/version" >/dev/null 2>&1 || continue
+    seen=1
+    if curl -sf -m 5 --connect-timeout 1 "$b/eth/v1/beacon/light_client/finality_update" >/dev/null 2>&1; then
+      echo "BEACON_URL_$id=$b" >> "$ENV"
+      echo "Found your node's consensus side at $b: your browser proves network $id from your node, with no prover."
+      seen=2; break
+    fi
+  done
+  [ "$seen" = 1 ] && echo "Your node for network $id doesn't serve light client data (Lighthouse: --light-client-server): proofs come from Colibri's prover."
+done
 for kv in $IXENV; do
   id="${kv%%=*}"; id="${id#RPC_URL_}"; url="${kv#*=}"
   case "$id" in 1) net=eth;; 8453) net=base;; 10) net=opt;; 42161) net=arb;; *) net="";; esac

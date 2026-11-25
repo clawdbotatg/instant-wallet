@@ -1,4 +1,4 @@
-import { isLocal, noExt } from "./local";
+import { isLocal, noExt, ownBeacon } from "./local";
 
 /**
  * The wallet's two modes (docs/MODES.md):
@@ -28,6 +28,7 @@ export function setMode(m: Mode) {
   } catch {}
 }
 export const mountain = () => mode() === "mountain";
-/** Proving in this browser (balances, the signing preview) is on unless someone turned it off. Not while No
- * external traffic is on: a proof needs a prover, and Colibri's is outside (turn it on by hand with your own). */
-export const proveByDefault = () => mountain() && !noExt();
+/** Proving in this browser (balances, the signing preview) is on unless someone turned it off. While No external
+ * traffic is on, only on a network whose proofs come from your own node (ownBeacon): elsewhere a proof needs a
+ * prover, and Colibri's is outside (turn it on by hand with your own). */
+export const proveByDefault = (chainId?: number) => mountain() && (!noExt() || (chainId !== undefined && !!ownBeacon(chainId)));

@@ -11,6 +11,10 @@ Built 11-13, steps 1 to 4, behind Settings → Your node (11-24: on by default i
 
 - `web/lib/safe/light.ts`: one Colibri client per network, `VerifiedOnly` (a failed proof throws). Used only for the
   tx preview (`lightRun`), and only when Settings → your node → "Check it in this browser" is on.
+- No prover (11-25): a local copy with `BEACON_URL_<chainId>` set (`run-local.sh` finds it) proves from your node
+  alone, through `app/api/beacon`. Colibri's "local" mode: about 1.2 s a call in Node, against 0.3 to 0.6 s with the
+  prover; in a browser, 50 coins proven 8 s after Home drew them. Checked against Alchemy and Colibri's beacon API
+  standing in for a node; not yet against a real node of ours (Free Trapper's).
 - Home's coins come from our server: `GET /api/portfolio` (Alchemy balances + prices), read in
   `SafeApp.tsx` `loadBalance`, drawn in the `card assets` rows.
 - So today a balance is trusted twice: Alchemy, and our server.

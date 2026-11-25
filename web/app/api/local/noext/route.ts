@@ -6,7 +6,8 @@ export const dynamic = "force-dynamic";
 
 /**
  * Settings → No external traffic (lib/noext.ts), a copy on your own computer only (404 on our site).
- *   GET  → { on, chains }: chains = the networks you have a node for (the only ones shown while it's on)
+ *   GET  → { on, chains, beacon }: chains = the networks you have a node for (the only ones shown while it's on),
+ *          beacon = the ones whose node proves by itself (BEACON_URL_<chainId>, app/api/beacon)
  *   POST { on } (JSON only: no other site can flip it) → the same, and the cookie that makes the page strict too
  */
 async function nodes(): Promise<Record<string, string>> {
@@ -22,7 +23,8 @@ async function nodes(): Promise<Record<string, string>> {
 }
 
 function answer(on: boolean, n: Record<string, string>) {
-  const res = NextResponse.json({ on, chains: Object.keys(n).map(Number) });
+  const beacon = Object.keys(process.env).filter(k => k.startsWith("BEACON_URL_") && process.env[k]).map(k => Number(k.slice(11)));
+  const res = NextResponse.json({ on, chains: Object.keys(n).map(Number), beacon });
   res.cookies.set("iw_noext", on ? "1" : "", { path: "/", sameSite: "strict", maxAge: on ? 10 * 365 * 86400 : 0 });
   return res;
 }

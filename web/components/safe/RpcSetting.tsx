@@ -7,6 +7,7 @@ import { isOnion, onTor, type TorState } from "@/lib/tor";
 import { PROVER } from "@/lib/safe/light";
 import { canLight, lightOn, lightProver, setLight } from "@/lib/safe/sim";
 import { provenOn, setProven } from "@/lib/safe/proven";
+import { ownBeacon } from "@/lib/local";
 import { TimedBar } from "../bits";
 
 /** Settings → Your node: where this browser reads the picked network and sends its transactions (lib/chains.ts). */
@@ -84,8 +85,8 @@ export function RpcSetting({ chainId, toast }: { chainId: number; toast: (m: str
           {light && (
             <div className="stack" style={{ gap: 4 }}>
               <div className="row" style={{ gap: 8 }}>
-                <div className="input grow"><input value={prover} onChange={e => setProver(e.target.value)} placeholder={PROVER[chainId]} inputMode="url" autoCapitalize="off" autoCorrect="off" /></div>
-                <button className="btn btn-sm" onClick={() => (saveLight(true), toast(prover.trim() ? "Using your prover" : "Using Colibri's prover"))}>
+                <div className="input grow"><input value={prover} onChange={e => setProver(e.target.value)} placeholder={ownBeacon(chainId) ? "Your node" : PROVER[chainId]} inputMode="url" autoCapitalize="off" autoCorrect="off" /></div>
+                <button className="btn btn-sm" onClick={() => (saveLight(true), toast(prover.trim() ? "Using your prover" : ownBeacon(chainId) ? "Your node proves it" : "Using Colibri's prover"))}>
                   Save
                 </button>
               </div>

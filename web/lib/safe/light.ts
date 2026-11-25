@@ -14,7 +14,15 @@ import { isOnion, torFetch } from "../tor";
  *
  * Reads go where the wallet's reads go (your node, over Tor for a .onion, else our proxy); block header proofs come from a Colibri prover
  * (theirs, or yours). VerifiedOnly: an answer that fails its proof throws, it never falls back to the plain answer.
+ *
+ * No prover at all (`beacon`, 11-25): a copy on your own computer that reaches your node's consensus side
+ * (lib/local.ts ownBeacon, app/api/beacon) builds the header proofs in this browser too (Colibri's "local" mode): the
+ * sync committee, the checkpoint and the blocks all come from your node, and nothing is asked of anyone else.
+ * Measured in Node against Alchemy and a full beacon API: about 1.2 s a call, against 0.3 to 0.6 s with the prover.
+ * Without `beacon`, Colibri's own list of outside servers is still used to start from (a checkpoint from
+ * beaconcha.in, the sync committee from colibri-proof.tech).
  */
+export type LightFrom = { prover?: string; beacon?: string };
 export const LIGHT_CHAINS = [1, 100];
 export const PROVER: Record<number, string> = { 1: "https://mainnet.colibri-proof.tech", 100: "https://gnosis.colibri-proof.tech" };
 // the wrapped native coin: wrapping says Deposit / Withdrawal, not Transfer
@@ -35,15 +43,18 @@ const ERC20 = parseAbi(["function symbol() view returns (string)", "function dec
 type Lc = { request(a: { method: string; params: unknown[] }): Promise<any> };
 const made = new Map<string, Promise<Lc>>();
 /** One light client per chain, node and prover, for the page's life (it keeps the sync committee it has checked). */
-function client(chainId: number, rpc: string, prover: string, wasm?: string): Promise<Lc> {
-  const k = `${chainId}|${rpc}|${prover}`;
+function client(chainId: number, rpc: string, from: LightFrom, wasm?: string): Promise<Lc> {
+  // your own node proves it, unless a prover was set by hand; either way what it starts from comes from your node
+  const own = from.beacon ? { beacon_apis: [from.beacon], checkpointz: [from.beacon] } : {};
+  const how = from.beacon && !from.prover ? { prover: [] as string[], prover_mode: "local" as const } : { prover: [from.prover || PROVER[chainId]], prover_mode: "hybrid" as const };
+  const k = `${chainId}|${rpc}|${from.prover || ""}|${from.beacon || ""}`;
   let c = made.get(k);
   if (!c) {
     c = import("@corpus-core/colibri-stateless").then(m => {
       if (wasm) m.set_wasm_url(wasm);
       // "latest" may be 90 s old (measured 11-11: proofs run 14 to 38 s old) (the default, 1 minute, failed on a phone when the prover ran behind: "proof for
       // latest too old"). A proof that is still too old is asked for again, twice, a block apart.
-      const lc = new m.default({ chainId, rpcs: [rpc], prover: [prover], prover_mode: "hybrid", proofStrategy: m.Strategy.VerifiedOnly, max_latest_age_seconds: 90, ...(isOnion(rpc) ? { fetch: torFetch() } : {}) }) as unknown as Lc;
+      const lc = new m.default({ chainId, rpcs: [rpc], ...own, ...how, proofStrategy: m.Strategy.VerifiedOnly, max_latest_age_seconds: 90, ...(isOnion(rpc) ? { fetch: torFetch() } : {}) }) as unknown as Lc;
       const request = async (a: { method: string; params: unknown[] }, left = 2): Promise<any> => {
         try {
           return await lc.request(a);
@@ -53,6 +64,9 @@ function client(chainId: number, rpc: string, prover: string, wasm?: string): Pr
           return request(a, left - 1);
         }
       };
+      // building its own proofs, its first "latest" call fails ("cannot verify freshness of latest block without
+      // block context") until it has asked for a block once: so it asks here, before anything else can
+      if (how.prover_mode === "local") return request({ method: "eth_blockNumber", params: [] }).then(() => ({ request }) as Lc);
       return { request } as Lc;
     });
     made.set(k, c);
@@ -62,8 +76,8 @@ function client(chainId: number, rpc: string, prover: string, wasm?: string): Pr
 }
 
 /** Start it ahead of the first transaction: loading it and checking the sync committee takes a few seconds, once. */
-export function lightWarm(chainId: number, rpc: string, prover?: string, wasm?: string) {
-  client(chainId, rpc, prover || PROVER[chainId], wasm)
+export function lightWarm(o: { chainId: number; rpc: string; wasm?: string } & LightFrom) {
+  client(o.chainId, o.rpc, o, o.wasm)
     .then(lc => lc.request({ method: "eth_blockNumber", params: [] }))
     .catch(() => {});
 }
@@ -91,8 +105,8 @@ export type LightBalances = { block: number; time: number; balances: Record<stri
  * block after it). A coin whose call fails (no code, reverts, an answer that isn't one number) is null; the others are
  * still proven. A proof that fails throws: never an unproven number.
  */
-export async function lightBalances(o: { chainId: number; wallet: Address; coins: Address[]; rpc: string; prover?: string; wasm?: string }): Promise<LightBalances> {
-  const lc = await client(o.chainId, o.rpc, o.prover || PROVER[o.chainId], o.wasm);
+export async function lightBalances(o: { chainId: number; wallet: Address; coins: Address[]; rpc: string; wasm?: string } & LightFrom): Promise<LightBalances> {
+  const lc = await client(o.chainId, o.rpc, o, o.wasm);
   const head = await lc.request({ method: "eth_getBlockHeader", params: ["latest"] });
   const block = head?.blockNumber as Hex;
   if (!block) throw new Error("no block header");
@@ -121,8 +135,8 @@ export type LightAnswer = Pick<SimAnswer, "ok" | "block" | "changes">;
  * signature; a Safe that wants more than one is run as if it wanted one). So a batch (a delegatecall) runs whole,
  * with the Safe's own code, guard and all. Throws when the light client can't prove an answer.
  */
-export async function lightRun(o: { chainId: number; safe: Address; tx: SafeTxLike; rpc: string; prover?: string; wasm?: string }): Promise<LightAnswer> {
-  const lc = await client(o.chainId, o.rpc, o.prover || PROVER[o.chainId], o.wasm);
+export async function lightRun(o: { chainId: number; safe: Address; tx: SafeTxLike; rpc: string; wasm?: string } & LightFrom): Promise<LightAnswer> {
+  const lc = await client(o.chainId, o.rpc, o, o.wasm);
   const safe = o.safe.toLowerCase() as Address;
   const call = (to: string, data: Hex) => lc.request({ method: "eth_call", params: [{ to, data }, "latest"] }) as Promise<Hex>;
   const [ownersHex, thresholdHex] = await Promise.all([call(safe, encodeFunctionData({ abi: SAFE, functionName: "getOwners" })), call(safe, encodeFunctionData({ abi: SAFE, functionName: "getThreshold" }))]);

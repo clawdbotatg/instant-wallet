@@ -1,4 +1,5 @@
 import { proveByDefault } from "../mode";
+import { ownBeacon } from "../local";
 import type { Address } from "viem";
 import { SIM_DEFAULT, type SafeTxLike, type SimAnswer, simulate as run } from "clear-signing-safe-kit";
 import { chainById, nativeSymbol, rpcPath } from "@/lib/chains";
@@ -76,8 +77,11 @@ function lights(): Light {
 }
 export const canLight = (chainId: number) => LIGHT_CHAINS.includes(chainId);
 // not set by hand, it follows the mode (lib/mode.ts): on in mountain man mode
-export const lightOn = (chainId: number) => canLight(chainId) && (lights()[chainId]?.on ?? proveByDefault());
+export const lightOn = (chainId: number) => canLight(chainId) && (lights()[chainId]?.on ?? proveByDefault(chainId));
 export const lightProver = (chainId: number) => lights()[chainId]?.prover || PROVER[chainId];
+/** Where its proofs come from: a prover set by hand, else your own node (a local copy that reaches its consensus
+ * side: no prover at all), else Colibri's prover. */
+export const lightFrom = (chainId: number) => ({ prover: lights()[chainId]?.prover, beacon: ownBeacon(chainId) });
 export function setLight(chainId: number, on: boolean, prover?: string) {
   const all = lights();
   const p = prover?.trim().replace(/\/$/, "");
@@ -88,14 +92,14 @@ export function setLight(chainId: number, on: boolean, prover?: string) {
   if (on) warm(chainId);
 }
 export const WASM = "/colibri/c4w.wasm";
-const warm = (chainId: number) => lightWarm(chainId, rpcPath(chainId), lightProver(chainId), WASM);
+const warm = (chainId: number) => lightWarm({ chainId, rpc: rpcPath(chainId), ...lightFrom(chainId), wasm: WASM });
 // a page that opens with it on starts it now, so the first transaction doesn't wait for it
 if (typeof window !== "undefined") setTimeout(() => LIGHT_CHAINS.filter(lightOn).forEach(warm), 2000);
 
 /** The light client's answer, with dollars. A price isn't on the chain, so no node can prove it: it comes from our
  * price server (Alchemy), as everywhere else in the wallet. */
 async function light(chainId: number, safe: Address, tx: SafeTxLike): Promise<SimAnswer> {
-  const a = await lightRun({ chainId, safe, tx, rpc: rpcPath(chainId), prover: lightProver(chainId), wasm: WASM });
+  const a = await lightRun({ chainId, safe, tx, rpc: rpcPath(chainId), ...lightFrom(chainId), wasm: WASM });
   const usdc = chainById(chainId)?.usdc?.toLowerCase();
   const coin = a.changes.some(c => c.token === "eth" || c.token === WRAPPED[chainId]) ? await nativeUsd(chainId) : 0;
   const rest = a.changes.map(c => c.token).filter(t => t !== "eth" && t !== usdc && t !== WRAPPED[chainId]);

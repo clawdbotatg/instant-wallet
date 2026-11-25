@@ -48,6 +48,7 @@ PL
   # the copy in this window, if any, makes way
   pkill -f "next start -p $PORT" 2>/dev/null || true
   pkill -f "local-ssl-proxy@2.0.5 --source 443" 2>/dev/null || true
+  pkill -f "local-ssl-proxy@2.0.5 --source 8443" 2>/dev/null || true
   launchctl bootstrap "gui/$(id -u)" "$PLIST"
   echo "Installed. It starts now (a few minutes the first time) and every time you log in: https://$NAME"
   echo "Log: $DIR/run.log. Stop it for good: ./run-local.sh --uninstall"
@@ -197,12 +198,39 @@ else
   echo "Your simulator needs Node 24 or newer (brew upgrade node); sim.instantwallet.io runs your transactions for now."
 fi
 
+# 4f. your own copy of the apps (github.com/clawdbotatg/instant-wallet-apps): Earn, Borrow, Stake ETH, ENS, Morpho.
+# Built here and served at https://local.instantwallet.io:8443: another address than the wallet's, so an app's page
+# can't reach into the wallet's. They read the chain through the wallet (your node). With Settings → No external
+# traffic on, the browser lets them talk to nobody else (no Morpho API, no LI.FI, no ENS index). Without it built,
+# the apps come from instant-wallet-apps.vercel.app. Its log: ~/.instantwallet-local/apps.log
+APPSDIR="$DIR/instant-wallet-apps"
+APPS_PORT=8443
+APPS=""
+if [ -d "$APPSDIR" ]; then
+  (git -C "$APPSDIR" fetch -q --depth 1 origin HEAD && git -C "$APPSDIR" reset -q --hard FETCH_HEAD) 2>/dev/null || echo "Couldn't update the apps (offline?); using the copy you have."
+else
+  say "Getting your copy of the apps"
+  git clone -q --depth 1 https://github.com/clawdbotatg/instant-wallet-apps.git "$APPSDIR" || echo "Couldn't get the apps; they come from instant-wallet-apps.vercel.app."
+fi
+if [ -f "$APPSDIR/tools/serve.mjs" ]; then
+  AT="$(git -C "$APPSDIR" rev-parse HEAD 2>/dev/null)"
+  if [ -f "$APPSDIR/dist/index.html" ] && [ "$(cat "$DIR/apps-built" 2>/dev/null)" = "$AT" ]; then
+    APPS=1
+  else
+    say "Building the apps"
+    if (cd "$APPSDIR" && npm install --no-audit --no-fund && npm run build); then echo "$AT" > "$DIR/apps-built"; APPS=1
+    else echo "The apps didn't build; they come from instant-wallet-apps.vercel.app."; fi
+  fi
+fi
+
 # 5. build
-for p in "$PORT" 443 ${SIM:+8645}; do
+for p in "$PORT" 443 ${SIM:+8645} ${APPS:+5174 $APPS_PORT}; do
   if lsof -iTCP:"$p" -sTCP:LISTEN >/dev/null 2>&1; then echo "Port $p is in use. Stop what's on it (or IW_PORT=3001 ./run-local.sh)."; exit 1; fi
 done
 # build only when the code changed since the last build (git's commit and any edits)
-STAMP="$(git rev-parse HEAD 2>/dev/null)-$(git status --porcelain -- web 2>/dev/null | shasum | cut -c1-12)"
+# the apps' address is built into the page, so a change of it is a new build
+[ -n "$APPS" ] && export NEXT_PUBLIC_APPS_URL="https://$NAME:$APPS_PORT"
+STAMP="$(git rev-parse HEAD 2>/dev/null)-$(git status --porcelain -- web 2>/dev/null | shasum | cut -c1-12)${APPS:+-apps$APPS_PORT}"
 if [ -f web/.next/BUILD_ID ] && [ "$(cat "$DIR/built" 2>/dev/null)" = "$STAMP" ]; then
   say "Already built"
 else
@@ -227,9 +255,16 @@ if [ -n "$SIM" ]; then
   (cd "$SIMDIR" && while :; do env $SIMENV ${AK:+ALCHEMY_API_KEY=$AK} ${IX:+PRICES_URL=http://127.0.0.1:4100} NO_EXTERNAL_FILE="$DIR/no-external.json" PORT=8645 node server.ts; sleep 1; done) >"$DIR/sim.log" 2>&1 &
   SIMP=$!
 fi
+APPSP=""; APPSX=""
+if [ -n "$APPS" ]; then
+  (cd "$APPSDIR" && while :; do env PORT=5174 FRAMED_BY="https://$NAME" NO_EXTERNAL_FILE="$DIR/no-external.json" node tools/serve.mjs; sleep 1; done) >"$DIR/apps.log" 2>&1 &
+  APPSP=$!
+  npx -y local-ssl-proxy@2.0.5 --source "$APPS_PORT" --target 5174 --cert "$DIR/$NAME.pem" --key "$DIR/$NAME-key.pem" >/dev/null 2>&1 &
+  APPSX=$!
+fi
 npx -y local-ssl-proxy@2.0.5 --source 443 --target "$PORT" --cert "$DIR/$NAME.pem" --key "$DIR/$NAME-key.pem" >/dev/null 2>&1 &
 PROXY=$!
-trap '[ -n "$IXP" ] && pkill -P $IXP 2>/dev/null; [ -n "$SIMP" ] && pkill -P $SIMP 2>/dev/null; kill $APP $PROXY $IXP $SIMP 2>/dev/null; echo; echo "Stopped."' EXIT INT TERM
+trap '[ -n "$IXP" ] && pkill -P $IXP 2>/dev/null; [ -n "$SIMP" ] && pkill -P $SIMP 2>/dev/null; [ -n "$APPSP" ] && pkill -P $APPSP 2>/dev/null; kill $APP $PROXY $IXP $SIMP $APPSP $APPSX 2>/dev/null; echo; echo "Stopped."' EXIT INT TERM
 
 for _ in $(seq 1 60); do curl -sf "http://127.0.0.1:$PORT/api/version" >/dev/null && break; sleep 1; done
 say "Running at https://$NAME   (Ctrl+C to stop)"

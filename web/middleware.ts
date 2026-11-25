@@ -6,6 +6,16 @@ import { isLocalHost } from "@/lib/local";
  * (it reads your node through it). Pictures from elsewhere come through /api/local/img (over Tor). The browser
  * enforces it, so a link or a script we missed can't reach out either.
  */
+// your own copy of the apps (run-local.sh: https://local.instantwallet.io:8443), the one other address the page may
+// frame and read a manifest from. Only a local name: an apps address anywhere else stays blocked.
+const APPS = (() => {
+  try {
+    const u = new URL(process.env.NEXT_PUBLIC_APPS_URL || "");
+    return isLocalHost(u.hostname) ? ` ${u.origin}` : "";
+  } catch {
+    return "";
+  }
+})();
 const CSP = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob:",
@@ -13,9 +23,9 @@ const CSP = [
   "img-src 'self' data: blob:",
   "media-src 'self' data: blob:",
   "font-src 'self' data:",
-  "connect-src 'self'",
+  `connect-src 'self'${APPS}`,
   "worker-src 'self' blob:",
-  "frame-src 'self'",
+  `frame-src 'self'${APPS}`,
   "form-action 'self'",
 ].join("; ");
 

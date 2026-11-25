@@ -1,4 +1,4 @@
-import { proveByDefault } from "../mode";
+import { mountain, proveByDefault } from "../mode";
 import { ownBeacon } from "../local";
 import type { Address } from "viem";
 import { SIM_DEFAULT, type SafeTxLike, type SimAnswer, simulate as run } from "clear-signing-safe-kit";
@@ -78,6 +78,26 @@ function lights(): Light {
 export const canLight = (chainId: number) => LIGHT_CHAINS.includes(chainId);
 // not set by hand, it follows the mode (lib/mode.ts): on in mountain man mode
 export const lightOn = (chainId: number) => canLight(chainId) && (lights()[chainId]?.on ?? proveByDefault(chainId));
+/**
+ * Finance bro (docs/MODES.md, Austin 11-25): where nobody set the switch by hand, the preview is still worked out in
+ * this browser, but softly. The simulator is asked as always and the proven answer is shown when it lands in time;
+ * when it doesn't (a cold start, the prover down), the simulator's is shown, as before: never a red line, and at
+ * most SOFT_GRACE more wait. Its proofs are calls on our node key (about 10 to 13 a preview, measured 11-25), so a
+ * page proves SOFT_HOUR previews an hour at most and never two at once. Not while No external traffic is on.
+ */
+export const lightSoft = (chainId: number) => canLight(chainId) && lights()[chainId]?.on === undefined && !mountain() && !noExt();
+const SOFT_GRACE = 800; // after the simulator's answer
+const SOFT_WAIT = 4000; // when the simulator has none
+const SOFT_HOUR = 20;
+let softBusy = false;
+const softRan: number[] = [];
+function softTurn(): boolean {
+  const now = Date.now();
+  while (softRan.length && now - softRan[0] > 3600_000) softRan.shift();
+  if (softBusy || softRan.length >= SOFT_HOUR) return false;
+  softRan.push(now);
+  return (softBusy = true);
+}
 export const lightProver = (chainId: number) => lights()[chainId]?.prover || PROVER[chainId];
 /** Where its proofs come from: a prover set by hand, else your own node (a local copy that reaches its consensus
  * side: no prover at all), else Colibri's prover. */
@@ -112,10 +132,20 @@ async function light(chainId: number, safe: Address, tx: SafeTxLike): Promise<Si
 }
 
 /** Run it: in this browser where the light client is on (it throws when it can't prove its answer: never the
- * unchecked one, never the simulator instead), else the one set in Settings → Simulator, else the one on this
+ * unchecked one, never the simulator instead); in finance bro mode, softly (lightSoft); else the one set in Settings → Simulator, else the one on this
  * computer and only if it has no answer the hosted one. null: no answer we can trust. */
 export async function simulate(chainId: number, safe: Address, tx: SafeTxLike): Promise<SimAnswer | null> {
   if (lightOn(chainId)) return light(chainId, safe, tx);
+  if (!lightSoft(chainId) || !softTurn()) return simulator(chainId, safe, tx);
+  // both at once: the proven answer if it's there within SOFT_GRACE of the simulator's, else the simulator's
+  const proven = light(chainId, safe, tx)
+    .catch(() => null)
+    .finally(() => (softBusy = false));
+  const wait = (ms: number) => new Promise<null>(r => setTimeout(() => r(null), ms));
+  const plain = await simulator(chainId, safe, tx).catch(() => null);
+  return (await Promise.race([proven, wait(plain ? SOFT_GRACE : SOFT_WAIT)])) ?? plain;
+}
+async function simulator(chainId: number, safe: Address, tx: SafeTxLike): Promise<SimAnswer | null> {
   const ask = (url: string) => run({ chain: chainId, safe, tx, url, store: "iws.simKeys" });
   // No external traffic: the simulator on this computer only (it reads your node, and prices from your indexer).
   // No answer from it (a node without debug_traceCall): none, never the hosted one

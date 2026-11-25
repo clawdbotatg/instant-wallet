@@ -40,7 +40,12 @@ CROPS = Censorship Resistance, Open source, Privacy, Security. The plan against 
 | Setting | Mountain man | Finance bro | Why bro is off |
 |---|---|---|---|
 | Prove balances (Settings → Your node; Ethereum, Gnosis) | on | off | about a node call per coin per round, ≈600 an hour on our Alchemy key |
-| Run a light client for the signing preview (same place) | on | off | if the prover is down, every signing there is red with no coins; not timed on a phone |
+| Run a light client for the signing preview (same place) | on, strict: red when it can't prove | on, soft (11-25): the simulator is asked too and is the answer when the proof is late or the prover is down | strict would turn every signing red when the prover is down |
+
+**Soft (11-25, `lightSoft` in `web/lib/safe/sim.ts`):** at most 0.8 s more wait, 20 proven previews an hour a page
+(a preview is 10 to 13 proof calls on our key, about a third of a Home load against `/api/rpc`'s limits). Colibri's
+prover and beaconcha.in see the person's IP, not their address. Turned on by hand it's strict; turned off it's off.
+Not timed on a phone.
 
 **No prover (11-25):** a local copy that reaches your node's consensus side (its beacon API: `BEACON_URL_<chainId>`,
 found by `run-local.sh` beside your node) builds the proofs in the browser from your node alone. No prover, no

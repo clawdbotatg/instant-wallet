@@ -5,7 +5,7 @@ import { createPublicClient } from "viem";
 import { chainById, ownRpc, rpcTransport, setOwnRpc } from "@/lib/chains";
 import { isOnion, onTor, type TorState } from "@/lib/tor";
 import { PROVER } from "@/lib/safe/light";
-import { canLight, lightOn, lightProver, setLight } from "@/lib/safe/sim";
+import { canLight, lightOn, lightProver, lightSoft, setLight } from "@/lib/safe/sim";
 import { provenOn, setProven } from "@/lib/safe/proven";
 import { ownBeacon } from "@/lib/local";
 import { TimedBar } from "../bits";
@@ -22,7 +22,7 @@ export function RpcSetting({ chainId, toast }: { chainId: number; toast: (m: str
   useEffect(() => onTor(setTorState), []);
   useEffect(() => {
     setUrl(ownRpc(chainId) ?? "");
-    setLightOn(lightOn(chainId));
+    setLightOn(lightOn(chainId) || lightSoft(chainId));
     setProvenOn(provenOn(chainId));
     setProver(canLight(chainId) && lightProver(chainId) !== PROVER[chainId] ? lightProver(chainId) : "");
   }, [chainId]);

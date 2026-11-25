@@ -23,7 +23,8 @@ What Instant Wallet must always do. If a change breaks one, it doesn't ship. In 
   runs it, from your node, with prices from your indexer. Never the hosted one.
 - On Ethereum and Gnosis you can have this browser work the coins out itself (a light client: the node proves
   every answer). It says "Checked in this browser". If it can't prove an answer it says so in red: never the
-  unchecked answer, never the simulator instead.
+  unchecked answer, never the simulator instead. On our site it's on without asking, softly (11-25): the simulator
+  is still asked, and its answer is shown when the proof is late or can't be had. No red line, no real wait.
 - Balances on Ethereum and Gnosis are proven in this browser when the setting is on (Settings → Your node). A coin's
   numbers are faded until proven, and red, with the proven number, when our server says otherwise: a red ! by
   them opens both numbers. A network that isn't being proven (Base) is drawn as always. The total never fades, and counts a red coin at its proven number.

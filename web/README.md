@@ -35,7 +35,7 @@ Names only. Values live in Vercel and in `web/.env.local` (gitignored).
 | `LIFI_API_KEY` | Swap quotes |
 | `ZERION_API_KEY` | positions |
 | `NEXT_PUBLIC_WC_PROJECT_ID` | WalletConnect |
-| `NEXT_PUBLIC_APPS_URL` | optional: where the Apps list comes from |
+| `NEXT_PUBLIC_APPS_URL` | optional: where the Apps come from (default instant-wallet-apps.vercel.app). run-local.sh sets it to your own copy, `https://local.instantwallet.io:4174`, at build time |
 | `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET` | Deposit with Coinbase |
 | `NAME_SIGNER_KEY`, `NAME_RESOLVER` | names (alice.inst.eth): the key that signs lookups for other wallets, and the resolver it signs for. `docs/NAMES.md` |
 | `ALERT_MAIL_USER`, `ALERT_MAIL_PASS`, `ALERT_SITE` | recovery alerts by email |

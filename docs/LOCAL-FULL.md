@@ -22,7 +22,7 @@ and the server may only reach your node (and localhost).
 | Coin names, decimals | `alchemy_getTokenMetadata` | `eth_call` on the coin (already the fallback in `/api/explain`) |
 | Simulation (coins in and out) | clear-sim | your node: `eth_simulateV1` / `debug_traceCall` |
 | Swap quotes | Uniswap API, LI.FI | Uniswap's Quoter contract on your node; cross-chain stays LI.FI (off when local) |
-| Earn, Borrow, Stake, ENS, Morpho apps | instant-wallet-apps.vercel.app | run instant-wallet-apps beside it (run-local.sh) |
+| Earn, Borrow, Stake, ENS, Morpho apps | instant-wallet-apps.vercel.app | your own copy at `https://local.instantwallet.io:4174` (run-local.sh, built 11-25). Still outside, and blocked when No external traffic is on: Morpho's API, LI.FI (cbETH, rETH), ENS's index |
 | Apps icons, coin logos | debank, GitHub raw, coingecko... | packed into the repo, fetched once by run-local.sh |
 | Balance proofs | Colibri | not needed: it's your node |
 | Tx words, wedgie words, shared queue | | done (local clones, local store) |
@@ -42,7 +42,7 @@ and instantwallet.io moves onto them (in place of Alchemy and Zerion) once they'
 | `iw-positions` | Zerion |
 | `iw-quotes` | Uniswap API (same-chain quotes from the Quoter contracts) |
 | clear-sim (exists) | pointed at your node |
-| instant-wallet-apps (exists) | run beside the wallet |
+| instant-wallet-apps (exists) | run beside the wallet: run-local.sh clones, builds and serves it (its `tools/serve.mjs`) |
 
 ## New repo 1: the indexer (`clawdbotatg/iw-indexer`): 0.1 built 11-14
 

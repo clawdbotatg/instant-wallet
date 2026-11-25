@@ -54,6 +54,36 @@ To keep it running without a Terminal window, and start it every time you log in
    - **Execute from my wallet:** with MetaMask or another browser wallet, the dark gray button under Sign. No fee;
      your browser wallet pays the gas.
 
+### The apps (Earn, Borrow, Stake ETH, ENS, Morpho) on your own computer
+
+`./run-local.sh` gets them too: it clones [instant-wallet-apps](https://github.com/clawdbotatg/instant-wallet-apps)
+into `~/.instantwallet-local/instant-wallet-apps`, builds it, and serves it at `https://local.instantwallet.io:4174`.
+The wallet's Apps button opens them from there, not from instant-wallet-apps.vercel.app. They read the chain through
+the wallet, so through your node. Their log: `~/.instantwallet-local/apps.log`. To update them: stop, `./run-local.sh`
+again.
+
+To put USDC into a Morpho vault, all on your computer:
+
+1. Run `./run-local.sh` and sign in with your passkey.
+2. Have a way to pay gas: **Your relay** with a little ETH in it, or a browser wallet (step 2 above).
+3. Tap **Apps**, then **Morpho**. Pick the network (Ethereum, or Base if you have a node or an Alchemy key for it).
+4. Pick a vault, type the dollars, tap **Deposit**. The wallet shows what the transaction does and what it moves,
+   from your own simulator. Sign.
+5. The vault shows under your positions in the app. **Withdraw** is the same screen.
+
+With Settings → **No external traffic** on, the browser lets the apps talk to nobody but this computer:
+
+| App | Works from your node | Off or shorter |
+|---|---|---|
+| Morpho | a short saved list of vaults, your positions, deposit, withdraw | the full list and the rates (Morpho's API) |
+| Earn | Aave, Compound, Spark, the saved Morpho vaults | Morpho's full list and rates |
+| Borrow | Aave, Compound, the pinned Morpho markets | Morpho's rates |
+| Stake ETH | Lido, on Ethereum | cbETH and rETH (a swap through LI.FI) |
+| ENS | getting a name, setting your primary name | finding names that already point at the wallet (ENS's index) |
+
+If ports 4174 and 4175 are in use, or the apps don't build, the script says so and the wallet uses the hosted
+ones (another port: `IW_APPS_PORT=4274 ./run-local.sh`). To keep the hosted ones on purpose: `IW_APPS=hosted ./run-local.sh`.
+
 Your node over Tor: in Settings → **Your node**, paste its `.onion` address (`http://….onion`) and Save. Reads and
 your relay's sends then go to it over Tor, from this computer (no gateway), so the node never sees your IP. The
 first call starts Tor (up to a minute); after that about a second each. A BuidlGuidl node makes its `.onion` with
@@ -79,6 +109,8 @@ If it doesn't work:
 - **"No relay here"** when you sign: make your relay (step 2). **"insufficient funds"**: your relay needs ETH on
   that network.
 - **"Port 443 is in use"**: something else serves https on this Mac. Stop it, then run it again.
+- **An app's page stays blank**: read `~/.instantwallet-local/apps.log`. The apps are served on port 4174; open
+  `https://local.instantwallet.io:4174/morpho` by itself: it should say "Open this inside Instant Wallet".
 - **The passkey isn't offered**: use the browser where you made the wallet, or one with the same iCloud or Google
   passwords.
 
